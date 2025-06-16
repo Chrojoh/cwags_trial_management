@@ -99,8 +99,9 @@ function generateClassesHTML(dayNumber, savedConfig = []) {
 
 // Generate single class configuration HTML
 function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds = []) {
-    const availableClasses = TrialApp.availableClasses || ['Agility 1', 'Agility 2', 'Agility 3', 'Jumping 1', 'Jumping 2', 'Jumping 3'];
-    const availableJudges = TrialApp.availableJudges || ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
+    // Get unique classes and judges from loaded dog data
+    const availableClasses = TrialApp.availableClasses || getUniqueValues(TrialApp.dogData, 'class') || ['Agility 1', 'Agility 2', 'Agility 3', 'Jumping 1', 'Jumping 2', 'Jumping 3'];
+    const availableJudges = TrialApp.availableJudges || getUniqueValues(TrialApp.dogData, 'judges') || ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
     
     let classOptions = '';
     availableClasses.forEach(cls => {
@@ -125,18 +126,20 @@ function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds =
                 </select>
             </div>
             <div class="form-group">
-                <label>Judge:</label>
-                <select id="judge_${dayNumber}_${classIndex}">
-                    <option value="">Select Judge</option>
-                    ${judgeOptions}
-                </select>
-            </div>
-            <div class="form-group">
                 <label>Number of Rounds:</label>
                 <select id="rounds_${dayNumber}_${classIndex}" onchange="updateRoundsConfig(${dayNumber}, ${classIndex})">
                     <option value="1" ${numRounds === 1 ? 'selected' : ''}>1 Round</option>
                     <option value="2" ${numRounds === 2 ? 'selected' : ''}>2 Rounds</option>
                     <option value="3" ${numRounds === 3 ? 'selected' : ''}>3 Rounds</option>
+                    <option value="4" ${numRounds === 4 ? 'selected' : ''}>4 Rounds</option>
+                    <option value="5" ${numRounds === 5 ? 'selected' : ''}>5 Rounds</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Judge:</label>
+                <select id="judge_${dayNumber}_${classIndex}">
+                    <option value="">Select Judge</option>
+                    ${judgeOptions}
                 </select>
             </div>
         </div>
@@ -156,7 +159,8 @@ function generateRoundsHTML(dayNumber, classIndex, numRounds) {
         html += `
             <div class="round-config">
                 <label>Round ${round} Time:</label>
-                <input type="time" id="roundTime_${dayNumber}_${classIndex}_${round}">
+                <input type="time" id="roundTime_${dayNumber}_${classIndex}_${round}" 
+                       placeholder="Optional start time">
             </div>
         `;
     }
