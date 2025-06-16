@@ -100,11 +100,11 @@ Replace the sample data in `assets/data/dogs.json` with your actual dog registra
 ```
 
 ### Required Fields
-- **registration**: Unique identifier for the dog
-- **callName**: Dog's call name for competition
-- **handler**: Handler's full name
-- **class**: Default class (can be overridden in trial setup)
-- **judges**: Preferred or qualified judges
+- **registration**: Unique identifier for the dog (Column A)
+- **callName**: Dog's call name for competition (Column B)
+- **handler**: Handler's full name (Column C)
+- **class**: Default class (Column D)
+- **judges**: Preferred or qualified judges (Column E)
 
 ## 📋 Usage Guide
 
