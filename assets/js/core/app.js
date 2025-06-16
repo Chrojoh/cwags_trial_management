@@ -72,6 +72,8 @@ async function loadDogData() {
             TrialApp.availableJudges = getUniqueValues(data, 'judges');
             
             console.log(`📊 Dog data loaded: ${data.length} records`);
+            console.log(`📋 Available classes: ${TrialApp.availableClasses.join(', ')}`);
+            console.log(`👨‍⚖️ Available judges: ${TrialApp.availableJudges.join(', ')}`);
             showStatusMessage(`Dog database loaded successfully! ${data.length} dogs available.`, 'success');
             
             updateDashboardStats();
