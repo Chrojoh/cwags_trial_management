@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dog Trial Management System</title>
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/forms.css">
+    <link rel="stylesheet" href="assets/css/tables.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-content">
+                <h1>🐕 Dog Trial Management System</h1>
+                <div class="header-buttons">
+                    <button onclick="showTab('dashboard')" class="btn btn-primary">Dashboard</button>
+                    <button onclick="showTab('setup')" class="btn btn-secondary">Setup Trial</button>
+                    <button onclick="showTab('entries')" class="btn btn-secondary">Manage Entries</button>
+                    <button onclick="showTab('scores')" class="btn btn-secondary">Score Sheets</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Status Messages -->
+        <div id="statusMessages" class="status-container"></div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard" class="tab-content active">
+            <div class="dashboard-grid">
+                <div class="dashboard-card">
+                    <h3>🏆 My Trials</h3>
+                    <div id="trialsList">Loading trials...</div>
+                    <button onclick="createNewTrial()" class="btn btn-success">Create New Trial</button>
+                </div>
+                
+                <div class="dashboard-card">
+                    <h3>📊 Quick Stats</h3>
+                    <div id="quickStats">
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalDogs">0</span>
+                            <span class="stat-label">Registered Dogs</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number" id="totalTrials">0</span>
+                            <span class="stat-label">Active Trials</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Trial Tab -->
+        <div id="setup" class="tab-content">
+            <div class="setup-container">
+                <h2>Setup New Trial</h2>
+                
+                <!-- Trial Basic Info -->
+                <div class="form-section">
+                    <h3>Trial Information</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="trialName">Trial Name:</label>
+                            <input type="text" id="trialName" placeholder="Enter trial name">
+                        </div>
+                        <div class="form-group">
+                            <label for="trialDays">Number of Days:</label>
+                            <select id="trialDays" onchange="generateDayConfig()">
+                                <option value="">Select days</option>
+                                <option value="1">1 Day</option>
+                                <option value="2">2 Days</option>
+                                <option value="3">3 Days</option>
+                                <option value="4">4 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Day Configuration -->
+                <div id="dayConfigSection" class="form-section" style="display: none;">
+                    <h3>Configure Trial Days</h3>
+                    <div id="dayConfigContainer"></div>
+                </div>
+
+                <!-- Save Trial Section -->
+                <div id="saveTrialSection" class="form-section" style="display: none;">
+                    <div class="save-trial-info">
+                        <h3>🎯 Ready to Launch!</h3>
+                        <p>Review your trial setup and save to generate the entry form link.</p>
+                        
+                        <div class="form-group" style="justify-content: center; margin-bottom: 20px;">
+                            <button type="button" onclick="saveTrialData()" class="btn btn-success btn-large">💾 Save Trial & Generate Entry Link</button>
+                        </div>
+                        
+                        <p class="help-text">Once saved, you'll receive a shareable link for participant registration.</p>
+                    </div>
+
+                    <!-- Entry Form Link Section -->
+                    <div id="entryFormLink" class="entry-link-section" style="display: none;">
+                        <h3 class="success-title">🎉 Trial Setup Complete!</h3>
+                        <p><strong>Share this URL for participants to register:</strong></p>
+                        <div class="url-container">
+                            <input type="text" id="shareableURL" readonly>
+                        </div>
+                        <div class="link-buttons">
+                            <button onclick="copyURL()" class="btn btn-primary">📋 Copy URL</button>
+                            <button onclick="openEntryForm()" class="btn btn-secondary">🔗 Test Entry Form</button>
+                        </div>
+                        <p class="help-text">Participants can use this link to register for your trial.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Entries Tab -->
+        <div id="entries" class="tab-content">
+            <div class="entries-container">
+                <h2>Manage Entries</h2>
+                
+                <div class="entries-grid">
+                    <div class="entries-panel">
+                        <h3>Current Entries</h3>
+                        <div id="entriesList">No entries yet.</div>
+                    </div>
+                    
+                    <div class="entries-panel">
+                        <h3>Running Order</h3>
+                        <div id="runningOrderDisplay">Configure trial first.</div>
+                        <button onclick="generateRunningOrder()" class="btn btn-primary">Generate Running Order</button>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <h3>Export Data</h3>
+                    <div class="export-buttons">
+                        <button onclick="exportToCSV()" class="btn btn-secondary">📄 Export CSV</button>
+                        <button onclick="exportToJSON()" class="btn btn-secondary">📁 Export JSON</button>
+                        <button onclick="printRunningOrder()" class="btn btn-secondary">🖨️ Print Running Order</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Sheets Tab -->
+        <div id="scores" class="tab-content">
+            <div class="scores-container">
+                <h2>Score Sheets</h2>
+                
+                <div class="score-section">
+                    <h3>Digital Score Entry</h3>
+                    <div id="digitalScoreSelector" class="score-selector">
+                        <p>Select a class and round to enter scores:</p>
+                        <div id="scoreSelectorGrid"></div>
+                    </div>
+                    <div id="digitalScoreSheet"></div>
+                </div>
+
+                <div class="score-section">
+                    <h3>Print Score Sheets</h3>
+                    <div class="print-options">
+                        <button onclick="generateScoreSheets()" class="btn btn-primary">📄 Generate Score Sheets</button>
+                        <button onclick="printScoreSheets()" class="btn btn-secondary">🖨️ Print All Sheets</button>
+                    </div>
+                    <div id="scoreSheetPreview"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="assets/js/core/utils.js"></script>
+    <script src="assets/js/core/storage.js"></script>
+    <script src="assets/js/components/trial-setup.js"></script>
+    <script src="assets/js/components/entry-form.js"></script>
+    <script src="assets/js/components/score-sheets.js"></script>
+    <script src="assets/js/components/running-order.js"></script>
+    <script src="assets/js/components/exports.js"></script>
+    <script src="assets/js/core/app.js"></script>
+</body>
+</html>

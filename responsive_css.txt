@@ -1,0 +1,452 @@
+/* === RESPONSIVE DESIGN === */
+
+/* Mobile First Approach */
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    /* Header Adjustments */
+    .main-header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .entry-header h1 {
+        font-size: 2rem;
+    }
+    
+    .header-buttons {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .header-buttons .btn {
+        flex: 1;
+        min-width: 80px;
+        font-size: 12px;
+        padding: 10px 16px;
+    }
+    
+    /* Tab Content */
+    .tab-content {
+        padding: 20px;
+    }
+    
+    /* Dashboard */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .dashboard-card {
+        padding: 20px;
+    }
+    
+    /* Forms */
+    .form-section {
+        padding: 20px;
+        margin-bottom: 15px;
+    }
+    
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    /* Buttons */
+    .btn {
+        padding: 14px 20px;
+        font-size: 14px;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .btn-large {
+        padding: 16px 24px;
+        font-size: 16px;
+    }
+    
+    /* Trial Options */
+    .trial-options {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .trial-option {
+        padding: 15px;
+    }
+    
+    /* Radio Groups */
+    .radio-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .radio-option {
+        padding: 12px;
+    }
+    
+    /* Tables - Stack on Mobile */
+    .score-entry-table,
+    .running-order-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        border: 1px solid #333;
+    }
+    
+    .score-entry-table thead,
+    .running-order-table thead {
+        display: block;
+    }
+    
+    .score-entry-table tbody,
+    .running-order-table tbody {
+        display: block;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .score-entry-table tr,
+    .running-order-table tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
+    /* Entries Grid */
+    .entries-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .entries-panel {
+        padding: 20px;
+    }
+    
+    /* Draggable Entries */
+    .draggable-entry {
+        padding: 10px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .entry-position {
+        align-self: flex-end;
+    }
+    
+    /* Success Panel */
+    .success-panel {
+        padding: 25px;
+    }
+    
+    .success-content h2 {
+        font-size: 1.5rem;
+    }
+    
+    /* URL Container */
+    .url-container input {
+        font-size: 12px;
+        padding: 10px;
+    }
+    
+    /* Link Buttons */
+    .link-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .link-buttons .btn {
+        margin-bottom: 0;
+    }
+}
+
+/* Tablet Portrait */
+@media (min-width: 481px) and (max-width: 768px) {
+    .container {
+        padding: 20px;
+    }
+    
+    /* Header */
+    .header-content {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .header-buttons {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    /* Dashboard */
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    /* Forms */
+    .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    /* Trial Options */
+    .trial-options {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    /* Tables */
+    .trial-info {
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+    }
+    
+    /* Entries */
+    .entries-grid {
+        grid-template-columns: 1fr;
+        gap: 25px;
+    }
+    
+    /* Export Buttons */
+    .export-buttons,
+    .print-options {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .export-buttons .btn,
+    .print-options .btn {
+        flex: 1;
+        min-width: 150px;
+    }
+}
+
+/* Tablet Landscape */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container {
+        padding: 25px;
+    }
+    
+    /* Dashboard */
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    
+    /* Forms */
+    .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    
+    /* Trial Options */
+    .trial-options {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+    
+    /* Entries */
+    .entries-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+    }
+    
+    /* Score Selector */
+    .selector-grid,
+    .score-selector-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Desktop */
+@media (min-width: 1025px) {
+    .container {
+        padding: 30px;
+    }
+    
+    /* Large screen optimizations */
+    .dashboard-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+    
+    .form-grid {
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    }
+    
+    .trial-options {
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    
+    .entries-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+    }
+    
+    .selector-grid,
+    .score-selector-grid {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+}
+
+/* Large Desktop */
+@media (min-width: 1200px) {
+    .container {
+        max-width: 1400px;
+        padding: 40px;
+    }
+    
+    /* Wider layouts for large screens */
+    .scores-container {
+        max-width: 1200px;
+    }
+    
+    .setup-container,
+    .entries-container {
+        max-width: 1000px;
+    }
+    
+    .entry-form-container {
+        max-width: 800px;
+    }
+}
+
+/* Print Optimizations */
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+    
+    body {
+        background: white !important;
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    .container {
+        max-width: none;
+        padding: 0;
+    }
+    
+    /* Hide non-essential elements */
+    .header-buttons,
+    .btn,
+    .status-container,
+    .export-section,
+    .print-options,
+    .form-actions {
+        display: none !important;
+    }
+    
+    /* Optimize tables for print */
+    .score-entry-table,
+    .running-order-table {
+        page-break-inside: avoid;
+    }
+    
+    .score-sheet {
+        page-break-after: always;
+        margin-bottom: 0;
+    }
+    
+    .score-sheet:last-child {
+        page-break-after: avoid;
+    }
+    
+    /* Ensure text is readable */
+    .digital-header {
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .score-entry-table th {
+        background: #f8f9fa !important;
+        -webkit-print-color-adjust: exact;
+    }
+}
+
+/* High DPI / Retina Displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    /* Ensure crisp edges on high DPI displays */
+    .btn,
+    .form-group input,
+    .form-group select,
+    .dashboard-card,
+    .form-section {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Adjust border thickness for retina */
+    .score-entry-table,
+    .running-order-table {
+        border-width: 0.5px;
+    }
+    
+    .score-entry-table th,
+    .score-entry-table td,
+    .running-order-table th,
+    .running-order-table td {
+        border-width: 0.5px;
+    }
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .tab-content.active {
+        animation: none;
+    }
+    
+    .btn:hover {
+        transform: none;
+    }
+    
+    .draggable-entry:hover {
+        transform: none;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    /* This can be expanded if dark mode is desired */
+    .typeahead-dropdown {
+        background: #2d3748;
+        border-color: #4a5568;
+        color: white;
+    }
+    
+    .typeahead-item:hover {
+        background: #4a5568;
+    }
+}
+
+/* Landscape Phone Specific */
+@media (max-height: 500px) and (orientation: landscape) {
+    .main-header h1,
+    .entry-header h1 {
+        font-size: 1.3rem;
+    }
+    
+    .header-content {
+        padding: 15px 30px;
+    }
+    
+    .tab-content {
+        padding: 20px;
+    }
+    
+    .form-section {
+        padding: 15px;
+    }
+    
+    .dashboard-card {
+        padding: 15px;
+    }
+}
