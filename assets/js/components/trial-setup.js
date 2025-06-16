@@ -25,6 +25,34 @@ function generateDayConfig() {
     
     dayConfigContainer.innerHTML = html;
     showStatusMessage(`Configure ${numDays} day${numDays > 1 ? 's' : ''} of trials`, 'info');
+    
+    // Force refresh any existing forms to use latest data
+    setTimeout(() => {
+        console.log('Refreshing forms with latest data...');
+        refreshFormsWithLatestData();
+    }, 100);
+}
+
+// Function to refresh forms with latest data
+function refreshFormsWithLatestData() {
+    // Find all existing class configurations and refresh their dropdowns
+    const existingClassConfigs = document.querySelectorAll('.class-config');
+    existingClassConfigs.forEach((config, index) => {
+        const dayMatch = config.id.match(/class_(\d+)_(\d+)/);
+        if (dayMatch) {
+            const dayNumber = parseInt(dayMatch[1]);
+            const classIndex = parseInt(dayMatch[2]);
+            
+            // Regenerate the class configuration with fresh data
+            const container = config.parentElement;
+            const newHTML = `
+                <div class="class-config" id="class_${dayNumber}_${classIndex}">
+                    ${generateSingleClassHTML(dayNumber, classIndex)}
+                </div>
+            `;
+            config.outerHTML = newHTML;
+        }
+    });
 }
 
 // Generate HTML for a single day configuration
@@ -100,7 +128,9 @@ function generateClassesHTML(dayNumber, savedConfig = []) {
 // Generate single class configuration HTML
 function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds = []) {
     // Get unique classes and judges from loaded dog data - ensure we're using the right property names
-    console.log('Dog data for dropdowns:', TrialApp.dogData?.slice(0, 2)); // Debug log
+    console.log('Generating form for day', dayNumber, 'class', classIndex);
+    console.log('Available classes in TrialApp:', TrialApp.availableClasses);
+    console.log('Available judges in TrialApp:', TrialApp.availableJudges);
     
     const availableClasses = TrialApp.availableClasses?.length > 0 ? TrialApp.availableClasses : 
                              TrialApp.dogData?.length > 0 ? getUniqueValues(TrialApp.dogData, 'class') : 
@@ -110,8 +140,8 @@ function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds =
                            TrialApp.dogData?.length > 0 ? getUniqueValues(TrialApp.dogData, 'judges') :
                            ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
     
-    console.log('Available classes:', availableClasses);
-    console.log('Available judges:', availableJudges);
+    console.log('Final available classes for form:', availableClasses);
+    console.log('Final available judges for form:', availableJudges);
     
     let classOptions = '';
     availableClasses.forEach(cls => {
@@ -140,12 +170,12 @@ function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds =
                     <option value="5" ${numRounds === 5 ? 'selected' : ''}>5 Rounds</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="feoOffered_${dayNumber}_${classIndex}">
-                    FEO (For Exhibition Only) offered for this class
-                </label>
-            </div>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="feoOffered_${dayNumber}_${classIndex}">
+                FEO (For Exhibition Only) offered for this class
+            </label>
         </div>
         <div id="roundsConfig_${dayNumber}_${classIndex}">
             ${generateRoundsHTML(dayNumber, classIndex, numRounds, availableJudges)}
