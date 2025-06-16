@@ -68,15 +68,26 @@ async function loadDogData() {
         
         if (Array.isArray(data) && data.length > 0) {
             TrialApp.dogData = data;
+            
+            // Extract unique values for dropdowns
             TrialApp.availableClasses = getUniqueValues(data, 'class');
             TrialApp.availableJudges = getUniqueValues(data, 'judges');
             
             console.log(`📊 Dog data loaded: ${data.length} records`);
-            console.log(`📋 Available classes: ${TrialApp.availableClasses.join(', ')}`);
-            console.log(`👨‍⚖️ Available judges: ${TrialApp.availableJudges.join(', ')}`);
-            showStatusMessage(`Dog database loaded successfully! ${data.length} dogs available.`, 'success');
+            console.log(`📋 Available classes:`, TrialApp.availableClasses);
+            console.log(`👨‍⚖️ Available judges:`, TrialApp.availableJudges);
+            console.log('Sample dog record:', data[0]);
+            
+            showStatusMessage(`Dog database loaded successfully! ${data.length} dogs, ${TrialApp.availableClasses.length} classes, ${TrialApp.availableJudges.length} judges.`, 'success');
             
             updateDashboardStats();
+            
+            // Trigger any dropdowns to refresh if we're on setup page
+            if (window.location.hash === '#setup' || document.querySelector('.tab-content.active')?.id === 'setup') {
+                setTimeout(() => {
+                    console.log('Refreshing dropdowns after data load...');
+                }, 500);
+            }
         } else {
             throw new Error('Invalid data format or empty dataset');
         }
