@@ -99,18 +99,23 @@ function generateClassesHTML(dayNumber, savedConfig = []) {
 
 // Generate single class configuration HTML
 function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds = []) {
-    // Get unique classes and judges from loaded dog data
-    const availableClasses = TrialApp.availableClasses || getUniqueValues(TrialApp.dogData, 'class') || ['Agility 1', 'Agility 2', 'Agility 3', 'Jumping 1', 'Jumping 2', 'Jumping 3'];
-    const availableJudges = TrialApp.availableJudges || getUniqueValues(TrialApp.dogData, 'judges') || ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
+    // Get unique classes and judges from loaded dog data - ensure we're using the right property names
+    console.log('Dog data for dropdowns:', TrialApp.dogData?.slice(0, 2)); // Debug log
+    
+    const availableClasses = TrialApp.availableClasses?.length > 0 ? TrialApp.availableClasses : 
+                             TrialApp.dogData?.length > 0 ? getUniqueValues(TrialApp.dogData, 'class') : 
+                             ['Agility 1', 'Agility 2', 'Agility 3', 'Jumping 1', 'Jumping 2', 'Jumping 3'];
+    
+    const availableJudges = TrialApp.availableJudges?.length > 0 ? TrialApp.availableJudges :
+                           TrialApp.dogData?.length > 0 ? getUniqueValues(TrialApp.dogData, 'judges') :
+                           ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
+    
+    console.log('Available classes:', availableClasses);
+    console.log('Available judges:', availableJudges);
     
     let classOptions = '';
     availableClasses.forEach(cls => {
         classOptions += `<option value="${cls}" ${cls === className ? 'selected' : ''}>${cls}</option>`;
-    });
-    
-    let judgeOptions = '';
-    availableJudges.forEach(judge => {
-        judgeOptions += `<option value="${judge}" ${judge === (rounds[0]?.judge) ? 'selected' : ''}>${judge}</option>`;
     });
     
     const numRounds = rounds.length || 1;
@@ -136,15 +141,14 @@ function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds =
                 </select>
             </div>
             <div class="form-group">
-                <label>Judge:</label>
-                <select id="judge_${dayNumber}_${classIndex}">
-                    <option value="">Select Judge</option>
-                    ${judgeOptions}
-                </select>
+                <label>
+                    <input type="checkbox" id="feoOffered_${dayNumber}_${classIndex}">
+                    FEO (For Exhibition Only) offered for this class
+                </label>
             </div>
         </div>
         <div id="roundsConfig_${dayNumber}_${classIndex}">
-            ${generateRoundsHTML(dayNumber, classIndex, numRounds)}
+            ${generateRoundsHTML(dayNumber, classIndex, numRounds, availableJudges)}
         </div>
         <button type="button" onclick="removeClassConfig(${dayNumber}, ${classIndex})" 
                 class="btn btn-secondary">Remove Class</button>
@@ -152,15 +156,23 @@ function generateSingleClassHTML(dayNumber, classIndex, className = '', rounds =
 }
 
 // Generate rounds configuration HTML
-function generateRoundsHTML(dayNumber, classIndex, numRounds) {
-    let html = '<div class="rounds-container">';
+function generateRoundsHTML(dayNumber, classIndex, numRounds, availableJudges = []) {
+    let html = '<div class="rounds-container"><h6>Round Configuration</h6>';
+    
+    // Generate judge options
+    let judgeOptions = '';
+    availableJudges.forEach(judge => {
+        judgeOptions += `<option value="${judge}">${judge}</option>`;
+    });
     
     for (let round = 1; round <= numRounds; round++) {
         html += `
             <div class="round-config">
-                <label>Round ${round} Time:</label>
-                <input type="time" id="roundTime_${dayNumber}_${classIndex}_${round}" 
-                       placeholder="Optional start time">
+                <label>Round ${round} Judge:</label>
+                <select id="roundJudge_${dayNumber}_${classIndex}_${round}">
+                    <option value="">Select Judge</option>
+                    ${judgeOptions}
+                </select>
             </div>
         `;
     }
@@ -177,7 +189,13 @@ function updateRoundsConfig(dayNumber, classIndex) {
     if (!roundsSelect || !roundsContainer) return;
     
     const numRounds = parseInt(roundsSelect.value);
-    roundsContainer.innerHTML = generateRoundsHTML(dayNumber, classIndex, numRounds);
+    
+    // Get available judges for the dropdowns
+    const availableJudges = TrialApp.availableJudges?.length > 0 ? TrialApp.availableJudges :
+                           TrialApp.dogData?.length > 0 ? getUniqueValues(TrialApp.dogData, 'judges') :
+                           ['Jane Doe', 'Mike Wilson', 'Susan Clark'];
+    
+    roundsContainer.innerHTML = generateRoundsHTML(dayNumber, classIndex, numRounds, availableJudges);
 }
 
 // Add new class configuration
@@ -228,24 +246,29 @@ function saveDayConfig(dayNumber) {
     for (let i = 0; i < classElements.length; i++) {
         const classIndex = i + 1;
         const classNameSelect = document.getElementById(`className_${dayNumber}_${classIndex}`);
-        const judgeSelect = document.getElementById(`judge_${dayNumber}_${classIndex}`);
         const roundsSelect = document.getElementById(`rounds_${dayNumber}_${classIndex}`);
+        const feoOfferedCheckbox = document.getElementById(`feoOffered_${dayNumber}_${classIndex}`);
         
-        if (!classNameSelect || !judgeSelect || !roundsSelect) continue;
+        if (!classNameSelect || !roundsSelect) continue;
         
         const className = classNameSelect.value;
-        const judge = judgeSelect.value;
         const numRounds = parseInt(roundsSelect.value);
+        const feoOffered = feoOfferedCheckbox ? feoOfferedCheckbox.checked : false;
         
-        if (!className || !judge) {
-            showStatusMessage(`Please complete all fields for Class ${classIndex}`, 'error');
+        if (!className) {
+            showStatusMessage(`Please select a class name for Class ${classIndex}`, 'error');
             return;
         }
         
-        // Create configuration for each round
+        // Create configuration for each round with individual judges
         for (let round = 1; round <= numRounds; round++) {
-            const timeInput = document.getElementById(`roundTime_${dayNumber}_${classIndex}_${round}`);
-            const time = timeInput ? timeInput.value : '';
+            const judgeSelect = document.getElementById(`roundJudge_${dayNumber}_${classIndex}_${round}`);
+            const judge = judgeSelect ? judgeSelect.value : '';
+            
+            if (!judge) {
+                showStatusMessage(`Please select a judge for Class ${classIndex}, Round ${round}`, 'error');
+                return;
+            }
             
             classConfigs.push({
                 day: dayNumber.toString(),
@@ -253,7 +276,7 @@ function saveDayConfig(dayNumber) {
                 className: className,
                 judge: judge,
                 roundNum: round,
-                time: time
+                feoOffered: feoOffered
             });
         }
     }
