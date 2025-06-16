@@ -91,6 +91,12 @@ git push origin main
 ]
 ```
 
+**Tips:**
+- Keep registration numbers consistent
+- Use proper capitalization for names
+- Separate multiple judges with commas
+- Validate data before uploading
+
 3. **Upload updated dogs.json** to replace the sample data
 
 ### Step 4: Enable GitHub Pages
@@ -135,15 +141,22 @@ git push origin main
 **Columns Required:**
 - `registration`: Unique dog ID (Column A in Excel)
 - `callName`: Competition name (Column B in Excel)
-- `handler`: Handler name (Column D in Excel)
-- `class`: Default class (Column I in Excel)
-- `judges`: Qualified judges (Column K in Excel)
+- `handler`: Handler name (Column C in Excel)
+- `class`: Default class (Column D in Excel)
+- `judges`: Qualified judges (Column E in Excel)
 
-**Tips:**
-- Keep registration numbers consistent
-- Use proper capitalization for names
-- Separate multiple judges with commas
-- Validate data before uploading
+**JSON Format Example:**
+```json
+[
+  {
+    "registration": "YOUR_DOG_ID",
+    "callName": "Dog Name",
+    "handler": "Handler Name", 
+    "class": "Agility 1",
+    "judges": "Judge Name"
+  }
+]
+```
 
 ### Data Storage
 
