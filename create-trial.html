@@ -262,18 +262,25 @@
     }
 
     // ========================================
-    // ENTER KEY HANDLING
+    // ENTER KEY HANDLING FIX
     // ========================================
+
     function handleEnterKey(event) {
       if (event.key === 'Enter') {
-        event.preventDefault();
-        const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]'));
+        event.preventDefault(); // Prevent form submission
+        
+        // Find the next input field
+        const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select'));
         const currentIndex = inputs.indexOf(event.target);
+        
         if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
           inputs[currentIndex + 1].focus();
         }
       }
     }
+
+    // Make handleEnterKey globally available
+    window.handleEnterKey = handleEnterKey;
 
     // ========================================
     // DYNAMIC GENERATION FUNCTIONS
@@ -345,7 +352,7 @@
             <!-- Sub-class dropdown for Games and Obedience -->
             <div id="subclass-container-${dayIndex}-${c}" class="subclass-container hidden">
               <label style="display: block; margin: 10px 0;">Sub Class:</label>
-              <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;">
+              <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;" onkeydown="handleEnterKey(event)">
                 <option value="">Select Sub Class</option>
               </select>
             </div>
@@ -425,7 +432,7 @@
                 ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
               </datalist>
               <label style="margin-left: 10px;">
-                <input type="checkbox"> FEO Available
+                <input type="checkbox" onkeydown="handleEnterKey(event)"> FEO Available
               </label>
             </div>
           `;
