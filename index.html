@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trial Secretary Dashboard - Dog Trialing System</title>
+    <title>Trial Secretary Dashboard</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -27,7 +27,7 @@
             padding: 20px;
         }
 
-        .dashboard-container {
+        .container {
             max-width: 1200px;
             margin: 0 auto;
         }
@@ -41,16 +41,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-
-        .header h1 {
-            color: #333;
-            font-size: 1.8rem;
-        }
-
-        .header .user-info {
-            color: #666;
-            font-size: 0.9rem;
         }
 
         .btn {
@@ -74,36 +64,8 @@
             background: #6c757d;
         }
 
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
         .btn-success {
             background: #28a745;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
         }
 
         .card {
@@ -111,47 +73,7 @@
             border-radius: 15px;
             padding: 2rem;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            height: fit-content;
-        }
-
-        .card h2 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            font-size: 1.4rem;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 0.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            color: #333;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="time"],
-        input[type="number"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 0.8rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
+            margin-bottom: 2rem;
         }
 
         .status-message {
@@ -159,7 +81,6 @@
             margin: 1rem 0;
             border-radius: 8px;
             display: none;
-            font-weight: 500;
         }
 
         .status-success {
@@ -180,30 +101,34 @@
             border: 1px solid #99d3ff;
         }
 
-        .excel-upload {
-            border: 2px dashed #ccc;
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
             border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            transition: all 0.3s ease;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
         }
 
-        .excel-upload:hover {
+        input:focus, select:focus {
+            outline: none;
             border-color: #667eea;
-            background: #f8f9ff;
         }
 
-        .excel-upload.dragover {
-            border-color: #667eea;
-            background: #f0f8ff;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        /* Cascading dropdown styling matching create-trial.html */
         .day-container {
             border: 1px solid #ccc;
             padding: 15px;
@@ -235,24 +160,34 @@
             border-left: 3px solid #28a745;
         }
 
-        .judge-autocomplete,
-        .class-autocomplete {
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            padding: 8px;
+        .hidden {
+            display: none;
         }
 
-        .judge-autocomplete:focus,
-        .class-autocomplete:focus {
-            outline: none;
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .excel-upload {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .excel-upload:hover {
             border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .judge-autocomplete::placeholder,
-        .class-autocomplete::placeholder {
-            color: #999;
-            font-style: italic;
+            background: #f8f9ff;
         }
 
         .trials-list {
@@ -267,79 +202,43 @@
             margin-bottom: 1rem;
             background: #f8f9fa;
         }
-
-        .trial-item h4 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .trial-meta {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .data-loaded {
-            background: #d4edda;
-            color: #155724;
-            padding: 0.5rem;
-            border-radius: 4px;
-            margin: 0.5rem 0;
-            font-size: 0.9rem;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0.5rem 0;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-        }
     </style>
 </head>
 <body>
-    <div class="dashboard-container">
+    <div class="container">
         <!-- Header -->
         <div class="header">
             <div>
                 <h1>🏆 Trial Secretary Dashboard</h1>
-                <div class="user-info" id="userInfo">Loading...</div>
+                <div id="userInfo">Loading...</div>
             </div>
             <div>
-                <button class="btn btn-secondary" onclick="goToMainMenu()">Main Menu</button>
-                <button class="btn btn-danger" onclick="logout()">Logout</button>
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Main Menu</button>
+                <button class="btn" onclick="logout()">Logout</button>
             </div>
         </div>
 
-        <!-- Status Messages -->
+        <!-- Status Message -->
         <div class="status-message" id="statusMessage"></div>
 
-        <!-- Single Data Status Section -->
-        <div class="card" style="margin-bottom: 2rem;">
+        <!-- Data Status -->
+        <div class="card">
             <h2>📊 Data Status</h2>
-            <div id="dataStatus" class="status-info" style="display: block;">
+            <div id="dataStatus" class="status-info">
                 🔄 Initializing data...
             </div>
             
-            <!-- Manual upload option (hidden by default) -->
             <div id="manualUpload" class="hidden">
-                <div class="excel-upload" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+                <div class="excel-upload">
                     <p>📋 Drop your <strong>dataforsite.xlsx</strong> file here</p>
-                    <p style="color: #666; font-size: 0.9rem;">Expected columns: Cwag Number, Judge, Class, Dog Name</p>
-                    <input type="file" class="file-input" id="dataFile" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
-                    <button type="button" class="btn" onclick="document.getElementById('dataFile').click()">
+                    <input type="file" id="dataFile" accept=".xlsx,.xls" style="display: none;" onchange="handleFileUpload(event)">
+                    <button class="btn" onclick="document.getElementById('dataFile').click()">
                         Choose dataforsite.xlsx
                     </button>
                 </div>
             </div>
             
-            <button id="toggleManualUpload" class="btn btn-secondary hidden" onclick="toggleManualUpload()">
+            <button id="toggleUpload" class="btn btn-secondary hidden" onclick="toggleManualUpload()">
                 📁 Upload Different File
             </button>
         </div>
@@ -350,19 +249,17 @@
             <div class="card">
                 <h2>📋 Create New Trial</h2>
                 
-                <form id="createTrialForm">
-                    <!-- Basic Trial Info -->
+                <form id="trialForm" onsubmit="return submitTrial(event)">
                     <div class="form-group">
                         <label for="clubName">Club Name</label>
-                        <input type="text" id="clubName" required placeholder="Club Name">
+                        <input type="text" id="clubName" required>
                     </div>
 
                     <div class="form-group">
                         <label for="secretary">Trial Secretary</label>
-                        <input type="text" id="secretary" required placeholder="Trial Secretary">
+                        <input type="text" id="secretary" required>
                     </div>
 
-                    <!-- Cascading Trial Structure -->
                     <div class="form-group">
                         <label for="numDays">How many days?</label>
                         <div style="display: flex; gap: 1rem; align-items: center;">
@@ -373,21 +270,19 @@
                     
                     <div id="daysContainer"></div>
                     
-                    <button type="submit" class="btn btn-success" style="width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-success" style="width: 100%; padding: 1rem; margin-top: 2rem;">
                         🏆 Save Trial
                     </button>
                 </form>
             </div>
 
-            <!-- My Trials / Management -->
+            <!-- My Trials -->
             <div class="card">
                 <h2>📅 My Trials</h2>
-                
                 <div class="trials-list" id="trialsList">
-                    <!-- Will be populated with user's trials -->
+                    <p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>
                 </div>
-
-                <button class="btn" onclick="refreshTrials()">🔄 Refresh Trials</button>
+                <button class="btn" onclick="refreshTrials()">🔄 Refresh</button>
             </div>
         </div>
     </div>
@@ -416,7 +311,7 @@
         let cwagsNumbers = [];
         let dogNames = [];
 
-        // Standard field names for consistency
+        // Standard field names
         const STANDARD_FIELDS = {
             HANDLER_NAME: 'handlerName',
             DOG_CALL_NAME: 'dogCallName',
@@ -424,6 +319,531 @@
             CLASS_NAME: 'className',
             CWAGS_NUMBER: 'cwagsNumber'
         };
+
+        // Show status message
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('statusMessage');
+            const dataStatusDiv = document.getElementById('dataStatus');
+            
+            statusDiv.textContent = message;
+            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+            statusDiv.style.display = 'block';
+            
+            if (message.includes('data') || message.includes('xlsx')) {
+                dataStatusDiv.textContent = message;
+                dataStatusDiv.className = isError ? 'status-error' : 'status-info';
+            }
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Process Excel data using SheetJS
+        function processExcelData(data) {
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
+            
+            if (!dataSheet) {
+                console.error('No data sheet found');
+                return null;
+            }
+            
+            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
+                header: 1, 
+                dateNF: 'yyyy-mm-dd',
+                defval: ''
+            });
+            
+            return jsonData;
+        }
+
+        // Find column index by name
+        function findColumnIndex(headers, possibleNames) {
+            for (let i = 0; i < headers.length; i++) {
+                const header = String(headers[i]).toLowerCase().trim();
+                if (possibleNames.some(name => header.includes(name.toLowerCase()))) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // Extract data from Excel
+        async function extractDataFromExcel(jsonData) {
+            const headers = jsonData[0];
+            const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
+            
+            const classes = new Set();
+            const judges = new Set();
+            const cwags = new Set();
+            const dogs = new Set();
+            
+            const cwagsIndex = findColumnIndex(headers, ['cwag number', 'cwags number', 'cwag', 'registration']);
+            const judgeIndex = findColumnIndex(headers, ['judge', 'judges']);
+            const classIndex = findColumnIndex(headers, ['class', 'classes']);
+            const dogIndex = findColumnIndex(headers, ['dog name', 'dog', 'name']);
+            
+            rows.forEach(row => {
+                if (cwagsIndex >= 0 && row[cwagsIndex]) cwags.add(String(row[cwagsIndex]).trim());
+                if (judgeIndex >= 0 && row[judgeIndex]) judges.add(String(row[judgeIndex]).trim());
+                if (classIndex >= 0 && row[classIndex]) classes.add(String(row[classIndex]).trim());
+                if (dogIndex >= 0 && row[dogIndex]) dogs.add(String(row[dogIndex]).trim());
+            });
+            
+            globalClasses = Array.from(classes).sort();
+            globalJudges = Array.from(judges).sort();
+            cwagsNumbers = Array.from(cwags).sort();
+            dogNames = Array.from(dogs).sort();
+            
+            // Save to Firebase
+            try {
+                await db.collection('system_data').doc('dataforsite').set({
+                    classes: globalClasses,
+                    judges: globalJudges,
+                    cwagsNumbers: cwagsNumbers,
+                    dogNames: dogNames,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser.uid
+                });
+            } catch (error) {
+                console.error('Error saving to Firebase:', error);
+            }
+            
+            updateDataStatus();
+        }
+
+        // Update data status display
+        function updateDataStatus() {
+            const statusDiv = document.getElementById('dataStatus');
+            statusDiv.className = 'status-success';
+            statusDiv.innerHTML = `
+                <strong>✅ Data Ready:</strong><br>
+                Classes: ${globalClasses.length} | Judges: ${globalJudges.length} | 
+                Registrations: ${cwagsNumbers.length} | Dogs: ${dogNames.length}
+            `;
+        }
+
+        // Load data automatically
+        async function loadDataAutomatically() {
+            try {
+                showStatus('🔍 Checking for saved data...', false);
+                
+                // Try Firebase first
+                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    globalClasses = data.classes || [];
+                    globalJudges = data.judges || [];
+                    cwagsNumbers = data.cwagsNumbers || [];
+                    dogNames = data.dogNames || [];
+                    
+                    if (globalClasses.length > 0) {
+                        updateDataStatus();
+                        document.getElementById('toggleUpload').classList.remove('hidden');
+                        return true;
+                    }
+                }
+                
+                // Try auto-loading file
+                showStatus('🔄 Looking for dataforsite.xlsx...', false);
+                
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch('./dataforsite.xlsx', {
+                    signal: controller.signal
+                });
+                
+                if (response.ok) {
+                    const arrayBuffer = await response.arrayBuffer();
+                    const data = new Uint8Array(arrayBuffer);
+                    const jsonData = processExcelData(data);
+                    
+                    if (jsonData && jsonData.length > 0) {
+                        await extractDataFromExcel(jsonData);
+                        showStatus(`✅ Auto-loaded dataforsite.xlsx! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
+                        document.getElementById('toggleUpload').classList.remove('hidden');
+                        return true;
+                    }
+                }
+                
+                throw new Error('File not found');
+                
+            } catch (error) {
+                showStatus('📁 Please upload dataforsite.xlsx manually', false);
+                document.getElementById('manualUpload').classList.remove('hidden');
+                document.getElementById('toggleUpload').classList.remove('hidden');
+                return false;
+            }
+        }
+
+        // Handle file upload
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                showStatus('📊 Processing uploaded file...');
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const jsonData = processExcelData(data);
+                
+                if (jsonData && jsonData.length > 0) {
+                    await extractDataFromExcel(jsonData);
+                    showStatus(`✅ File uploaded successfully! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
+                    document.getElementById('manualUpload').classList.add('hidden');
+                } else {
+                    throw new Error('No data found in file');
+                }
+            } catch (error) {
+                showStatus('Error processing file: ' + error.message, true);
+            }
+        }
+
+        // Toggle manual upload
+        function toggleManualUpload() {
+            const manualUpload = document.getElementById('manualUpload');
+            manualUpload.classList.toggle('hidden');
+        }
+
+        // Generate days
+        function generateDays() {
+            const numDays = parseInt(document.getElementById('numDays').value);
+            if (!numDays || numDays < 1) {
+                alert("Please enter a valid number of days");
+                return;
+            }
+            
+            const container = document.getElementById('daysContainer');
+            container.innerHTML = "";
+            
+            for (let d = 0; d < numDays; d++) {
+                const dayDiv = document.createElement("div");
+                dayDiv.className = "day-container";
+                dayDiv.innerHTML = `
+                    <h3>Day ${d + 1}</h3>
+                    <label>Date:</label>
+                    <input type="date" name="date${d}" style="margin-left: 10px; margin-bottom: 10px;">
+                    
+                    <label style="display: block; margin: 10px 0;">How many classes for Day ${d + 1}?</label>
+                    <input type="number" id="numClasses_${d}" min="1" max="20" style="width: 100px; padding: 5px;">
+                    <button type="button" class="btn btn-secondary" onclick="generateClasses(${d})">Create Classes</button>
+                    
+                    <div class="classes-container-${d}"></div>
+                `;
+                container.appendChild(dayDiv);
+            }
+        }
+
+        // Generate classes
+        function generateClasses(dayIndex) {
+            const numClasses = parseInt(document.getElementById(`numClasses_${dayIndex}`).value);
+            if (!numClasses || numClasses < 1) {
+                alert("Please enter a valid number of classes");
+                return;
+            }
+            
+            const container = document.querySelector(`.classes-container-${dayIndex}`);
+            container.innerHTML = "";
+            
+            for (let c = 0; c < numClasses; c++) {
+                const classDiv = document.createElement("div");
+                classDiv.className = "class-container";
+                classDiv.innerHTML = `
+                    <h4>Class ${c + 1}</h4>
+                    <label>Class Name:</label>
+                    <input type="text" 
+                           style="margin-left: 10px; width: 250px; padding: 8px;" 
+                           placeholder="Type class name..." 
+                           list="classes-datalist-${dayIndex}-${c}"
+                           class="class-autocomplete"
+                           onchange="handleClassSelection(${dayIndex}, ${c}, this.value)">
+                    <datalist id="classes-datalist-${dayIndex}-${c}">
+                        ${globalClasses.map(name => `<option value="${name}">${name}</option>`).join('')}
+                    </datalist>
+                    
+                    <div id="subclass-container-${dayIndex}-${c}" class="subclass-container hidden">
+                        <label style="display: block; margin: 10px 0;">Sub Class:</label>
+                        <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;">
+                            <option value="">Select Sub Class</option>
+                        </select>
+                    </div>
+                    
+                    <label style="display: block; margin: 10px 0;">How many rounds for Class ${c + 1}?</label>
+                    <input type="number" id="numRounds_${dayIndex}_${c}" min="1" max="10" style="width: 100px; padding: 5px;">
+                    <button type="button" class="btn btn-secondary" onclick="generateRounds(${dayIndex}, ${c})">Create Rounds</button>
+                    
+                    <div class="rounds-container-${dayIndex}-${c}"></div>
+                `;
+                container.appendChild(classDiv);
+            }
+        }
+
+        // Handle class selection for sub-classes
+        function handleClassSelection(dayIndex, classIndex, className) {
+            const subclassContainer = document.getElementById(`subclass-container-${dayIndex}-${classIndex}`);
+            const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
+            
+            if (className.toLowerCase().includes('games')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Games Sub Class</option>
+                    <option value="games1">Games Sub Class 1</option>
+                    <option value="games2">Games Sub Class 2</option>
+                    <option value="games3">Games Sub Class 3</option>
+                    <option value="games4">Games Sub Class 4</option>
+                    <option value="games5">Games Sub Class 5</option>
+                `;
+                subclassContainer.classList.remove('hidden');
+            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Obedience Sub Class</option>
+                    <option value="obed1">Obedience Sub Class 1</option>
+                    <option value="obed2">Obedience Sub Class 2</option>
+                    <option value="obed3">Obedience Sub Class 3</option>
+                    <option value="obed4">Obedience Sub Class 4</option>
+                    <option value="obed5">Obedience Sub Class 5</option>
+                `;
+                subclassContainer.classList.remove('hidden');
+            } else {
+                subclassContainer.classList.add('hidden');
+            }
+        }
+
+        // Generate rounds
+        function generateRounds(dayIndex, classIndex) {
+            const numRounds = parseInt(document.getElementById(`numRounds_${dayIndex}_${classIndex}`).value);
+            if (!numRounds || numRounds < 1) {
+                alert("Please enter a valid number of rounds");
+                return;
+            }
+            
+            const container = document.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
+            container.innerHTML = "";
+            
+            for (let r = 0; r < numRounds; r++) {
+                const roundDiv = document.createElement("div");
+                roundDiv.className = "round-container";
+                roundDiv.innerHTML = `
+                    <div style="margin-bottom: 5px;">
+                        <strong>Round ${r + 1}:</strong>
+                        <label style="margin-left: 10px;">Judge:</label>
+                        <input type="text" 
+                               style="margin-left: 5px; width: 180px; padding: 8px;" 
+                               placeholder="Type judge name..." 
+                               list="judges-datalist-${dayIndex}-${classIndex}-${r}"
+                               class="judge-autocomplete">
+                        <datalist id="judges-datalist-${dayIndex}-${classIndex}-${r}">
+                            ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
+                        </datalist>
+                        <label style="margin-left: 10px;">
+                            <input type="checkbox"> FEO Available
+                        </label>
+                    </div>
+                `;
+                container.appendChild(roundDiv);
+            }
+        }
+
+        // Collect trial data
+        function collectTrialData() {
+            const clubName = document.getElementById('clubName').value;
+            const secretary = document.getElementById('secretary').value;
+            const numDays = parseInt(document.getElementById('numDays').value) || 0;
+            
+            const days = [];
+            const daysContainer = document.getElementById('daysContainer');
+            
+            if (daysContainer) {
+                const dayContainers = daysContainer.querySelectorAll('.day-container');
+                
+                dayContainers.forEach((dayContainer, dayIndex) => {
+                    const dateInput = dayContainer.querySelector(`input[name="date${dayIndex}"]`);
+                    const classesContainer = dayContainer.querySelector(`.classes-container-${dayIndex}`);
+                    
+                    const dayData = {
+                        dayNumber: dayIndex + 1,
+                        date: dateInput ? dateInput.value : null,
+                        classes: []
+                    };
+                    
+                    if (classesContainer) {
+                        const classContainers = classesContainer.querySelectorAll('.class-container');
+                        
+                        classContainers.forEach((classContainer, classIndex) => {
+                            const classInput = classContainer.querySelector('.class-autocomplete');
+                            const subclassSelect = classContainer.querySelector(`#subclass_${dayIndex}_${classIndex}`);
+                            const roundsContainer = classContainer.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
+                            
+                            const classData = {
+                                [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
+                                subClass: subclassSelect && !subclassSelect.parentElement.classList.contains('hidden') ? subclassSelect.value : '',
+                                rounds: []
+                            };
+                            
+                            if (roundsContainer) {
+                                const roundContainers = roundsContainer.querySelectorAll('.round-container');
+                                
+                                roundContainers.forEach((roundContainer, roundIndex) => {
+                                    const judgeInput = roundContainer.querySelector('.judge-autocomplete');
+                                    const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+                                    
+                                    const roundData = {
+                                        roundNumber: roundIndex + 1,
+                                        [STANDARD_FIELDS.JUDGE_NAME]: judgeInput ? judgeInput.value.trim() : '',
+                                        feoAvailable: feoCheckbox ? feoCheckbox.checked : false
+                                    };
+                                    
+                                    classData.rounds.push(roundData);
+                                });
+                            }
+                            
+                            if (classData[STANDARD_FIELDS.CLASS_NAME]) {
+                                dayData.classes.push(classData);
+                            }
+                        });
+                    }
+                    
+                    days.push(dayData);
+                });
+            }
+            
+            return {
+                clubName: clubName.trim(),
+                secretary: secretary.trim(),
+                numDays: numDays,
+                days: days,
+                createdBy: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+        }
+
+        // Submit trial
+        async function submitTrial(event) {
+            event.preventDefault();
+            
+            try {
+                const clubName = document.getElementById('clubName').value;
+                const secretary = document.getElementById('secretary').value;
+                
+                if (!clubName.trim() || !secretary.trim()) {
+                    alert("Please enter club name and trial secretary");
+                    return false;
+                }
+                
+                showStatus('💾 Saving trial...');
+                
+                const trialData = collectTrialData();
+                await db.collection('trials').add(trialData);
+                
+                showStatus('✅ Trial saved successfully!');
+                
+                // Reset form
+                document.getElementById('trialForm').reset();
+                document.getElementById('daysContainer').innerHTML = '';
+                
+                refreshTrials();
+                
+            } catch (error) {
+                console.error('Error saving trial:', error);
+                showStatus('Error saving trial: ' + error.message, true);
+            }
+            
+            return false;
+        }
+
+        // Load my trials
+        async function loadMyTrials() {
+            try {
+                const trialsSnapshot = await db.collection('trials')
+                    .where('createdBy', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+                
+                const trialsList = document.getElementById('trialsList');
+                trialsList.innerHTML = '';
+                
+                if (trialsSnapshot.empty) {
+                    trialsList.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>';
+                    return;
+                }
+                
+                trialsSnapshot.forEach(doc => {
+                    const trial = { id: doc.id, ...doc.data() };
+                    const trialDiv = document.createElement('div');
+                    trialDiv.className = 'trial-item';
+                    
+                    let totalClasses = 0;
+                    if (trial.days) {
+                        trial.days.forEach(day => {
+                            if (day.classes) totalClasses += day.classes.length;
+                        });
+                    }
+                    
+                    trialDiv.innerHTML = `
+                        <h4>${trial.clubName}</h4>
+                        <p><strong>Secretary:</strong> ${trial.secretary}</p>
+                        <p><strong>Days:</strong> ${trial.numDays}</p>
+                        <p><strong>Classes:</strong> ${totalClasses}</p>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn btn-secondary" onclick="editTrial('${trial.id}')">✏️ Edit</button>
+                            <button class="btn" onclick="viewTrial('${trial.id}')">👁️ View</button>
+                        </div>
+                    `;
+                    
+                    trialsList.appendChild(trialDiv);
+                });
+                
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, true);
+            }
+        }
+
+        // Refresh trials
+        function refreshTrials() {
+            if (currentUser) {
+                loadMyTrials();
+                showStatus('Trials refreshed');
+            }
+        }
+
+        // Edit trial
+        function editTrial(trialId) {
+            showStatus(`Opening editor for trial ${trialId}...`);
+            // TODO: Implement trial editing
+        }
+
+        // View trial
+        function viewTrial(trialId) {
+            showStatus(`Loading trial ${trialId}...`);
+            // TODO: Implement trial viewing
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await auth.signOut();
+                window.location.href = 'index.html';
+            } catch (error) {
+                console.error('Logout error:', error);
+                showStatus('Error logging out: ' + error.message, true);
+            }
+        }
+
+        // Initialize dashboard
+        async function initializeDashboard() {
+            document.getElementById('userInfo').textContent = 
+                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
+            
+            // Load data
+            await loadDataAutomatically();
+            
+            // Load trials
+            loadMyTrials();
+        }
 
         // Authentication check
         auth.onAuthStateChanged(async (user) => {
@@ -454,897 +874,17 @@
             }
         });
 
-        // Initialize dashboard with faster loading
-        async function initializeDashboard() {
-            document.getElementById('userInfo').textContent = 
-                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
-            
-            // Try fast methods first, then slower ones
-            let dataLoaded = false;
-            
-            // 1. First try loading from Firebase (fastest)
-            dataLoaded = await loadExistingDataFromFirebase();
-            
-            if (dataLoaded) {
-                showStatus('✅ Data loaded from database');
-                document.getElementById('toggleManualUpload').classList.remove('hidden');
-            } else {
-                // 2. Then try auto-loading file (slower)
-                dataLoaded = await loadDataForSiteAutomatically();
-            }
-            
-            if (!dataLoaded) {
-                // 3. Show manual upload as last resort
-                showStatus('📁 Please upload dataforsite.xlsx manually', false, true);
-                document.getElementById('manualUpload').classList.remove('hidden');
-                document.getElementById('toggleManualUpload').classList.remove('hidden');
-            }
-            
-            // Load trials regardless of data status
-            loadMyTrials();
-        }
-
-        // Load existing data from Firebase (fastest option)
-        async function loadExistingDataFromFirebase() {
-            try {
-                showStatus('🔍 Checking saved data...', false, true);
-                
-                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
-                if (dataDoc.exists) {
-                    const data = dataDoc.data();
-                    globalClasses = data.classes || [];
-                    globalJudges = data.judges || [];
-                    cwagsNumbers = data.cwagsNumbers || [];
-                    dogNames = data.dogNames || [];
-                    
-                    if (globalClasses.length > 0) {
-                        updateDataStatusDisplay();
-                        return true;
-                    }
+        // Set minimum date to today
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.addEventListener('input', function(e) {
+                if (e.target.type === 'date') {
+                    e.target.min = today;
                 }
-                return false;
-            } catch (error) {
-                console.error('Error loading data from Firebase:', error);
-                return false;
-            }
-        }
-
-        // Process manual file upload (fallback)
-        async function processDataForSiteFile(file) {
-            showStatus('Processing uploaded dataforsite.xlsx...');
-            
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                
-                // Use the same processing logic
-                const jsonData = processExcelData(data);
-                
-                if (!jsonData || jsonData.length === 0) {
-                    throw new Error('No data found in Excel file');
-                }
-                
-                await extractDataFromProcessedExcel(jsonData);
-                
-                showStatus(`Data uploaded successfully! ${globalClasses.length} classes, ${globalJudges.length} judges, ${cwagsNumbers.length} registrations, ${dogNames.length} dogs`);
-                
-                // Hide manual upload section
-                document.getElementById('manualUpload').classList.add('hidden');
-                
-            } catch (error) {
-                console.error('Error processing uploaded dataforsite.xlsx:', error);
-                showStatus('Error processing Excel file: ' + error.message, true);
-            }
-        }
-
-        // Update data status display
-        function updateDataStatusDisplay() {
-            const statusDiv = document.getElementById('dataStatus');
-            statusDiv.className = 'data-loaded';
-            statusDiv.innerHTML = `
-                <strong>✅ Data Available:</strong><br>
-                Classes: ${globalClasses.length} | Judges: ${globalJudges.length} | Registrations: ${cwagsNumbers.length} | Dogs: ${dogNames.length}
-                <br><small style="color: #666;">Ready to create trials</small>
-            `;
-        }
-
-        // Toggle manual upload section
-        function toggleManualUpload() {
-            const manualUpload = document.getElementById('manualUpload');
-            manualUpload.classList.toggle('hidden');
-        }
-
-        // Enhanced status message function
-        function showStatus(message, isError = false, isPersistent = false) {
-            const statusDiv = document.getElementById('statusMessage');
-            const dataStatusDiv = document.getElementById('dataStatus');
-            
-            // Update main status
-            statusDiv.textContent = message;
-            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
-            statusDiv.style.display = 'block';
-            
-            // Also update data status if it's a data-related message
-            if (message.includes('dataforsite.xlsx') || message.includes('Data loaded') || message.includes('Loading')) {
-                dataStatusDiv.textContent = message;
-                dataStatusDiv.className = isError ? 'status-error' : 'status-info';
-            }
-            
-            if (!isPersistent) {
-                setTimeout(() => {
-                    statusDiv.style.display = 'none';
-                }, 5000);
-            }
-        }
-
-        // File handling
-        function handleDragOver(event) {
-            event.preventDefault();
-            event.currentTarget.classList.add('dragover');
-        }
-
-        function handleDragLeave(event) {
-            event.currentTarget.classList.remove('dragover');
-        }
-
-        function handleDrop(event) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('dragover');
-            
-            const files = event.dataTransfer.files;
-            if (files.length > 0) {
-                processDataForSiteFile(files[0]);
-            }
-        }
-
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                processDataForSiteFile(file);
-            }
-        }
-
-        // Process Excel data using SheetJS (from first post)
-        function processExcelData(data) {
-            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-            const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
-            
-            if (!dataSheet) {
-                console.error('No data sheet found in Excel file');
-                return null;
-            }
-            
-            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
-                header: 1, 
-                dateNF: 'yyyy-mm-dd',
-                defval: ''
             });
-            
-            console.log('Excel data processed:', jsonData);
-            return jsonData;
-        }
+        });
 
-        // Optimized automatic file loading function with timeout
-        async function loadDataForSiteAutomatically() {
-            try {
-                showStatus('🔄 Checking for dataforsite.xlsx...', false, true);
-                
-                // Set a timeout for the fetch request (3 seconds)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                
-                // Try to fetch the file from the current directory
-                const response = await fetch('./dataforsite.xlsx', {
-                    signal: controller.signal
-                });
-                
-                clearTimeout(timeoutId);
-                
-                if (!response.ok) {
-                    throw new Error(`File not found: ${response.status}`);
-                }
-                
-                showStatus('📊 Processing dataforsite.xlsx...', false, true);
-                
-                const arrayBuffer = await response.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                
-                // Process using the original approach
-                const jsonData = processExcelData(data);
-                
-                if (!jsonData || jsonData.length === 0) {
-                    throw new Error('No data found in Excel file');
-                }
-                
-                // Extract data using the same logic
-                await extractDataFromProcessedExcel(jsonData);
-                
-                showStatus(`✅ dataforsite.xlsx loaded! ${globalClasses.length} classes, ${globalJudges.length} judges found.`);
-                
-                // Show manual upload option
-                document.getElementById('toggleManualUpload').classList.remove('hidden');
-                
-                return true;
-                
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.log('File fetch timed out after 3 seconds');
-                    showStatus('⏱️ Auto-load timed out. Checking database...', false, true);
-                } else {
-                    console.log('Error loading dataforsite.xlsx automatically:', error.message);
-                    showStatus('📂 File not found locally. Checking database...', false, true);
-                }
-                
-                return false;
-            }
-        }
-
-        // Extract data from processed Excel
-        async function extractDataFromProcessedExcel(jsonData) {
-            const headers = jsonData[0];
-            const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
-            
-            console.log('Headers found:', headers);
-            console.log('Data rows:', rows.length);
-            
-            // Extract unique values for each field
-            const classes = new Set();
-            const judges = new Set();
-            const cwags = new Set();
-            const dogs = new Set();
-            
-            // Find column indices (flexible header matching)
-            const cwagsIndex = findColumnIndex(headers, ['cwag number', 'cwags number', 'cwag', 'registration']);
-            const judgeIndex = findColumnIndex(headers, ['judge', 'judges']);
-            const classIndex = findColumnIndex(headers, ['class', 'classes']);
-            const dogIndex = findColumnIndex(headers, ['dog name', 'dog', 'name']);
-            
-            console.log('Column indices:', { cwagsIndex, judgeIndex, classIndex, dogIndex });
-            
-            rows.forEach(row => {
-                if (cwagsIndex >= 0 && row[cwagsIndex]) cwags.add(String(row[cwagsIndex]).trim());
-                if (judgeIndex >= 0 && row[judgeIndex]) judges.add(String(row[judgeIndex]).trim());
-                if (classIndex >= 0 && row[classIndex]) classes.add(String(row[classIndex]).trim());
-                if (dogIndex >= 0 && row[dogIndex]) dogs.add(String(row[dogIndex]).trim());
-            });
-            
-            // Update global arrays
-            globalClasses = Array.from(classes).sort();
-            globalJudges = Array.from(judges).sort();
-            cwagsNumbers = Array.from(cwags).sort();
-            dogNames = Array.from(dogs).sort();
-            
-            // Save to Firebase for reuse
-            try {
-                await db.collection('system_data').doc('dataforsite').set({
-                    classes: globalClasses,
-                    judges: globalJudges,
-                    cwagsNumbers: cwagsNumbers,
-                    dogNames: dogNames,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                });
-                console.log('Data saved to Firebase successfully');
-            } catch (firebaseError) {
-                console.error('Error saving to Firebase:', firebaseError);
-                // Continue anyway with local data
-            }
-            
-            // Update data status display
-            updateDataStatusDisplay();
-        }
-
-        // Helper function to find column index by multiple possible names
-        function findColumnIndex(headers, possibleNames) {
-            for (let i = 0; i < headers.length; i++) {
-                const header = String(headers[i]).toLowerCase().trim();
-                if (possibleNames.some(name => header.includes(name.toLowerCase()))) {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        // Generate days (matching create-trial.html structure)
-        function generateDays() {
-            try {
-                const numDays = parseInt(document.getElementById('numDays').value);
-                if (!numDays || numDays < 1) {
-                    alert("Please enter a valid number of days");
-                    return;
-                }
-                
-                const daysContainer = document.getElementById('daysContainer');
-                daysContainer.innerHTML = "";
-                
-                for (let d = 0; d < numDays; d++) {
-                    const dayDiv = document.createElement("div");
-                    dayDiv.className = "day-container";
-                    dayDiv.innerHTML = `
-                        <h3>Day ${d + 1}</h3>
-                        <label>Date:</label>
-                        <input type="date" name="date${d}" style="margin-left: 10px; margin-bottom: 10px;">
-                        
-                        <label style="display: block; margin: 10px 0;">How many classes for Day ${d + 1}?</label>
-                        <input type="number" id="numClasses_${d}" min="1" max="20" style="width: 100px; padding: 5px;">
-                        <button type="button" class="btn btn-secondary" onclick="generateClasses(${d})">Create Classes</button>
-                        
-                        <div class="classes-container-${d}"></div>
-                    `;
-                    daysContainer.appendChild(dayDiv);
-                }
-                
-                console.log(`Generated ${numDays} days`);
-                
-            } catch (error) {
-                console.error("Error in generateDays:", error);
-                alert("Error creating days: " + error.message);
-            }
-        }
-
-        // Generate classes (matching create-trial.html structure)
-        function generateClasses(dayIndex) {
-            try {
-                const numClasses = parseInt(document.getElementById(`numClasses_${dayIndex}`).value);
-                if (!numClasses || numClasses < 1) {
-                    alert("Please enter a valid number of classes");
-                    return;
-                }
-                
-                const classesContainer = document.querySelector(`.classes-container-${dayIndex}`);
-                classesContainer.innerHTML = "";
-                
-                for (let c = 0; c < numClasses; c++) {
-                    const classDiv = document.createElement("div");
-                    classDiv.className = "class-container";
-                    classDiv.innerHTML = `
-                        <h4>Class ${c + 1}</h4>
-                        <label>Class Name:</label>
-                        <input type="text" 
-                               style="margin-left: 10px; width: 250px; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;" 
-                               placeholder="Type class name..." 
-                               list="classes-datalist-${dayIndex}-${c}"
-                               class="class-autocomplete">
-                        <datalist id="classes-datalist-${dayIndex}-${c}">
-                            ${globalClasses.map(className => `<option value="${className}">${className}</option>`).join('')}
-                        </datalist>
-                        
-                        <!-- Conditional sub-class dropdowns for Games and Obedience -->
-                        <div id="subclass-container-${dayIndex}-${c}" class="subclass-container hidden">
-                            <label style="display: block; margin: 10px 0;">Sub Class:</label>
-                            <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;">
-                                <option value="">Select Sub Class</option>
-                            </select>
-                        </div>
-                        
-                        <label style="display: block; margin: 10px 0;">How many rounds for Class ${c + 1}?</label>
-                        <input type="number" id="numRounds_${dayIndex}_${c}" min="1" max="10" style="width: 100px; padding: 5px;">
-                        <button type="button" class="btn btn-secondary" onclick="generateRounds(${dayIndex}, ${c})">Create Rounds</button>
-                        
-                        <div class="rounds-container-${dayIndex}-${c}"></div>
-                    `;
-                    classesContainer.appendChild(classDiv);
-                    
-                    // Add event listener to show sub-class dropdown for Games/Obedience
-                    const classInput = classDiv.querySelector('.class-autocomplete');
-                    classInput.addEventListener('input', function() {
-                        handleClassSelection(dayIndex, c, this.value);
-                    });
-                }
-                
-                console.log(`Generated ${numClasses} classes for day ${dayIndex + 1}`);
-                
-            } catch (error) {
-                console.error("Error in generateClasses:", error);
-                alert("Error creating classes: " + error.message);
-            }
-        }
-
-        // Handle class selection to show sub-classes for Games/Obedience
-        function handleClassSelection(dayIndex, classIndex, className) {
-            const subclassContainer = document.getElementById(`subclass-container-${dayIndex}-${classIndex}`);
-            const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
-            
-            if (className.toLowerCase().includes('games')) {
-                // Show Games sub-classes
-                subclassSelect.innerHTML = `
-                    <option value="">Select Games Sub Class</option>
-                    <option value="games1">Games Sub Class 1</option>
-                    <option value="games2">Games Sub Class 2</option>
-                    <option value="games3">Games Sub Class 3</option>
-                    <option value="games4">Games Sub Class 4</option>
-                    <option value="games5">Games Sub Class 5</option>
-                `;
-                subclassContainer.classList.remove('hidden');
-            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
-                // Show Obedience sub-classes
-                subclassSelect.innerHTML = `
-                    <option value="">Select Obedience Sub Class</option>
-                    <option value="obed1">Obedience Sub Class 1</option>
-                    <option value="obed2">Obedience Sub Class 2</option>
-                    <option value="obed3">Obedience Sub Class 3</option>
-                    <option value="obed4">Obedience Sub Class 4</option>
-                    <option value="obed5">Obedience Sub Class 5</option>
-                `;
-                subclassContainer.classList.remove('hidden');
-            } else {
-                // Hide sub-class dropdown for other classes
-                subclassContainer.classList.add('hidden');
-            }
-        }
-
-        // Generate rounds (matching create-trial.html structure)
-        function generateRounds(dayIndex, classIndex) {
-            try {
-                const numRounds = parseInt(document.getElementById(`numRounds_${dayIndex}_${classIndex}`).value);
-                if (!numRounds || numRounds < 1) {
-                    alert("Please enter a valid number of rounds");
-                    return;
-                }
-                
-                const roundsContainer = document.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
-                roundsContainer.innerHTML = "";
-                
-                for (let r = 0; r < numRounds; r++) {
-                    const roundDiv = document.createElement("div");
-                    roundDiv.className = "round-container";
-                    roundDiv.innerHTML = `
-                        <div style="margin-bottom: 5px;">
-                            <strong>Round ${r + 1}:</strong>
-                            <label style="margin-left: 10px;">Judge:</label>
-                            <input type="text" 
-                                   style="margin-left: 5px; width: 180px; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;" 
-                                   placeholder="Type judge name..." 
-                                   list="judges-datalist-${dayIndex}-${classIndex}-${r}"
-                                   class="judge-autocomplete">
-                            <datalist id="judges-datalist-${dayIndex}-${classIndex}-${r}">
-                                ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
-                            </datalist>
-                            <label style="margin-left: 10px;">
-                                <input type="checkbox"> FEO Available
-                            </label>
-                        </div>
-                    `;
-                    roundsContainer.appendChild(roundDiv);
-                }
-                
-                console.log(`Generated ${numRounds} rounds for day ${dayIndex + 1}, class ${classIndex + 1}`);
-                
-            } catch (error) {
-                console.error("Error in generateRounds:", error);
-                alert("Error creating rounds: " + error.message);
-            }
-        }
-
-        // Collect all trial data
-        function collectAllTrialData() {
-            const clubName = document.getElementById('clubName').value;
-            const secretary = document.getElementById('secretary').value;
-            const numDays = parseInt(document.getElementById('numDays').value) || 0;
-            
-            const days = [];
-            const daysContainer = document.getElementById('daysContainer');
-            
-            if (daysContainer) {
-                const dayContainers = daysContainer.querySelectorAll('.day-container');
-                
-                dayContainers.forEach((dayContainer, dayIndex) => {
-                    const dateInput = dayContainer.querySelector(`input[name="date${dayIndex}"]`);
-                    const classesContainer = dayContainer.querySelector(`.classes-container-${dayIndex}`);
-                    
-                    const dayData = {
-                        dayNumber: dayIndex + 1,
-                        date: dateInput && dateInput.value ? dateInput.value : null,
-                        classes: []
-                    };
-                    
-                    if (classesContainer) {
-                        const classContainers = classesContainer.querySelectorAll('.class-container');
-                        
-                        classContainers.forEach((classContainer, classIndex) => {
-                            const classInput = classContainer.querySelector('.class-autocomplete');
-                            const subclassSelect = classContainer.querySelector(`#subclass_${dayIndex}_${classIndex}`);
-                            const roundsContainer = classContainer.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
-                            
-                            const classData = {
-                                [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
-                                subClass: subclassSelect && !subclassSelect.parentElement.classList.contains('hidden') ? subclassSelect.value : '',
-                                rounds: []
-                            };
-                            
-                            if (roundsContainer) {
-                                const roundContainers = roundsContainer.querySelectorAll('.round-container');
-                                
-                                roundContainers.forEach((roundContainer, roundIndex) => {
-                                    const judgeInput = roundContainer.querySelector('.judge-autocomplete');
-                                    const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
-                <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trial Secretary Dashboard - Dog Trialing System</title>
-    
-    <!-- Firebase SDKs -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
-    
-    <!-- SheetJS for Excel processing -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .dashboard-container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            color: #333;
-            font-size: 1.8rem;
-        }
-
-        .header .user-info {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .btn {
-            padding: 0.8rem 1.5rem;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            margin: 0.25rem;
-        }
-
-        .btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-success {
-            background: #28a745;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            height: fit-content;
-        }
-
-        .card h2 {
-            color: #333;
-            margin-bottom: 1.5rem;
-            font-size: 1.4rem;
-            border-bottom: 2px solid #f0f0f0;
-            padding-bottom: 0.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            color: #333;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="time"],
-        input[type="number"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 0.8rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .status-message {
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 8px;
-            display: none;
-            font-weight: 500;
-        }
-
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-info {
-            background: #cce7ff;
-            color: #0056b3;
-            border: 1px solid #99d3ff;
-        }
-
-        .excel-upload {
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            transition: all 0.3s ease;
-        }
-
-        .excel-upload:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
-        }
-
-        .excel-upload.dragover {
-            border-color: #667eea;
-            background: #f0f8ff;
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        .cascading-section {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            border: 1px solid #e0e0e0;
-        }
-
-        .day-container {
-            background: white;
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }
-
-        .class-container {
-            background: #f0f8ff;
-            padding: 1rem;
-            margin: 0.5rem 0;
-            border-radius: 6px;
-            border-left: 4px solid #667eea;
-        }
-
-        .round-container {
-            background: #fff5f5;
-            padding: 0.8rem;
-            margin: 0.3rem 0;
-            border-radius: 4px;
-            border-left: 3px solid #dc3545;
-        }
-
-        .subclass-container {
-            background: #f0fff0;
-            padding: 0.8rem;
-            margin: 0.3rem 0;
-            border-radius: 4px;
-            border-left: 3px solid #28a745;
-        }
-
-        .dropdown-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-            margin-top: 0.5rem;
-        }
-
-        .judge-dropdown {
-            background: #fffacd;
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-
-        .trials-list {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .trial-item {
-            padding: 1rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            background: #f8f9fa;
-        }
-
-        .trial-item h4 {
-            color: #333;
-            margin-bottom: 0.5rem;
-        }
-
-        .trial-meta {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .data-loaded {
-            background: #d4edda;
-            color: #155724;
-            padding: 0.5rem;
-            border-radius: 4px;
-            margin: 0.5rem 0;
-            font-size: 0.9rem;
-        }
-
-        .remove-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            float: right;
-        }
-
-        .remove-btn:hover {
-            background: #c82333;
-        }
-
-        .add-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 0.5rem;
-        }
-
-        .add-btn:hover {
-            background: #218838;
-        }
-
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0.5rem 0;
-        }
-
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard-container">
-        <!-- Header -->
-        <div class="header">
-            <div>
-                <h1>🏆 Trial Secretary Dashboard</h1>
-                <div class="user-info" id="userInfo">Loading...</div>
-            </div>
-            <div>
-                <button class="btn btn-secondary" onclick="goToMainMenu()">Main Menu</button>
-                <button class="btn btn-danger" onclick="logout()">Logout</button>
-            </div>
-        </div>
-
-        <!-- Status Messages -->
-        <div class="status-message" id="statusMessage"></div>
-
-        <!-- Data Upload Section -->
-        <div class="card" style="margin-bottom: 2rem;">
-            <h2>📊 Load Data from dataforsite.xlsx</h2>
-            <div class="excel-upload" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
-                <p>📋 Drop your <strong>dataforsite.xlsx</strong> file here</p>
-                <p style="color: #666; font-size: 0.9rem;">This file contains Cwag Number, Judge, Class, Dog Name data</p>
-                <input type="file" class="file-input" id="dataFile" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
-                <button type="button" class="btn" onclick="document.getElementById('dataFile').click()">
-                    Choose dataforsite.xlsx
-                </button>
-            </div>
-            <div id="dataStatus" class="hidden"></div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Create Trial Form -->
-            <div class="card">
-                <h2>📋 Create New Trial</h2>
-                
-                <form id="createTrialForm">
-                    <!-- Basic Trial Info -->
-                    <div class="form-group">
-                        <label for="trialName">Trial Name</label>
-                        <input type="text" id="trialName" required placeholder="e.g., Spring Championship 2025">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="startDate">Start Date</label>
-                        <input type="date" id="startDate" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="location">Location/Venue</label>
-                        <input type="text" id="location" required placeholder="e.g., Canine Training Center, Calgary">
-                    </div>
-
-                    <!-- Cascading Trial
+        console.log("Clean Trial Secretary Dashboard loaded successfully");
+    </script>
+</body>
+</html>
