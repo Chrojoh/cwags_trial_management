@@ -320,11 +320,11 @@
         <!-- Status Messages -->
         <div class="status-message" id="statusMessage"></div>
 
-        <!-- Data Status Section -->
+        <!-- Single Data Status Section -->
         <div class="card" style="margin-bottom: 2rem;">
             <h2>📊 Data Status</h2>
             <div id="dataStatus" class="status-info" style="display: block;">
-                🔄 Loading dataforsite.xlsx automatically...
+                🔄 Initializing data...
             </div>
             
             <!-- Manual upload option (hidden by default) -->
@@ -454,25 +454,41 @@
             }
         });
 
-        // Initialize dashboard
+        // Initialize dashboard with faster loading
         async function initializeDashboard() {
             document.getElementById('userInfo').textContent = 
                 `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
             
-            // Automatically load dataforsite.xlsx
-            const autoLoadSuccess = await loadDataForSiteAutomatically();
+            // Try fast methods first, then slower ones
+            let dataLoaded = false;
             
-            if (!autoLoadSuccess) {
-                // Try to load from Firebase as fallback
-                await loadExistingDataFromFirebase();
+            // 1. First try loading from Firebase (fastest)
+            dataLoaded = await loadExistingDataFromFirebase();
+            
+            if (dataLoaded) {
+                showStatus('✅ Data loaded from database');
+                document.getElementById('toggleManualUpload').classList.remove('hidden');
+            } else {
+                // 2. Then try auto-loading file (slower)
+                dataLoaded = await loadDataForSiteAutomatically();
             }
             
+            if (!dataLoaded) {
+                // 3. Show manual upload as last resort
+                showStatus('📁 Please upload dataforsite.xlsx manually', false, true);
+                document.getElementById('manualUpload').classList.remove('hidden');
+                document.getElementById('toggleManualUpload').classList.remove('hidden');
+            }
+            
+            // Load trials regardless of data status
             loadMyTrials();
         }
 
-        // Load existing data from Firebase (fallback)
+        // Load existing data from Firebase (fastest option)
         async function loadExistingDataFromFirebase() {
             try {
+                showStatus('🔍 Checking saved data...', false, true);
+                
                 const dataDoc = await db.collection('system_data').doc('dataforsite').get();
                 if (dataDoc.exists) {
                     const data = dataDoc.data();
@@ -483,8 +499,6 @@
                     
                     if (globalClasses.length > 0) {
                         updateDataStatusDisplay();
-                        showStatus('✅ Loaded previously saved data from database');
-                        document.getElementById('toggleManualUpload').classList.remove('hidden');
                         return true;
                     }
                 }
@@ -528,9 +542,9 @@
             const statusDiv = document.getElementById('dataStatus');
             statusDiv.className = 'data-loaded';
             statusDiv.innerHTML = `
-                <strong>✅ Data Loaded:</strong><br>
+                <strong>✅ Data Available:</strong><br>
                 Classes: ${globalClasses.length} | Judges: ${globalJudges.length} | Registrations: ${cwagsNumbers.length} | Dogs: ${dogNames.length}
-                <br><small>Last updated: ${new Date().toLocaleString()}</small>
+                <br><small style="color: #666;">Ready to create trials</small>
             `;
         }
 
@@ -610,17 +624,27 @@
             return jsonData;
         }
 
-        // Automatic file loading function
+        // Optimized automatic file loading function with timeout
         async function loadDataForSiteAutomatically() {
             try {
-                showStatus('🔄 Loading dataforsite.xlsx automatically...', false, true);
+                showStatus('🔄 Checking for dataforsite.xlsx...', false, true);
+                
+                // Set a timeout for the fetch request (3 seconds)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
                 
                 // Try to fetch the file from the current directory
-                const response = await fetch('./dataforsite.xlsx');
+                const response = await fetch('./dataforsite.xlsx', {
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     throw new Error(`File not found: ${response.status}`);
                 }
+                
+                showStatus('📊 Processing dataforsite.xlsx...', false, true);
                 
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
@@ -635,7 +659,7 @@
                 // Extract data using the same logic
                 await extractDataFromProcessedExcel(jsonData);
                 
-                showStatus(`✅ dataforsite.xlsx loaded automatically! ${globalClasses.length} classes, ${globalJudges.length} judges, ${cwagsNumbers.length} registrations, ${dogNames.length} dogs found.`);
+                showStatus(`✅ dataforsite.xlsx loaded! ${globalClasses.length} classes, ${globalJudges.length} judges found.`);
                 
                 // Show manual upload option
                 document.getElementById('toggleManualUpload').classList.remove('hidden');
@@ -643,12 +667,13 @@
                 return true;
                 
             } catch (error) {
-                console.error('Error loading dataforsite.xlsx automatically:', error);
-                
-                // Show manual upload option if auto-load fails
-                showStatus('⚠️ Could not auto-load dataforsite.xlsx. Please upload manually.', true, true);
-                document.getElementById('manualUpload').classList.remove('hidden');
-                document.getElementById('toggleManualUpload').classList.remove('hidden');
+                if (error.name === 'AbortError') {
+                    console.log('File fetch timed out after 3 seconds');
+                    showStatus('⏱️ Auto-load timed out. Checking database...', false, true);
+                } else {
+                    console.log('Error loading dataforsite.xlsx automatically:', error.message);
+                    showStatus('📂 File not found locally. Checking database...', false, true);
+                }
                 
                 return false;
             }
