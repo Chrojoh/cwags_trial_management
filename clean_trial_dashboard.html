@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trial Secretary Dashboard</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            margin: 0.25rem;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .status-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .day-container {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .class-container {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #fff;
+            border-radius: 6px;
+        }
+        
+        .round-container {
+            padding: 8px;
+            margin: 3px 0;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .subclass-container {
+            padding: 8px;
+            margin: 3px 0;
+            background-color: #f0fff0;
+            border-radius: 4px;
+            border-left: 3px solid #28a745;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .excel-upload {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .excel-upload:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .trials-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .trial-item {
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>🏆 Trial Secretary Dashboard</h1>
+                <div id="userInfo">Loading...</div>
+            </div>
+            <div>
+                <button class="btn btn-secondary" onclick="window.location.href='create-trial.html'">Create Trial (Full)</button>
+                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Logout</button>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Data Status -->
+        <div class="card">
+            <h2>📊 Data Status</h2>
+            <div id="dataStatus" class="status-info">
+                🔄 Initializing data...
+            </div>
+            
+            <div id="manualUpload" class="hidden">
+                <div class="excel-upload">
+                    <p>📋 Drop your <strong>dataforsite.xlsx</strong> file here</p>
+                    <input type="file" id="dataFile" accept=".xlsx,.xls" style="display: none;" onchange="handleFileUpload(event)">
+                    <button class="btn" onclick="document.getElementById('dataFile').click()">
+                        Choose dataforsite.xlsx
+                    </button>
+                </div>
+            </div>
+            
+            <button id="toggleUpload" class="btn btn-secondary hidden" onclick="toggleManualUpload()">
+                📁 Upload Different File
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Create Trial Form -->
+            <div class="card">
+                <h2>📋 Create New Trial</h2>
+                
+                <form id="trialForm" onsubmit="return submitTrial(event)">
+                    <div class="form-group">
+                        <label for="clubName">Club Name</label>
+                        <input type="text" id="clubName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="secretary">Trial Secretary</label>
+                        <input type="text" id="secretary" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numDays">How many days?</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="number" id="numDays" min="1" max="10" style="width: 100px;">
+                            <button type="button" class="btn btn-secondary" onclick="generateDays()">Create Days</button>
+                        </div>
+                    </div>
+                    
+                    <div id="daysContainer"></div>
+                    
+                    <button type="submit" class="btn btn-success" style="width: 100%; padding: 1rem; margin-top: 2rem;">
+                        🏆 Save Trial
+                    </button>
+                </form>
+            </div>
+
+            <!-- My Trials -->
+            <div class="card">
+                <h2>📅 My Trials</h2>
+                <div class="trials-list" id="trialsList">
+                    <p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>
+                </div>
+                <button class="btn" onclick="refreshTrials()">🔄 Refresh</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global variables
+        let currentUser = null;
+        let globalClasses = [];
+        let globalJudges = [];
+        let cwagsNumbers = [];
+        let dogNames = [];
+        let authInitialized = false;
+        let dashboardInitialized = false;
+
+        // Standard field names
+        const STANDARD_FIELDS = {
+            HANDLER_NAME: 'handlerName',
+            DOG_CALL_NAME: 'dogCallName',
+            JUDGE_NAME: 'judgeName',
+            CLASS_NAME: 'className',
+            CWAGS_NUMBER: 'cwagsNumber'
+        };
+
+        // Show status message
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('statusMessage');
+            const dataStatusDiv = document.getElementById('dataStatus');
+            
+            statusDiv.textContent = message;
+            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+            statusDiv.style.display = 'block';
+            
+            if (message.includes('data') || message.includes('xlsx')) {
+                dataStatusDiv.textContent = message;
+                dataStatusDiv.className = isError ? 'status-error' : 'status-info';
+            }
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Process Excel data using SheetJS
+        function processExcelData(data) {
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
+            
+            if (!dataSheet) {
+                console.error('No data sheet found');
+                return null;
+            }
+            
+            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
+                header: 1, 
+                dateNF: 'yyyy-mm-dd',
+                defval: ''
+            });
+            
+            return jsonData;
+        }
+
+        // Find column index by name
+        function findColumnIndex(headers, possibleNames) {
+            for (let i = 0; i < headers.length; i++) {
+                const header = String(headers[i]).toLowerCase().trim();
+                if (possibleNames.some(name => header.includes(name.toLowerCase()))) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // Extract data from Excel
+        async function extractDataFromExcel(jsonData) {
+            const headers = jsonData[0];
+            const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
+            
+            const classes = new Set();
+            const judges = new Set();
+            const cwags = new Set();
+            const dogs = new Set();
+            
+            const cwagsIndex = findColumnIndex(headers, ['cwag number', 'cwags number', 'cwag', 'registration']);
+            const judgeIndex = findColumnIndex(headers, ['judge', 'judges']);
+            const classIndex = findColumnIndex(headers, ['class', 'classes']);
+            const dogIndex = findColumnIndex(headers, ['dog name', 'dog', 'name']);
+            
+            rows.forEach(row => {
+                if (cwagsIndex >= 0 && row[cwagsIndex]) cwags.add(String(row[cwagsIndex]).trim());
+                if (judgeIndex >= 0 && row[judgeIndex]) judges.add(String(row[judgeIndex]).trim());
+                if (classIndex >= 0 && row[classIndex]) classes.add(String(row[classIndex]).trim());
+                if (dogIndex >= 0 && row[dogIndex]) dogs.add(String(row[dogIndex]).trim());
+            });
+            
+            globalClasses = Array.from(classes).sort();
+            globalJudges = Array.from(judges).sort();
+            cwagsNumbers = Array.from(cwags).sort();
+            dogNames = Array.from(dogs).sort();
+            
+            // Save to Firebase
+            try {
+                await db.collection('system_data').doc('dataforsite').set({
+                    classes: globalClasses,
+                    judges: globalJudges,
+                    cwagsNumbers: cwagsNumbers,
+                    dogNames: dogNames,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser.uid
+                });
+            } catch (error) {
+                console.error('Error saving to Firebase:', error);
+            }
+            
+            updateDataStatus();
+        }
+
+        // Update data status display
+        function updateDataStatus() {
+            const statusDiv = document.getElementById('dataStatus');
+            statusDiv.className = 'status-success';
+            statusDiv.innerHTML = `
+                <strong>✅ Data Ready:</strong><br>
+                Classes: ${globalClasses.length} | Judges: ${globalJudges.length} | 
+                Registrations: ${cwagsNumbers.length} | Dogs: ${dogNames.length}
+            `;
+        }
+
+        // Load data automatically with better error handling
+        async function loadDataAutomatically() {
+            if (!currentUser) {
+                console.log('No current user, skipping data load...');
+                return false;
+            }
+            
+            try {
+                showStatus('🔍 Checking for saved data...', false);
+                
+                // Try Firebase first
+                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    globalClasses = data.classes || [];
+                    globalJudges = data.judges || [];
+                    cwagsNumbers = data.cwagsNumbers || [];
+                    dogNames = data.dogNames || [];
+                    
+                    if (globalClasses.length > 0) {
+                        updateDataStatus();
+                        document.getElementById('toggleUpload').classList.remove('hidden');
+                        console.log('Data loaded from Firebase successfully');
+                        return true;
+                    }
+                }
+                
+                // Try auto-loading file with shorter timeout
+                showStatus('🔄 Looking for dataforsite.xlsx...', false);
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                    console.log('File fetch timeout after 2 seconds');
+                }, 2000); // Reduced timeout
+                
+                try {
+                    const response = await fetch('./dataforsite.xlsx', {
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const arrayBuffer = await response.arrayBuffer();
+                        const data = new Uint8Array(arrayBuffer);
+                        const jsonData = processExcelData(data);
+                        
+                        if (jsonData && jsonData.length > 0) {
+                            await extractDataFromExcel(jsonData);
+                            showStatus(`✅ Auto-loaded dataforsite.xlsx! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
+                            document.getElementById('toggleUpload').classList.remove('hidden');
+                            console.log('Data loaded from file successfully');
+                            return true;
+                        }
+                    }
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        console.log('File fetch was aborted due to timeout');
+                    } else {
+                        console.log('File fetch failed:', fetchError.message);
+                    }
+                }
+                
+                // If we get here, show manual upload
+                showStatus('📁 Please upload dataforsite.xlsx manually', false);
+                document.getElementById('manualUpload').classList.remove('hidden');
+                document.getElementById('toggleUpload').classList.remove('hidden');
+                console.log('Falling back to manual upload');
+                return false;
+                
+            } catch (error) {
+                console.error('Error in loadDataAutomatically:', error);
+                showStatus('📁 Please upload dataforsite.xlsx manually', false);
+                document.getElementById('manualUpload').classList.remove('hidden');
+                document.getElementById('toggleUpload').classList.remove('hidden');
+                return false;
+            }
+        }
+
+        // Handle file upload
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                showStatus('📊 Processing uploaded file...');
+                
+                const arrayBuffer = await file.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const jsonData = processExcelData(data);
+                
+                if (jsonData && jsonData.length > 0) {
+                    await extractDataFromExcel(jsonData);
+                    showStatus(`✅ File uploaded successfully! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
+                    document.getElementById('manualUpload').classList.add('hidden');
+                } else {
+                    throw new Error('No data found in file');
+                }
+            } catch (error) {
+                showStatus('Error processing file: ' + error.message, true);
+            }
+        }
+
+        // Toggle manual upload
+        function toggleManualUpload() {
+            const manualUpload = document.getElementById('manualUpload');
+            manualUpload.classList.toggle('hidden');
+        }
+
+        // Generate days
+        function generateDays() {
+            const numDays = parseInt(document.getElementById('numDays').value);
+            if (!numDays || numDays < 1) {
+                alert("Please enter a valid number of days");
+                return;
+            }
+            
+            const container = document.getElementById('daysContainer');
+            container.innerHTML = "";
+            
+            for (let d = 0; d < numDays; d++) {
+                const dayDiv = document.createElement("div");
+                dayDiv.className = "day-container";
+                dayDiv.innerHTML = `
+                    <h3>Day ${d + 1}</h3>
+                    <label>Date:</label>
+                    <input type="date" name="date${d}" style="margin-left: 10px; margin-bottom: 10px;">
+                    
+                    <label style="display: block; margin: 10px 0;">How many classes for Day ${d + 1}?</label>
+                    <input type="number" id="numClasses_${d}" min="1" max="20" style="width: 100px; padding: 5px;">
+                    <button type="button" class="btn btn-secondary" onclick="generateClasses(${d})">Create Classes</button>
+                    
+                    <div class="classes-container-${d}"></div>
+                `;
+                container.appendChild(dayDiv);
+            }
+        }
+
+        // Generate classes
+        function generateClasses(dayIndex) {
+            const numClasses = parseInt(document.getElementById(`numClasses_${dayIndex}`).value);
+            if (!numClasses || numClasses < 1) {
+                alert("Please enter a valid number of classes");
+                return;
+            }
+            
+            const container = document.querySelector(`.classes-container-${dayIndex}`);
+            container.innerHTML = "";
+            
+            for (let c = 0; c < numClasses; c++) {
+                const classDiv = document.createElement("div");
+                classDiv.className = "class-container";
+                classDiv.innerHTML = `
+                    <h4>Class ${c + 1}</h4>
+                    <label>Class Name:</label>
+                    <input type="text" 
+                           style="margin-left: 10px; width: 250px; padding: 8px;" 
+                           placeholder="Type class name..." 
+                           list="classes-datalist-${dayIndex}-${c}"
+                           class="class-autocomplete"
+                           onchange="handleClassSelection(${dayIndex}, ${c}, this.value)">
+                    <datalist id="classes-datalist-${dayIndex}-${c}">
+                        ${globalClasses.map(name => `<option value="${name}">${name}</option>`).join('')}
+                    </datalist>
+                    
+                    <div id="subclass-container-${dayIndex}-${c}" class="subclass-container hidden">
+                        <label style="display: block; margin: 10px 0;">Sub Class:</label>
+                        <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;">
+                            <option value="">Select Sub Class</option>
+                        </select>
+                    </div>
+                    
+                    <label style="display: block; margin: 10px 0;">How many rounds for Class ${c + 1}?</label>
+                    <input type="number" id="numRounds_${dayIndex}_${c}" min="1" max="10" style="width: 100px; padding: 5px;">
+                    <button type="button" class="btn btn-secondary" onclick="generateRounds(${dayIndex}, ${c})">Create Rounds</button>
+                    
+                    <div class="rounds-container-${dayIndex}-${c}"></div>
+                `;
+                container.appendChild(classDiv);
+            }
+        }
+
+        // Handle class selection for sub-classes
+        function handleClassSelection(dayIndex, classIndex, className) {
+            const subclassContainer = document.getElementById(`subclass-container-${dayIndex}-${classIndex}`);
+            const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
+            
+            if (className.toLowerCase().includes('games')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Games Sub Class</option>
+                    <option value="games1">Games Sub Class 1</option>
+                    <option value="games2">Games Sub Class 2</option>
+                    <option value="games3">Games Sub Class 3</option>
+                    <option value="games4">Games Sub Class 4</option>
+                    <option value="games5">Games Sub Class 5</option>
+                `;
+                subclassContainer.classList.remove('hidden');
+            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Obedience Sub Class</option>
+                    <option value="obed1">Obedience Sub Class 1</option>
+                    <option value="obed2">Obedience Sub Class 2</option>
+                    <option value="obed3">Obedience Sub Class 3</option>
+                    <option value="obed4">Obedience Sub Class 4</option>
+                    <option value="obed5">Obedience Sub Class 5</option>
+                `;
+                subclassContainer.classList.remove('hidden');
+            } else {
+                subclassContainer.classList.add('hidden');
+            }
+        }
+
+        // Generate rounds
+        function generateRounds(dayIndex, classIndex) {
+            const numRounds = parseInt(document.getElementById(`numRounds_${dayIndex}_${classIndex}`).value);
+            if (!numRounds || numRounds < 1) {
+                alert("Please enter a valid number of rounds");
+                return;
+            }
+            
+            const container = document.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
+            container.innerHTML = "";
+            
+            for (let r = 0; r < numRounds; r++) {
+                const roundDiv = document.createElement("div");
+                roundDiv.className = "round-container";
+                roundDiv.innerHTML = `
+                    <div style="margin-bottom: 5px;">
+                        <strong>Round ${r + 1}:</strong>
+                        <label style="margin-left: 10px;">Judge:</label>
+                        <input type="text" 
+                               style="margin-left: 5px; width: 180px; padding: 8px;" 
+                               placeholder="Type judge name..." 
+                               list="judges-datalist-${dayIndex}-${classIndex}-${r}"
+                               class="judge-autocomplete">
+                        <datalist id="judges-datalist-${dayIndex}-${classIndex}-${r}">
+                            ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
+                        </datalist>
+                        <label style="margin-left: 10px;">
+                            <input type="checkbox"> FEO Available
+                        </label>
+                    </div>
+                `;
+                container.appendChild(roundDiv);
+            }
+        }
+
+        // Collect trial data
+        function collectTrialData() {
+            const clubName = document.getElementById('clubName').value;
+            const secretary = document.getElementById('secretary').value;
+            const numDays = parseInt(document.getElementById('numDays').value) || 0;
+            
+            const days = [];
+            const daysContainer = document.getElementById('daysContainer');
+            
+            if (daysContainer) {
+                const dayContainers = daysContainer.querySelectorAll('.day-container');
+                
+                dayContainers.forEach((dayContainer, dayIndex) => {
+                    const dateInput = dayContainer.querySelector(`input[name="date${dayIndex}"]`);
+                    const classesContainer = dayContainer.querySelector(`.classes-container-${dayIndex}`);
+                    
+                    const dayData = {
+                        dayNumber: dayIndex + 1,
+                        date: dateInput ? dateInput.value : null,
+                        classes: []
+                    };
+                    
+                    if (classesContainer) {
+                        const classContainers = classesContainer.querySelectorAll('.class-container');
+                        
+                        classContainers.forEach((classContainer, classIndex) => {
+                            const classInput = classContainer.querySelector('.class-autocomplete');
+                            const subclassSelect = classContainer.querySelector(`#subclass_${dayIndex}_${classIndex}`);
+                            const roundsContainer = classContainer.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
+                            
+                            const classData = {
+                                [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
+                                subClass: subclassSelect && !subclassSelect.parentElement.classList.contains('hidden') ? subclassSelect.value : '',
+                                rounds: []
+                            };
+                            
+                            if (roundsContainer) {
+                                const roundContainers = roundsContainer.querySelectorAll('.round-container');
+                                
+                                roundContainers.forEach((roundContainer, roundIndex) => {
+                                    const judgeInput = roundContainer.querySelector('.judge-autocomplete');
+                                    const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+                                    
+                                    const roundData = {
+                                        roundNumber: roundIndex + 1,
+                                        [STANDARD_FIELDS.JUDGE_NAME]: judgeInput ? judgeInput.value.trim() : '',
+                                        feoAvailable: feoCheckbox ? feoCheckbox.checked : false
+                                    };
+                                    
+                                    classData.rounds.push(roundData);
+                                });
+                            }
+                            
+                            if (classData[STANDARD_FIELDS.CLASS_NAME]) {
+                                dayData.classes.push(classData);
+                            }
+                        });
+                    }
+                    
+                    days.push(dayData);
+                });
+            }
+            
+            return {
+                clubName: clubName.trim(),
+                secretary: secretary.trim(),
+                numDays: numDays,
+                days: days,
+                createdBy: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+        }
+
+        // Submit trial
+        async function submitTrial(event) {
+            event.preventDefault();
+            
+            try {
+                const clubName = document.getElementById('clubName').value;
+                const secretary = document.getElementById('secretary').value;
+                
+                if (!clubName.trim() || !secretary.trim()) {
+                    alert("Please enter club name and trial secretary");
+                    return false;
+                }
+                
+                showStatus('💾 Saving trial...');
+                
+                const trialData = collectTrialData();
+                await db.collection('trials').add(trialData);
+                
+                showStatus('✅ Trial saved successfully!');
+                
+                // Reset form
+                document.getElementById('trialForm').reset();
+                document.getElementById('daysContainer').innerHTML = '';
+                
+                refreshTrials();
+                
+            } catch (error) {
+                console.error('Error saving trial:', error);
+                showStatus('Error saving trial: ' + error.message, true);
+            }
+            
+            return false;
+        }
+
+        // Load my trials
+        async function loadMyTrials() {
+            try {
+                const trialsSnapshot = await db.collection('trials')
+                    .where('createdBy', '==', currentUser.uid)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+                
+                const trialsList = document.getElementById('trialsList');
+                trialsList.innerHTML = '';
+                
+                if (trialsSnapshot.empty) {
+                    trialsList.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>';
+                    return;
+                }
+                
+                trialsSnapshot.forEach(doc => {
+                    const trial = { id: doc.id, ...doc.data() };
+                    const trialDiv = document.createElement('div');
+                    trialDiv.className = 'trial-item';
+                    
+                    let totalClasses = 0;
+                    if (trial.days) {
+                        trial.days.forEach(day => {
+                            if (day.classes) totalClasses += day.classes.length;
+                        });
+                    }
+                    
+                    trialDiv.innerHTML = `
+                        <h4>${trial.clubName}</h4>
+                        <p><strong>Secretary:</strong> ${trial.secretary}</p>
+                        <p><strong>Days:</strong> ${trial.numDays}</p>
+                        <p><strong>Classes:</strong> ${totalClasses}</p>
+                        <div style="margin-top: 1rem;">
+                            <button class="btn btn-secondary" onclick="editTrial('${trial.id}')">✏️ Edit</button>
+                            <button class="btn" onclick="viewTrial('${trial.id}')">👁️ View</button>
+                        </div>
+                    `;
+                    
+                    trialsList.appendChild(trialDiv);
+                });
+                
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, true);
+            }
+        }
+
+        // Refresh trials
+        function refreshTrials() {
+            if (currentUser) {
+                loadMyTrials();
+                showStatus('Trials refreshed');
+            }
+        }
+
+        // Edit trial
+        function editTrial(trialId) {
+            showStatus(`Opening editor for trial ${trialId}...`);
+            // TODO: Implement trial editing
+        }
+
+        // View trial
+        function viewTrial(trialId) {
+            showStatus(`Loading trial ${trialId}...`);
+            // TODO: Implement trial viewing
+        }
+
+        // Logout with safer navigation
+        async function logout() {
+            try {
+                console.log('Logging out user...');
+                await auth.signOut();
+                
+                // Reset flags
+                authInitialized = false;
+                dashboardInitialized = false;
+                currentUser = null;
+                
+                // Show logout message instead of immediate redirect
+                document.querySelector('.container').innerHTML = `
+                    <div class="card" style="text-align: center; margin-top: 2rem;">
+                        <h2>👋 Logged Out</h2>
+                        <p>You have been successfully logged out.</p>
+                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Return to Login</button>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Logout error:', error);
+                showStatus('Error logging out: ' + error.message, true);
+            }
+        }
+
+        // Initialize dashboard
+        async function initializeDashboard() {
+            if (dashboardInitialized) {
+                console.log('Dashboard already initialized, skipping...');
+                return;
+            }
+            
+            dashboardInitialized = true;
+            console.log('Initializing dashboard for user:', currentUser.email);
+            
+            document.getElementById('userInfo').textContent = 
+                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
+            
+            // Load data
+            await loadDataAutomatically();
+            
+            // Load trials
+            loadMyTrials();
+        }
+
+        // Authentication check with emergency loop prevention
+        auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state change detected. User:', user ? user.email : 'None');
+            console.log('Auth initialized flag:', authInitialized);
+            
+            if (authInitialized) {
+                console.log('Auth already initialized, preventing loop...');
+                return;
+            }
+            
+            if (user) {
+                try {
+                    authInitialized = true;
+                    console.log('User authenticated, loading profile...');
+                    
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        currentUser = { uid: user.uid, ...userData };
+                        
+                        console.log('User role check:', userData.role);
+                        
+                        if (userData.role !== 'trial_secretary' && userData.role !== 'administrator') {
+                            console.log('Access denied for role:', userData.role);
+                            showStatus('Access denied. You need trial secretary or administrator access.', true);
+                            
+                            // Show access denied message instead of redirect
+                            document.getElementById('userInfo').textContent = 'Access Denied - Insufficient Permissions';
+                            document.querySelector('.container').innerHTML = `
+                                <div class="card" style="text-align: center; margin-top: 2rem;">
+                                    <h2>🚫 Access Denied</h2>
+                                    <p>This page is only accessible to trial secretaries and administrators.</p>
+                                    <p>Your current role: <strong>${userData.role}</strong></p>
+                                    <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
+                                </div>
+                            `;
+                            return;
+                        }
+                        
+                        console.log('User authorized, initializing dashboard...');
+                        await initializeDashboard();
+                    } else {
+                        console.error('User profile not found in Firestore');
+                        showStatus('User profile not found. Please register first.', true);
+                        
+                        // Show profile not found message instead of redirect
+                        document.getElementById('userInfo').textContent = 'Profile Not Found';
+                        document.querySelector('.container').innerHTML = `
+                            <div class="card" style="text-align: center; margin-top: 2rem;">
+                                <h2>👤 Profile Not Found</h2>
+                                <p>Your user profile was not found in the system.</p>
+                                <p>Please contact an administrator or register again.</p>
+                                <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error('Error loading user profile:', error);
+                    showStatus('Error loading profile: ' + error.message, true);
+                    authInitialized = false; // Reset on error to allow retry
+                    
+                    // Show error message instead of redirect
+                    document.getElementById('userInfo').textContent = 'Error Loading Profile';
+                    document.querySelector('.container').innerHTML = `
+                        <div class="card" style="text-align: center; margin-top: 2rem;">
+                            <h2>⚠️ Error Loading Profile</h2>
+                            <p>There was an error loading your user profile.</p>
+                            <p>Error: ${error.message}</p>
+                            <button class="btn" onclick="window.location.reload()" style="margin-top: 1rem;">Retry</button>
+                            <button class="btn btn-secondary" onclick="logout()" style="margin-top: 1rem;">Logout</button>
+                        </div>
+                    `;
+                }
+            } else {
+                console.log('No authenticated user detected');
+                
+                // Show login required message instead of redirect
+                document.getElementById('userInfo').textContent = 'Not Logged In';
+                document.querySelector('.container').innerHTML = `
+                    <div class="card" style="text-align: center; margin-top: 2rem;">
+                        <h2>🔐 Login Required</h2>
+                        <p>You must be logged in to access the Trial Secretary Dashboard.</p>
+                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Go to Login</button>
+                    </div>
+                `;
+            }
+        });
+
+        // Set minimum date to today with error handling
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
+            const today = new Date().toISOString().split('T')[0];
+            
+            document.addEventListener('input', function(e) {
+                if (e.target.type === 'date') {
+                    e.target.min = today;
+                }
+            });
+        });
+
+        // Prevent multiple initializations
+        window.addEventListener('beforeunload', function() {
+            authInitialized = false;
+            dashboardInitialized = false;
+        });
+
+        console.log("Clean Trial Secretary Dashboard script loaded successfully");
+    </script>
+</body>
+</html>
