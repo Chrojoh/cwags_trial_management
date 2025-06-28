@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dog Trialing System - Login</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            animation: slideUp 0.6s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            color: #333;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .role-selection {
+            margin-bottom: 2rem;
+        }
+
+        .role-selection h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .role-buttons {
+            display: grid;
+            gap: 0.8rem;
+        }
+
+        .role-btn {
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .role-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .role-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .role-btn h4 {
+            margin-bottom: 0.3rem;
+            font-size: 1rem;
+        }
+
+        .role-btn p {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        .login-form {
+            display: none;
+        }
+
+        .login-form.active {
+            display: block;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input[type="email"],
+        input[type="password"],
+        input[type="text"] {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .toggle-auth {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .toggle-auth a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .toggle-auth a:hover {
+            text-decoration: underline;
+        }
+
+        .admin-panel {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        .password-reset {
+            margin-bottom: 1rem;
+        }
+
+        .excel-upload {
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .file-input {
+            margin: 0.5rem 0;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        .back-btn:hover {
+            background: #5a6268;
+        }
+
+        .status-message {
+            padding: 0.75rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <h1>🐕 Dog Trialing System</h1>
+            <p>Track, Manage & Celebrate Success</p>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Role Selection -->
+        <div class="role-selection" id="roleSelection">
+            <h3>Select Your Role</h3>
+            <div class="role-buttons">
+                <div class="role-btn" onclick="selectRole('administrator')">
+                    <h4>🔑 Administrator</h4>
+                    <p>Full system access & user management</p>
+                </div>
+                <div class="role-btn" onclick="selectRole('trial_secretary')">
+                    <h4>📋 Trial Secretary</h4>
+                    <p>Create & manage trials for your club</p>
+                </div>
+                <div class="role-btn" onclick="selectRole('participant')">
+                    <h4>🏆 Participant</h4>
+                    <p>View trials & track your progress</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="login-form" id="loginForm">
+            <button class="back-btn" onclick="goBack()">← Back to Role Selection</button>
+            
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+
+                <!-- Additional fields for trial secretary registration -->
+                <div class="form-group" id="clubNameGroup" style="display: none;">
+                    <label for="clubName">Club Name</label>
+                    <input type="text" id="clubName">
+                </div>
+
+                <div class="form-group" id="firstNameGroup" style="display: none;">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName">
+                </div>
+
+                <div class="form-group" id="lastNameGroup" style="display: none;">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName">
+                </div>
+
+                <button type="submit" class="btn" id="authBtn">Log In</button>
+            </form>
+
+            <div class="toggle-auth">
+                <span id="authToggleText">Don't have an account?</span>
+                <a href="#" onclick="toggleAuthMode()">Sign Up</a>
+            </div>
+
+            <!-- Excel Data Upload -->
+            <div class="excel-upload" id="excelUpload" style="display: none;">
+                <h4>📊 Import Trial Data</h4>
+                <p>Upload Excel file with trial results</p>
+                <input type="file" accept=".xlsx,.xls" class="file-input" id="excelFile" onchange="handleExcelUpload(event)">
+                <button class="btn btn-secondary" onclick="document.getElementById('excelFile').click()">
+                    Choose Excel File
+                </button>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="admin-panel" id="adminPanel">
+            <h4>👑 Administrator Dashboard</h4>
+            
+            <div class="password-reset">
+                <h5>Password Reset</h5>
+                <input type="email" id="resetEmail" placeholder="User email">
+                <button class="btn btn-secondary" onclick="resetUserPassword()">Send Reset Email</button>
+                <small style="color: #666; display: block; margin-top: 0.5rem;">
+                    Note: User will receive a secure reset link via email
+                </small>
+            </div>
+
+            <div class="excel-upload">
+                <h5>📊 System Data Management</h5>
+                <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
+                <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
+                    Import System Data
+                </button>
+            </div>
+
+            <button class="btn" onclick="viewAllUsers()">View All Users</button>
+            <button class="btn" onclick="exportData()">Export All Data</button>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        // Your Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let selectedRole = null;
+        let isLoginMode = true;
+        let currentUser = null;
+
+        // Show status messages
+        function showStatus(message, isError = false) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Role selection
+        function selectRole(role) {
+            selectedRole = role;
+            
+            // Update visual selection
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+            
+            // Show login form after short delay
+            setTimeout(() => {
+                document.getElementById('roleSelection').style.display = 'none';
+                document.getElementById('loginForm').classList.add('active');
+                
+                // Show additional fields for registration
+                if (role === 'trial_secretary') {
+                    document.getElementById('clubNameGroup').style.display = 'block';
+                }
+                
+                // Show admin features
+                if (role === 'administrator') {
+                    document.getElementById('excelUpload').style.display = 'block';
+                }
+            }, 300);
+        }
+
+        function goBack() {
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('roleSelection').style.display = 'block';
+            document.getElementById('adminPanel').classList.remove('active');
+            selectedRole = null;
+            
+            // Reset form
+            document.getElementById('authForm').reset();
+            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            const authBtn = document.getElementById('authBtn');
+            const authToggleText = document.getElementById('authToggleText');
+            const additionalFields = ['firstNameGroup', 'lastNameGroup'];
+            
+            if (isLoginMode) {
+                authBtn.textContent = 'Log In';
+                authToggleText.textContent = "Don't have an account?";
+                additionalFields.forEach(id => {
+                    document.getElementById(id).style.display = 'none';
+                });
+            } else {
+                authBtn.textContent = 'Sign Up';
+                authToggleText.textContent = 'Already have an account?';
+                additionalFields.forEach(id => {
+                    document.getElementById(id).style.display = 'block';
+                });
+            }
+        }
+
+        // Excel file processing with Firebase integration
+        async function processExcelData(data) {
+            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+            const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
+            
+            if (!dataSheet) {
+                showStatus('No data sheet found in Excel file', true);
+                return;
+            }
+            
+            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
+                header: 1, 
+                dateNF: 'yyyy-mm-dd',
+                defval: ''
+            });
+            
+            console.log('Excel data processed:', jsonData);
+            
+            if (jsonData.length > 1) {
+                const headers = jsonData[0];
+                const rows = jsonData.slice(1);
+                
+                console.log('Headers:', headers);
+                console.log('Data rows:', rows.length);
+                
+                try {
+                    // Import data to Firebase
+                    const batch = db.batch();
+                    let importCount = 0;
+                    
+                    rows.forEach((row, index) => {
+                        if (row.some(cell => cell !== '')) { // Skip empty rows
+                            const entryRef = db.collection('entries').doc();
+                            const entryData = {
+                                dogName: row[0] || '',
+                                handlerName: row[1] || '',
+                                discipline: row[2] || '',
+                                class: row[3] || '',
+                                subClass: row[4] || '',
+                                score: parseFloat(row[5]) || 0,
+                                result: row[6] || '',
+                                importedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                importedBy: currentUser?.uid || 'unknown'
+                            };
+                            
+                            batch.set(entryRef, entryData);
+                            importCount++;
+                        }
+                    });
+                    
+                    if (importCount > 0) {
+                        await batch.commit();
+                        showStatus(`Successfully imported ${importCount} records from Excel file to Firebase!`);
+                    } else {
+                        showStatus('No valid data rows found to import.', true);
+                    }
+                } catch (error) {
+                    console.error('Error importing to Firebase:', error);
+                    showStatus('Error importing data to Firebase: ' + error.message, true);
+                }
+            }
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    processExcelData(new Uint8Array(e.target.result));
+                } catch (error) {
+                    console.error('Error processing Excel file:', error);
+                    showStatus('Error processing Excel file. Please check the format.', true);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function handleAdminExcelUpload(event) {
+            handleExcelUpload(event);
+        }
+
+        // Authentication form handler
+        document.getElementById('authForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                if (isLoginMode) {
+                    // Login logic
+                    console.log('Attempting login for:', { email, role: selectedRole });
+                    showStatus('Logging in...');
+                    
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    // Get user data from Firestore
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        currentUser = { ...user, ...userData };
+                        
+                        console.log('Login successful:', userData);
+                        showStatus(`Welcome back, ${userData.firstName || userData.email}!`);
+                        
+                        if (userData.role === 'administrator') {
+                            setTimeout(() => {
+                                document.getElementById('loginForm').style.display = 'none';
+                                document.getElementById('adminPanel').classList.add('active');
+                            }, 1500);
+                        } else {
+                            setTimeout(() => {
+                                redirectToDashboard(userData.role);
+                            }, 1500);
+                        }
+                    } else {
+                        throw new Error('User profile not found');
+                    }
+                } else {
+                    // Registration logic
+                    const firstName = document.getElementById('firstName').value;
+                    const lastName = document.getElementById('lastName').value;
+                    const clubName = document.getElementById('clubName').value;
+                    
+                    console.log('Attempting registration:', { 
+                        email, 
+                        firstName, 
+                        lastName, 
+                        clubName, 
+                        role: selectedRole 
+                    });
+                    
+                    showStatus('Creating account...');
+                    
+                    // Create user account
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    const user = userCredential.user;
+                    
+                    // Save user profile to Firestore
+                    await db.collection('users').doc(user.uid).set({
+                        email: email,
+                        firstName: firstName,
+                        lastName: lastName,
+                        clubName: clubName || '',
+                        role: selectedRole,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        isActive: true
+                    });
+                    
+                    showStatus('Registration successful! You are now logged in.');
+                    
+                    // Auto-login after registration
+                    currentUser = { 
+                        uid: user.uid, 
+                        email, 
+                        firstName, 
+                        lastName, 
+                        clubName, 
+                        role: selectedRole 
+                    };
+                    
+                    if (selectedRole === 'administrator') {
+                        setTimeout(() => {
+                            document.getElementById('loginForm').style.display = 'none';
+                            document.getElementById('adminPanel').classList.add('active');
+                        }, 1500);
+                    } else {
+                        setTimeout(() => {
+                            redirectToDashboard(selectedRole);
+                        }, 1500);
+                    }
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                showStatus('Error: ' + error.message, true);
+            }
+        });
+
+        // Redirect to appropriate dashboard
+        function redirectToDashboard(role) {
+            switch(role) {
+                case 'administrator':
+                    // Stay on current page with admin panel
+                    break;
+                case 'trial_secretary':
+                    showStatus('Redirecting to Trial Secretary Dashboard...');
+                    // window.location.href = 'trial-secretary-dashboard.html';
+                    break;
+                case 'participant':
+                    showStatus('Redirecting to Participant Dashboard...');
+                    // window.location.href = 'participant-dashboard.html';
+                    break;
+                default:
+                    showStatus('Unknown role', true);
+            }
+        }
+
+        // Admin functions
+        async function resetUserPassword() {
+            const email = document.getElementById('resetEmail').value;
+            
+            if (!email) {
+                showStatus('Please enter user email', true);
+                return;
+            }
+            
+            try {
+                // Send password reset email (Firebase handles this securely)
+                await auth.sendPasswordResetEmail(email);
+                console.log('Password reset email sent to:', email);
+                showStatus(`Password reset email sent to ${email}`);
+                
+                // Clear fields
+                document.getElementById('resetEmail').value = '';
+            } catch (error) {
+                console.error('Password reset error:', error);
+                showStatus('Error sending password reset email: ' + error.message, true);
+            }
+        }
+
+        async function viewAllUsers() {
+            try {
+                console.log('Fetching all users...');
+                showStatus('Loading users...');
+                
+                const usersSnapshot = await db.collection('users').get();
+                const users = [];
+                
+                usersSnapshot.forEach(doc => {
+                    users.push({ id: doc.id, ...doc.data() });
+                });
+                
+                console.log('All users:', users);
+                
+                // Create a simple display of users
+                let userList = 'System Users:\n\n';
+                users.forEach(user => {
+                    userList += `${user.firstName} ${user.lastName}\n`;
+                    userList += `Email: ${user.email}\n`;
+                    userList += `Role: ${user.role}\n`;
+                    userList += `Club: ${user.clubName || 'N/A'}\n\n`;
+                });
+                
+                showStatus('User list generated');
+                alert(userList);
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                showStatus('Error fetching users: ' + error.message, true);
+            }
+        }
+
+        async function exportData() {
+            try {
+                console.log('Exporting system data...');
+                showStatus('Preparing export...');
+                
+                // Get all trials
+                const trialsSnapshot = await db.collection('trials').get();
+                const trials = [];
+                trialsSnapshot.forEach(doc => {
+                    trials.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Get all entries
+                const entriesSnapshot = await db.collection('entries').get();
+                const entries = [];
+                entriesSnapshot.forEach(doc => {
+                    entries.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Create Excel workbook
+                const wb = XLSX.utils.book_new();
+                
+                // Add trials sheet
+                const trialsWS = XLSX.utils.json_to_sheet(trials);
+                XLSX.utils.book_append_sheet(wb, trialsWS, "Trials");
+                
+                // Add entries sheet
+                const entriesWS = XLSX.utils.json_to_sheet(entries);
+                XLSX.utils.book_append_sheet(wb, entriesWS, "Entries");
+                
+                // Download the file
+                XLSX.writeFile(wb, `dog-trial-export-${new Date().toISOString().split('T')[0]}.xlsx`);
+                
+                showStatus('Data exported successfully!');
+            } catch (error) {
+                console.error('Export error:', error);
+                showStatus('Error exporting data: ' + error.message, true);
+            }
+        }
+
+        // Monitor authentication state
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                console.log('User is signed in:', user.email);
+                // User is signed in
+                if (!currentUser) {
+                    // Get user profile from Firestore
+                    db.collection('users').doc(user.uid).get().then(doc => {
+                        if (doc.exists) {
+                            currentUser = { uid: user.uid, ...doc.data() };
+                            console.log('User profile loaded:', currentUser);
+                        }
+                    });
+                }
+            } else {
+                console.log('User is signed out');
+                currentUser = null;
+            }
+        });
+
+        // Logout function
+        async function logout() {
+            try {
+                await auth.signOut();
+                currentUser = null;
+                goBack(); // Return to role selection
+                showStatus('Logged out successfully');
+            } catch (error) {
+                console.error('Logout error:', error);
+                showStatus('Error logging out: ' + error.message, true);
+            }
+        }
+
+        // Class structure for reference
+        const classStructure = {
+            games: {
+                subClasses: [
+                    { name: 'Games 1', abbreviation: 'G1' },
+                    { name: 'Games 2', abbreviation: 'G2' },
+                    { name: 'Games 3', abbreviation: 'G3' },
+                    { name: 'Games 4', abbreviation: 'G4' }
+                ]
+            },
+            obedience: {
+                subClasses: [
+                    { name: 'Obedience 1', abbreviation: 'O1' },
+                    { name: 'Obedience 2', abbreviation: 'O2' },
+                    { name: 'Obedience 3', abbreviation: 'O3' },
+                    { name: 'Obedience 4', abbreviation: 'O4' },
+                    { name: 'Obedience 5', abbreviation: 'O5' }
+                ]
+            },
+            rally: {
+                subClasses: [
+                    { name: 'Rally Novice', abbreviation: 'RN' },
+                    { name: 'Rally Advanced', abbreviation: 'RA' },
+                    { name: 'Rally Excellent', abbreviation: 'RE' }
+                ]
+            }
+        };
+    </script>
+</body>
+</html>
