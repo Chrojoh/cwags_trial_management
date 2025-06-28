@@ -262,25 +262,40 @@
     }
 
     // ========================================
-    // ENTER KEY HANDLING FIX
+    // ENHANCED ENTER KEY HANDLING FIX
     // ========================================
 
     function handleEnterKey(event) {
       if (event.key === 'Enter') {
         event.preventDefault(); // Prevent form submission
+        event.stopPropagation(); // Stop event bubbling
         
-        // Find the next input field
+        // Find the next input field (exclude buttons)
         const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select'));
         const currentIndex = inputs.indexOf(event.target);
         
         if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
           inputs[currentIndex + 1].focus();
         }
+        
+        return false; // Prevent any default behavior
       }
     }
 
-    // Make handleEnterKey globally available
+    // Prevent Enter key from clicking buttons
+    function preventEnterOnButtons() {
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' && event.target.tagName === 'BUTTON') {
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+      });
+    }
+
+    // Make functions globally available
     window.handleEnterKey = handleEnterKey;
+    window.preventEnterOnButtons = preventEnterOnButtons;
 
     // ========================================
     // DYNAMIC GENERATION FUNCTIONS
@@ -529,13 +544,13 @@
     }
 
     // ========================================
-    // FORM SUBMISSION
+    // FORM SUBMISSION WITH ENTER KEY PROTECTION
     // ========================================
     document.getElementById('trialForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
       try {
-        console.log("Create Trial form submitted");
+        console.log("Create Trial form submitted via button click (not Enter key)");
         
         if (!auth.currentUser) {
           alert("You must be logged in to save a trial");
@@ -594,6 +609,22 @@
       }
     });
 
+    // Prevent form submission on Enter key anywhere in the form
+    document.getElementById('trialForm').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Only allow Enter on the actual submit button
+        if (e.target.type === 'submit') {
+          // Allow this specific case
+          return true;
+        }
+        
+        return false;
+      }
+    });
+
     // ========================================
     // INITIALIZATION
     // ========================================
@@ -621,7 +652,13 @@
     // Initialize when page loads
     initializePage();
 
-    console.log("Create trial page script loaded successfully with correct field handles");
+    // Initialize enter key protection
+    document.addEventListener('DOMContentLoaded', function() {
+      preventEnterOnButtons();
+      console.log("Enter key protection initialized");
+    });
+
+    console.log("Create trial page script loaded successfully with correct field handles and enter key protection");
   </script>
 </body>
 </html>
