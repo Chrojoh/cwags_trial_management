@@ -851,11 +851,26 @@
             // TODO: Implement trial viewing
         }
 
-        // Logout
+        // Logout with safer navigation
         async function logout() {
             try {
+                console.log('Logging out user...');
                 await auth.signOut();
-                window.location.href = 'index.html';
+                
+                // Reset flags
+                authInitialized = false;
+                dashboardInitialized = false;
+                currentUser = null;
+                
+                // Show logout message instead of immediate redirect
+                document.querySelector('.container').innerHTML = `
+                    <div class="card" style="text-align: center; margin-top: 2rem;">
+                        <h2>👋 Logged Out</h2>
+                        <p>You have been successfully logged out.</p>
+                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Return to Login</button>
+                    </div>
+                `;
+                
             } catch (error) {
                 console.error('Logout error:', error);
                 showStatus('Error logging out: ' + error.message, true);
@@ -882,33 +897,42 @@
             loadMyTrials();
         }
 
-        // Authentication check with loop prevention
+        // Authentication check with emergency loop prevention
         auth.onAuthStateChanged(async (user) => {
+            console.log('Auth state change detected. User:', user ? user.email : 'None');
+            console.log('Auth initialized flag:', authInitialized);
+            
             if (authInitialized) {
-                console.log('Auth already initialized, skipping state change...');
+                console.log('Auth already initialized, preventing loop...');
                 return;
             }
-            
-            console.log('Auth state changed:', user ? user.email : 'No user');
             
             if (user) {
                 try {
                     authInitialized = true;
-                    console.log('Loading user profile for:', user.email);
+                    console.log('User authenticated, loading profile...');
                     
                     const userDoc = await db.collection('users').doc(user.uid).get();
                     if (userDoc.exists) {
                         const userData = userDoc.data();
                         currentUser = { uid: user.uid, ...userData };
                         
-                        console.log('User role:', userData.role);
+                        console.log('User role check:', userData.role);
                         
                         if (userData.role !== 'trial_secretary' && userData.role !== 'administrator') {
                             console.log('Access denied for role:', userData.role);
-                            showStatus('Access denied. This page is for trial secretaries only.', true);
-                            setTimeout(() => {
-                                window.location.href = 'index.html';
-                            }, 2000);
+                            showStatus('Access denied. You need trial secretary or administrator access.', true);
+                            
+                            // Show access denied message instead of redirect
+                            document.getElementById('userInfo').textContent = 'Access Denied - Insufficient Permissions';
+                            document.querySelector('.container').innerHTML = `
+                                <div class="card" style="text-align: center; margin-top: 2rem;">
+                                    <h2>🚫 Access Denied</h2>
+                                    <p>This page is only accessible to trial secretaries and administrators.</p>
+                                    <p>Your current role: <strong>${userData.role}</strong></p>
+                                    <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
+                                </div>
+                            `;
                             return;
                         }
                         
@@ -916,27 +940,48 @@
                         await initializeDashboard();
                     } else {
                         console.error('User profile not found in Firestore');
-                        showStatus('User profile not found. Please contact administrator.', true);
-                        setTimeout(() => {
-                            window.location.href = 'index.html';
-                        }, 2000);
+                        showStatus('User profile not found. Please register first.', true);
+                        
+                        // Show profile not found message instead of redirect
+                        document.getElementById('userInfo').textContent = 'Profile Not Found';
+                        document.querySelector('.container').innerHTML = `
+                            <div class="card" style="text-align: center; margin-top: 2rem;">
+                                <h2>👤 Profile Not Found</h2>
+                                <p>Your user profile was not found in the system.</p>
+                                <p>Please contact an administrator or register again.</p>
+                                <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
+                            </div>
+                        `;
                     }
                 } catch (error) {
                     console.error('Error loading user profile:', error);
                     showStatus('Error loading profile: ' + error.message, true);
-                    authInitialized = false; // Reset on error
+                    authInitialized = false; // Reset on error to allow retry
+                    
+                    // Show error message instead of redirect
+                    document.getElementById('userInfo').textContent = 'Error Loading Profile';
+                    document.querySelector('.container').innerHTML = `
+                        <div class="card" style="text-align: center; margin-top: 2rem;">
+                            <h2>⚠️ Error Loading Profile</h2>
+                            <p>There was an error loading your user profile.</p>
+                            <p>Error: ${error.message}</p>
+                            <button class="btn" onclick="window.location.reload()" style="margin-top: 1rem;">Retry</button>
+                            <button class="btn btn-secondary" onclick="logout()" style="margin-top: 1rem;">Logout</button>
+                        </div>
+                    `;
                 }
             } else {
-                console.log('No authenticated user, redirecting to login...');
-                if (authInitialized) {
-                    // Only redirect if we were previously authenticated
-                    window.location.href = 'index.html';
-                } else {
-                    // First load with no user, redirect immediately
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1000);
-                }
+                console.log('No authenticated user detected');
+                
+                // Show login required message instead of redirect
+                document.getElementById('userInfo').textContent = 'Not Logged In';
+                document.querySelector('.container').innerHTML = `
+                    <div class="card" style="text-align: center; margin-top: 2rem;">
+                        <h2>🔐 Login Required</h2>
+                        <p>You must be logged in to access the Trial Secretary Dashboard.</p>
+                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Go to Login</button>
+                    </div>
+                `;
             }
         });
 
