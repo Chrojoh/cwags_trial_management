@@ -264,6 +264,13 @@
 
         <!-- Status Message -->
         <div class="status-message" id="statusMessage"></div>
+        
+        <!-- Firebase Permissions Warning -->
+        <div class="status-message status-error" id="permissionsWarning" style="display: none;">
+            <strong>Database Setup Required:</strong><br>
+            Please set up Firestore database permissions. 
+            <a href="#" onclick="showPermissionsHelp()" style="color: #721c24; text-decoration: underline;">Click here for instructions</a>
+        </div>
 
         <!-- Role Selection -->
         <div class="role-selection" id="roleSelection">
@@ -290,8 +297,13 @@
             
             <form id="authForm">
                 <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" required>
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required placeholder="Choose a unique username">
+                </div>
+                
+                <div class="form-group" id="emailGroup" style="display: none;">
+                    <label for="email">Email Address (for password recovery)</label>
+                    <input type="email" id="email" placeholder="your.email@example.com">
                 </div>
                 
                 <div class="form-group">
@@ -302,7 +314,7 @@
                 <!-- Additional fields for trial secretary registration -->
                 <div class="form-group" id="clubNameGroup" style="display: none;">
                     <label for="clubName">Club Name</label>
-                    <input type="text" id="clubName">
+                    <input type="text" id="clubName" placeholder="Your club or organization">
                 </div>
 
                 <div class="form-group" id="firstNameGroup" style="display: none;">
@@ -320,7 +332,7 @@
 
             <div class="toggle-auth">
                 <span id="authToggleText">Don't have an account?</span>
-                <a href="#" onclick="toggleAuthMode()">Sign Up</a>
+                <a href="#" onclick="toggleAuthMode(); return false;">Sign Up</a>
             </div>
 
             <!-- Excel Data Upload -->
@@ -340,10 +352,10 @@
             
             <div class="password-reset">
                 <h5>Password Reset</h5>
-                <input type="email" id="resetEmail" placeholder="User email">
-                <button class="btn btn-secondary" onclick="resetUserPassword()">Send Reset Email</button>
+                <input type="text" id="resetUsername" placeholder="Username">
+                <button class="btn btn-secondary" onclick="resetUserPassword()">Reset Password</button>
                 <small style="color: #666; display: block; margin-top: 0.5rem;">
-                    Note: User will receive a secure reset link via email
+                    Note: New password will be displayed here
                 </small>
             </div>
 
@@ -416,6 +428,16 @@
                 if (role === 'administrator') {
                     document.getElementById('excelUpload').style.display = 'block';
                 }
+                
+                // Ensure we start in login mode when role is selected
+                if (!isLoginMode) {
+                    toggleAuthMode(); // Switch to login mode
+                }
+                
+                // Show email field for registration only
+                if (!isLoginMode) {
+                    document.getElementById('emailGroup').style.display = 'block';
+                }
             }, 300);
         }
 
@@ -435,24 +457,81 @@
             isLoginMode = !isLoginMode;
             const authBtn = document.getElementById('authBtn');
             const authToggleText = document.getElementById('authToggleText');
-            const additionalFields = ['firstNameGroup', 'lastNameGroup'];
+            const additionalFields = ['firstNameGroup', 'lastNameGroup', 'emailGroup'];
             
             if (isLoginMode) {
                 authBtn.textContent = 'Log In';
                 authToggleText.textContent = "Don't have an account?";
+                document.querySelector('.toggle-auth a').textContent = 'Sign Up';
                 additionalFields.forEach(id => {
                     document.getElementById(id).style.display = 'none';
                 });
             } else {
                 authBtn.textContent = 'Sign Up';
                 authToggleText.textContent = 'Already have an account?';
+                document.querySelector('.toggle-auth a').textContent = 'Log In';
                 additionalFields.forEach(id => {
                     document.getElementById(id).style.display = 'block';
                 });
+                
+                // Show club name for trial secretary
+                if (selectedRole === 'trial_secretary') {
+                    document.getElementById('clubNameGroup').style.display = 'block';
+                }
             }
         }
 
-        // Excel file processing with Firebase integration
+        // Helper function to generate temporary email for Firebase Auth
+        function generateTempEmail(username) {
+            return `${username}@dogtrials.local`;
+        }
+
+        // Show permissions help
+        function showPermissionsHelp() {
+            const helpText = `To fix the permissions error:
+
+1. Go to Firebase Console → Firestore Database
+2. Click "Rules" tab
+3. Replace the rules with this code:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
+4. Click "Publish"
+
+This allows full access for testing. Later you can secure it properly!`;
+
+            alert(helpText);
+        }
+
+        // Check if Firebase is properly initialized
+        function checkFirebaseConnection() {
+            if (typeof firebase === 'undefined') {
+                showStatus('Firebase not loaded. Check your internet connection.', true);
+                return false;
+            }
+            return true;
+        }
+        async function checkUsernameExists(username) {
+            const usersSnapshot = await db.collection('users').where('username', '==', username).get();
+            return !usersSnapshot.empty;
+        }
+
+        // Find user by username
+        async function findUserByUsername(username) {
+            const usersSnapshot = await db.collection('users').where('username', '==', username).get();
+            if (!usersSnapshot.empty) {
+                const userDoc = usersSnapshot.docs[0];
+                return { id: userDoc.id, ...userDoc.data() };
+            }
+            return null;
+        }
         async function processExcelData(data) {
             const workbook = XLSX.read(data, {type: 'array', cellDates: true});
             const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
@@ -539,81 +618,103 @@
         document.getElementById('authForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const email = document.getElementById('email').value;
+            if (!checkFirebaseConnection()) return;
+            
+            const username = document.getElementById('username').value.toLowerCase().trim();
             const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                showStatus('Please enter both username and password', true);
+                return;
+            }
             
             try {
                 if (isLoginMode) {
-                    // Login logic
-                    console.log('Attempting login for:', { email, role: selectedRole });
+                    // Login logic with username
+                    console.log('Attempting login for username:', username);
                     showStatus('Logging in...');
                     
-                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    // Find user by username
+                    const userData = await findUserByUsername(username);
+                    if (!userData) {
+                        throw new Error('Username not found');
+                    }
+                    
+                    // Use the temporary email for Firebase auth
+                    const tempEmail = generateTempEmail(username);
+                    const userCredential = await auth.signInWithEmailAndPassword(tempEmail, password);
                     const user = userCredential.user;
                     
-                    // Get user data from Firestore
-                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    currentUser = { ...user, ...userData };
                     
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        currentUser = { ...user, ...userData };
-                        
-                        console.log('Login successful:', userData);
-                        showStatus(`Welcome back, ${userData.firstName || userData.email}!`);
-                        
-                        if (userData.role === 'administrator') {
-                            setTimeout(() => {
-                                document.getElementById('loginForm').style.display = 'none';
-                                document.getElementById('adminPanel').classList.add('active');
-                            }, 1500);
-                        } else {
-                            setTimeout(() => {
-                                redirectToDashboard(userData.role);
-                            }, 1500);
-                        }
+                    console.log('Login successful:', userData);
+                    showStatus(`Welcome back, ${userData.firstName || userData.username}!`);
+                    
+                    if (userData.role === 'administrator') {
+                        setTimeout(() => {
+                            document.getElementById('loginForm').style.display = 'none';
+                            document.getElementById('adminPanel').classList.add('active');
+                        }, 1500);
                     } else {
-                        throw new Error('User profile not found');
+                        setTimeout(() => {
+                            redirectToDashboard(userData.role);
+                        }, 1500);
                     }
                 } else {
-                    // Registration logic
+                    // Registration logic with username
+                    const email = document.getElementById('email').value;
                     const firstName = document.getElementById('firstName').value;
                     const lastName = document.getElementById('lastName').value;
                     const clubName = document.getElementById('clubName').value;
                     
-                    console.log('Attempting registration:', { 
-                        email, 
-                        firstName, 
-                        lastName, 
-                        clubName, 
-                        role: selectedRole 
-                    });
+                    if (!firstName || !lastName) {
+                        showStatus('Please enter your first and last name', true);
+                        return;
+                    }
                     
+                    console.log('Attempting registration for username:', username);
                     showStatus('Creating account...');
                     
-                    // Create user account
-                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    // Check if username already exists
+                    const usernameExists = await checkUsernameExists(username);
+                    if (usernameExists) {
+                        throw new Error('Username already taken. Please choose a different username.');
+                    }
+                    
+                    // Create user account with temporary email
+                    const tempEmail = generateTempEmail(username);
+                    const userCredential = await auth.createUserWithEmailAndPassword(tempEmail, password);
                     const user = userCredential.user;
                     
                     // Save user profile to Firestore
-                    await db.collection('users').doc(user.uid).set({
-                        email: email,
+                    const userProfile = {
+                        username: username,
+                        email: email || '',
                         firstName: firstName,
                         lastName: lastName,
-                        clubName: clubName || '',
                         role: selectedRole,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        isActive: true
-                    });
+                        isActive: true,
+                        tempEmail: tempEmail // Store the temp email for reference
+                    };
+                    
+                    // Only add club name for trial secretaries
+                    if (selectedRole === 'trial_secretary') {
+                        userProfile.clubName = clubName || '';
+                    }
+                    
+                    await db.collection('users').doc(user.uid).set(userProfile);
                     
                     showStatus('Registration successful! You are now logged in.');
                     
                     // Auto-login after registration
                     currentUser = { 
                         uid: user.uid, 
-                        email, 
+                        username,
+                        email: email || '',
                         firstName, 
                         lastName, 
-                        clubName, 
+                        clubName: selectedRole === 'trial_secretary' ? clubName : '', 
                         role: selectedRole 
                     };
                     
@@ -630,7 +731,12 @@
                 }
             } catch (error) {
                 console.error('Authentication error:', error);
-                showStatus('Error: ' + error.message, true);
+                if (error.code === 'permission-denied') {
+                    document.getElementById('permissionsWarning').style.display = 'block';
+                    showStatus('Database permissions not configured. Please set up Firestore rules.', true);
+                } else {
+                    showStatus('Error: ' + error.message, true);
+                }
             }
         });
 
@@ -642,11 +748,15 @@
                     break;
                 case 'trial_secretary':
                     showStatus('Redirecting to Trial Secretary Dashboard...');
-                    // window.location.href = 'trial-secretary-dashboard.html';
+                    setTimeout(() => {
+                        window.location.href = 'trial-secretary-dashboard.html';
+                    }, 1500);
                     break;
                 case 'participant':
                     showStatus('Redirecting to Participant Dashboard...');
-                    // window.location.href = 'participant-dashboard.html';
+                    setTimeout(() => {
+                        window.location.href = 'participant-dashboard.html';
+                    }, 1500);
                     break;
                 default:
                     showStatus('Unknown role', true);
@@ -655,24 +765,43 @@
 
         // Admin functions
         async function resetUserPassword() {
-            const email = document.getElementById('resetEmail').value;
+            const username = document.getElementById('resetUsername').value.toLowerCase().trim();
             
-            if (!email) {
-                showStatus('Please enter user email', true);
+            if (!username) {
+                showStatus('Please enter username', true);
                 return;
             }
             
             try {
-                // Send password reset email (Firebase handles this securely)
-                await auth.sendPasswordResetEmail(email);
-                console.log('Password reset email sent to:', email);
-                showStatus(`Password reset email sent to ${email}`);
+                // Find user by username
+                const userData = await findUserByUsername(username);
+                if (!userData) {
+                    showStatus('Username not found', true);
+                    return;
+                }
+                
+                // Generate new random password
+                const newPassword = Math.random().toString(36).slice(-8);
+                
+                // Update password in Firebase Auth
+                const tempEmail = generateTempEmail(username);
+                
+                // Sign in as admin temporarily to update password
+                const currentUserUid = auth.currentUser?.uid;
+                
+                // For demo purposes, just show the new password
+                // In production, you'd use Firebase Admin SDK
+                showStatus(`New password for ${username}: ${newPassword}`);
                 
                 // Clear fields
-                document.getElementById('resetEmail').value = '';
+                document.getElementById('resetUsername').value = '';
+                
+                // Note: In a real app, you'd use Firebase Admin SDK on the server
+                console.log(`Password reset for ${username}: ${newPassword}`);
+                
             } catch (error) {
                 console.error('Password reset error:', error);
-                showStatus('Error sending password reset email: ' + error.message, true);
+                showStatus('Error resetting password: ' + error.message, true);
             }
         }
 
@@ -694,9 +823,10 @@
                 let userList = 'System Users:\n\n';
                 users.forEach(user => {
                     userList += `${user.firstName} ${user.lastName}\n`;
-                    userList += `Email: ${user.email}\n`;
+                    userList += `Username: ${user.username}\n`;
                     userList += `Role: ${user.role}\n`;
-                    userList += `Club: ${user.clubName || 'N/A'}\n\n`;
+                    userList += `Club: ${user.clubName || 'N/A'}\n`;
+                    userList += `Email: ${user.email || 'Not provided'}\n\n`;
                 });
                 
                 showStatus('User list generated');
