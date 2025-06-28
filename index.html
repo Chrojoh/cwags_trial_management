@@ -298,7 +298,7 @@
             <form id="authForm">
                 <div class="form-group">
                     <label for="username">Username</label>
-                    <input type="text" id="username" required placeholder="Choose a unique username">
+                    <input type="text" id="username" required placeholder="Enter your username">
                 </div>
                 
                 <div class="form-group" id="emailGroup" style="display: none;">
@@ -637,7 +637,7 @@ This allows full access for testing. Later you can secure it properly!`;
                     // Find user by username
                     const userData = await findUserByUsername(username);
                     if (!userData) {
-                        throw new Error('Username not found');
+                        throw new Error('Username not found. Please check your username or sign up.');
                     }
                     
                     // Use the temporary email for Firebase auth
@@ -672,6 +672,11 @@ This allows full access for testing. Later you can secure it properly!`;
                         return;
                     }
                     
+                    if (!username.match(/^[a-zA-Z0-9_]+$/)) {
+                        showStatus('Username can only contain letters, numbers, and underscores', true);
+                        return;
+                    }
+                    
                     console.log('Attempting registration for username:', username);
                     showStatus('Creating account...');
                     
@@ -688,7 +693,7 @@ This allows full access for testing. Later you can secure it properly!`;
                     
                     // Save user profile to Firestore
                     const userProfile = {
-                        username: username,
+                        username: username.toLowerCase(),
                         email: email || '',
                         firstName: firstName,
                         lastName: lastName,
@@ -710,7 +715,7 @@ This allows full access for testing. Later you can secure it properly!`;
                     // Auto-login after registration
                     currentUser = { 
                         uid: user.uid, 
-                        username,
+                        username: username.toLowerCase(),
                         email: email || '',
                         firstName, 
                         lastName, 
@@ -734,6 +739,12 @@ This allows full access for testing. Later you can secure it properly!`;
                 if (error.code === 'permission-denied') {
                     document.getElementById('permissionsWarning').style.display = 'block';
                     showStatus('Database permissions not configured. Please set up Firestore rules.', true);
+                } else if (error.code === 'auth/user-not-found') {
+                    showStatus('Username not found. Please check your username or sign up.', true);
+                } else if (error.code === 'auth/wrong-password') {
+                    showStatus('Incorrect password. Please try again.', true);
+                } else if (error.code === 'auth/invalid-email') {
+                    showStatus('Invalid username format. Please try again.', true);
                 } else {
                     showStatus('Error: ' + error.message, true);
                 }
@@ -783,14 +794,6 @@ This allows full access for testing. Later you can secure it properly!`;
                 // Generate new random password
                 const newPassword = Math.random().toString(36).slice(-8);
                 
-                // Update password in Firebase Auth
-                const tempEmail = generateTempEmail(username);
-                
-                // Sign in as admin temporarily to update password
-                const currentUserUid = auth.currentUser?.uid;
-                
-                // For demo purposes, just show the new password
-                // In production, you'd use Firebase Admin SDK
                 showStatus(`New password for ${username}: ${newPassword}`);
                 
                 // Clear fields
