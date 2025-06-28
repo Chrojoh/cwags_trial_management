@@ -310,6 +310,8 @@
         let globalJudges = [];
         let cwagsNumbers = [];
         let dogNames = [];
+        let authInitialized = false;
+        let dashboardInitialized = false;
 
         // Standard field names
         const STANDARD_FIELDS = {
@@ -424,8 +426,13 @@
             `;
         }
 
-        // Load data automatically
+        // Load data automatically with better error handling
         async function loadDataAutomatically() {
+            if (!currentUser) {
+                console.log('No current user, skipping data load...');
+                return false;
+            }
+            
             try {
                 showStatus('🔍 Checking for saved data...', false);
                 
@@ -441,36 +448,58 @@
                     if (globalClasses.length > 0) {
                         updateDataStatus();
                         document.getElementById('toggleUpload').classList.remove('hidden');
+                        console.log('Data loaded from Firebase successfully');
                         return true;
                     }
                 }
                 
-                // Try auto-loading file
+                // Try auto-loading file with shorter timeout
                 showStatus('🔄 Looking for dataforsite.xlsx...', false);
                 
                 const controller = new AbortController();
-                setTimeout(() => controller.abort(), 3000);
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                    console.log('File fetch timeout after 2 seconds');
+                }, 2000); // Reduced timeout
                 
-                const response = await fetch('./dataforsite.xlsx', {
-                    signal: controller.signal
-                });
-                
-                if (response.ok) {
-                    const arrayBuffer = await response.arrayBuffer();
-                    const data = new Uint8Array(arrayBuffer);
-                    const jsonData = processExcelData(data);
+                try {
+                    const response = await fetch('./dataforsite.xlsx', {
+                        signal: controller.signal
+                    });
                     
-                    if (jsonData && jsonData.length > 0) {
-                        await extractDataFromExcel(jsonData);
-                        showStatus(`✅ Auto-loaded dataforsite.xlsx! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
-                        document.getElementById('toggleUpload').classList.remove('hidden');
-                        return true;
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        const arrayBuffer = await response.arrayBuffer();
+                        const data = new Uint8Array(arrayBuffer);
+                        const jsonData = processExcelData(data);
+                        
+                        if (jsonData && jsonData.length > 0) {
+                            await extractDataFromExcel(jsonData);
+                            showStatus(`✅ Auto-loaded dataforsite.xlsx! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
+                            document.getElementById('toggleUpload').classList.remove('hidden');
+                            console.log('Data loaded from file successfully');
+                            return true;
+                        }
+                    }
+                } catch (fetchError) {
+                    clearTimeout(timeoutId);
+                    if (fetchError.name === 'AbortError') {
+                        console.log('File fetch was aborted due to timeout');
+                    } else {
+                        console.log('File fetch failed:', fetchError.message);
                     }
                 }
                 
-                throw new Error('File not found');
+                // If we get here, show manual upload
+                showStatus('📁 Please upload dataforsite.xlsx manually', false);
+                document.getElementById('manualUpload').classList.remove('hidden');
+                document.getElementById('toggleUpload').classList.remove('hidden');
+                console.log('Falling back to manual upload');
+                return false;
                 
             } catch (error) {
+                console.error('Error in loadDataAutomatically:', error);
                 showStatus('📁 Please upload dataforsite.xlsx manually', false);
                 document.getElementById('manualUpload').classList.remove('hidden');
                 document.getElementById('toggleUpload').classList.remove('hidden');
@@ -835,6 +864,14 @@
 
         // Initialize dashboard
         async function initializeDashboard() {
+            if (dashboardInitialized) {
+                console.log('Dashboard already initialized, skipping...');
+                return;
+            }
+            
+            dashboardInitialized = true;
+            console.log('Initializing dashboard for user:', currentUser.email);
+            
             document.getElementById('userInfo').textContent = 
                 `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
             
@@ -845,15 +882,29 @@
             loadMyTrials();
         }
 
-        // Authentication check
+        // Authentication check with loop prevention
         auth.onAuthStateChanged(async (user) => {
+            if (authInitialized) {
+                console.log('Auth already initialized, skipping state change...');
+                return;
+            }
+            
+            console.log('Auth state changed:', user ? user.email : 'No user');
+            
             if (user) {
                 try {
+                    authInitialized = true;
+                    console.log('Loading user profile for:', user.email);
+                    
                     const userDoc = await db.collection('users').doc(user.uid).get();
                     if (userDoc.exists) {
-                        currentUser = { uid: user.uid, ...userDoc.data() };
+                        const userData = userDoc.data();
+                        currentUser = { uid: user.uid, ...userData };
                         
-                        if (currentUser.role !== 'trial_secretary' && currentUser.role !== 'administrator') {
+                        console.log('User role:', userData.role);
+                        
+                        if (userData.role !== 'trial_secretary' && userData.role !== 'administrator') {
+                            console.log('Access denied for role:', userData.role);
                             showStatus('Access denied. This page is for trial secretaries only.', true);
                             setTimeout(() => {
                                 window.location.href = 'index.html';
@@ -861,28 +912,53 @@
                             return;
                         }
                         
-                        initializeDashboard();
+                        console.log('User authorized, initializing dashboard...');
+                        await initializeDashboard();
                     } else {
-                        throw new Error('User profile not found');
+                        console.error('User profile not found in Firestore');
+                        showStatus('User profile not found. Please contact administrator.', true);
+                        setTimeout(() => {
+                            window.location.href = 'index.html';
+                        }, 2000);
                     }
                 } catch (error) {
                     console.error('Error loading user profile:', error);
                     showStatus('Error loading profile: ' + error.message, true);
+                    authInitialized = false; // Reset on error
                 }
             } else {
-                window.location.href = 'index.html';
+                console.log('No authenticated user, redirecting to login...');
+                if (authInitialized) {
+                    // Only redirect if we were previously authenticated
+                    window.location.href = 'index.html';
+                } else {
+                    // First load with no user, redirect immediately
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                }
             }
         });
 
-        // Set minimum date to today
+        // Set minimum date to today with error handling
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded');
             const today = new Date().toISOString().split('T')[0];
+            
             document.addEventListener('input', function(e) {
                 if (e.target.type === 'date') {
                     e.target.min = today;
                 }
             });
         });
+
+        // Prevent multiple initializations
+        window.addEventListener('beforeunload', function() {
+            authInitialized = false;
+            dashboardInitialized = false;
+        });
+
+        console.log("Clean Trial Secretary Dashboard script loaded successfully");
     </script>
 </body>
 </html>
