@@ -416,45 +416,61 @@
         // Load trial data
         async function loadTrial(trialId) {
             try {
-                console.log('Loading trial:', trialId);
+                console.log('Loading trial with ID:', trialId);
+                showStatus('🔄 Loading trial data...');
                 
                 const trialDoc = await db.collection('trials').doc(trialId).get();
                 
                 if (!trialDoc.exists) {
+                    console.error('Trial document does not exist');
                     throw new Error('Trial not found');
                 }
                 
                 const trialData = { id: trialDoc.id, ...trialDoc.data() };
+                console.log('Trial data loaded:', trialData);
                 
                 // Check if user has permission to view this trial
                 if (trialData.createdBy !== currentUser.uid && currentUser.role !== 'administrator') {
-                    throw new Error('Access denied');
+                    console.error('Access denied - user:', currentUser.uid, 'trial owner:', trialData.createdBy);
+                    throw new Error('Access denied - you can only view trials you created');
                 }
                 
                 currentTrial = trialData;
                 originalTrialData = JSON.parse(JSON.stringify(trialData)); // Deep copy
                 
                 // Update page title
+                const mode = getUrlParams().mode || 'view';
                 document.getElementById('pageTitle').textContent = 
-                    `📝 ${isEditMode ? 'Edit' : 'View'} Trial: ${trialData.clubName}`;
+                    `${mode === 'edit' ? '✏️ Edit' : '👁️ View'} Trial: ${trialData.clubName}`;
                 
-                // Populate form
+                // Populate basic form fields
                 document.getElementById('clubName').value = trialData.clubName || '';
                 document.getElementById('secretary').value = trialData.secretary || '';
                 
+                console.log('Basic fields populated');
+                
                 // Load trial structure
+                console.log('Loading trial structure...');
                 loadTrialStructure(trialData);
                 
-                // Show editor
+                // Show editor and hide loading
                 document.getElementById('loadingCard').classList.add('hidden');
                 document.getElementById('trialEditor').classList.remove('hidden');
                 
                 // Set initial mode
                 if (getUrlParams().mode === 'edit') {
-                    toggleMode();
+                    console.log('Setting edit mode');
+                    setTimeout(() => toggleMode(), 100); // Small delay to ensure DOM is ready
+                } else {
+                    console.log('Setting view mode');
+                    // Ensure view mode is set
+                    const trialEditor = document.getElementById('trialEditor');
+                    trialEditor.classList.add('view-mode');
+                    trialEditor.classList.remove('edit-mode');
                 }
                 
-                console.log('Trial loaded successfully:', trialData);
+                showStatus('✅ Trial loaded successfully!');
+                console.log('Trial loaded successfully');
                 
             } catch (error) {
                 console.error('Error loading trial:', error);
@@ -469,15 +485,28 @@
             const container = document.getElementById('trialStructure');
             container.innerHTML = '';
             
+            console.log('Loading trial structure:', trialData);
+            
             if (!trialData.days || trialData.days.length === 0) {
+                console.log('No days found in trial data');
                 container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No days configured for this trial.</p>';
                 return;
             }
             
+            console.log('Found', trialData.days.length, 'days');
+            
             trialData.days.forEach((day, dayIndex) => {
-                const dayDiv = createDayElement(day, dayIndex);
-                container.appendChild(dayDiv);
+                console.log(`Loading day ${dayIndex + 1}:`, day);
+                try {
+                    const dayDiv = createDayElement(day, dayIndex);
+                    container.appendChild(dayDiv);
+                    console.log(`Day ${dayIndex + 1} loaded successfully`);
+                } catch (error) {
+                    console.error(`Error loading day ${dayIndex + 1}:`, error);
+                }
             });
+            
+            console.log('Trial structure loaded');
         }
 
         // Create day element
@@ -485,6 +514,12 @@
             const dayDiv = document.createElement('div');
             dayDiv.className = 'day-container';
             dayDiv.dataset.dayIndex = dayIndex;
+            
+            let classesHTML = '';
+            if (dayData.classes && dayData.classes.length > 0) {
+                classesHTML = dayData.classes.map((classData, classIndex) => 
+                    createClassElement(classData, dayIndex, classIndex)).join('');
+            }
             
             dayDiv.innerHTML = `
                 <button class="remove-btn" onclick="removeDay(${dayIndex})" title="Remove Day">×</button>
@@ -496,8 +531,7 @@
                 </div>
                 
                 <div class="classes-container" data-day-index="${dayIndex}">
-                    ${dayData.classes ? dayData.classes.map((classData, classIndex) => 
-                        createClassElement(classData, dayIndex, classIndex)).join('') : ''}
+                    ${classesHTML}
                 </div>
                 
                 <button class="btn add-btn hidden" onclick="addClass(${dayIndex})">➕ Add Class</button>
@@ -508,7 +542,29 @@
 
         // Create class element
         function createClassElement(classData, dayIndex, classIndex) {
-            const subClassOptions = getSubClassOptions(classData[STANDARD_FIELDS.CLASS_NAME] || classData.className);
+            // Handle both old and new field names
+            const className = classData[STANDARD_FIELDS.CLASS_NAME] || classData.className || '';
+            const subClass = classData.subClass || '';
+            
+            let subClassHTML = '';
+            if (subClass) {
+                const subClassOptions = getSubClassOptions(className);
+                subClassHTML = `
+                    <div class="form-group subclass-container">
+                        <label>Sub Class:</label>
+                        <select onchange="markAsModified()" disabled>
+                            <option value="">Select Sub Class</option>
+                            ${subClassOptions}
+                        </select>
+                    </div>
+                `;
+            }
+            
+            let roundsHTML = '';
+            if (classData.rounds && classData.rounds.length > 0) {
+                roundsHTML = classData.rounds.map((roundData, roundIndex) => 
+                    createRoundElement(roundData, dayIndex, classIndex, roundIndex)).join('');
+            }
             
             return `
                 <div class="class-container" data-class-index="${classIndex}">
@@ -518,26 +574,16 @@
                     <div class="form-group">
                         <label>Class Name:</label>
                         <input type="text" 
-                               value="${classData[STANDARD_FIELDS.CLASS_NAME] || classData.className || ''}"
+                               value="${className}"
                                list="classes-datalist"
                                onchange="handleClassSelection(this, ${dayIndex}, ${classIndex}); markAsModified()"
                                readonly>
                     </div>
                     
-                    ${classData.subClass ? `
-                        <div class="form-group subclass-container">
-                            <label>Sub Class:</label>
-                            <select onchange="markAsModified()" disabled>
-                                <option value="">Select Sub Class</option>
-                                ${subClassOptions}
-                                <option value="${classData.subClass}" selected>${classData.subClass}</option>
-                            </select>
-                        </div>
-                    ` : ''}
+                    ${subClassHTML}
                     
                     <div class="rounds-container" data-day-index="${dayIndex}" data-class-index="${classIndex}">
-                        ${classData.rounds ? classData.rounds.map((roundData, roundIndex) => 
-                            createRoundElement(roundData, dayIndex, classIndex, roundIndex)).join('') : ''}
+                        ${roundsHTML}
                     </div>
                     
                     <button class="btn add-btn hidden" onclick="addRound(${dayIndex}, ${classIndex})">➕ Add Round</button>
@@ -547,6 +593,10 @@
 
         // Create round element
         function createRoundElement(roundData, dayIndex, classIndex, roundIndex) {
+            // Handle both old and new field names
+            const judgeName = roundData[STANDARD_FIELDS.JUDGE_NAME] || roundData.judge || '';
+            const feoAvailable = roundData.feoAvailable || false;
+            
             return `
                 <div class="round-container" data-round-index="${roundIndex}">
                     <button class="remove-btn" onclick="removeRound(${dayIndex}, ${classIndex}, ${roundIndex})" title="Remove Round">×</button>
@@ -557,13 +607,13 @@
                         <label style="margin: 0;">Judge:</label>
                         <input type="text" 
                                style="width: 200px;"
-                               value="${roundData[STANDARD_FIELDS.JUDGE_NAME] || roundData.judge || ''}"
+                               value="${judgeName}"
                                list="judges-datalist"
                                onchange="markAsModified()"
                                readonly>
                         
                         <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" ${roundData.feoAvailable ? 'checked' : ''} onchange="markAsModified()" disabled>
+                            <input type="checkbox" ${feoAvailable ? 'checked' : ''} onchange="markAsModified()" disabled>
                             FEO Available
                         </label>
                     </div>
@@ -784,12 +834,70 @@
 
         // Collect trial data from form
         function collectTrialData() {
-            // This would be similar to create-trial.html collectAllTrialData()
-            // Implementation would collect all form data and return it
+            const clubName = document.getElementById('clubName').value.trim();
+            const secretary = document.getElementById('secretary').value.trim();
+            
+            const days = [];
+            const trialStructure = document.getElementById('trialStructure');
+            const dayContainers = trialStructure.querySelectorAll('.day-container');
+            
+            dayContainers.forEach((dayContainer, dayIndex) => {
+                const dateInput = dayContainer.querySelector('input[type="date"]');
+                const classesContainer = dayContainer.querySelector('.classes-container');
+                
+                const dayData = {
+                    dayNumber: dayIndex + 1,
+                    date: dateInput ? dateInput.value : null,
+                    classes: []
+                };
+                
+                if (classesContainer) {
+                    const classContainers = classesContainer.querySelectorAll('.class-container');
+                    
+                    classContainers.forEach((classContainer, classIndex) => {
+                        const classInput = classContainer.querySelector('input[type="text"]');
+                        const subclassSelect = classContainer.querySelector('select');
+                        const roundsContainer = classContainer.querySelector('.rounds-container');
+                        
+                        const classData = {
+                            [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
+                            className: classInput ? classInput.value.trim() : '', // Backup field
+                            subClass: subclassSelect && !subclassSelect.disabled ? subclassSelect.value : '',
+                            rounds: []
+                        };
+                        
+                        if (roundsContainer) {
+                            const roundContainers = roundsContainer.querySelectorAll('.round-container');
+                            
+                            roundContainers.forEach((roundContainer, roundIndex) => {
+                                const judgeInput = roundContainer.querySelector('input[type="text"]');
+                                const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+                                
+                                const roundData = {
+                                    roundNumber: roundIndex + 1,
+                                    [STANDARD_FIELDS.JUDGE_NAME]: judgeInput ? judgeInput.value.trim() : '',
+                                    judge: judgeInput ? judgeInput.value.trim() : '', // Backup field
+                                    feoAvailable: feoCheckbox ? feoCheckbox.checked : false
+                                };
+                                
+                                classData.rounds.push(roundData);
+                            });
+                        }
+                        
+                        if (classData[STANDARD_FIELDS.CLASS_NAME] || classData.className) {
+                            dayData.classes.push(classData);
+                        }
+                    });
+                }
+                
+                days.push(dayData);
+            });
+            
             return {
-                clubName: document.getElementById('clubName').value.trim(),
-                secretary: document.getElementById('secretary').value.trim(),
-                // ... collect days, classes, rounds data
+                clubName: clubName,
+                secretary: secretary,
+                numDays: days.length,
+                days: days
             };
         }
 
@@ -797,27 +905,42 @@
         async function initializePage() {
             const params = getUrlParams();
             
+            console.log('Initializing edit-trial page with params:', params);
+            
             if (!params.trialId) {
+                console.error('No trial ID provided');
                 document.getElementById('loadingCard').classList.add('hidden');
                 document.getElementById('notFoundCard').classList.remove('hidden');
                 return;
             }
             
-            // Wait for authentication
+            // Set up authentication listener
             auth.onAuthStateChanged(async (user) => {
+                console.log('Auth state changed:', user ? user.email : 'No user');
+                
                 if (user) {
                     try {
+                        console.log('Loading user profile...');
+                        
                         // Load user profile
                         const userDoc = await db.collection('users').doc(user.uid).get();
                         if (userDoc.exists) {
                             currentUser = { uid: user.uid, ...userDoc.data() };
+                            console.log('User loaded:', currentUser.firstName, currentUser.lastName);
+                            
                             document.getElementById('userInfo').textContent = 
                                 `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.role}`;
                             
-                            // Load system data
+                            // Load system data first
+                            console.log('Loading system data...');
                             await loadSystemData();
+                            console.log('System data loaded - Classes:', globalClasses.length, 'Judges:', globalJudges.length);
+                            
+                            // Update datalists after system data loads
+                            updateDataLists();
                             
                             // Load trial
+                            console.log('Loading trial:', params.trialId);
                             await loadTrial(params.trialId);
                             
                         } else {
@@ -826,29 +949,46 @@
                     } catch (error) {
                         console.error('Error initializing:', error);
                         showStatus('Error loading page: ' + error.message, true);
+                        document.getElementById('loadingCard').classList.add('hidden');
+                        document.getElementById('notFoundCard').classList.remove('hidden');
                     }
                 } else {
+                    console.log('No user authenticated, redirecting to login');
                     // Redirect to login
                     window.location.href = 'index.html';
                 }
             });
         }
 
+        // Update datalists with loaded data
+        function updateDataLists() {
+            console.log('Updating datalists...');
+            
+            // Remove existing datalists
+            const existingClassesList = document.getElementById('classes-datalist');
+            const existingJudgesList = document.getElementById('judges-datalist');
+            if (existingClassesList) existingClassesList.remove();
+            if (existingJudgesList) existingJudgesList.remove();
+            
+            // Add new datalists to body
+            const classesDatalist = document.createElement('datalist');
+            classesDatalist.id = 'classes-datalist';
+            classesDatalist.innerHTML = globalClasses.map(className => 
+                `<option value="${className}">${className}</option>`).join('');
+            document.body.appendChild(classesDatalist);
+            
+            const judgesDatalist = document.createElement('datalist');
+            judgesDatalist.id = 'judges-datalist';
+            judgesDatalist.innerHTML = globalJudges.map(judge => 
+                `<option value="${judge}">${judge}</option>`).join('');
+            document.body.appendChild(judgesDatalist);
+            
+            console.log('Datalists updated');
+        }
+
+        // Remove the old datalist creation section
         // Set print date
         document.getElementById('printDate').textContent = new Date().toLocaleDateString();
-
-        // Create datalists for autocomplete
-        document.addEventListener('DOMContentLoaded', function() {
-            // Add datalists to body for global access
-            document.body.insertAdjacentHTML('beforeend', `
-                <datalist id="classes-datalist">
-                    ${globalClasses.map(className => `<option value="${className}">${className}</option>`).join('')}
-                </datalist>
-                <datalist id="judges-datalist">
-                    ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
-                </datalist>
-            `);
-        });
 
         // Initialize the page
         initializePage();
