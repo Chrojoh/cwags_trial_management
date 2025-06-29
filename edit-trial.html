@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trial Secretary Dashboard</title>
+    <title>Edit Trial</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -72,8 +72,9 @@
             background: #dc3545;
         }
 
-        .btn-danger:hover {
-            background: #c82333;
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
         }
 
         .card {
@@ -143,6 +144,7 @@
             margin: 10px 0;
             background-color: #f9f9f9;
             border-radius: 8px;
+            position: relative;
         }
         
         .class-container {
@@ -151,6 +153,7 @@
             margin: 5px 0;
             background-color: #fff;
             border-radius: 6px;
+            position: relative;
         }
         
         .round-container {
@@ -158,6 +161,7 @@
             margin: 3px 0;
             background-color: #f0f0f0;
             border-radius: 4px;
+            position: relative;
         }
 
         .subclass-container {
@@ -172,79 +176,94 @@
             display: none;
         }
 
-        .main-content {
+        .view-mode {
+            background-color: #f8f9fa !important;
+            border-color: #e9ecef !important;
+        }
+
+        .view-mode input,
+        .view-mode select,
+        .view-mode button:not(.mode-toggle) {
+            pointer-events: none;
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+
+        .view-mode .btn:not(.mode-toggle) {
+            display: none;
+        }
+
+        .mode-toggle-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 12px;
+            cursor: pointer;
+            display: none;
+        }
+
+        .edit-mode .remove-btn {
+            display: block;
+        }
+
+        .add-btn {
+            background: #28a745;
+            margin-top: 0.5rem;
+        }
+
+        .trial-info {
             display: grid;
-            grid-template-columns: 2fr 1fr;
+            grid-template-columns: 1fr 1fr;
             gap: 2rem;
+            margin-bottom: 2rem;
         }
 
         @media (max-width: 768px) {
-            .main-content {
+            .trial-info {
                 grid-template-columns: 1fr;
             }
         }
 
-        .excel-upload {
-            border: 2px dashed #ccc;
-            border-radius: 8px;
-            padding: 2rem;
+        .loading {
             text-align: center;
-            margin: 1rem 0;
-            transition: all 0.3s ease;
+            padding: 2rem;
+            color: #666;
         }
 
-        .excel-upload:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
-        }
-
-        .trials-list {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-
-        .trial-item {
-            padding: 1rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            background: #f8f9fa;
-        }
-
-        /* Delete confirmation modal styles */
-        .modal-overlay {
+        .print-section {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
         }
 
-        .modal-content {
-            background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-        }
-
-        .modal-content h3 {
-            color: #dc3545;
-            margin-bottom: 1rem;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1.5rem;
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .header, .btn, .mode-toggle-container {
+                display: none !important;
+            }
+            
+            .print-section {
+                display: block;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
         }
     </style>
 </head>
@@ -253,94 +272,74 @@
         <!-- Header -->
         <div class="header">
             <div>
-                <h1>🏆 Trial Secretary Dashboard</h1>
+                <h1 id="pageTitle">📝 Loading Trial...</h1>
                 <div id="userInfo">Loading...</div>
             </div>
             <div>
-                <button class="btn btn-secondary" onclick="window.location.href='create-trial.html'">Create Trial (Full)</button>
-                <button class="btn btn-secondary" onclick="window.location.href='index.html'">Logout</button>
+                <button class="btn btn-secondary" onclick="window.location.href='trial-secretary-dashboard.html'">← Back to Dashboard</button>
+                <button class="btn btn-secondary" onclick="window.print()" id="printBtn">🖨️ Print</button>
             </div>
         </div>
 
         <!-- Status Message -->
         <div class="status-message" id="statusMessage"></div>
 
-        <!-- Data Status -->
-        <div class="card">
-            <h2>📊 Data Status</h2>
-            <div id="dataStatus" class="status-info">
-                🔄 Initializing data...
-            </div>
-            
-            <div id="manualUpload" class="hidden">
-                <div class="excel-upload">
-                    <p>📋 Drop your <strong>dataforsite.xlsx</strong> file here</p>
-                    <input type="file" id="dataFile" accept=".xlsx,.xls" style="display: none;" onchange="handleFileUpload(event)">
-                    <button class="btn" onclick="document.getElementById('dataFile').click()">
-                        Choose dataforsite.xlsx
-                    </button>
-                </div>
-            </div>
-            
-            <button id="toggleUpload" class="btn btn-secondary hidden" onclick="toggleManualUpload()">
-                📁 Upload Different File
-            </button>
+        <!-- Loading State -->
+        <div class="card loading" id="loadingCard">
+            <h2>🔄 Loading Trial Data...</h2>
+            <p>Please wait while we fetch the trial information.</p>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Create Trial Form -->
-            <div class="card">
-                <h2>📋 Create New Trial</h2>
-                
-                <form id="trialForm" onsubmit="return submitTrial(event)">
-                    <div class="form-group">
-                        <label for="clubName">Club Name</label>
-                        <input type="text" id="clubName" required onkeydown="handleEnterKey(event)">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="secretary">Trial Secretary</label>
-                        <input type="text" id="secretary" required onkeydown="handleEnterKey(event)">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="numDays">How many days?</label>
-                        <div style="display: flex; gap: 1rem; align-items: center;">
-                            <input type="number" id="numDays" min="1" max="10" style="width: 100px;" onkeydown="handleEnterKey(event)" onfocus="this.select()">
-                            <button type="button" class="btn btn-secondary" onclick="generateDays()" onkeydown="return false;">Create Days</button>
-                        </div>
-                    </div>
-                    
-                    <div id="daysContainer"></div>
-                    
-                    <button type="submit" class="btn btn-success" style="width: 100%; padding: 1rem; margin-top: 2rem;">
-                        🏆 Save Trial
-                    </button>
-                </form>
-            </div>
-
-            <!-- My Trials -->
-            <div class="card">
-                <h2>📅 My Trials</h2>
-                <div class="trials-list" id="trialsList">
-                    <p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>
-                </div>
-                <button class="btn" onclick="refreshTrials()">🔄 Refresh</button>
-            </div>
+        <!-- Trial Not Found -->
+        <div class="card hidden" id="notFoundCard">
+            <h2>❌ Trial Not Found</h2>
+            <p>The requested trial could not be found or you don't have permission to access it.</p>
+            <button class="btn" onclick="window.location.href='trial-secretary-dashboard.html'">Return to Dashboard</button>
         </div>
-    </div>
 
-    <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" id="deleteModal">
-        <div class="modal-content">
-            <h3>🗑️ Delete Trial</h3>
-            <p>Are you sure you want to delete this trial?</p>
-            <p><strong id="deleteTrialName"></strong></p>
-            <p style="color: #dc3545; font-size: 0.9rem; margin-top: 0.5rem;">This action cannot be undone.</p>
-            <div class="modal-buttons">
-                <button class="btn btn-secondary" onclick="cancelDelete()">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmDelete()">Delete Trial</button>
+        <!-- Trial Editor -->
+        <div class="card hidden" id="trialEditor">
+            <!-- Print Header -->
+            <div class="print-section">
+                <h1>Trial Details</h1>
+                <p>Generated on: <span id="printDate"></span></p>
+                <hr style="margin: 1rem 0;">
+            </div>
+
+            <!-- Mode Toggle -->
+            <div class="mode-toggle-container">
+                <button class="btn btn-warning mode-toggle" onclick="toggleMode()" id="modeToggleBtn">
+                    ✏️ Switch to Edit Mode
+                </button>
+                <button class="btn btn-success hidden" onclick="saveTrial()" id="saveBtn">
+                    💾 Save Changes
+                </button>
+                <button class="btn btn-secondary hidden" onclick="cancelEdit()" id="cancelBtn">
+                    ❌ Cancel Changes
+                </button>
+            </div>
+
+            <!-- Trial Information -->
+            <div class="trial-info">
+                <div class="form-group">
+                    <label for="clubName">Club Name</label>
+                    <input type="text" id="clubName" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label for="secretary">Trial Secretary</label>
+                    <input type="text" id="secretary" readonly>
+                </div>
+            </div>
+
+            <!-- Trial Structure -->
+            <div id="trialStructure">
+                <!-- Days will be loaded here -->
+            </div>
+
+            <!-- Add Controls (Edit Mode Only) -->
+            <div class="hidden" id="addControls">
+                <button class="btn add-btn" onclick="addDay()">➕ Add Day</button>
             </div>
         </div>
     </div>
@@ -364,15 +363,11 @@
 
         // Global variables
         let currentUser = null;
+        let currentTrial = null;
+        let isEditMode = false;
         let globalClasses = [];
         let globalJudges = [];
-        let cwagsNumbers = [];
-        let dogNames = [];
-        let authInitialized = false;
-        let dashboardInitialized = false;
-
-        // Delete modal variables
-        let trialToDelete = null;
+        let originalTrialData = null;
 
         // Standard field names
         const STANDARD_FIELDS = {
@@ -383,914 +378,482 @@
             CWAGS_NUMBER: 'cwagsNumber'
         };
 
-        // Handle Enter key navigation (prevent auto-submit and button clicks)
-        function handleEnterKey(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault(); // Prevent form submission
-                event.stopPropagation(); // Stop event from bubbling up
-                
-                // Don't trigger any buttons
-                if (event.target.tagName === 'BUTTON' || event.target.type === 'button') {
-                    return false;
-                }
-                
-                // Find the next input field
-                const inputs = Array.from(document.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select'));
-                const currentIndex = inputs.indexOf(event.target);
-                
-                if (currentIndex !== -1 && currentIndex < inputs.length - 1) {
-                    inputs[currentIndex + 1].focus();
-                }
-                
-                return false;
-            }
+        // Get URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                trialId: params.get('id'),
+                mode: params.get('mode') || 'view' // 'view' or 'edit'
+            };
         }
 
-        // Prevent Enter key from triggering any buttons in the document
-        document.addEventListener('keydown', function(event) {
-            if (event.key === 'Enter') {
-                // If the focused element is a button, prevent the click
-                if (event.target.tagName === 'BUTTON' || event.target.type === 'button') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    return false;
-                }
-                
-                // If we're in a form and not on the submit button, prevent submission
-                if (event.target.form && event.target.type !== 'submit') {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    
-                    // Move to next field instead
-                    handleEnterKey(event);
-                    return false;
-                }
-            }
-        });
-
+        // Show status messages
         function showStatus(message, isError = false) {
             const statusDiv = document.getElementById('statusMessage');
-            const dataStatusDiv = document.getElementById('dataStatus');
-            
             statusDiv.textContent = message;
             statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
             statusDiv.style.display = 'block';
-            
-            if (message.includes('data') || message.includes('xlsx')) {
-                dataStatusDiv.textContent = message;
-                dataStatusDiv.className = isError ? 'status-error' : 'status-info';
-            }
             
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 5000);
         }
 
-        // Process Excel data using SheetJS
-        function processExcelData(data) {
-            const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-            const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
-            
-            if (!dataSheet) {
-                console.error('No data sheet found');
-                return null;
-            }
-            
-            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
-                header: 1, 
-                dateNF: 'yyyy-mm-dd',
-                defval: ''
-            });
-            
-            return jsonData;
-        }
-
-        // Find column index by name
-        function findColumnIndex(headers, possibleNames) {
-            for (let i = 0; i < headers.length; i++) {
-                const header = String(headers[i]).toLowerCase().trim();
-                if (possibleNames.some(name => header.includes(name.toLowerCase()))) {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        // Extract data from Excel with correct column structure understanding
-        async function extractDataFromExcel(jsonData) {
-            const headers = jsonData[0];
-            const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
-            
-            // Sets for unique values
-            const judges = new Set();
-            const classes = new Set();
-            const obedienceSubClasses = new Set();
-            const gamesSubClasses = new Set();
-            
-            // Map to store unique CWAG registrations (columns A, B, C are dependent)
-            const cwagsMap = new Map(); // cwag -> {dog, handler}
-            
-            console.log('Processing Excel with expected structure:');
-            console.log('Col A: CWAG Number | Col B: Handler | Col C: Dog Name | Col D: Classes | Col E: Judges | Col F: Obedience Sub | Col G: Games Sub');
-            
-            rows.forEach((row, index) => {
-                // Fixed column positions based on your description
-                const cwagsNum = row[0] ? String(row[0]).trim() : null;     // Column A
-                const handlerName = row[1] ? String(row[1]).trim() : null;  // Column B  
-                const dogName = row[2] ? String(row[2]).trim() : null;      // Column C
-                const className = row[3] ? String(row[3]).trim() : null;    // Column D (independent)
-                const judgeName = row[4] ? String(row[4]).trim() : null;    // Column E (independent)
-                const obedSubClass = row[5] ? String(row[5]).trim() : null; // Column F (future)
-                const gamesSubClass = row[6] ? String(row[6]).trim() : null; // Column G (future)
-                
-                // Add independent columns to sets
-                if (judgeName) judges.add(judgeName);
-                if (className) classes.add(className);
-                if (obedSubClass) obedienceSubClasses.add(obedSubClass);
-                if (gamesSubClass) gamesSubClasses.add(gamesSubClass);
-                
-                // Store unique CWAG registrations (A, B, C are dependent - each CWAG = one unique pair)
-                if (cwagsNum && dogName && handlerName) {
-                    if (!cwagsMap.has(cwagsNum)) {
-                        cwagsMap.set(cwagsNum, {
-                            cwag: cwagsNum,
-                            handler: handlerName,
-                            dog: dogName
-                        });
-                    } else {
-                        // Verify consistency of dependent columns
-                        const existing = cwagsMap.get(cwagsNum);
-                        if (existing.handler !== handlerName || existing.dog !== dogName) {
-                            console.warn(`CWAG ${cwagsNum} has inconsistent data at row ${index + 2}:`, {
-                                existing: existing,
-                                current: { handler: handlerName, dog: dogName }
-                            });
-                        }
-                    }
-                }
-            });
-            
-            // Update global arrays
-            globalClasses = Array.from(classes).sort();
-            globalJudges = Array.from(judges).sort();
-            cwagsNumbers = Array.from(cwagsMap.keys()).sort();
-            dogNames = Array.from(new Set(Array.from(cwagsMap.values()).map(reg => reg.dog))).sort();
-            
-            // Store handler names for future use
-            const handlerNames = Array.from(new Set(Array.from(cwagsMap.values()).map(reg => reg.handler))).sort();
-            
-            // Create array of unique registrations
-            const uniqueRegistrations = Array.from(cwagsMap.values());
-            
-            console.log('Data extraction results:', {
-                totalDataRows: rows.length,
-                uniqueCWAGNumbers: cwagsMap.size,
-                uniqueHandlers: handlerNames.length,
-                uniqueDogNames: dogNames.length,
-                independentClasses: classes.size,
-                independentJudges: judges.size,
-                obedienceSubClasses: obedienceSubClasses.size,
-                gamesSubClasses: gamesSubClasses.size
-            });
-            
-            // Save to Firebase with new structure
+        // Load system data for dropdowns
+        async function loadSystemData() {
             try {
-                await db.collection('system_data').doc('dataforsite').set({
-                    // Independent columns
-                    classes: globalClasses,           // Column D
-                    judges: globalJudges,            // Column E
-                    obedienceSubClasses: Array.from(obedienceSubClasses).sort(), // Column F (future)
-                    gamesSubClasses: Array.from(gamesSubClasses).sort(),         // Column G (future)
-                    
-                    // Dependent columns (A, B, C linked by CWAG number)
-                    cwagsNumbers: cwagsNumbers,      // Column A (unique keys)
-                    handlerNames: handlerNames,      // Column B (from unique registrations)
-                    dogNames: dogNames,              // Column C (from unique registrations)
-                    registrations: uniqueRegistrations, // Full A+B+C combinations
-                    
-                    // Statistics and metadata
-                    extractionStats: {
-                        totalDataRows: rows.length,
-                        uniqueCWAGNumbers: cwagsMap.size,
-                        uniqueHandlers: handlerNames.length,
-                        uniqueDogNames: dogNames.length,
-                        independentClasses: classes.size,
-                        independentJudges: judges.size,
-                        obedienceSubClasses: obedienceSubClasses.size,
-                        gamesSubClasses: gamesSubClasses.size
-                    },
-                    columnStructure: {
-                        A: 'CWAG Number (unique key)',
-                        B: 'Handler Name (dependent on A)',
-                        C: 'Dog Name (dependent on A)', 
-                        D: 'Classes (independent)',
-                        E: 'Judges (independent)',
-                        F: 'Obedience Sub Classes with abbreviations (future)',
-                        G: 'Games Sub Classes with abbreviations (future)'
-                    },
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                });
-                console.log('Saved data with correct column structure understanding');
-            } catch (error) {
-                console.error('Error saving to Firebase:', error);
-            }
-            
-            updateDataStatus();
-        }
-
-        // Update data status display with correct column understanding
-        function updateDataStatus() {
-            const statusDiv = document.getElementById('dataStatus');
-            statusDiv.className = 'status-success';
-            
-            statusDiv.innerHTML = `
-                <strong>✅ Data Ready:</strong><br>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.9rem;">
-                    <div><strong>CWAG Numbers:</strong> ${cwagsNumbers.length}</div>
-                    <div><strong>Classes:</strong> ${globalClasses.length}</div>
-                    <div><strong>Handlers:</strong> ${cwagsNumbers.length}</div>
-                    <div><strong>Judges:</strong> ${globalJudges.length}</div>
-                </div>
-                <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">
-                    <strong>Structure:</strong> A-B-C (CWAG-Handler-Dog) are linked | D (Classes) & E (Judges) independent
-                    <br><small>Ready for F (Obedience sub-classes) & G (Games sub-classes) when available</small>
-                </div>
-            `;
-        }
-
-        // Load data automatically with better error handling
-        async function loadDataAutomatically() {
-            if (!currentUser) {
-                console.log('No current user, skipping data load...');
-                return false;
-            }
-            
-            try {
-                showStatus('🔍 Checking for saved data...', false);
-                
-                // Try Firebase first
                 const dataDoc = await db.collection('system_data').doc('dataforsite').get();
                 if (dataDoc.exists) {
                     const data = dataDoc.data();
                     globalClasses = data.classes || [];
                     globalJudges = data.judges || [];
-                    cwagsNumbers = data.cwagsNumbers || [];
-                    dogNames = data.dogNames || [];
-                    
-                    if (globalClasses.length > 0) {
-                        updateDataStatus();
-                        document.getElementById('toggleUpload').classList.remove('hidden');
-                        console.log('Data loaded from Firebase successfully');
-                        return true;
-                    }
                 }
-                
-                // Try auto-loading file with shorter timeout
-                showStatus('🔄 Looking for dataforsite.xlsx...', false);
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => {
-                    controller.abort();
-                    console.log('File fetch timeout after 2 seconds');
-                }, 2000); // Reduced timeout
-                
-                try {
-                    const response = await fetch('./dataforsite.xlsx', {
-                        signal: controller.signal
-                    });
-                    
-                    clearTimeout(timeoutId);
-                    
-                    if (response.ok) {
-                        const arrayBuffer = await response.arrayBuffer();
-                        const data = new Uint8Array(arrayBuffer);
-                        const jsonData = processExcelData(data);
-                        
-                        if (jsonData && jsonData.length > 0) {
-                            await extractDataFromExcel(jsonData);
-                            showStatus(`✅ Auto-loaded dataforsite.xlsx! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
-                            document.getElementById('toggleUpload').classList.remove('hidden');
-                            console.log('Data loaded from file successfully');
-                            return true;
-                        }
-                    }
-                } catch (fetchError) {
-                    clearTimeout(timeoutId);
-                    if (fetchError.name === 'AbortError') {
-                        console.log('File fetch was aborted due to timeout');
-                    } else {
-                        console.log('File fetch failed:', fetchError.message);
-                    }
-                }
-                
-                // If we get here, show manual upload
-                showStatus('📁 Please upload dataforsite.xlsx manually', false);
-                document.getElementById('manualUpload').classList.remove('hidden');
-                document.getElementById('toggleUpload').classList.remove('hidden');
-                console.log('Falling back to manual upload');
-                return false;
-                
             } catch (error) {
-                console.error('Error in loadDataAutomatically:', error);
-                showStatus('📁 Please upload dataforsite.xlsx manually', false);
-                document.getElementById('manualUpload').classList.remove('hidden');
-                document.getElementById('toggleUpload').classList.remove('hidden');
-                return false;
+                console.error('Error loading system data:', error);
             }
         }
 
-        // Handle file upload
-        async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
+        // Load trial data
+        async function loadTrial(trialId) {
             try {
-                showStatus('📊 Processing uploaded file...');
+                console.log('Loading trial:', trialId);
                 
-                const arrayBuffer = await file.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                const jsonData = processExcelData(data);
+                const trialDoc = await db.collection('trials').doc(trialId).get();
                 
-                if (jsonData && jsonData.length > 0) {
-                    await extractDataFromExcel(jsonData);
-                    showStatus(`✅ File uploaded successfully! Found ${globalClasses.length} classes, ${globalJudges.length} judges`);
-                    document.getElementById('manualUpload').classList.add('hidden');
-                } else {
-                    throw new Error('No data found in file');
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
                 }
+                
+                const trialData = { id: trialDoc.id, ...trialDoc.data() };
+                
+                // Check if user has permission to view this trial
+                if (trialData.createdBy !== currentUser.uid && currentUser.role !== 'administrator') {
+                    throw new Error('Access denied');
+                }
+                
+                currentTrial = trialData;
+                originalTrialData = JSON.parse(JSON.stringify(trialData)); // Deep copy
+                
+                // Update page title
+                document.getElementById('pageTitle').textContent = 
+                    `📝 ${isEditMode ? 'Edit' : 'View'} Trial: ${trialData.clubName}`;
+                
+                // Populate form
+                document.getElementById('clubName').value = trialData.clubName || '';
+                document.getElementById('secretary').value = trialData.secretary || '';
+                
+                // Load trial structure
+                loadTrialStructure(trialData);
+                
+                // Show editor
+                document.getElementById('loadingCard').classList.add('hidden');
+                document.getElementById('trialEditor').classList.remove('hidden');
+                
+                // Set initial mode
+                if (getUrlParams().mode === 'edit') {
+                    toggleMode();
+                }
+                
+                console.log('Trial loaded successfully:', trialData);
+                
             } catch (error) {
-                showStatus('Error processing file: ' + error.message, true);
+                console.error('Error loading trial:', error);
+                document.getElementById('loadingCard').classList.add('hidden');
+                document.getElementById('notFoundCard').classList.remove('hidden');
+                showStatus('Error loading trial: ' + error.message, true);
             }
         }
 
-        // Toggle manual upload
-        function toggleManualUpload() {
-            const manualUpload = document.getElementById('manualUpload');
-            manualUpload.classList.toggle('hidden');
-        }
-
-        // Generate days
-        function generateDays() {
-            const numDays = parseInt(document.getElementById('numDays').value);
-            if (!numDays || numDays < 1) {
-                alert("Please enter a valid number of days");
+        // Load trial structure into form
+        function loadTrialStructure(trialData) {
+            const container = document.getElementById('trialStructure');
+            container.innerHTML = '';
+            
+            if (!trialData.days || trialData.days.length === 0) {
+                container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No days configured for this trial.</p>';
                 return;
             }
             
-            const container = document.getElementById('daysContainer');
-            container.innerHTML = "";
-            
-            for (let d = 0; d < numDays; d++) {
-                const dayDiv = document.createElement("div");
-                dayDiv.className = "day-container";
-                dayDiv.innerHTML = `
-                    <h3>Day ${d + 1}</h3>
-                    <label>Date:</label>
-                    <input type="date" name="date${d}" style="margin-left: 10px; margin-bottom: 10px;">
-                    
-                    <label style="display: block; margin: 10px 0;">How many classes for Day ${d + 1}?</label>
-                    <input type="number" id="numClasses_${d}" min="1" max="20" style="width: 100px; padding: 5px;">
-                    <button type="button" class="btn btn-secondary" onclick="generateClasses(${d})">Create Classes</button>
-                    
-                    <div class="classes-container-${d}"></div>
-                `;
+            trialData.days.forEach((day, dayIndex) => {
+                const dayDiv = createDayElement(day, dayIndex);
                 container.appendChild(dayDiv);
-            }
+            });
         }
 
-        // Generate classes
-        function generateClasses(dayIndex) {
-            const numClasses = parseInt(document.getElementById(`numClasses_${dayIndex}`).value);
-            if (!numClasses || numClasses < 1) {
-                alert("Please enter a valid number of classes");
-                return;
-            }
+        // Create day element
+        function createDayElement(dayData, dayIndex) {
+            const dayDiv = document.createElement('div');
+            dayDiv.className = 'day-container';
+            dayDiv.dataset.dayIndex = dayIndex;
             
-            const container = document.querySelector(`.classes-container-${dayIndex}`);
-            container.innerHTML = "";
+            dayDiv.innerHTML = `
+                <button class="remove-btn" onclick="removeDay(${dayIndex})" title="Remove Day">×</button>
+                <h3>Day ${dayData.dayNumber || dayIndex + 1}</h3>
+                
+                <div class="form-group">
+                    <label>Date:</label>
+                    <input type="date" value="${dayData.date || ''}" onchange="markAsModified()" readonly>
+                </div>
+                
+                <div class="classes-container" data-day-index="${dayIndex}">
+                    ${dayData.classes ? dayData.classes.map((classData, classIndex) => 
+                        createClassElement(classData, dayIndex, classIndex)).join('') : ''}
+                </div>
+                
+                <button class="btn add-btn hidden" onclick="addClass(${dayIndex})">➕ Add Class</button>
+            `;
             
-            for (let c = 0; c < numClasses; c++) {
-                const classDiv = document.createElement("div");
-                classDiv.className = "class-container";
-                classDiv.innerHTML = `
-                    <h4>Class ${c + 1}</h4>
-                    <label>Class Name:</label>
-                    <input type="text" 
-                           style="margin-left: 10px; width: 250px; padding: 8px;" 
-                           placeholder="Type class name..." 
-                           list="classes-datalist-${dayIndex}-${c}"
-                           class="class-autocomplete"
-                           onchange="handleClassSelection(${dayIndex}, ${c}, this.value)">
-                    <datalist id="classes-datalist-${dayIndex}-${c}">
-                        ${globalClasses.map(name => `<option value="${name}">${name}</option>`).join('')}
-                    </datalist>
+            return dayDiv;
+        }
+
+        // Create class element
+        function createClassElement(classData, dayIndex, classIndex) {
+            const subClassOptions = getSubClassOptions(classData[STANDARD_FIELDS.CLASS_NAME] || classData.className);
+            
+            return `
+                <div class="class-container" data-class-index="${classIndex}">
+                    <button class="remove-btn" onclick="removeClass(${dayIndex}, ${classIndex})" title="Remove Class">×</button>
+                    <h4>Class ${classIndex + 1}</h4>
                     
-                    <div id="subclass-container-${dayIndex}-${c}" class="subclass-container hidden">
-                        <label style="display: block; margin: 10px 0;">Sub Class:</label>
-                        <select id="subclass_${dayIndex}_${c}" style="width: 200px; padding: 5px;">
-                            <option value="">Select Sub Class</option>
-                        </select>
+                    <div class="form-group">
+                        <label>Class Name:</label>
+                        <input type="text" 
+                               value="${classData[STANDARD_FIELDS.CLASS_NAME] || classData.className || ''}"
+                               list="classes-datalist"
+                               onchange="handleClassSelection(this, ${dayIndex}, ${classIndex}); markAsModified()"
+                               readonly>
                     </div>
                     
-                    <label style="display: block; margin: 10px 0;">How many rounds for Class ${c + 1}?</label>
-                    <input type="number" id="numRounds_${dayIndex}_${c}" min="1" max="10" style="width: 100px; padding: 5px;">
-                    <button type="button" class="btn btn-secondary" onclick="generateRounds(${dayIndex}, ${c})">Create Rounds</button>
+                    ${classData.subClass ? `
+                        <div class="form-group subclass-container">
+                            <label>Sub Class:</label>
+                            <select onchange="markAsModified()" disabled>
+                                <option value="">Select Sub Class</option>
+                                ${subClassOptions}
+                                <option value="${classData.subClass}" selected>${classData.subClass}</option>
+                            </select>
+                        </div>
+                    ` : ''}
                     
-                    <div class="rounds-container-${dayIndex}-${c}"></div>
-                `;
-                container.appendChild(classDiv);
-            }
+                    <div class="rounds-container" data-day-index="${dayIndex}" data-class-index="${classIndex}">
+                        ${classData.rounds ? classData.rounds.map((roundData, roundIndex) => 
+                            createRoundElement(roundData, dayIndex, classIndex, roundIndex)).join('') : ''}
+                    </div>
+                    
+                    <button class="btn add-btn hidden" onclick="addRound(${dayIndex}, ${classIndex})">➕ Add Round</button>
+                </div>
+            `;
         }
 
-        // Handle class selection for sub-classes
-        function handleClassSelection(dayIndex, classIndex, className) {
-            const subclassContainer = document.getElementById(`subclass-container-${dayIndex}-${classIndex}`);
-            const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
+        // Create round element
+        function createRoundElement(roundData, dayIndex, classIndex, roundIndex) {
+            return `
+                <div class="round-container" data-round-index="${roundIndex}">
+                    <button class="remove-btn" onclick="removeRound(${dayIndex}, ${classIndex}, ${roundIndex})" title="Remove Round">×</button>
+                    
+                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                        <strong>Round ${roundData.roundNumber || roundIndex + 1}:</strong>
+                        
+                        <label style="margin: 0;">Judge:</label>
+                        <input type="text" 
+                               style="width: 200px;"
+                               value="${roundData[STANDARD_FIELDS.JUDGE_NAME] || roundData.judge || ''}"
+                               list="judges-datalist"
+                               onchange="markAsModified()"
+                               readonly>
+                        
+                        <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" ${roundData.feoAvailable ? 'checked' : ''} onchange="markAsModified()" disabled>
+                            FEO Available
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get sub-class options based on class name
+        function getSubClassOptions(className) {
+            if (!className) return '';
             
-            if (className.toLowerCase().includes('games')) {
-                subclassSelect.innerHTML = `
-                    <option value="">Select Games Sub Class</option>
+            const classLower = className.toLowerCase();
+            if (classLower.includes('games')) {
+                return `
                     <option value="games1">Games Sub Class 1</option>
                     <option value="games2">Games Sub Class 2</option>
                     <option value="games3">Games Sub Class 3</option>
                     <option value="games4">Games Sub Class 4</option>
                     <option value="games5">Games Sub Class 5</option>
                 `;
-                subclassContainer.classList.remove('hidden');
-            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
-                subclassSelect.innerHTML = `
-                    <option value="">Select Obedience Sub Class</option>
+            } else if (classLower.includes('obedience') || classLower.includes('obed')) {
+                return `
                     <option value="obed1">Obedience Sub Class 1</option>
                     <option value="obed2">Obedience Sub Class 2</option>
                     <option value="obed3">Obedience Sub Class 3</option>
                     <option value="obed4">Obedience Sub Class 4</option>
                     <option value="obed5">Obedience Sub Class 5</option>
                 `;
-                subclassContainer.classList.remove('hidden');
-            } else {
-                subclassContainer.classList.add('hidden');
             }
+            return '';
         }
 
-        // Generate rounds
-        function generateRounds(dayIndex, classIndex) {
-            const numRounds = parseInt(document.getElementById(`numRounds_${dayIndex}_${classIndex}`).value);
-            if (!numRounds || numRounds < 1) {
-                alert("Please enter a valid number of rounds");
-                return;
-            }
+        // Toggle between view and edit mode
+        function toggleMode() {
+            isEditMode = !isEditMode;
+            const trialEditor = document.getElementById('trialEditor');
+            const modeToggleBtn = document.getElementById('modeToggleBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const addControls = document.getElementById('addControls');
             
-            const container = document.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
-            container.innerHTML = "";
-            
-            for (let r = 0; r < numRounds; r++) {
-                const roundDiv = document.createElement("div");
-                roundDiv.className = "round-container";
-                roundDiv.innerHTML = `
-                    <div style="margin-bottom: 5px;">
-                        <strong>Round ${r + 1}:</strong>
-                        <label style="margin-left: 10px;">Judge:</label>
-                        <input type="text" 
-                               style="margin-left: 5px; width: 180px; padding: 8px;" 
-                               placeholder="Type judge name..." 
-                               list="judges-datalist-${dayIndex}-${classIndex}-${r}"
-                               class="judge-autocomplete">
-                        <datalist id="judges-datalist-${dayIndex}-${classIndex}-${r}">
-                            ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
-                        </datalist>
-                        <label style="margin-left: 10px;">
-                            <input type="checkbox"> FEO Available
-                        </label>
-                    </div>
-                `;
-                container.appendChild(roundDiv);
-            }
-        }
-
-        // Collect trial data
-        function collectTrialData() {
-            const clubName = document.getElementById('clubName').value;
-            const secretary = document.getElementById('secretary').value;
-            const numDays = parseInt(document.getElementById('numDays').value) || 0;
-            
-            const days = [];
-            const daysContainer = document.getElementById('daysContainer');
-            
-            if (daysContainer) {
-                const dayContainers = daysContainer.querySelectorAll('.day-container');
+            if (isEditMode) {
+                // Switch to edit mode
+                trialEditor.classList.add('edit-mode');
+                trialEditor.classList.remove('view-mode');
+                modeToggleBtn.innerHTML = '👁️ Switch to View Mode';
+                saveBtn.classList.remove('hidden');
+                cancelBtn.classList.remove('hidden');
+                addControls.classList.remove('hidden');
                 
-                dayContainers.forEach((dayContainer, dayIndex) => {
-                    const dateInput = dayContainer.querySelector(`input[name="date${dayIndex}"]`);
-                    const classesContainer = dayContainer.querySelector(`.classes-container-${dayIndex}`);
-                    
-                    const dayData = {
-                        dayNumber: dayIndex + 1,
-                        date: dateInput ? dateInput.value : null,
-                        classes: []
-                    };
-                    
-                    if (classesContainer) {
-                        const classContainers = classesContainer.querySelectorAll('.class-container');
-                        
-                        classContainers.forEach((classContainer, classIndex) => {
-                            const classInput = classContainer.querySelector('.class-autocomplete');
-                            const subclassSelect = classContainer.querySelector(`#subclass_${dayIndex}_${classIndex}`);
-                            const roundsContainer = classContainer.querySelector(`.rounds-container-${dayIndex}-${classIndex}`);
-                            
-                            const classData = {
-                                [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
-                                subClass: subclassSelect && !subclassSelect.parentElement.classList.contains('hidden') ? subclassSelect.value : '',
-                                rounds: []
-                            };
-                            
-                            if (roundsContainer) {
-                                const roundContainers = roundsContainer.querySelectorAll('.round-container');
-                                
-                                roundContainers.forEach((roundContainer, roundIndex) => {
-                                    const judgeInput = roundContainer.querySelector('.judge-autocomplete');
-                                    const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
-                                    
-                                    const roundData = {
-                                        roundNumber: roundIndex + 1,
-                                        [STANDARD_FIELDS.JUDGE_NAME]: judgeInput ? judgeInput.value.trim() : '',
-                                        feoAvailable: feoCheckbox ? feoCheckbox.checked : false
-                                    };
-                                    
-                                    classData.rounds.push(roundData);
-                                });
-                            }
-                            
-                            if (classData[STANDARD_FIELDS.CLASS_NAME]) {
-                                dayData.classes.push(classData);
-                            }
-                        });
-                    }
-                    
-                    days.push(dayData);
+                // Enable all inputs
+                trialEditor.querySelectorAll('input, select').forEach(input => {
+                    input.removeAttribute('readonly');
+                    input.removeAttribute('disabled');
                 });
+                
+                // Show add buttons
+                trialEditor.querySelectorAll('.add-btn').forEach(btn => {
+                    btn.classList.remove('hidden');
+                });
+                
+                document.getElementById('pageTitle').textContent = `✏️ Edit Trial: ${currentTrial.clubName}`;
+                
+            } else {
+                // Switch to view mode
+                trialEditor.classList.remove('edit-mode');
+                trialEditor.classList.add('view-mode');
+                modeToggleBtn.innerHTML = '✏️ Switch to Edit Mode';
+                saveBtn.classList.add('hidden');
+                cancelBtn.classList.add('hidden');
+                addControls.classList.add('hidden');
+                
+                // Disable all inputs
+                trialEditor.querySelectorAll('input, select').forEach(input => {
+                    input.setAttribute('readonly', 'readonly');
+                    if (input.tagName === 'SELECT') {
+                        input.setAttribute('disabled', 'disabled');
+                    }
+                });
+                
+                // Hide add buttons
+                trialEditor.querySelectorAll('.add-btn').forEach(btn => {
+                    btn.classList.add('hidden');
+                });
+                
+                document.getElementById('pageTitle').textContent = `👁️ View Trial: ${currentTrial.clubName}`;
             }
-            
-            return {
-                clubName: clubName.trim(),
-                secretary: secretary.trim(),
-                numDays: numDays,
-                days: days,
-                createdBy: currentUser.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
         }
 
-        // Submit trial
-        async function submitTrial(event) {
-            event.preventDefault();
+        // Mark trial as modified
+        function markAsModified() {
+            if (isEditMode) {
+                console.log('Trial data modified');
+            }
+        }
+
+        // Handle class selection changes
+        function handleClassSelection(input, dayIndex, classIndex) {
+            // Handle sub-class visibility based on class selection
+            // This would be similar to the create-trial.html implementation
+        }
+
+        // Add/Remove functions (for edit mode)
+        function addDay() {
+            const container = document.getElementById('trialStructure');
+            const dayCount = container.children.length;
             
-            try {
-                const clubName = document.getElementById('clubName').value;
-                const secretary = document.getElementById('secretary').value;
-                
-                if (!clubName.trim() || !secretary.trim()) {
-                    alert("Please enter club name and trial secretary");
-                    return false;
+            const newDay = {
+                dayNumber: dayCount + 1,
+                date: '',
+                classes: []
+            };
+            
+            const dayDiv = createDayElement(newDay, dayCount);
+            container.appendChild(dayDiv);
+            markAsModified();
+        }
+
+        function removeDay(dayIndex) {
+            if (confirm('Are you sure you want to remove this day?')) {
+                const dayElement = document.querySelector(`[data-day-index="${dayIndex}"]`);
+                if (dayElement) {
+                    dayElement.remove();
+                    markAsModified();
                 }
+            }
+        }
+
+        function addClass(dayIndex) {
+            const container = document.querySelector(`[data-day-index="${dayIndex}"] .classes-container`);
+            const classCount = container.children.length;
+            
+            const newClass = {
+                [STANDARD_FIELDS.CLASS_NAME]: '',
+                subClass: '',
+                rounds: []
+            };
+            
+            const classHTML = createClassElement(newClass, dayIndex, classCount);
+            container.insertAdjacentHTML('beforeend', classHTML);
+            markAsModified();
+        }
+
+        function removeClass(dayIndex, classIndex) {
+            if (confirm('Are you sure you want to remove this class?')) {
+                const classElement = document.querySelector(`[data-day-index="${dayIndex}"] [data-class-index="${classIndex}"]`);
+                if (classElement) {
+                    classElement.remove();
+                    markAsModified();
+                }
+            }
+        }
+
+        function addRound(dayIndex, classIndex) {
+            const container = document.querySelector(`[data-day-index="${dayIndex}"][data-class-index="${classIndex}"] .rounds-container`);
+            const roundCount = container.children.length;
+            
+            const newRound = {
+                roundNumber: roundCount + 1,
+                [STANDARD_FIELDS.JUDGE_NAME]: '',
+                feoAvailable: false
+            };
+            
+            const roundHTML = createRoundElement(newRound, dayIndex, classIndex, roundCount);
+            container.insertAdjacentHTML('beforeend', roundHTML);
+            markAsModified();
+        }
+
+        function removeRound(dayIndex, classIndex, roundIndex) {
+            if (confirm('Are you sure you want to remove this round?')) {
+                const roundElement = document.querySelector(`[data-day-index="${dayIndex}"][data-class-index="${classIndex}"] [data-round-index="${roundIndex}"]`);
+                if (roundElement) {
+                    roundElement.remove();
+                    markAsModified();
+                }
+            }
+        }
+
+        // Save trial changes
+        async function saveTrial() {
+            try {
+                showStatus('💾 Saving changes...');
                 
-                showStatus('💾 Saving trial...');
+                // Collect trial data from form (similar to create-trial.html)
+                const updatedTrial = collectTrialData();
+                updatedTrial.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                updatedTrial.updatedBy = currentUser.uid;
                 
-                const trialData = collectTrialData();
-                await db.collection('trials').add(trialData);
+                // Save to Firebase
+                await db.collection('trials').doc(currentTrial.id).update(updatedTrial);
                 
-                showStatus('✅ Trial saved successfully!');
+                showStatus('✅ Trial updated successfully!');
                 
-                // Reset form
-                document.getElementById('trialForm').reset();
-                document.getElementById('daysContainer').innerHTML = '';
-                
-                refreshTrials();
+                // Update current trial data
+                currentTrial = { ...currentTrial, ...updatedTrial };
+                originalTrialData = JSON.parse(JSON.stringify(currentTrial));
                 
             } catch (error) {
                 console.error('Error saving trial:', error);
                 showStatus('Error saving trial: ' + error.message, true);
             }
-            
-            return false;
         }
 
-        // DELETE FUNCTIONALITY - FIXED IMPLEMENTATION
-        function deleteTrial(trialId, trialName) {
-            console.log('Delete trial requested:', trialId, trialName);
-            
-            // Store the trial to delete
-            trialToDelete = { id: trialId, name: trialName };
-            
-            // Show the trial name in the modal
-            document.getElementById('deleteTrialName').textContent = trialName;
-            
-            // Show the modal
-            document.getElementById('deleteModal').style.display = 'flex';
+        // Cancel edit mode
+        function cancelEdit() {
+            if (confirm('Are you sure? All unsaved changes will be lost.')) {
+                // Reload original data
+                loadTrialStructure(originalTrialData);
+                document.getElementById('clubName').value = originalTrialData.clubName || '';
+                document.getElementById('secretary').value = originalTrialData.secretary || '';
+                
+                // Switch back to view mode
+                toggleMode();
+                
+                showStatus('Changes cancelled');
+            }
         }
 
-        function cancelDelete() {
-            // Hide the modal
-            document.getElementById('deleteModal').style.display = 'none';
-            trialToDelete = null;
+        // Collect trial data from form
+        function collectTrialData() {
+            // This would be similar to create-trial.html collectAllTrialData()
+            // Implementation would collect all form data and return it
+            return {
+                clubName: document.getElementById('clubName').value.trim(),
+                secretary: document.getElementById('secretary').value.trim(),
+                // ... collect days, classes, rounds data
+            };
         }
 
-        async function confirmDelete() {
-            if (!trialToDelete) {
-                console.error('No trial selected for deletion');
+        // Initialize page
+        async function initializePage() {
+            const params = getUrlParams();
+            
+            if (!params.trialId) {
+                document.getElementById('loadingCard').classList.add('hidden');
+                document.getElementById('notFoundCard').classList.remove('hidden');
                 return;
             }
             
-            try {
-                console.log('Deleting trial:', trialToDelete.id);
-                showStatus('🗑️ Deleting trial...');
-                
-                // Delete from Firebase
-                await db.collection('trials').doc(trialToDelete.id).delete();
-                
-                console.log('Trial deleted successfully');
-                showStatus(`✅ Trial "${trialToDelete.name}" deleted successfully!`);
-                
-                // Hide modal
-                document.getElementById('deleteModal').style.display = 'none';
-                trialToDelete = null;
-                
-                // Refresh the trials list
-                refreshTrials();
-                
-            } catch (error) {
-                console.error('Error deleting trial:', error);
-                showStatus('Error deleting trial: ' + error.message, true);
-                
-                // Hide modal even on error
-                document.getElementById('deleteModal').style.display = 'none';
-                trialToDelete = null;
-            }
-        }
-
-        // Load my trials with simplified query
-        async function loadMyTrials() {
-            try {
-                console.log('Loading trials for user:', currentUser.uid);
-                
-                // Simplified query - just filter by createdBy (no ordering initially)
-                const trialsSnapshot = await db.collection('trials')
-                    .where('createdBy', '==', currentUser.uid)
-                    .limit(10)
-                    .get();
-                
-                const trialsList = document.getElementById('trialsList');
-                trialsList.innerHTML = '';
-                
-                if (trialsSnapshot.empty) {
-                    trialsList.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No trials created yet.</p>';
-                    return;
-                }
-                
-                // Convert to array and sort client-side
-                const trials = [];
-                trialsSnapshot.forEach(doc => {
-                    const trial = { id: doc.id, ...doc.data() };
-                    trials.push(trial);
-                });
-                
-                // Sort by creation date (newest first) - client-side sorting
-                trials.sort((a, b) => {
-                    const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                    const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                    return bTime - aTime;
-                });
-                
-                trials.forEach(trial => {
-                    const trialDiv = document.createElement('div');
-                    trialDiv.className = 'trial-item';
-                    
-                    let totalClasses = 0;
-                    if (trial.days) {
-                        trial.days.forEach(day => {
-                            if (day.classes) totalClasses += day.classes.length;
-                        });
-                    }
-                    
-                    trialDiv.innerHTML = `
-                        <h4>${trial.clubName}</h4>
-                        <p><strong>Secretary:</strong> ${trial.secretary}</p>
-                        <p><strong>Days:</strong> ${trial.numDays}</p>
-                        <p><strong>Classes:</strong> ${totalClasses}</p>
-                        <p><strong>Created:</strong> ${trial.createdAt ? new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 'Unknown'}</p>
-                        <div style="margin-top: 1rem;">
-                            <button class="btn btn-secondary" onclick="editTrial('${trial.id}')">✏️ Edit</button>
-                            <button class="btn" onclick="viewTrial('${trial.id}')">👁️ View</button>
-                            <button class="btn btn-danger" onclick="deleteTrial('${trial.id}', '${trial.clubName.replace(/'/g, "\\'")}')">🗑️ Delete</button>
-                        </div>
-                    `;
-                    
-                    trialsList.appendChild(trialDiv);
-                });
-                
-                console.log(`Loaded ${trials.length} trials successfully`);
-                
-            } catch (error) {
-                console.error('Error loading trials:', error);
-                
-                // Show user-friendly error message
-                const trialsList = document.getElementById('trialsList');
-                trialsList.innerHTML = `
-                    <div style="text-align: center; padding: 2rem; color: #721c24;">
-                        <h4>⚠️ Database Index Required</h4>
-                        <p>Firebase needs an index to load trials efficiently.</p>
-                        <p style="font-size: 0.9rem; margin: 1rem 0;">This is a one-time setup.</p>
-                        <a href="${error.message.match(/https:\/\/[^\s]+/)?.[0] || '#'}" 
-                           target="_blank" 
-                           class="btn" 
-                           style="display: inline-block; margin: 0.5rem;">
-                            Create Index in Firebase
-                        </a>
-                        <p style="font-size: 0.8rem; color: #666; margin-top: 1rem;">
-                            After creating the index, refresh this page.
-                        </p>
-                    </div>
-                `;
-            }
-        }
-
-        // Refresh trials
-        function refreshTrials() {
-            if (currentUser) {
-                loadMyTrials();
-                showStatus('Trials refreshed');
-            }
-        }
-
-// TODO: Implement trial editing
-        }
-
-        // View trial
-        function viewTrial(trialId) {
-            showStatus(`Loading trial ${trialId}...`);
-            // TODO: Implement trial viewing
-        }
-
-        // Logout with safer navigation
-        async function logout() {
-            try {
-                console.log('Logging out user...');
-                await auth.signOut();
-                
-                // Reset flags
-                authInitialized = false;
-                dashboardInitialized = false;
-                currentUser = null;
-                
-                // Show logout message instead of immediate redirect
-                document.querySelector('.container').innerHTML = `
-                    <div class="card" style="text-align: center; margin-top: 2rem;">
-                        <h2>👋 Logged Out</h2>
-                        <p>You have been successfully logged out.</p>
-                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Return to Login</button>
-                    </div>
-                `;
-                
-            } catch (error) {
-                console.error('Logout error:', error);
-                showStatus('Error logging out: ' + error.message, true);
-            }
-        }
-
-        // Initialize dashboard
-        async function initializeDashboard() {
-            if (dashboardInitialized) {
-                console.log('Dashboard already initialized, skipping...');
-                return;
-            }
-            
-            dashboardInitialized = true;
-            console.log('Initializing dashboard for user:', currentUser.email);
-            
-            document.getElementById('userInfo').textContent = 
-                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.clubName || 'Independent'}`;
-            
-            // Load data
-            await loadDataAutomatically();
-            
-            // Load trials
-            loadMyTrials();
-        }
-
-        // Authentication check with emergency loop prevention
-        auth.onAuthStateChanged(async (user) => {
-            console.log('Auth state change detected. User:', user ? user.email : 'None');
-            console.log('Auth initialized flag:', authInitialized);
-            
-            if (authInitialized) {
-                console.log('Auth already initialized, preventing loop...');
-                return;
-            }
-            
-            if (user) {
-                try {
-                    authInitialized = true;
-                    console.log('User authenticated, loading profile...');
-                    
-                    const userDoc = await db.collection('users').doc(user.uid).get();
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        currentUser = { uid: user.uid, ...userData };
-                        
-                        console.log('User role check:', userData.role);
-                        
-                        if (userData.role !== 'trial_secretary' && userData.role !== 'administrator') {
-                            console.log('Access denied for role:', userData.role);
-                            showStatus('Access denied. You need trial secretary or administrator access.', true);
+            // Wait for authentication
+            auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    try {
+                        // Load user profile
+                        const userDoc = await db.collection('users').doc(user.uid).get();
+                        if (userDoc.exists) {
+                            currentUser = { uid: user.uid, ...userDoc.data() };
+                            document.getElementById('userInfo').textContent = 
+                                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.role}`;
                             
-                            // Show access denied message instead of redirect
-                            document.getElementById('userInfo').textContent = 'Access Denied - Insufficient Permissions';
-                            document.querySelector('.container').innerHTML = `
-                                <div class="card" style="text-align: center; margin-top: 2rem;">
-                                    <h2>🚫 Access Denied</h2>
-                                    <p>This page is only accessible to trial secretaries and administrators.</p>
-                                    <p>Your current role: <strong>${userData.role}</strong></p>
-                                    <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
-                                </div>
-                            `;
-                            return;
+                            // Load system data
+                            await loadSystemData();
+                            
+                            // Load trial
+                            await loadTrial(params.trialId);
+                            
+                        } else {
+                            throw new Error('User profile not found');
                         }
-                        
-                        console.log('User authorized, initializing dashboard...');
-                        await initializeDashboard();
-                    } else {
-                        console.error('User profile not found in Firestore');
-                        showStatus('User profile not found. Please register first.', true);
-                        
-                        // Show profile not found message instead of redirect
-                        document.getElementById('userInfo').textContent = 'Profile Not Found';
-                        document.querySelector('.container').innerHTML = `
-                            <div class="card" style="text-align: center; margin-top: 2rem;">
-                                <h2>👤 Profile Not Found</h2>
-                                <p>Your user profile was not found in the system.</p>
-                                <p>Please contact an administrator or register again.</p>
-                                <button class="btn" onclick="logout()" style="margin-top: 1rem;">Return to Login</button>
-                            </div>
-                        `;
+                    } catch (error) {
+                        console.error('Error initializing:', error);
+                        showStatus('Error loading page: ' + error.message, true);
                     }
-                } catch (error) {
-                    console.error('Error loading user profile:', error);
-                    showStatus('Error loading profile: ' + error.message, true);
-                    authInitialized = false; // Reset on error to allow retry
-                    
-                    // Show error message instead of redirect
-                    document.getElementById('userInfo').textContent = 'Error Loading Profile';
-                    document.querySelector('.container').innerHTML = `
-                        <div class="card" style="text-align: center; margin-top: 2rem;">
-                            <h2>⚠️ Error Loading Profile</h2>
-                            <p>There was an error loading your user profile.</p>
-                            <p>Error: ${error.message}</p>
-                            <button class="btn" onclick="window.location.reload()" style="margin-top: 1rem;">Retry</button>
-                            <button class="btn btn-secondary" onclick="logout()" style="margin-top: 1rem;">Logout</button>
-                        </div>
-                    `;
+                } else {
+                    // Redirect to login
+                    window.location.href = 'index.html';
                 }
-            } else {
-                console.log('No authenticated user detected');
-                
-                // Show login required message instead of redirect
-                document.getElementById('userInfo').textContent = 'Not Logged In';
-                document.querySelector('.container').innerHTML = `
-                    <div class="card" style="text-align: center; margin-top: 2rem;">
-                        <h2>🔐 Login Required</h2>
-                        <p>You must be logged in to access the Trial Secretary Dashboard.</p>
-                        <button class="btn" onclick="window.open('index.html', '_self')" style="margin-top: 1rem;">Go to Login</button>
-                    </div>
-                `;
-            }
-        });
+            });
+        }
 
-        // Set minimum date to today with error handling
+        // Set print date
+        document.getElementById('printDate').textContent = new Date().toLocaleDateString();
+
+        // Create datalists for autocomplete
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Content Loaded');
-            const today = new Date().toISOString().split('T')[0];
-            
-            document.addEventListener('input', function(e) {
-                if (e.target.type === 'date') {
-                    e.target.min = today;
-                }
-            });
-
-            // Close modal when clicking outside
-            document.getElementById('deleteModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    cancelDelete();
-                }
-            });
+            // Add datalists to body for global access
+            document.body.insertAdjacentHTML('beforeend', `
+                <datalist id="classes-datalist">
+                    ${globalClasses.map(className => `<option value="${className}">${className}</option>`).join('')}
+                </datalist>
+                <datalist id="judges-datalist">
+                    ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
+                </datalist>
+            `);
         });
 
-        // Prevent multiple initializations
-        window.addEventListener('beforeunload', function() {
-            authInitialized = false;
-            dashboardInitialized = false;
-        });
+        // Initialize the page
+        initializePage();
 
-        console.log("Fixed Trial Secretary Dashboard script loaded successfully with working delete functionality");
+        console.log('Edit/View Trial page loaded successfully');
     </script>
 </body>
 </html>
