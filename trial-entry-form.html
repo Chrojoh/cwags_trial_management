@@ -1027,6 +1027,59 @@ if (registrationData.length > 0) {
             }
         }
 
+// Check for existing entries for this C-WAGS number and trial
+async function checkForExistingEntry(cwagsNumber, trialId) {
+    if (!cwagsNumber || !trialId) return null;
+    
+    try {
+        console.log(`🔍 Checking for existing entry: ${cwagsNumber} in trial ${trialId}`);
+        
+        const entriesSnapshot = await db.collection('entries')
+            .where('cwagsNumber', '==', cwagsNumber)
+            .where('trialId', '==', trialId)
+            .get();
+        
+        if (!entriesSnapshot.empty) {
+            const existingEntry = entriesSnapshot.docs[0];
+            console.log('✅ Found existing entry:', existingEntry.id);
+            return { id: existingEntry.id, ...existingEntry.data() };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error checking for existing entry:', error);
+        return null;
+    }
+}
+
+// Load existing entry data into form
+function loadExistingEntry(entryData) {
+    console.log('📝 Loading existing entry data:', entryData);
+    
+    // Clear current selections
+    selectedEntries = [];
+    document.querySelectorAll('.entry-button.selected').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Load the selected entries
+    if (entryData.selectedEntries) {
+        entryData.selectedEntries.forEach(selectedEntry => {
+            const button = document.querySelector(
+                `[data-class="${selectedEntry.className}"][data-round="${selectedEntry.roundName}"][data-type="${selectedEntry.type}"][data-day="${selectedEntry.dayIndex}"][data-round-index="${selectedEntry.roundIndex}"]`
+            );
+            
+            if (button) {
+                button.classList.add('selected');
+                selectedEntries.push(selectedEntry);
+            }
+        });
+    }
+    
+    updateEntrySummary();
+    showStatus('✅ Loaded existing entry - you can modify and re-submit', 'success');
+}
+        
         // Load specific trial for public entry
         async function loadSpecificTrial(trialId) {
             try {
