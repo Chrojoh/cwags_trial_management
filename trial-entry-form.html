@@ -1727,6 +1727,133 @@ if (dogName) {
             }
         }
 
+// ADD this function to your trial-entry-form.html after the submitEntry function:
+
+// Update running order when entry is submitted
+async function updateRunningOrderOnEntry(entryData, entryId) {
+    try {
+        console.log('📊 Updating running order for new entry...');
+        
+        // Load existing running order or create new one
+        let runningOrderDoc;
+        try {
+            runningOrderDoc = await db.collection('running_orders').doc(entryData.trialId).get();
+        } catch (error) {
+            console.log('No existing running order found, will create new structure');
+        }
+        
+        let roundOrders = {};
+        if (runningOrderDoc && runningOrderDoc.exists) {
+            roundOrders = runningOrderDoc.data().roundOrders || {};
+        }
+        
+        // Add each selected entry to appropriate round
+        entryData.selectedEntries.forEach(selectedEntry => {
+            const roundKey = `${selectedEntry.dayIndex}-${selectedEntry.classIndex || 0}-${selectedEntry.roundIndex}`;
+            
+            // Create the entry ID for running order
+            const runningOrderEntryId = entryId + '_' + selectedEntry.entryId;
+            
+            // Initialize round array if it doesn't exist
+            if (!roundOrders[roundKey]) {
+                roundOrders[roundKey] = [];
+            }
+            
+            // Add entry to the end of the running order (if not already present)
+            if (!roundOrders[roundKey].includes(runningOrderEntryId)) {
+                roundOrders[roundKey].push(runningOrderEntryId);
+                console.log(`✅ Added to running order: ${entryData.handlerName} - ${entryData.dogCallName} in round ${roundKey}`);
+            }
+        });
+        
+        // Save updated running order
+        await db.collection('running_orders').doc(entryData.trialId).set({
+            trialId: entryData.trialId,
+            trialName: entryData.trialName,
+            roundOrders: roundOrders,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: entryData.submittedBy || 'entry_form'
+        }, { merge: true });
+        
+        console.log('📊 Running order updated successfully');
+        
+    } catch (error) {
+        console.error('❌ Error updating running order:', error);
+        // Don't fail the entry submission if running order update fails
+    }
+}
+
+// MODIFY your existing submitEntry function to include running order update:
+
+// Replace your current submitEntry function with this updated version:
+async function submitEntry() {
+    console.log("🚀 Starting entry submission...");
+    
+    if (!checkFormValidity()) {
+        showStatus('Please complete all required fields and select at least one class.', 'error');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submitEntry');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    
+    try {
+        // Collect form data with class index for running order
+        const entryData = {
+            trialId: currentTrialData.id,
+            trialName: currentTrialData.clubName,
+            [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
+            handlerEmail: document.getElementById('handlerEmail').value.trim(),
+            handlerPhone: document.getElementById('handlerPhone').value.trim(),
+            emergencyContact: document.getElementById('emergencyContact').value.trim(),
+            [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
+            dogBreed: document.getElementById('dogBreed').value.trim(),
+            dogBirthdate: document.getElementById('dogBirthdate').value,
+            dogSex: document.getElementById('dogSex').value,
+            [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
+            juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+            selectedEntries: selectedEntries.map(entry => ({
+                ...entry,
+                // Add class index for running order mapping
+                classIndex: currentTrialData.days[entry.dayIndex].classes.findIndex(c => 
+                    c.className === entry.className || c[STANDARD_FIELDS.CLASS_NAME] === entry.className
+                )
+            })),
+            totalFee: totalFee,
+            submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            waiverAccepted: true
+        };
+        
+        console.log("📝 Entry data prepared:", entryData);
+        
+        // Save entry to Firebase
+        const docRef = await db.collection("entries").add(entryData);
+        console.log("✅ Entry saved with ID:", docRef.id);
+        
+        // Update running order automatically
+        await updateRunningOrderOnEntry(entryData, docRef.id);
+        
+        // Show success message
+        document.getElementById('entryForm').style.display = 'none';
+        document.getElementById('successMessage').style.display = 'block';
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        showStatus('✅ Entry submitted and running order updated!', 'success');
+        
+    } catch (error) {
+        console.error("❌ Error submitting entry:", error);
+        showStatus("Error submitting entry: " + error.message, 'error');
+        
+        // Reset button
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    }
+}
+        
         // Reset form for another entry
         function resetForm() {
             // Reset form fields
