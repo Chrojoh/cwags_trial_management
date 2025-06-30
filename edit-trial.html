@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Trial</title>
+    <title>Trial Entry Form</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -24,70 +24,67 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 10px;
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
         }
 
         .header {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
         }
 
-        .btn {
-            padding: 0.8rem 1.5rem;
-            background: #667eea;
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Back to Dashboard Button */
+        .back-to-dashboard {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 15px 20px;
+        }
+
+        .back-button {
+            background: #6c757d;
             color: white;
             border: none;
-            border-radius: 8px;
+            padding: 8px 16px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            margin: 0.25rem;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s ease;
         }
 
-        .btn:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
+        .back-button:hover {
+            background: #5a6268;
         }
 
-        .btn-secondary {
-            background: #6c757d;
-        }
-
-        .btn-success {
-            background: #28a745;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-warning {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-        }
-
+        /* Status Messages */
         .status-message {
             padding: 1rem;
-            margin: 1rem 0;
+            margin: 1rem;
             border-radius: 8px;
             display: none;
         }
@@ -110,159 +107,482 @@
             border: 1px solid #99d3ff;
         }
 
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        /* Trial Selection (Secretary Only) */
+        .trial-selection {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .trial-selection h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        /* Shareable Link Section (Secretary Only) */
+        .shareable-link {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            display: none;
+        }
+
+        .shareable-link h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        .link-display {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .link-url {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-all;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .link-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-copy, .btn-test {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .btn-copy {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-test {
+            background: #28a745;
+            color: white;
+        }
+
+        /* Form Styling */
         .form-group {
-            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
         }
 
         label {
-            display: block;
-            color: #333;
+            font-weight: 600;
             margin-bottom: 0.5rem;
-            font-weight: 500;
+            color: #495057;
         }
 
-        input[type="text"],
-        input[type="date"],
-        input[type="number"],
-        select {
-            width: 100%;
-            padding: 0.8rem;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
         }
 
-        input:focus, select:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .day-container {
-            border: 1px solid #ccc;
-            padding: 15px;
-            margin: 10px 0;
-            background-color: #f9f9f9;
+        /* Waiver Section */
+        .waiver-section {
+            background: #fff8e1;
+            border: 2px solid #ffc107;
             border-radius: 8px;
-            position: relative;
+            padding: 1.5rem;
+            margin: 20px;
+            display: none;
         }
-        
-        .class-container {
+
+        .waiver-content {
+            max-height: 300px;
+            overflow-y: auto;
             border: 1px solid #ddd;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: #fff;
+            padding: 1rem;
+            background: white;
             border-radius: 6px;
-            position: relative;
-        }
-        
-        .round-container {
-            padding: 8px;
-            margin: 3px 0;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            position: relative;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
         }
 
-        .subclass-container {
-            padding: 8px;
-            margin: 3px 0;
-            background-color: #f0fff0;
-            border-radius: 4px;
-            border-left: 3px solid #28a745;
+        .waiver-agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
         }
 
+        .waiver-agreement input[type="checkbox"] {
+            margin-top: 0.2rem;
+            width: auto;
+        }
+
+        /* Entry Form */
+        .entry-form {
+            padding: 2rem;
+            display: none;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+
+        .form-section.primary {
+            background: #f0f8ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-section.primary h3 {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Day Tabs */
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .day-tab:hover {
+            border-color: #0066cc;
+            color: #0066cc;
+        }
+
+        .day-tab.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+
+        /* Class Items */
+        .class-entries-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .class-day-content {
+            display: none;
+        }
+
+        .class-day-content.active {
+            display: block;
+        }
+
+        .class-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .class-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .class-header {
+            background: #28a745;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .class-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .rounds-container {
+            padding: 1rem;
+            background: #fff;
+        }
+
+        .round-item {
+            background: #f0f8ff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .round-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .judge-name {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .entry-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .entry-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .entry-button.regular {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .entry-button.regular:hover {
+            background: #28a745;
+            color: white;
+        }
+
+        .entry-button.regular.selected {
+            background: #155724;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(21, 87, 36, 0.4);
+        }
+
+        .entry-button.feo {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+
+        .entry-button.feo:hover {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .entry-button.feo.selected {
+            background: #856404;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
+        }
+
+        /* Submit Section */
+        .submit-section {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            display: none;
+        }
+
+        .submit-section.show {
+            display: block;
+        }
+
+        .btn-submit {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Utility Classes */
         .hidden {
             display: none;
         }
 
-        .view-mode {
-            background-color: #f8f9fa !important;
-            border-color: #e9ecef !important;
-        }
-
-        .view-mode input,
-        .view-mode select,
-        .view-mode button:not(.mode-toggle) {
-            pointer-events: none;
-            background-color: #e9ecef;
-            color: #6c757d;
-        }
-
-        .view-mode .btn:not(.mode-toggle) {
-            display: none;
-        }
-
-        .mode-toggle-container {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .remove-btn {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            font-size: 12px;
-            cursor: pointer;
-            display: none;
-        }
-
-        .edit-mode .remove-btn {
-            display: block;
-        }
-
-        .add-btn {
-            background: #28a745;
-            margin-top: 0.5rem;
-        }
-
-        .trial-info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .trial-info {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .loading {
+        .loading-message {
             text-align: center;
             padding: 2rem;
             color: #666;
         }
 
-        .print-section {
+        .error-message {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
             display: none;
         }
 
-        @media print {
-            body {
-                background: white;
-                padding: 0;
+        /* Entry Summary */
+        .entry-summary {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .selected-entries {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .selected-entry {
+            background: white;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
             }
-            
-            .header, .btn, .mode-toggle-container {
-                display: none !important;
+
+            .form-row {
+                grid-template-columns: 1fr;
             }
-            
-            .print-section {
-                display: block;
+
+            .day-tabs {
+                flex-direction: column;
             }
-            
-            .card {
-                box-shadow: none;
-                border: 1px solid #ddd;
+
+            .day-tab {
+                min-width: auto;
+            }
+
+            .round-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .entry-options {
+                justify-content: center;
             }
         }
     </style>
@@ -271,76 +591,206 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div>
-                <h1 id="pageTitle">📝 Loading Trial...</h1>
-                <div id="userInfo">Loading...</div>
-            </div>
-            <div>
-                <button class="btn btn-secondary" onclick="window.location.href='trial-secretary-dashboard.html'">← Back to Dashboard</button>
-                <button class="btn btn-secondary" onclick="window.print()" id="printBtn">🖨️ Print</button>
-            </div>
+            <h1 id="trialTitle">🏆 Trial Entry Form</h1>
+            <p id="trialSubtitle">Complete your entry for this C-WAGS trial</p>
         </div>
 
-        <!-- Status Message -->
+        <!-- Back to Dashboard Button (Secretary Only) -->
+        <div class="back-to-dashboard" id="backToDashboard">
+            <a href="trial-secretary-dashboard.html" class="back-button">
+                ← Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Status Messages -->
         <div class="status-message" id="statusMessage"></div>
 
-        <!-- Loading State -->
-        <div class="card loading" id="loadingCard">
-            <h2>🔄 Loading Trial Data...</h2>
-            <p>Please wait while we fetch the trial information.</p>
+        <!-- Loading Message -->
+        <div class="loading-message" id="loadingMessage">
+            🔄 Loading entry form...
         </div>
 
-        <!-- Trial Not Found -->
-        <div class="card hidden" id="notFoundCard">
-            <h2>❌ Trial Not Found</h2>
-            <p>The requested trial could not be found or you don't have permission to access it.</p>
-            <button class="btn" onclick="window.location.href='trial-secretary-dashboard.html'">Return to Dashboard</button>
+        <!-- Error Message -->
+        <div class="error-message hidden" id="errorMessage">
+            <h3>❌ Unable to Load Entry Form</h3>
+            <p id="errorText">An error occurred while loading the entry form.</p>
+            <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Retry
+            </button>
         </div>
 
-        <!-- Trial Editor -->
-        <div class="card hidden" id="trialEditor">
-            <!-- Print Header -->
-            <div class="print-section">
-                <h1>Trial Details</h1>
-                <p>Generated on: <span id="printDate"></span></p>
-                <hr style="margin: 1rem 0;">
+        <!-- Trial Selection (Secretary Only) -->
+        <div class="trial-selection hidden" id="trialSelectionSection">
+            <h3>🎯 Select Trial</h3>
+            <div class="form-group required full-width">
+                <label for="trialSelection">Choose which trial to create entry form for:</label>
+                <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
+                    <option value="">Loading available trials...</option>
+                </select>
             </div>
+        </div>
 
-            <!-- Mode Toggle -->
-            <div class="mode-toggle-container">
-                <button class="btn btn-warning mode-toggle" onclick="toggleMode()" id="modeToggleBtn">
-                    ✏️ Switch to Edit Mode
-                </button>
-                <button class="btn btn-success hidden" onclick="saveTrial()" id="saveBtn">
-                    💾 Save Changes
-                </button>
-                <button class="btn btn-secondary hidden" onclick="cancelEdit()" id="cancelBtn">
-                    ❌ Cancel Changes
-                </button>
-            </div>
-
-            <!-- Trial Information -->
-            <div class="trial-info">
-                <div class="form-group">
-                    <label for="clubName">Club Name</label>
-                    <input type="text" id="clubName" readonly>
+        <!-- Shareable Link Section (Secretary Only) -->
+        <div class="shareable-link" id="shareableLinkSection">
+            <h3>🔗 Shareable Entry Link</h3>
+            <p>Share this link with participants so they can enter from home:</p>
+            <div class="link-display">
+                <div class="link-url" id="shareableUrl">
+                    <!-- Generated URL will appear here -->
                 </div>
-
-                <div class="form-group">
-                    <label for="secretary">Trial Secretary</label>
-                    <input type="text" id="secretary" readonly>
+                <div class="link-actions">
+                    <button class="btn-copy" onclick="copyShareableLink()">📋 Copy Link</button>
+                    <button class="btn-test" onclick="testShareableLink()">🔗 Test Link</button>
                 </div>
             </div>
+        </div>
 
-            <!-- Trial Structure -->
-            <div id="trialStructure">
-                <!-- Days will be loaded here -->
+        <!-- C-WAGS Waiver Section -->
+        <div class="waiver-section" id="waiverSection">
+            <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
+            <div class="waiver-content">
+                <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
+                <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
+                <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
+                <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
+            </div>
+            <div class="waiver-agreement">
+                <input type="checkbox" id="waiverAccepted" required>
+                <label for="waiverAccepted">
+                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above.</strong>
+                </label>
+            </div>
+        </div>
+
+        <!-- Entry Form -->
+        <div class="entry-form" id="entryFormContainer">
+            <!-- Success Message -->
+            <div id="successMessage" class="success-message">
+                <h3>✅ Entry Submitted Successfully!</h3>
+                <p>The entry has been recorded for this trial.</p>
+                <button class="btn-submit" onclick="resetForm()">Enter Another Participant</button>
             </div>
 
-            <!-- Add Controls (Edit Mode Only) -->
-            <div class="hidden" id="addControls">
-                <button class="btn add-btn" onclick="addDay()">➕ Add Day</button>
-            </div>
+            <form id="entryForm">
+                <!-- Registration Number Lookup -->
+                <div class="form-section primary">
+                    <h3>🔍 C-WAGS Registration Lookup</h3>
+                    <div class="form-group full-width">
+                        <label>C-WAGS Registration Number (optional)</label>
+                        <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
+                               style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
+                        <small style="color: #666; margin-top: 0.5rem; display: block;">
+                            💡 Enter registration number first - handler and dog info will auto-fill if found
+                        </small>
+                    </div>
+                    <div id="lookupStatus" class="status-message"></div>
+                </div>
+
+                <!-- Handler Information -->
+                <div class="form-section">
+                    <h3>👤 Handler Information</h3>
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label>Handler Name</label>
+                            <input type="text" id="handlerName" required placeholder="Will auto-fill from registration">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" id="handlerPhone" placeholder="(xxx) xxx-xxxx">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="handlerEmail" placeholder="handler@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Emergency Contact</label>
+                            <input type="text" id="emergencyContact" placeholder="Name and phone number">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dog Information -->
+                <div class="form-section">
+                    <h3>🐕 Dog Information</h3>
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label>Dog's Call Name</label>
+                            <input type="text" id="dogCallName" required placeholder="Will auto-fill from registration">
+                        </div>
+                        <div class="form-group">
+                            <label>Breed</label>
+                            <input type="text" id="dogBreed" placeholder="Enter breed">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            <input type="date" id="dogBirthdate">
+                        </div>
+                        <div class="form-group">
+                            <label>Sex</label>
+                            <select id="dogSex">
+                                <option value="">Select...</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Male Neutered">Male Neutered</option>
+                                <option value="Female Spayed">Female Spayed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Junior Handler (Under 18)</label>
+                            <select id="juniorHandler">
+                                <option value="No">No</option>
+                                <option value="Yes">Yes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Entries Section -->
+                <div class="form-section">
+                    <h3>🎯 Class Entries</h3>
+                    
+                    <!-- Entry Summary -->
+                    <div class="entry-summary" id="entrySummary">
+                        <div class="summary-title">Selected Entries:</div>
+                        <ul class="selected-entries" id="selectedEntriesList">
+                        </ul>
+                        <div style="margin-top: 1rem; font-weight: 600; color: #0066cc;">
+                            Total Fee: $<span id="totalFee">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Submit Section -->
+                    <div class="submit-section" id="submitSection">
+                        <h4 style="margin-bottom: 1rem; color: #0066cc;">Ready to Submit Entry?</h4>
+                        <button type="button" class="btn-submit" id="submitEntry" disabled>
+                            Submit Entry
+                        </button>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                            Please review your selections before submitting.
+                        </p>
+                    </div>
+
+                    <!-- Day Tabs -->
+                    <div class="day-tabs-container">
+                        <div class="day-tabs" id="dayTabs">
+                            <!-- Tabs will be generated from trial data -->
+                        </div>
+                    </div>
+
+                    <!-- Class Entries -->
+                    <div class="class-entries-container" id="classEntriesContainer">
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            Please select a trial to see available classes.
+                        </div>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -362,12 +812,13 @@
         const db = firebase.firestore();
 
         // Global variables
+        let currentTrialData = null;
+        let registrationData = [];
+        let availableTrials = [];
+        let isSecretary = false;
         let currentUser = null;
-        let currentTrial = null;
-        let isEditMode = false;
-        let globalClasses = [];
-        let globalJudges = [];
-        let originalTrialData = null;
+        let selectedEntries = [];
+        let totalFee = 0;
 
         // Standard field names
         const STANDARD_FIELDS = {
@@ -378,20 +829,18 @@
             CWAGS_NUMBER: 'cwagsNumber'
         };
 
-        // Get URL parameters
-        function getUrlParams() {
-            const params = new URLSearchParams(window.location.search);
-            return {
-                trialId: params.get('id'),
-                mode: params.get('mode') || 'view' // 'view' or 'edit'
-            };
-        }
+        // Fee structure (default values)
+        let fees = {
+            regular: 35.00,
+            feo: 25.00,
+            juniorHandler: 20.00
+        };
 
-        // Show status messages
-        function showStatus(message, isError = false) {
+        // Utility functions
+        function showStatus(message, type = 'info') {
             const statusDiv = document.getElementById('statusMessage');
             statusDiv.textContent = message;
-            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+            statusDiv.className = `status-message status-${type}`;
             statusDiv.style.display = 'block';
             
             setTimeout(() => {
@@ -399,714 +848,987 @@
             }, 5000);
         }
 
-        // Load system data for dropdowns
-        async function loadSystemData() {
-            try {
-                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
-                if (dataDoc.exists) {
-                    const data = dataDoc.data();
-                    globalClasses = data.classes || [];
-                    globalJudges = data.judges || [];
-                }
-            } catch (error) {
-                console.error('Error loading system data:', error);
+        function showElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.remove('hidden');
+                element.style.display = 'block';
             }
         }
 
-        // Load trial data
-        async function loadTrial(trialId) {
+        function hideElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.add('hidden');
+                element.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            console.error(message);
+            hideElement('loadingMessage');
+            document.getElementById('errorText').textContent = message;
+            showElement('errorMessage');
+        }
+
+        // Initialize the application
+        async function init() {
+            console.log("🚀 Initializing entry form application...");
+            
             try {
-                console.log('Loading trial with ID:', trialId);
-                showStatus('🔄 Loading trial data...');
+                // Check URL parameters for direct trial link
+                const urlParams = new URLSearchParams(window.location.search);
+                const trialId = urlParams.get('trial');
+
+                if (trialId) {
+                    // Load specific trial for public entry
+                    console.log("🔗 Loading specific trial for public entry:", trialId);
+                    await loadSpecificTrial(trialId);
+                } else {
+                    // Normal secretary view - need authentication
+                    console.log("👨‍💼 Setting up secretary view");
+                    isSecretary = true;
+                    await setupSecretaryView();
+                }
+
+                // Load registration data
+                await loadRegistrationData();
+
+                // Setup form event listeners
+                setupFormEventListeners();
+                
+            } catch (error) {
+                console.error("❌ Error initializing application:", error);
+                showError("Failed to initialize entry form: " + error.message);
+            }
+        }
+
+        // Load registration data from Firebase registry
+        async function loadRegistrationData() {
+            try {
+                console.log("📊 Loading registration data from Firebase registry...");
+                showStatus('🔄 Loading registration data...', 'info');
+                
+                // Load from Firebase registry collection
+                const registrationsSnapshot = await db.collection('registrations').get();
+                
+                if (!registrationsSnapshot.empty) {
+                    registrationData = [];
+                    registrationsSnapshot.forEach(doc => {
+                        const regData = { id: doc.id, ...doc.data() };
+                        registrationData.push(regData);
+                    });
+                    
+                    console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
+                    console.log("📋 Sample registrations:", registrationData.slice(0, 2));
+                    showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
+                } else {
+                    console.log("📊 No registrations found in Firebase registry");
+                    registrationData = [];
+                    showStatus('ℹ️ No registrations in registry yet. New entries will be saved.', 'info');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error loading registration data:", error);
+                registrationData = [];
+                showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
+            }
+        }
+
+        // Setup secretary view with authentication
+        async function setupSecretaryView() {
+            try {
+                console.log("🔐 Setting up secretary authentication...");
+                
+                // Wait for authentication state
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                console.log("🔍 Loading user profile for:", user.email);
+                                
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            reject(new Error('User not authenticated'));
+                        }
+                    });
+                });
+
+                console.log("🔍 Loading trials for user:", currentUser.uid);
+                showStatus('🔄 Loading your trials...', 'info');
+
+                // Load trials - SIMPLIFIED QUERY (no orderBy to avoid index requirement)
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+                
+                console.log("📊 Trials query result:", {
+                    empty: trialsSnapshot.empty,
+                    size: trialsSnapshot.size
+                });
+                
+                if (!trialsSnapshot.empty) {
+                    availableTrials = [];
+                    trialsSnapshot.forEach(doc => {
+                        const trialData = { id: doc.id, ...doc.data() };
+                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
+                        availableTrials.push(trialData);
+                    });
+                    
+                    // Sort by creation date manually (newest first)
+                    availableTrials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+                    
+                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
+                    
+                    hideElement('loadingMessage');
+                    showElement('trialSelectionSection');
+                    showElement('backToDashboard'); // Show dashboard button for secretary
+                    populateTrialSelector();
+                    showStatus(`✅ Found ${availableTrials.length} trials`, 'success');
+                    
+                } else {
+                    console.warn("⚠️ No trials found for this user");
+                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
+                }
+                
+            } catch (error) {
+                console.error("❌ Error setting up secretary view:", error);
+                if (error.message.includes('not authenticated')) {
+                    // Redirect to login
+                    window.location.href = 'index.html';
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        // Load specific trial for public entry
+        async function loadSpecificTrial(trialId) {
+            try {
+                console.log("🔍 Loading specific trial:", trialId);
+                showStatus('🔄 Loading trial information...', 'info');
                 
                 const trialDoc = await db.collection('trials').doc(trialId).get();
                 
                 if (!trialDoc.exists) {
-                    console.error('Trial document does not exist');
                     throw new Error('Trial not found');
                 }
+
+                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
+                console.log("✅ Trial loaded:", currentTrialData.clubName);
                 
-                const trialData = { id: trialDoc.id, ...trialDoc.data() };
-                console.log('Trial data loaded:', trialData);
-                
-                // Check if user has permission to view this trial
-                if (trialData.createdBy !== currentUser.uid && currentUser.role !== 'administrator') {
-                    console.error('Access denied - user:', currentUser.uid, 'trial owner:', trialData.createdBy);
-                    throw new Error('Access denied - you can only view trials you created');
+                // Load saved fee configuration if exists
+                if (currentTrialData.feeConfiguration) {
+                    const savedFees = currentTrialData.feeConfiguration;
+                    fees.regular = savedFees.regularFee || 35.00;
+                    fees.feo = savedFees.feoFee || 25.00;
+                    fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                    console.log("💰 Loaded saved fee configuration:", savedFees);
                 }
                 
-                currentTrial = trialData;
-                originalTrialData = JSON.parse(JSON.stringify(trialData)); // Deep copy
+                hideElement('loadingMessage');
+                hideElement('trialSelectionSection');
+                hideElement('backToDashboard'); // Hide dashboard button for public users
                 
-                // Update page title
-                const mode = getUrlParams().mode || 'view';
-                document.getElementById('pageTitle').textContent = 
-                    `${mode === 'edit' ? '✏️ Edit' : '👁️ View'} Trial: ${trialData.clubName}`;
-                
-                // Populate basic form fields
-                document.getElementById('clubName').value = trialData.clubName || '';
-                document.getElementById('secretary').value = trialData.secretary || '';
-                
-                console.log('Basic fields populated');
-                
-                // Load trial structure
-                console.log('Loading trial structure...');
-                loadTrialStructure(trialData);
-                
-                // Show editor and hide loading
-                document.getElementById('loadingCard').classList.add('hidden');
-                document.getElementById('trialEditor').classList.remove('hidden');
-                
-                // Set initial mode
-                if (getUrlParams().mode === 'edit') {
-                    console.log('Setting edit mode');
-                    setTimeout(() => toggleMode(), 100); // Small delay to ensure DOM is ready
-                } else {
-                    console.log('Setting view mode');
-                    // Ensure view mode is set
-                    const trialEditor = document.getElementById('trialEditor');
-                    trialEditor.classList.add('view-mode');
-                    trialEditor.classList.remove('edit-mode');
-                }
-                
-                showStatus('✅ Trial loaded successfully!');
-                console.log('Trial loaded successfully');
+                // Show trial info and form
+                populateTrialInfo();
+                showElement('waiverSection');
+                showEntryForm();
+                showStatus('✅ Trial loaded successfully!', 'success');
                 
             } catch (error) {
-                console.error('Error loading trial:', error);
-                document.getElementById('loadingCard').classList.add('hidden');
-                document.getElementById('notFoundCard').classList.remove('hidden');
-                showStatus('Error loading trial: ' + error.message, true);
+                console.error('❌ Error loading specific trial:', error);
+                throw new Error('Trial not found or no longer available');
             }
         }
 
-        // Load trial structure into form
-        function loadTrialStructure(trialData) {
-            const container = document.getElementById('trialStructure');
-            container.innerHTML = '';
-            
-            console.log('Loading trial structure:', trialData);
-            
-            if (!trialData.days || trialData.days.length === 0) {
-                console.log('No days found in trial data');
-                container.innerHTML = '<p style="color: #666; text-align: center; padding: 2rem;">No days configured for this trial.</p>';
-                return;
-            }
-            
-            console.log('Found', trialData.days.length, 'days');
-            
-            trialData.days.forEach((day, dayIndex) => {
-                console.log(`Loading day ${dayIndex + 1}:`, day);
-                try {
-                    const dayDiv = createDayElement(day, dayIndex);
-                    container.appendChild(dayDiv);
-                    console.log(`Day ${dayIndex + 1} loaded successfully`);
-                } catch (error) {
-                    console.error(`Error loading day ${dayIndex + 1}:`, error);
+        // Populate trial selector dropdown
+        function populateTrialSelector() {
+            const trialSelect = document.getElementById('trialSelection');
+            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+            availableTrials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        }))
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
+                    }
+                }
+                
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
+
+            // Handle trial selection change
+            trialSelect.addEventListener('change', function(event) {
+                const trialId = event.target.value;
+                console.log("🎯 Trial selected:", trialId);
+                
+                if (trialId) {
+                    currentTrialData = availableTrials.find(t => t.id === trialId);
+                    if (currentTrialData) {
+                        console.log("✅ Found trial data:", currentTrialData.clubName);
+                        
+                        // Load saved fee configuration if exists
+                        if (currentTrialData.feeConfiguration) {
+                            const savedFees = currentTrialData.feeConfiguration;
+                            fees.regular = savedFees.regularFee || 35.00;
+                            fees.feo = savedFees.feoFee || 25.00;
+                            fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                            console.log("💰 Loaded saved fee configuration:", savedFees);
+                        }
+                        
+                        generateShareableLink();
+                        populateTrialInfo();
+                        showElement('waiverSection');
+                        showEntryForm();
+                        showStatus('✅ Trial selected successfully!', 'success');
+                    } else {
+                        console.error("❌ Could not find trial data for ID:", trialId);
+                        showStatus('❌ Error loading trial data', 'error');
+                    }
+                } else {
+                    console.log("🚫 No trial selected, hiding sections");
+                    hideElement('shareableLinkSection');
+                    hideElement('entryFormContainer');
+                    hideElement('waiverSection');
                 }
             });
-            
-            console.log('Trial structure loaded');
         }
 
-        // Create day element
-        function createDayElement(dayData, dayIndex) {
-            const dayDiv = document.createElement('div');
-            dayDiv.className = 'day-container';
-            dayDiv.dataset.dayIndex = dayIndex;
+        // Generate shareable link
+        function generateShareableLink() {
+            if (!isSecretary || !currentTrialData) return;
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
             
-            let classesHTML = '';
-            if (dayData.classes && dayData.classes.length > 0) {
-                classesHTML = dayData.classes.map((classData, classIndex) => 
-                    createClassElement(classData, dayIndex, classIndex)).join('');
-            }
+            document.getElementById('shareableUrl').textContent = shareableUrl;
+            showElement('shareableLinkSection');
             
-            dayDiv.innerHTML = `
-                <button class="remove-btn" onclick="removeDay(${dayIndex})" title="Remove Day">×</button>
-                <h3>Day ${dayData.dayNumber || dayIndex + 1}</h3>
-                
-                <div class="form-group">
-                    <label>Date:</label>
-                    <input type="date" value="${dayData.date || ''}" onchange="markAsModified()" readonly>
-                </div>
-                
-                <div class="classes-container" data-day-index="${dayIndex}">
-                    ${classesHTML}
-                </div>
-                
-                <button class="btn add-btn hidden" onclick="addClass(${dayIndex})">➕ Add Class</button>
-            `;
-            
-            return dayDiv;
+            console.log("🔗 Generated shareable link:", shareableUrl);
         }
 
-        // Create class element
-        function createClassElement(classData, dayIndex, classIndex) {
-            // Handle both old and new field names
-            const className = classData[STANDARD_FIELDS.CLASS_NAME] || classData.className || '';
-            const subClass = classData.subClass || '';
-            
-            // Create unique IDs for this class
-            const classDatalistId = `classes-datalist-${dayIndex}-${classIndex}`;
-            
-            let subClassHTML = '';
-            if (subClass) {
-                const subClassOptions = getSubClassOptions(className);
-                subClassHTML = `
-                    <div class="form-group subclass-container">
-                        <label>Sub Class:</label>
-                        <select onchange="markAsModified()">
-                            <option value="">Select Sub Class</option>
-                            ${subClassOptions}
-                            <option value="${subClass}" selected>${subClass}</option>
-                        </select>
-                    </div>
-                `;
-            }
-            
-            let roundsHTML = '';
-            if (classData.rounds && classData.rounds.length > 0) {
-                roundsHTML = classData.rounds.map((roundData, roundIndex) => 
-                    createRoundElement(roundData, dayIndex, classIndex, roundIndex)).join('');
-            }
-            
-            // Determine if this is being created in edit mode or view mode
-            const inputReadonly = isEditMode ? '' : 'readonly';
-            const selectDisabled = isEditMode ? '' : 'disabled';
-            
-            return `
-                <div class="class-container" data-class-index="${classIndex}">
-                    <button class="remove-btn" onclick="removeClass(${dayIndex}, ${classIndex})" title="Remove Class">×</button>
-                    <h4>Class ${classIndex + 1}</h4>
-                    
-                    <div class="form-group">
-                        <label>Class Name:</label>
-                        <input type="text" 
-                               value="${className}"
-                               list="${classDatalistId}"
-                               onchange="handleClassSelection(this, ${dayIndex}, ${classIndex}); markAsModified()"
-                               ${inputReadonly}
-                               placeholder="Select or type class name">
-                        <datalist id="${classDatalistId}">
-                            ${globalClasses.map(cls => `<option value="${cls}">${cls}</option>`).join('')}
-                        </datalist>
-                    </div>
-                    
-                    ${subClassHTML}
-                    
-                    <div class="rounds-container" data-day-index="${dayIndex}" data-class-index="${classIndex}">
-                        ${roundsHTML}
-                    </div>
-                    
-                    <button class="btn add-btn ${isEditMode ? '' : 'hidden'}" onclick="addRound(${dayIndex}, ${classIndex})">➕ Add Round</button>
-                </div>
-            `;
+        // Copy shareable link to clipboard
+        function copyShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                showStatus('📋 Link copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Error copying link:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showStatus('📋 Link copied to clipboard!', 'success');
+            });
         }
 
-        // Create round element
-        function createRoundElement(roundData, dayIndex, classIndex, roundIndex) {
-            // Handle both old and new field names
-            const judgeName = roundData[STANDARD_FIELDS.JUDGE_NAME] || roundData.judge || '';
-            const feoAvailable = roundData.feoAvailable || false;
-            
-            // Create unique ID for this round's judge datalist
-            const judgeDatalistId = `judges-datalist-${dayIndex}-${classIndex}-${roundIndex}`;
-            
-            // Determine if this is being created in edit mode or view mode
-            const inputReadonly = isEditMode ? '' : 'readonly';
-            const checkboxDisabled = isEditMode ? '' : 'disabled';
-            
-            return `
-                <div class="round-container" data-round-index="${roundIndex}">
-                    <button class="remove-btn" onclick="removeRound(${dayIndex}, ${classIndex}, ${roundIndex})" title="Remove Round">×</button>
-                    
-                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
-                        <strong>Round ${roundData.roundNumber || roundIndex + 1}:</strong>
-                        
-                        <label style="margin: 0;">Judge:</label>
-                        <input type="text" 
-                               style="width: 200px;"
-                               value="${judgeName}"
-                               list="${judgeDatalistId}"
-                               onchange="markAsModified()"
-                               ${inputReadonly}
-                               placeholder="Select or type judge name">
-                        <datalist id="${judgeDatalistId}">
-                            ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
-                        </datalist>
-                        
-                        <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" ${feoAvailable ? 'checked' : ''} onchange="markAsModified()" ${checkboxDisabled}>
-                            FEO Available
-                        </label>
-                    </div>
-                </div>
-            `;
+        // Test shareable link
+        function testShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            window.open(url, '_blank');
         }
 
-        // Get sub-class options based on class name
-        function getSubClassOptions(className) {
-            if (!className) return '';
+        // Populate trial information
+        function populateTrialInfo() {
+            if (!currentTrialData) return;
+
+            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
             
-            const classLower = className.toLowerCase();
-            if (classLower.includes('games')) {
-                return `
-                    <option value="games1">Games Sub Class 1</option>
-                    <option value="games2">Games Sub Class 2</option>
-                    <option value="games3">Games Sub Class 3</option>
-                    <option value="games4">Games Sub Class 4</option>
-                    <option value="games5">Games Sub Class 5</option>
-                `;
-            } else if (classLower.includes('obedience') || classLower.includes('obed')) {
-                return `
-                    <option value="obed1">Obedience Sub Class 1</option>
-                    <option value="obed2">Obedience Sub Class 2</option>
-                    <option value="obed3">Obedience Sub Class 3</option>
-                    <option value="obed4">Obedience Sub Class 4</option>
-                    <option value="obed5">Obedience Sub Class 5</option>
-                `;
-            }
-            return '';
+            console.log("📋 Populating trial info for:", currentTrialData.clubName);
+            console.log("📅 Trial data structure:", {
+                days: currentTrialData.days?.length || 0,
+                firstDay: currentTrialData.days?.[0]
+            });
+            
+            // Generate the tabbed class interface from trial data
+            generateTabbedClasses();
         }
 
-        // Toggle between view and edit mode
-        function toggleMode() {
-            isEditMode = !isEditMode;
-            const trialEditor = document.getElementById('trialEditor');
-            const modeToggleBtn = document.getElementById('modeToggleBtn');
-            const saveBtn = document.getElementById('saveBtn');
-            const cancelBtn = document.getElementById('cancelBtn');
-            const addControls = document.getElementById('addControls');
-            
-            console.log('Toggling mode to:', isEditMode ? 'edit' : 'view');
-            
-            if (isEditMode) {
-                // Switch to edit mode
-                trialEditor.classList.add('edit-mode');
-                trialEditor.classList.remove('view-mode');
-                modeToggleBtn.innerHTML = '👁️ Switch to View Mode';
-                saveBtn.classList.remove('hidden');
-                cancelBtn.classList.remove('hidden');
-                addControls.classList.remove('hidden');
-                
-                // Enable all inputs
-                trialEditor.querySelectorAll('input, select').forEach(input => {
-                    input.removeAttribute('readonly');
-                    input.removeAttribute('disabled');
-                });
-                
-                // Show all add buttons (including class add buttons)
-                trialEditor.querySelectorAll('.add-btn').forEach(btn => {
-                    btn.classList.remove('hidden');
-                });
-                
-                // Show remove buttons
-                trialEditor.querySelectorAll('.remove-btn').forEach(btn => {
-                    btn.style.display = 'block';
-                });
-                
-                document.getElementById('pageTitle').textContent = `✏️ Edit Trial: ${currentTrial.clubName}`;
-                console.log('Edit mode activated');
-                
-            } else {
-                // Switch to view mode
-                trialEditor.classList.remove('edit-mode');
-                trialEditor.classList.add('view-mode');
-                modeToggleBtn.innerHTML = '✏️ Switch to Edit Mode';
-                saveBtn.classList.add('hidden');
-                cancelBtn.classList.add('hidden');
-                addControls.classList.add('hidden');
-                
-                // Disable all inputs
-                trialEditor.querySelectorAll('input, select').forEach(input => {
-                    input.setAttribute('readonly', 'readonly');
-                    if (input.tagName === 'SELECT') {
-                        input.setAttribute('disabled', 'disabled');
-                    }
-                });
-                
-                // Hide all add buttons
-                trialEditor.querySelectorAll('.add-btn').forEach(btn => {
-                    btn.classList.add('hidden');
-                });
-                
-                // Hide remove buttons
-                trialEditor.querySelectorAll('.remove-btn').forEach(btn => {
-                    btn.style.display = 'none';
-                });
-                
-                document.getElementById('pageTitle').textContent = `👁️ View Trial: ${currentTrial.clubName}`;
-                console.log('View mode activated');
-            }
+        // Show entry form
+        function showEntryForm() {
+            showElement('entryFormContainer');
         }
 
-        // Mark trial as modified
-        function markAsModified() {
-            if (isEditMode) {
-                console.log('Trial data modified');
-            }
-        }
-
-        // Handle class selection changes
-        function handleClassSelection(input, dayIndex, classIndex) {
-            console.log('Class selection changed:', input.value, 'for day:', dayIndex, 'class:', classIndex);
+        // Generate tabbed classes from trial data
+        function generateTabbedClasses() {
+            console.log("🎯 Generating tabbed classes from trial data");
             
-            const className = input.value;
-            const classContainer = input.closest('.class-container');
-            
-            if (!classContainer) {
-                console.error('Could not find class container');
+            if (!currentTrialData.days || currentTrialData.days.length === 0) {
+                console.warn("❌ No days data found");
+                document.getElementById('classEntriesContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
                 return;
             }
-            
-            // Look for existing subclass container
-            let subclassContainer = classContainer.querySelector('.subclass-container');
-            let subclassSelect = classContainer.querySelector('select');
-            
-            // If no subclass container exists, create one
-            if (!subclassContainer) {
-                const subclassHTML = `
-                    <div class="form-group subclass-container" style="display: none;">
-                        <label>Sub Class:</label>
-                        <select onchange="markAsModified()" disabled>
-                            <option value="">Select Sub Class</option>
-                        </select>
-                    </div>
-                `;
-                
-                // Insert after the class name form group
-                const classNameGroup = input.closest('.form-group');
-                classNameGroup.insertAdjacentHTML('afterend', subclassHTML);
-                
-                subclassContainer = classContainer.querySelector('.subclass-container');
-                subclassSelect = classContainer.querySelector('select');
-            }
-            
-            // Update subclass options based on class type
-            if (className.toLowerCase().includes('games')) {
-                subclassSelect.innerHTML = `
-                    <option value="">Select Games Sub Class</option>
-                    <option value="games1">Games Sub Class 1</option>
-                    <option value="games2">Games Sub Class 2</option>
-                    <option value="games3">Games Sub Class 3</option>
-                    <option value="games4">Games Sub Class 4</option>
-                    <option value="games5">Games Sub Class 5</option>
-                `;
-                subclassContainer.style.display = 'block';
-            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
-                subclassSelect.innerHTML = `
-                    <option value="">Select Obedience Sub Class</option>
-                    <option value="obed1">Obedience Sub Class 1</option>
-                    <option value="obed2">Obedience Sub Class 2</option>
-                    <option value="obed3">Obedience Sub Class 3</option>
-                    <option value="obed4">Obedience Sub Class 4</option>
-                    <option value="obed5">Obedience Sub Class 5</option>
-                `;
-                subclassContainer.style.display = 'block';
-            } else {
-                subclassContainer.style.display = 'none';
-            }
-        }
 
-        // Add/Remove functions (for edit mode)
-        function addDay() {
-            const container = document.getElementById('trialStructure');
-            const dayCount = container.children.length;
-            
-            const newDay = {
-                dayNumber: dayCount + 1,
-                date: '',
-                classes: []
-            };
-            
-            const dayDiv = createDayElement(newDay, dayCount);
-            container.appendChild(dayDiv);
-            markAsModified();
-        }
+            console.log(`📅 Processing ${currentTrialData.days.length} days`);
 
-        function removeDay(dayIndex) {
-            if (confirm('Are you sure you want to remove this day?')) {
-                const dayElement = document.querySelector(`[data-day-index="${dayIndex}"]`);
-                if (dayElement) {
-                    dayElement.remove();
-                    markAsModified();
-                }
-            }
-        }
+            // Generate day tabs
+            const dayTabsContainer = document.getElementById('dayTabs');
+            dayTabsContainer.innerHTML = '';
 
-        function addClass(dayIndex) {
-            const container = document.querySelector(`[data-day-index="${dayIndex}"] .classes-container`);
-            const classCount = container.children.length;
-            
-            const newClass = {
-                [STANDARD_FIELDS.CLASS_NAME]: '',
-                subClass: '',
-                rounds: []
-            };
-            
-            const classHTML = createClassElement(newClass, dayIndex, classCount);
-            container.insertAdjacentHTML('beforeend', classHTML);
-            markAsModified();
-        }
+            currentTrialData.days.forEach((day, dayIndex) => {
+                const dayDate = day.date 
+                    ? new Date(day.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    })
+                    : `Day ${dayIndex + 1}`;
 
-        function removeClass(dayIndex, classIndex) {
-            if (confirm('Are you sure you want to remove this class?')) {
-                const classElement = document.querySelector(`[data-day-index="${dayIndex}"] [data-class-index="${classIndex}"]`);
-                if (classElement) {
-                    classElement.remove();
-                    markAsModified();
-                }
-            }
-        }
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(dayIndex);
+                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
+                
+                dayTabsContainer.appendChild(tabButton);
+            });
 
-        function addRound(dayIndex, classIndex) {
-            console.log('Adding round to day:', dayIndex, 'class:', classIndex);
-            
-            // Look for the rounds container within the specific class container
-            const classContainer = document.querySelector(`[data-day-index="${dayIndex}"] [data-class-index="${classIndex}"]`);
-            
-            if (!classContainer) {
-                console.error('Could not find class container');
-                alert('Error: Could not find the class container to add round to.');
-                return;
-            }
-            
-            const roundsContainer = classContainer.querySelector('.rounds-container');
-            
-            if (!roundsContainer) {
-                console.error('Could not find rounds container within class container');
-                alert('Error: Could not find the rounds container to add round to.');
-                return;
-            }
-            
-            const roundCount = roundsContainer.children.length;
-            console.log('Current round count:', roundCount);
-            
-            const newRound = {
-                roundNumber: roundCount + 1,
-                [STANDARD_FIELDS.JUDGE_NAME]: '',
-                feoAvailable: false
-            };
-            
-            const roundHTML = createRoundElement(newRound, dayIndex, classIndex, roundCount);
-            roundsContainer.insertAdjacentHTML('beforeend', roundHTML);
-            markAsModified();
-            
-            console.log('Round added successfully');
-        }
+            // Generate class content for each day
+            const classEntriesContainer = document.getElementById('classEntriesContainer');
+            let html = '';
 
-        function removeRound(dayIndex, classIndex, roundIndex) {
-            if (confirm('Are you sure you want to remove this round?')) {
-                const roundElement = document.querySelector(`[data-day-index="${dayIndex}"][data-class-index="${classIndex}"] [data-round-index="${roundIndex}"]`);
-                if (roundElement) {
-                    roundElement.remove();
-                    markAsModified();
-                }
-            }
-        }
+            currentTrialData.days.forEach((day, dayIndex) => {
+                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
 
-        // Save trial changes
-        async function saveTrial() {
-            try {
-                showStatus('💾 Saving changes...');
-                
-                // Collect trial data from form (similar to create-trial.html)
-                const updatedTrial = collectTrialData();
-                updatedTrial.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                updatedTrial.updatedBy = currentUser.uid;
-                
-                // Save to Firebase
-                await db.collection('trials').doc(currentTrial.id).update(updatedTrial);
-                
-                showStatus('✅ Trial updated successfully!');
-                
-                // Update current trial data
-                currentTrial = { ...currentTrial, ...updatedTrial };
-                originalTrialData = JSON.parse(JSON.stringify(currentTrial));
-                
-            } catch (error) {
-                console.error('Error saving trial:', error);
-                showStatus('Error saving trial: ' + error.message, true);
-            }
-        }
-
-        // Cancel edit mode
-        function cancelEdit() {
-            if (confirm('Are you sure? All unsaved changes will be lost.')) {
-                // Reload original data
-                loadTrialStructure(originalTrialData);
-                document.getElementById('clubName').value = originalTrialData.clubName || '';
-                document.getElementById('secretary').value = originalTrialData.secretary || '';
-                
-                // Switch back to view mode
-                toggleMode();
-                
-                showStatus('Changes cancelled');
-            }
-        }
-
-        // Collect trial data from form
-        function collectTrialData() {
-            const clubName = document.getElementById('clubName').value.trim();
-            const secretary = document.getElementById('secretary').value.trim();
-            
-            const days = [];
-            const trialStructure = document.getElementById('trialStructure');
-            const dayContainers = trialStructure.querySelectorAll('.day-container');
-            
-            dayContainers.forEach((dayContainer, dayIndex) => {
-                const dateInput = dayContainer.querySelector('input[type="date"]');
-                const classesContainer = dayContainer.querySelector('.classes-container');
-                
-                const dayData = {
-                    dayNumber: dayIndex + 1,
-                    date: dateInput ? dateInput.value : null,
-                    classes: []
-                };
-                
-                if (classesContainer) {
-                    const classContainers = classesContainer.querySelectorAll('.class-container');
+                if (!day.classes || day.classes.length === 0) {
+                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
+                } else {
+                    console.log(`📋 Day ${dayIndex + 1} has ${day.classes.length} classes`);
                     
-                    classContainers.forEach((classContainer, classIndex) => {
-                        const classInput = classContainer.querySelector('input[type="text"]');
-                        const subclassSelect = classContainer.querySelector('select');
-                        const roundsContainer = classContainer.querySelector('.rounds-container');
+                    day.classes.forEach((cls, classIndex) => {
+                        const className = cls[STANDARD_FIELDS.CLASS_NAME] || cls.className || 'Unnamed Class';
                         
-                        const classData = {
-                            [STANDARD_FIELDS.CLASS_NAME]: classInput ? classInput.value.trim() : '',
-                            className: classInput ? classInput.value.trim() : '', // Backup field
-                            subClass: subclassSelect && !subclassSelect.disabled ? subclassSelect.value : '',
-                            rounds: []
-                        };
-                        
-                        if (roundsContainer) {
-                            const roundContainers = roundsContainer.querySelectorAll('.round-container');
-                            
-                            roundContainers.forEach((roundContainer, roundIndex) => {
-                                const judgeInput = roundContainer.querySelector('input[type="text"]');
-                                const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+                        console.log(`🎯 Processing class: ${className} with ${cls.rounds?.length || 0} rounds`);
+
+                        html += `
+                            <div class="class-item">
+                                <div class="class-header">
+                                    <div class="class-name">${className}</div>
+                                </div>
+                                <div class="rounds-container">
+                        `;
+
+                        if (cls.rounds && cls.rounds.length > 0) {
+                            cls.rounds.forEach((round, roundIndex) => {
+                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
+                                const roundName = `Round ${roundIndex + 1}`;
                                 
-                                const roundData = {
-                                    roundNumber: roundIndex + 1,
-                                    [STANDARD_FIELDS.JUDGE_NAME]: judgeInput ? judgeInput.value.trim() : '',
-                                    judge: judgeInput ? judgeInput.value.trim() : '', // Backup field
-                                    feoAvailable: feoCheckbox ? feoCheckbox.checked : false
-                                };
+                                // Calculate fees
+                                const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
+                                const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
+                                const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
                                 
-                                classData.rounds.push(roundData);
+                                html += `
+                                    <div class="round-item">
+                                        <div class="round-details">
+                                            <span class="judge-name">Judge: ${judgeName}</span>
+                                            <span>${roundName}</span>
+                                        </div>
+                                        <div class="entry-options">
+                                `;
+
+                                // Show Regular button if fee > 0
+                                if (regularFee > 0) {
+                                    html += `
+                                        <button class="entry-button regular" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${regularFee.toFixed(2)}" 
+                                                data-type="regular"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            Regular ${regularFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                // Show FEO button if available and fee > 0 and not junior handler
+                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
+                                    html += `
+                                        <button class="entry-button feo" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${feoFee.toFixed(2)}" 
+                                                data-type="feo"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            FEO ${feoFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                html += `
+                                        </div>
+                                    </div>
+                                `;
                             });
+                        } else {
+                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
                         }
-                        
-                        if (classData[STANDARD_FIELDS.CLASS_NAME] || classData.className) {
-                            dayData.classes.push(classData);
-                        }
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
                     });
                 }
-                
-                days.push(dayData);
+
+                html += `</div>`;
             });
+
+            classEntriesContainer.innerHTML = html;
             
-            return {
-                clubName: clubName,
-                secretary: secretary,
-                numDays: days.length,
-                days: days
-            };
+            console.log("✅ Tabbed classes generated successfully");
+            updateEntrySummary();
         }
 
-        // Initialize page
-        async function initializePage() {
-            const params = getUrlParams();
+        // Show specific day tab
+        function showDay(dayIndex) {
+            // Hide all day content
+            document.querySelectorAll('.class-day-content').forEach(content => {
+                content.classList.remove('active');
+            });
             
-            console.log('Initializing edit-trial page with params:', params);
+            // Remove active class from all tabs
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
             
-            if (!params.trialId) {
-                console.error('No trial ID provided');
-                document.getElementById('loadingCard').classList.add('hidden');
-                document.getElementById('notFoundCard').classList.remove('hidden');
+            // Show selected day content
+            const dayContent = document.getElementById(`day-${dayIndex}`);
+            if (dayContent) {
+                dayContent.classList.add('active');
+            }
+            
+            // Add active class to selected tab
+            const dayTabs = document.querySelectorAll('.day-tab');
+            if (dayTabs[dayIndex]) {
+                dayTabs[dayIndex].classList.add('active');
+            }
+        }
+
+        // Toggle entry selection
+        function toggleEntry(button) {
+            const className = button.dataset.class;
+            const roundName = button.dataset.round;
+            const judgeName = button.dataset.judge;
+            const fee = parseFloat(button.dataset.fee);
+            const entryType = button.dataset.type;
+            const dayIndex = button.dataset.day;
+            const roundIndex = button.dataset.roundIndex;
+            
+            // Create unique identifier for this entry
+            const entryId = `${className}-${roundName}-${dayIndex}-${roundIndex}`;
+            
+            if (button.classList.contains('selected')) {
+                // Remove selection
+                button.classList.remove('selected');
+                selectedEntries = selectedEntries.filter(entry => 
+                    !(entry.entryId === entryId && entry.type === entryType)
+                );
+                console.log("❌ Removed entry:", entryId, entryType);
+            } else {
+                // Add selection (but first remove any conflicting entry for same round)
+                const conflictingEntries = selectedEntries.filter(entry => 
+                    entry.entryId === entryId && entry.type !== entryType
+                );
+                
+                conflictingEntries.forEach(conflictEntry => {
+                    // Remove conflicting button selection
+                    const conflictButton = document.querySelector(
+                        `[data-class="${conflictEntry.className}"][data-round="${conflictEntry.roundName}"][data-type="${conflictEntry.type}"][data-day="${conflictEntry.dayIndex}"][data-round-index="${conflictEntry.roundIndex}"]`
+                    );
+                    if (conflictButton) {
+                        conflictButton.classList.remove('selected');
+                    }
+                });
+                
+                // Remove conflicting entries from selectedEntries
+                selectedEntries = selectedEntries.filter(entry => entry.entryId !== entryId);
+                
+                // Add new selection
+                button.classList.add('selected');
+                selectedEntries.push({
+                    entryId: entryId,
+                    className: className,
+                    roundName: roundName,
+                    judgeName: judgeName,
+                    fee: fee,
+                    type: entryType,
+                    dayIndex: dayIndex,
+                    roundIndex: roundIndex
+                });
+                console.log("✅ Added entry:", entryId, entryType, `${fee}`);
+            }
+            
+            updateEntrySummary();
+            checkFormValidity();
+        }
+
+        // Update entry summary
+        function updateEntrySummary() {
+            const summaryDiv = document.getElementById('entrySummary');
+            const entriesList = document.getElementById('selectedEntriesList');
+            const totalFeeSpan = document.getElementById('totalFee');
+            const submitSection = document.getElementById('submitSection');
+            
+            if (selectedEntries.length === 0) {
+                summaryDiv.style.display = 'none';
+                submitSection.classList.remove('show');
                 return;
             }
             
-            // Set up authentication listener
-            auth.onAuthStateChanged(async (user) => {
-                console.log('Auth state changed:', user ? user.email : 'No user');
-                
-                if (user) {
-                    try {
-                        console.log('Loading user profile...');
-                        
-                        // Load user profile
-                        const userDoc = await db.collection('users').doc(user.uid).get();
-                        if (userDoc.exists) {
-                            currentUser = { uid: user.uid, ...userDoc.data() };
-                            console.log('User loaded:', currentUser.firstName, currentUser.lastName);
-                            
-                            document.getElementById('userInfo').textContent = 
-                                `${currentUser.firstName} ${currentUser.lastName} • ${currentUser.role}`;
-                            
-                            // Load system data first
-                            console.log('Loading system data...');
-                            await loadSystemData();
-                            console.log('System data loaded - Classes:', globalClasses.length, 'Judges:', globalJudges.length);
-                            
-                            // Update datalists after system data loads
-                            updateDataLists();
-                            
-                            // Load trial
-                            console.log('Loading trial:', params.trialId);
-                            await loadTrial(params.trialId);
-                            
-                        } else {
-                            throw new Error('User profile not found');
+            summaryDiv.style.display = 'block';
+            submitSection.classList.add('show');
+            
+            // Generate entries list
+            let html = '';
+            selectedEntries.forEach(entry => {
+                html += `
+                    <li class="selected-entry">
+                        Day ${parseInt(entry.dayIndex) + 1}: ${entry.className} - ${entry.roundName} 
+                        (${entry.type.toUpperCase()}) - Judge: ${entry.judgeName} - ${entry.fee.toFixed(2)}
+                    </li>
+                `;
+            });
+            
+            entriesList.innerHTML = html;
+            
+            // Update total fee
+            totalFee = selectedEntries.reduce((sum, entry) => sum + entry.fee, 0);
+            totalFeeSpan.textContent = totalFee.toFixed(2);
+            
+            console.log("💰 Updated summary:", selectedEntries.length, "entries, total:", `${totalFee.toFixed(2)}`);
+        }
+
+        // C-WAGS number formatting and lookup
+        function formatCwagsNumber(input) {
+            // Remove all non-alphanumeric characters
+            let cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            
+            // Format to XX-XXXX-XX pattern
+            if (cleaned.length >= 2) {
+                let formatted = cleaned.substring(0, 2);
+                if (cleaned.length > 2) {
+                    formatted += '-' + cleaned.substring(2, 6);
+                    if (cleaned.length > 6) {
+                        let lastPart = cleaned.substring(6, 8);
+                        if (lastPart.length === 1) {
+                            lastPart = '0' + lastPart;
                         }
-                    } catch (error) {
-                        console.error('Error initializing:', error);
-                        showStatus('Error loading page: ' + error.message, true);
-                        document.getElementById('loadingCard').classList.add('hidden');
-                        document.getElementById('notFoundCard').classList.remove('hidden');
+                        formatted += '-' + lastPart;
                     }
+                }
+                return formatted;
+            }
+            return cleaned;
+        }
+
+        // Show lookup status
+        function showLookupStatus(message, type) {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideLookupStatus() {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.style.display = 'none';
+        }
+
+        // Auto-fill from registration data with enhanced fields
+        async function autoFillFromRegistration(cwagsNumber) {
+            showLookupStatus('🔍 Looking up registration...', 'info');
+            
+            try {
+                console.log("🔍 Looking up registration:", cwagsNumber);
+                console.log("📊 Available registrations:", registrationData.length);
+                
+                // Search in registration data
+                const matchingRegistration = registrationData.find(record => {
+                    const recordCwag = String(record.cwagsNumber || record.cwag || '').trim();
+                    const searchCwag = String(cwagsNumber).trim();
+                    
+                    return recordCwag === searchCwag || 
+                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
+                });
+                
+                if (matchingRegistration) {
+                    console.log("✅ Found matching registration:", matchingRegistration);
+                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
+                    populateForm(matchingRegistration);
                 } else {
-                    console.log('No user authenticated, redirecting to login');
-                    // Redirect to login
-                    window.location.href = 'index.html';
+                    console.log("❌ No matching registration found for:", cwagsNumber);
+                    showLookupStatus('ℹ️ Registration number not found. Information will be saved when you submit.', 'warning');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error during registration lookup:", error);
+                showLookupStatus('❌ Error looking up registration', 'error');
+            }
+        }
+
+        // Populate form with comprehensive registration data
+        function populateForm(registration) {
+            console.log("📝 Populating form with registration data:", registration);
+            
+            // Handler information
+            if (registration.handlerName || registration.handler) {
+                const handlerField = document.getElementById('handlerName');
+                handlerField.value = registration.handlerName || registration.handler;
+                handlerField.style.background = '#e7f3ff';
+                setTimeout(() => handlerField.style.background = '', 3000);
+            }
+            
+            if (registration.handlerPhone) {
+                const phoneField = document.getElementById('handlerPhone');
+                phoneField.value = registration.handlerPhone;
+                phoneField.style.background = '#e7f3ff';
+                setTimeout(() => phoneField.style.background = '', 3000);
+            }
+            
+            if (registration.handlerEmail) {
+                const emailField = document.getElementById('handlerEmail');
+                emailField.value = registration.handlerEmail;
+                emailField.style.background = '#e7f3ff';
+                setTimeout(() => emailField.style.background = '', 3000);
+            }
+            
+            if (registration.emergencyContact) {
+                const emergencyField = document.getElementById('emergencyContact');
+                emergencyField.value = registration.emergencyContact;
+                emergencyField.style.background = '#e7f3ff';
+                setTimeout(() => emergencyField.style.background = '', 3000);
+            }
+            
+            // Dog information
+            if (registration.dogCallName || registration.dog) {
+                const dogField = document.getElementById('dogCallName');
+                dogField.value = registration.dogCallName || registration.dog;
+                dogField.style.background = '#e7f3ff';
+                setTimeout(() => dogField.style.background = '', 3000);
+            }
+            
+            if (registration.dogBreed) {
+                const breedField = document.getElementById('dogBreed');
+                breedField.value = registration.dogBreed;
+                breedField.style.background = '#e7f3ff';
+                setTimeout(() => breedField.style.background = '', 3000);
+            }
+            
+            if (registration.dogBirthdate) {
+                const birthdateField = document.getElementById('dogBirthdate');
+                birthdateField.value = registration.dogBirthdate;
+                birthdateField.style.background = '#e7f3ff';
+                setTimeout(() => birthdateField.style.background = '', 3000);
+            }
+            
+            if (registration.dogSex) {
+                const sexField = document.getElementById('dogSex');
+                sexField.value = registration.dogSex;
+                sexField.style.background = '#e7f3ff';
+                setTimeout(() => sexField.style.background = '', 3000);
+            }
+            
+            if (registration.juniorHandler !== undefined) {
+                const juniorField = document.getElementById('juniorHandler');
+                juniorField.value = registration.juniorHandler ? 'Yes' : 'No';
+                juniorField.style.background = '#e7f3ff';
+                setTimeout(() => juniorField.style.background = '', 3000);
+            }
+        }
+
+        // Save or update registration data
+        async function saveOrUpdateRegistration(entryData) {
+            try {
+                const cwagsNumber = entryData[STANDARD_FIELDS.CWAGS_NUMBER];
+                
+                if (!cwagsNumber) {
+                    console.log("📝 No C-WAGS number provided, skipping registration save");
+                    return null;
+                }
+                
+                console.log("💾 Saving/updating registration for:", cwagsNumber);
+                
+                // Check if registration already exists
+                const existingRegQuery = await db.collection('registrations')
+                    .where('cwagsNumber', '==', cwagsNumber)
+                    .get();
+                
+                const registrationData = {
+                    cwagsNumber: cwagsNumber,
+                    handlerName: entryData[STANDARD_FIELDS.HANDLER_NAME],
+                    handlerPhone: entryData.handlerPhone || '',
+                    handlerEmail: entryData.handlerEmail || '',
+                    emergencyContact: entryData.emergencyContact || '',
+                    dogCallName: entryData[STANDARD_FIELDS.DOG_CALL_NAME],
+                    dogBreed: entryData.dogBreed || '',
+                    dogBirthdate: entryData.dogBirthdate || '',
+                    dogSex: entryData.dogSex || '',
+                    juniorHandler: entryData.juniorHandler || false,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastTrialEntry: entryData.trialId
+                };
+                
+                let registrationId;
+                
+                if (!existingRegQuery.empty) {
+                    // Update existing registration
+                    const existingDoc = existingRegQuery.docs[0];
+                    registrationId = existingDoc.id;
+                    
+                    await db.collection('registrations').doc(registrationId).update(registrationData);
+                    console.log("✅ Updated existing registration:", registrationId);
+                } else {
+                    // Create new registration
+                    registrationData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    
+                    const docRef = await db.collection('registrations').add(registrationData);
+                    registrationId = docRef.id;
+                    console.log("✅ Created new registration:", registrationId);
+                }
+                
+                // Update local registry for future lookups in this session
+                const existingIndex = registrationData.findIndex(reg => 
+                    reg.cwagsNumber === cwagsNumber || reg.cwag === cwagsNumber
+                );
+                
+                if (existingIndex >= 0) {
+                    registrationData[existingIndex] = { id: registrationId, ...registrationData };
+                } else {
+                    registrationData.push({ id: registrationId, ...registrationData });
+                }
+                
+                return registrationId;
+                
+            } catch (error) {
+                console.error("❌ Error saving registration:", error);
+                showStatus('⚠️ Could not save registration data, but entry was submitted', 'warning');
+                return null;
+            }
+        }
+
+        // Setup form event listeners
+        function setupFormEventListeners() {
+            // C-WAGS number formatting and lookup
+            const cwagsInput = document.getElementById('cwagsNumber');
+            if (cwagsInput) {
+                cwagsInput.addEventListener('input', function(e) {
+                    const formatted = formatCwagsNumber(e.target.value);
+                    e.target.value = formatted;
+                    
+                    // Clear any existing timeout
+                    if (window.cwagsTimeout) {
+                        clearTimeout(window.cwagsTimeout);
+                    }
+                    
+                    if (formatted.length >= 8) { // Minimum length for lookup
+                        window.cwagsTimeout = setTimeout(() => {
+                            autoFillFromRegistration(formatted);
+                        }, 500);
+                    } else {
+                        hideLookupStatus();
+                    }
+                    
+                    checkFormValidity();
+                });
+            }
+
+            // Form validation listeners
+            ['handlerName', 'dogCallName', 'waiverAccepted'].forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', checkFormValidity);
+                    field.addEventListener('change', checkFormValidity);
                 }
             });
+
+            // Junior handler change affects fees
+            const juniorSelect = document.getElementById('juniorHandler');
+            if (juniorSelect) {
+                juniorSelect.addEventListener('change', function() {
+                    if (currentTrialData) {
+                        generateTabbedClasses();
+                    }
+                    updateEntrySummary();
+                });
+            }
+
+            // Submit button
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', submitEntry);
+            }
         }
 
-        // Update datalists with loaded data
-        function updateDataLists() {
-            console.log('Updating datalists...');
+        // Check form validity
+        function checkFormValidity() {
+            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
+            const handlerName = document.getElementById('handlerName')?.value.trim();
+            const dogCallName = document.getElementById('dogCallName')?.value.trim();
+            const hasClasses = selectedEntries.length > 0;
             
-            // Remove existing datalists
-            const existingClassesList = document.getElementById('classes-datalist');
-            const existingJudgesList = document.getElementById('judges-datalist');
-            if (existingClassesList) existingClassesList.remove();
-            if (existingJudgesList) existingJudgesList.remove();
+            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
             
-            // Add new datalists to body
-            const classesDatalist = document.createElement('datalist');
-            classesDatalist.id = 'classes-datalist';
-            classesDatalist.innerHTML = globalClasses.map(className => 
-                `<option value="${className}">${className}</option>`).join('');
-            document.body.appendChild(classesDatalist);
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.disabled = !isValid;
+            }
             
-            const judgesDatalist = document.createElement('datalist');
-            judgesDatalist.id = 'judges-datalist';
-            judgesDatalist.innerHTML = globalJudges.map(judge => 
-                `<option value="${judge}">${judge}</option>`).join('');
-            document.body.appendChild(judgesDatalist);
-            
-            console.log('Datalists updated');
+            return isValid;
         }
 
-        // Remove the old datalist creation section
-        // Set print date
-        document.getElementById('printDate').textContent = new Date().toLocaleDateString();
+        // Submit entry with registration saving
+        async function submitEntry() {
+            console.log("🚀 Starting entry submission...");
+            
+            if (!checkFormValidity()) {
+                showStatus('Please complete all required fields and select at least one class.', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitEntry');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                // Collect form data
+                const entryData = {
+                    trialId: currentTrialData.id,
+                    trialName: currentTrialData.clubName,
+                    [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
+                    handlerEmail: document.getElementById('handlerEmail').value.trim(),
+                    handlerPhone: document.getElementById('handlerPhone').value.trim(),
+                    emergencyContact: document.getElementById('emergencyContact').value.trim(),
+                    [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
+                    dogBreed: document.getElementById('dogBreed').value.trim(),
+                    dogBirthdate: document.getElementById('dogBirthdate').value,
+                    dogSex: document.getElementById('dogSex').value,
+                    [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
+                    juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+                    selectedEntries: selectedEntries,
+                    totalFee: totalFee,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    waiverAccepted: true
+                };
+                
+                console.log("📝 Entry data prepared:", entryData);
+                
+                // Save/update registration data first (if C-WAGS number provided)
+                let registrationId = null;
+                if (entryData[STANDARD_FIELDS.CWAGS_NUMBER]) {
+                    registrationId = await saveOrUpdateRegistration(entryData);
+                    if (registrationId) {
+                        entryData.registrationId = registrationId;
+                        console.log("✅ Registration saved/updated:", registrationId);
+                    }
+                }
+                
+                // Save trial entry to Firebase
+                const docRef = await db.collection("entries").add(entryData);
+                console.log("✅ Entry saved with ID:", docRef.id);
+                
+                // Show success message
+                document.getElementById('entryForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                showStatus('✅ Entry submitted successfully! Registration information saved for future use.', 'success');
+                
+            } catch (error) {
+                console.error("❌ Error submitting entry:", error);
+                showStatus("Error submitting entry: " + error.message, 'error');
+                
+                // Reset button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
 
-        // Initialize the page
-        initializePage();
+        // Reset form for another entry
+        function resetForm() {
+            // Reset form fields
+            document.getElementById('entryForm').reset();
+            
+            // Clear selected entries
+            selectedEntries = [];
+            totalFee = 0;
+            
+            // Clear all selected buttons
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Update display
+            updateEntrySummary();
+            checkFormValidity();
+            
+            // Hide success message and show form
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('entryForm').style.display = 'block';
+            
+            // Clear lookup status
+            hideLookupStatus();
+            
+            console.log("📝 Form reset for new entry");
+            showStatus('Form reset for new entry', 'info');
+        }
 
-        console.log('Edit/View Trial page loaded successfully');
+        // Make functions globally accessible
+        window.showDay = showDay;
+        window.toggleEntry = toggleEntry;
+        window.copyShareableLink = copyShareableLink;
+        window.testShareableLink = testShareableLink;
+        window.resetForm = resetForm;
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("🎯 DOM loaded, initializing entry form...");
+            init();
+        });
+
+        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
     </script>
 </body>
 </html>
