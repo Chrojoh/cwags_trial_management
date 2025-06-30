@@ -1028,10 +1028,9 @@
                 console.log("🔍 Loading trials for user:", currentUser.uid);
                 showStatus('🔄 Loading your trials...', 'info');
 
-                // Load trials - FIXED QUERY
+                // Load trials - SIMPLIFIED QUERY (no orderBy to avoid index requirement)
                 const trialsSnapshot = await db.collection("trials")
                     .where("createdBy", "==", currentUser.uid)
-                    .orderBy("createdAt", "desc")
                     .get();
                 
                 console.log("📊 Trials query result:", {
@@ -1045,6 +1044,13 @@
                         const trialData = { id: doc.id, ...doc.data() };
                         console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
                         availableTrials.push(trialData);
+                    });
+                    
+                    // Sort by creation date manually (newest first)
+                    availableTrials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
                     });
                     
                     console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
