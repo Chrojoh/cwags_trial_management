@@ -230,6 +230,7 @@
             border-radius: 8px;
             padding: 1.5rem;
             margin: 20px;
+            display: none;
         }
 
         .waiver-content {
@@ -632,6 +633,22 @@
             display: none;
         }
 
+        .loading-message {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 0;
@@ -685,8 +702,22 @@
             </a>
         </div>
 
+        <!-- Loading Message -->
+        <div class="loading-message" id="loadingMessage">
+            🔄 Loading entry form...
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message hidden" id="errorMessage">
+            <h3>❌ Unable to Load Entry Form</h3>
+            <p id="errorText">An error occurred while loading the entry form.</p>
+            <button onclick="window.location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Retry
+            </button>
+        </div>
+
         <!-- Trial Selection (Secretary Only) -->
-        <div class="trial-selection" id="trialSelectionSection">
+        <div class="trial-selection hidden" id="trialSelectionSection">
             <h3>🎯 Select Trial</h3>
             <div class="form-row">
                 <div class="form-group required full-width">
@@ -750,7 +781,7 @@
         </div>
 
         <!-- C-WAGS Waiver Section -->
-        <div class="waiver-section" id="waiverSection" style="display: none;">
+        <div class="waiver-section" id="waiverSection">
             <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
             <div class="waiver-content">
                 <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
@@ -937,11 +968,11 @@
 
         // Global variables
         let currentTrialData = null;
-        let selectedClasses = new Set();
         let registrationData = [];
         let isAutoFilling = false;
         let availableTrials = [];
         let isSecretary = false;
+        let currentUser = null;
 
         // Fee structure - configurable by secretary
         let fees = {
@@ -963,30 +994,60 @@
             CWAGS_NUMBER: 'cwagsNumber'
         };
 
+        // Show/hide elements
+        function showElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.remove('hidden');
+                element.style.display = 'block';
+            }
+        }
+
+        function hideElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.add('hidden');
+                element.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            console.error(message);
+            hideElement('loadingMessage');
+            document.getElementById('errorText').textContent = message;
+            showElement('errorMessage');
+        }
+
         // Initialize the application
         async function init() {
             console.log("🚀 Initializing entry form application...");
             
-            // Load registration data from dataforsite.xlsx
-            await loadRegistrationData();
+            try {
+                // Check URL parameters for entry link
+                const urlParams = new URLSearchParams(window.location.search);
+                const trialId = urlParams.get('trial');
 
-            // Check URL parameters for entry link
-            const urlParams = new URLSearchParams(window.location.search);
-            const trialId = urlParams.get('trial');
+                if (trialId) {
+                    // Load specific trial for public entry
+                    console.log("🔗 Loading specific trial for public entry:", trialId);
+                    await loadSpecificTrial(trialId);
+                } else {
+                    // Normal secretary view - need authentication
+                    console.log("👨‍💼 Setting up secretary view");
+                    isSecretary = true;
+                    await setupSecretaryView();
+                }
 
-            if (trialId) {
-                // Load specific trial for public entry
-                console.log("🔗 Loading specific trial for public entry:", trialId);
-                await loadSpecificTrial(trialId);
-            } else {
-                // Normal secretary view
-                console.log("👨‍💼 Setting up secretary view");
-                isSecretary = true;
-                await setupSecretaryView();
+                // Load registration data from dataforsite.xlsx
+                await loadRegistrationData();
+
+                // Setup form event listeners
+                setupFormEventListeners();
+                
+            } catch (error) {
+                console.error("❌ Error initializing application:", error);
+                showError("Failed to initialize entry form: " + error.message);
             }
-
-            // Setup form event listeners
-            setupFormEventListeners();
         }
 
         // Load registration data from system_data collection (same as dashboard)
@@ -1016,35 +1077,41 @@
             }
         }
 
-        // Setup secretary view
+        // Setup secretary view with proper authentication
         async function setupSecretaryView() {
             try {
-                // Wait for auth
-                await new Promise((resolve) => {
-                    if (auth.currentUser) {
-                        resolve();
-                    } else {
-                        const unsubscribe = auth.onAuthStateChanged((user) => {
-                            unsubscribe();
-                            resolve();
-                        });
-                    }
+                // Wait for authentication state
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                console.log("🔍 Loading user profile for:", user.email);
+                                
+                                // Load user profile
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            reject(new Error('User not authenticated'));
+                        }
+                    });
                 });
 
-                if (!auth.currentUser) {
-                    alert("Please log in to access the entry form");
-                    window.location.href = 'index.html';
-                    return;
-                }
+                console.log("🔍 Loading trials for user:", currentUser.uid);
 
-                console.log("🔍 Loading trials for user:", auth.currentUser.uid);
-
-                // Load trials for secretary - using the same query as dashboard
-                const trialsQuery = db.collection("trials")
-                    .where("createdBy", "==", auth.currentUser.uid)
-                    .limit(10);
-                
-                const trialsSnapshot = await trialsQuery.get();
+                // Load trials for secretary - using exact same query as dashboard
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
                 
                 console.log("📊 Trials query result:", {
                     empty: trialsSnapshot.empty,
@@ -1054,12 +1121,12 @@
                 if (!trialsSnapshot.empty) {
                     availableTrials = [];
                     trialsSnapshot.forEach(doc => {
-                        const trialData = doc.data();
+                        const trialData = { id: doc.id, ...doc.data() };
                         console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
-                        availableTrials.push({ id: doc.id, ...trialData });
+                        availableTrials.push(trialData);
                     });
                     
-                    // Sort by creation date (newest first) - client-side sorting like dashboard
+                    // Sort by creation date (newest first)
                     availableTrials.sort((a, b) => {
                         const aTime = a.createdAt ? a.createdAt.seconds : 0;
                         const bTime = b.createdAt ? b.createdAt.seconds : 0;
@@ -1067,38 +1134,19 @@
                     });
                     
                     console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
+                    
+                    hideElement('loadingMessage');
+                    showElement('trialSelectionSection');
                     populateTrialSelector();
+                    
                 } else {
                     console.warn("⚠️ No trials found for this user");
-                    
-                    // Check if there's a Firebase index error
-                    const trialSelect = document.getElementById('trialSelection');
-                    trialSelect.innerHTML = `
-                        <option value="">No trials found - please create a trial first</option>
-                    `;
-                    
-                    // Don't automatically redirect, let user decide
-                    setTimeout(() => {
-                        if (confirm("No trials found. Would you like to go to the dashboard to create one?")) {
-                            window.location.href = 'trial-secretary-dashboard.html';
-                        }
-                    }, 1000);
+                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
                 }
+                
             } catch (error) {
-                console.error("❌ Error loading trial data:", error);
-                
-                // Show user-friendly error message like the dashboard does
-                const trialSelect = document.getElementById('trialSelection');
-                trialSelect.innerHTML = `
-                    <option value="">Error loading trials - check console for details</option>
-                `;
-                
-                // Check if it's a Firebase index error
-                if (error.message && error.message.includes('index')) {
-                    alert(`Database index required. This is the same issue as the dashboard.\n\nError: ${error.message}\n\nPlease create the required index in Firebase Console.`);
-                } else {
-                    alert("Error loading trial data: " + error.message);
-                }
+                console.error("❌ Error setting up secretary view:", error);
+                throw error;
             }
         }
 
@@ -1107,26 +1155,27 @@
             try {
                 console.log("🔍 Loading specific trial:", trialId);
                 const trialDoc = await db.collection('trials').doc(trialId).get();
-                if (!trialDoc.exists()) {
-                    alert('Trial not found');
-                    return;
+                
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
                 }
 
                 currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
                 console.log("✅ Trial loaded:", currentTrialData.clubName);
                 
-                // Hide secretary-only sections
-                document.getElementById('trialSelectionSection').style.display = 'none';
-                document.getElementById('entryFeeSection').style.display = 'none';
+                hideElement('loadingMessage');
+                hideElement('trialSelectionSection');
+                hideElement('entryFeeSection');
+                hideElement('shareableLinkSection');
                 
                 // Show waiver, trial info and entry form
-                document.getElementById('waiverSection').style.display = 'block';
+                showElement('waiverSection');
                 populateTrialInfo();
                 showEntryForm();
                 
             } catch (error) {
-                console.error('Error loading specific trial:', error);
-                alert('Error loading trial: ' + error.message);
+                console.error('❌ Error loading specific trial:', error);
+                throw new Error('Trial not found or no longer available');
             }
         }
 
@@ -1170,25 +1219,25 @@
                         console.log("✅ Found trial data:", currentTrialData.clubName);
                         
                         // Show fee configuration section for secretary
-                        document.getElementById('entryFeeSection').style.display = 'block';
+                        showElement('entryFeeSection');
                         
                         // Setup fee change listeners
                         setupFeeChangeListeners();
                         
                         generateShareableLink();
                         populateTrialInfo();
-                        document.getElementById('waiverSection').style.display = 'block';
+                        showElement('waiverSection');
                         showEntryForm();
                     } else {
                         console.error("❌ Could not find trial data for ID:", trialId);
                     }
                 } else {
                     console.log("🚫 No trial selected, hiding sections");
-                    hideShareableLink();
-                    hideTrialInfo();
-                    hideEntryForm();
-                    document.getElementById('entryFeeSection').style.display = 'none';
-                    document.getElementById('waiverSection').style.display = 'none';
+                    hideElement('shareableLinkSection');
+                    hideElement('trialInfoSection');
+                    hideElement('entryFormContainer');
+                    hideElement('entryFeeSection');
+                    hideElement('waiverSection');
                 }
             });
         }
@@ -1229,7 +1278,31 @@
             const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
             
             document.getElementById('shareableUrl').textContent = shareableUrl;
-            document.getElementById('shareableLinkSection').style.display = 'block';
+            showElement('shareableLinkSection');
+        }
+
+        // Copy shareable link to clipboard
+        function copyShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Link copied to clipboard!');
+            }).catch(err => {
+                console.error('Error copying link:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('Link copied to clipboard!');
+            });
+        }
+
+        // Test shareable link
+        function testShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            window.open(url, '_blank');
         }
 
         // Populate trial information and generate tabbed classes
@@ -1256,10 +1329,15 @@
             document.getElementById('trialLocation').textContent = 'TBD';
             document.getElementById('trialSecretary').textContent = currentTrialData.secretary || 'TBD';
 
-            document.getElementById('trialInfoSection').style.display = 'block';
+            showElement('trialInfoSection');
             
             // Generate the tabbed class interface from trial data
             generateTabbedClasses();
+        }
+
+        // Show entry form
+        function showEntryForm() {
+            showElement('entryFormContainer');
         }
 
         // Generate tabbed classes from trial data
@@ -1352,7 +1430,7 @@
                                                     data-day="${dayIndex}"
                                                     data-round-index="${roundIndex}"
                                                     onclick="toggleEntry(this)">
-                                                Regular ${regularFee > 0 ? `(${regularFee.toFixed(2)})` : '(Free)'}
+                                                Regular ${regularFee.toFixed(2)}
                                             </button>
                                         </div>
                                     `;
@@ -1371,7 +1449,7 @@
                                                     data-day="${dayIndex}"
                                                     data-round-index="${roundIndex}"
                                                     onclick="toggleEntry(this)">
-                                                FEO ${feoFee > 0 ? `(${feoFee.toFixed(2)})` : '(Free)'}
+                                                FEO ${feoFee.toFixed(2)}
                                             </button>
                                         </div>
                                     `;
@@ -1534,6 +1612,18 @@
             return cleaned;
         }
 
+        // Show lookup status
+        function showLookupStatus(message, type) {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `lookup-status ${type}`;
+        }
+
+        function hideLookupStatus() {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.style.display = 'none';
+        }
+
         // Auto-fill from registration data
         async function autoFillFromRegistration(cwagsNumber) {
             if (isAutoFilling) return;
@@ -1567,29 +1657,52 @@
             }
         }
 
+        // Populate form with registration data
+        function populateForm(registration) {
+            console.log("📝 Populating form with registration data:", registration);
+            
+            // Handler name
+            if (registration.handler) {
+                const handlerField = document.getElementById('handlerName');
+                handlerField.value = registration.handler;
+                handlerField.classList.add('auto-filled');
+                setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
+            }
+            
+            // Dog name
+            if (registration.dog) {
+                const dogField = document.getElementById('dogCallName');
+                dogField.value = registration.dog;
+                dogField.classList.add('auto-filled');
+                setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
+            }
+        }
+
         // Setup form event listeners
         function setupFormEventListeners() {
             // C-WAGS number formatting and lookup
             const cwagsInput = document.getElementById('cwagsNumber');
-            cwagsInput.addEventListener('input', function(e) {
-                const formatted = formatCwagsNumber(e.target.value);
-                e.target.value = formatted;
-                
-                // Clear any existing timeout
-                if (window.cwagsTimeout) {
-                    clearTimeout(window.cwagsTimeout);
-                }
-                
-                if (formatted.length >= 8) { // Minimum length for lookup
-                    window.cwagsTimeout = setTimeout(() => {
-                        autoFillFromRegistration(formatted);
-                    }, 500);
-                } else {
-                    hideLookupStatus();
-                }
-                
-                checkFormValidity();
-            });
+            if (cwagsInput) {
+                cwagsInput.addEventListener('input', function(e) {
+                    const formatted = formatCwagsNumber(e.target.value);
+                    e.target.value = formatted;
+                    
+                    // Clear any existing timeout
+                    if (window.cwagsTimeout) {
+                        clearTimeout(window.cwagsTimeout);
+                    }
+                    
+                    if (formatted.length >= 8) { // Minimum length for lookup
+                        window.cwagsTimeout = setTimeout(() => {
+                            autoFillFromRegistration(formatted);
+                        }, 500);
+                    } else {
+                        hideLookupStatus();
+                    }
+                    
+                    checkFormValidity();
+                });
+            }
 
             // Form validation listeners
             ['handlerName', 'dogCallName', 'waiverAccepted'].forEach(fieldId => {
@@ -1601,27 +1714,36 @@
             });
 
             // Junior handler change affects fees
-            document.getElementById('juniorHandler').addEventListener('change', function() {
-                if (currentTrialData) {
-                    generateTabbedClasses();
-                }
-                updateEntrySummary();
-            });
+            const juniorSelect = document.getElementById('juniorHandler');
+            if (juniorSelect) {
+                juniorSelect.addEventListener('change', function() {
+                    if (currentTrialData) {
+                        generateTabbedClasses();
+                    }
+                    updateEntrySummary();
+                });
+            }
 
             // Submit button
-            document.getElementById('submitEntry').addEventListener('click', submitEntry);
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', submitEntry);
+            }
         }
 
         // Check form validity
         function checkFormValidity() {
-            const waiverAccepted = document.getElementById('waiverAccepted').checked;
-            const handlerName = document.getElementById('handlerName').value.trim();
-            const dogCallName = document.getElementById('dogCallName').value.trim();
+            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
+            const handlerName = document.getElementById('handlerName')?.value.trim();
+            const dogCallName = document.getElementById('dogCallName')?.value.trim();
             const hasClasses = selectedEntries.length > 0;
             
             const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
             
-            document.getElementById('submitEntry').disabled = !isValid;
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.disabled = !isValid;
+            }
             
             return isValid;
         }
@@ -1665,4 +1787,67 @@
                 
                 // Save to Firebase
                 const docRef = await db.collection("entries").add(entryData);
-                console.log("✅ Entry saved with ID
+                console.log("✅ Entry saved with ID:", docRef.id);
+                
+                // Show success message
+                document.getElementById('entryForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } catch (error) {
+                console.error("❌ Error submitting entry:", error);
+                alert("Error submitting entry: " + error.message);
+                
+                // Reset button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Reset form for another entry
+        function resetForm() {
+            // Reset form fields
+            document.getElementById('entryForm').reset();
+            
+            // Clear selected entries
+            selectedEntries = [];
+            totalFee = 0;
+            
+            // Clear all selected buttons
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Update display
+            updateEntrySummary();
+            checkFormValidity();
+            
+            // Hide success message and show form
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('entryForm').style.display = 'block';
+            
+            // Clear lookup status
+            hideLookupStatus();
+            
+            console.log("📝 Form reset for new entry");
+        }
+
+        // Make functions globally accessible
+        window.showDay = showDay;
+        window.toggleEntry = toggleEntry;
+        window.copyShareableLink = copyShareableLink;
+        window.testShareableLink = testShareableLink;
+        window.resetForm = resetForm;
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("🎯 DOM loaded, initializing entry form...");
+            init();
+        });
+
+        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
+    </script>
+</body>
+</html>
