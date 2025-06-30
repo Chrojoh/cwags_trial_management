@@ -903,97 +903,38 @@
             }
         }
 
-        // Load registration data from dataforsite.xlsx and Firebase
-        async function loadRegistrationData() {
-            try {
-                console.log("📊 Loading registration data...");
-                showStatus('🔄 Loading registration data...', 'info');
-                
-                // Try Firebase first (faster)
-                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
-                if (dataDoc.exists) {
-                    const data = dataDoc.data();
-                    console.log("📊 Found system data in Firebase");
-                    
-                    if (data.registrations && Array.isArray(data.registrations)) {
-                        registrationData = data.registrations;
-                        console.log(`✅ Loaded ${registrationData.length} registration records from Firebase`);
-                        showStatus(`✅ Loaded ${registrationData.length} registration records`, 'success');
-                        return;
-                    }
-                }
-                
-                // Try to load from dataforsite.xlsx directly
-                console.log("📁 Attempting to load dataforsite.xlsx from root directory...");
-                
-                try {
-                    const response = await fetch('./dataforsite.xlsx');
-                    if (response.ok) {
-                        console.log("📁 Found dataforsite.xlsx file");
-                        const arrayBuffer = await response.arrayBuffer();
-                        const data = new Uint8Array(arrayBuffer);
-                        
-                        // Process Excel using SheetJS
-                        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-                        const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
-                        
-                        if (dataSheet) {
-                            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
-                                header: 1, 
-                                dateNF: 'yyyy-mm-dd',
-                                defval: ''
-                            });
-                            
-                            if (jsonData.length > 0) {
-                                const headers = jsonData[0];
-                                const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
-                                
-                                console.log("📋 Processing Excel data with", rows.length, "rows");
-                                
-                                // Extract registration data (assuming structure: cwag, handler, dog, ...)
-                                registrationData = rows.map(row => ({
-                                    cwag: row[0] ? String(row[0]).trim() : null,
-                                    handler: row[1] ? String(row[1]).trim() : null,
-                                    dog: row[2] ? String(row[2]).trim() : null,
-                                    className: row[3] ? String(row[3]).trim() : null,
-                                    judge: row[4] ? String(row[4]).trim() : null
-                                })).filter(reg => reg.cwag && reg.handler && reg.dog);
-                                
-                                console.log(`✅ Processed ${registrationData.length} valid registrations from Excel`);
-                                showStatus(`✅ Loaded ${registrationData.length} registrations from dataforsite.xlsx`, 'success');
-                                
-                                // Save to Firebase for future use
-                                if (currentUser) {
-                                    try {
-                                        await db.collection('system_data').doc('dataforsite').set({
-                                            registrations: registrationData,
-                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                            updatedBy: currentUser.uid
-                                        }, { merge: true });
-                                        console.log("💾 Saved registration data to Firebase");
-                                    } catch (saveError) {
-                                        console.warn("⚠️ Could not save to Firebase:", saveError.message);
-                                    }
-                                }
-                                return;
-                            }
-                        }
-                    }
-                } catch (fetchError) {
-                    console.log("📁 Could not load dataforsite.xlsx:", fetchError.message);
-                }
-                
-                // Fallback - no data available
-                console.warn("⚠️ No registration data found");
-                registrationData = [];
-                showStatus('⚠️ No registration data found. Manual entry only.', 'warning');
-                
-            } catch (error) {
-                console.error("❌ Error loading registration data:", error);
-                registrationData = [];
-                showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
-            }
+        // Load registration data from Firebase registry - CORRECTED VERSION
+async function loadRegistrationData() {
+    try {
+        console.log("📊 Loading registration data from Firebase registry...");
+        showStatus('🔄 Loading registration data...', 'info');
+        
+        // Load from Firebase registry collection (NOT system_data)
+        console.log("📊 Loading from Firebase registrations collection...");
+        const registrationsSnapshot = await db.collection('registrations').get();
+        
+        if (!registrationsSnapshot.empty) {
+            registrationData = [];
+            registrationsSnapshot.forEach(doc => {
+                const regData = { id: doc.id, ...doc.data() };
+                registrationData.push(regData);
+            });
+            
+            console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
+            console.log("📋 Sample registrations:", registrationData.slice(0, 2));
+            showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
+        } else {
+            console.log("📊 No registrations found in Firebase registry");
+            registrationData = [];
+            showStatus('ℹ️ No registrations in registry yet. New entries will be saved.', 'info');
         }
+        
+    } catch (error) {
+        console.error("❌ Error loading registration data:", error);
+        registrationData = [];
+        showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
+    }
+}
 
         // Setup secretary view with authentication
         async function setupSecretaryView() {
