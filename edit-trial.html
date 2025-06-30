@@ -546,15 +546,19 @@
             const className = classData[STANDARD_FIELDS.CLASS_NAME] || classData.className || '';
             const subClass = classData.subClass || '';
             
+            // Create unique IDs for this class
+            const classDatalistId = `classes-datalist-${dayIndex}-${classIndex}`;
+            
             let subClassHTML = '';
             if (subClass) {
                 const subClassOptions = getSubClassOptions(className);
                 subClassHTML = `
                     <div class="form-group subclass-container">
                         <label>Sub Class:</label>
-                        <select onchange="markAsModified()" disabled>
+                        <select onchange="markAsModified()">
                             <option value="">Select Sub Class</option>
                             ${subClassOptions}
+                            <option value="${subClass}" selected>${subClass}</option>
                         </select>
                     </div>
                 `;
@@ -566,6 +570,10 @@
                     createRoundElement(roundData, dayIndex, classIndex, roundIndex)).join('');
             }
             
+            // Determine if this is being created in edit mode or view mode
+            const inputReadonly = isEditMode ? '' : 'readonly';
+            const selectDisabled = isEditMode ? '' : 'disabled';
+            
             return `
                 <div class="class-container" data-class-index="${classIndex}">
                     <button class="remove-btn" onclick="removeClass(${dayIndex}, ${classIndex})" title="Remove Class">×</button>
@@ -575,9 +583,13 @@
                         <label>Class Name:</label>
                         <input type="text" 
                                value="${className}"
-                               list="classes-datalist"
+                               list="${classDatalistId}"
                                onchange="handleClassSelection(this, ${dayIndex}, ${classIndex}); markAsModified()"
-                               readonly>
+                               ${inputReadonly}
+                               placeholder="Select or type class name">
+                        <datalist id="${classDatalistId}">
+                            ${globalClasses.map(cls => `<option value="${cls}">${cls}</option>`).join('')}
+                        </datalist>
                     </div>
                     
                     ${subClassHTML}
@@ -586,7 +598,7 @@
                         ${roundsHTML}
                     </div>
                     
-                    <button class="btn add-btn hidden" onclick="addRound(${dayIndex}, ${classIndex})">➕ Add Round</button>
+                    <button class="btn add-btn ${isEditMode ? '' : 'hidden'}" onclick="addRound(${dayIndex}, ${classIndex})">➕ Add Round</button>
                 </div>
             `;
         }
@@ -596,6 +608,13 @@
             // Handle both old and new field names
             const judgeName = roundData[STANDARD_FIELDS.JUDGE_NAME] || roundData.judge || '';
             const feoAvailable = roundData.feoAvailable || false;
+            
+            // Create unique ID for this round's judge datalist
+            const judgeDatalistId = `judges-datalist-${dayIndex}-${classIndex}-${roundIndex}`;
+            
+            // Determine if this is being created in edit mode or view mode
+            const inputReadonly = isEditMode ? '' : 'readonly';
+            const checkboxDisabled = isEditMode ? '' : 'disabled';
             
             return `
                 <div class="round-container" data-round-index="${roundIndex}">
@@ -608,12 +627,16 @@
                         <input type="text" 
                                style="width: 200px;"
                                value="${judgeName}"
-                               list="judges-datalist"
+                               list="${judgeDatalistId}"
                                onchange="markAsModified()"
-                               readonly>
+                               ${inputReadonly}
+                               placeholder="Select or type judge name">
+                        <datalist id="${judgeDatalistId}">
+                            ${globalJudges.map(judge => `<option value="${judge}">${judge}</option>`).join('')}
+                        </datalist>
                         
                         <label style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" ${feoAvailable ? 'checked' : ''} onchange="markAsModified()" disabled>
+                            <input type="checkbox" ${feoAvailable ? 'checked' : ''} onchange="markAsModified()" ${checkboxDisabled}>
                             FEO Available
                         </label>
                     </div>
@@ -655,6 +678,8 @@
             const cancelBtn = document.getElementById('cancelBtn');
             const addControls = document.getElementById('addControls');
             
+            console.log('Toggling mode to:', isEditMode ? 'edit' : 'view');
+            
             if (isEditMode) {
                 // Switch to edit mode
                 trialEditor.classList.add('edit-mode');
@@ -670,12 +695,18 @@
                     input.removeAttribute('disabled');
                 });
                 
-                // Show add buttons
+                // Show all add buttons (including class add buttons)
                 trialEditor.querySelectorAll('.add-btn').forEach(btn => {
                     btn.classList.remove('hidden');
                 });
                 
+                // Show remove buttons
+                trialEditor.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.style.display = 'block';
+                });
+                
                 document.getElementById('pageTitle').textContent = `✏️ Edit Trial: ${currentTrial.clubName}`;
+                console.log('Edit mode activated');
                 
             } else {
                 // Switch to view mode
@@ -694,12 +725,18 @@
                     }
                 });
                 
-                // Hide add buttons
+                // Hide all add buttons
                 trialEditor.querySelectorAll('.add-btn').forEach(btn => {
                     btn.classList.add('hidden');
                 });
                 
+                // Hide remove buttons
+                trialEditor.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.style.display = 'none';
+                });
+                
                 document.getElementById('pageTitle').textContent = `👁️ View Trial: ${currentTrial.clubName}`;
+                console.log('View mode activated');
             }
         }
 
@@ -712,8 +749,63 @@
 
         // Handle class selection changes
         function handleClassSelection(input, dayIndex, classIndex) {
-            // Handle sub-class visibility based on class selection
-            // This would be similar to the create-trial.html implementation
+            console.log('Class selection changed:', input.value, 'for day:', dayIndex, 'class:', classIndex);
+            
+            const className = input.value;
+            const classContainer = input.closest('.class-container');
+            
+            if (!classContainer) {
+                console.error('Could not find class container');
+                return;
+            }
+            
+            // Look for existing subclass container
+            let subclassContainer = classContainer.querySelector('.subclass-container');
+            let subclassSelect = classContainer.querySelector('select');
+            
+            // If no subclass container exists, create one
+            if (!subclassContainer) {
+                const subclassHTML = `
+                    <div class="form-group subclass-container" style="display: none;">
+                        <label>Sub Class:</label>
+                        <select onchange="markAsModified()" disabled>
+                            <option value="">Select Sub Class</option>
+                        </select>
+                    </div>
+                `;
+                
+                // Insert after the class name form group
+                const classNameGroup = input.closest('.form-group');
+                classNameGroup.insertAdjacentHTML('afterend', subclassHTML);
+                
+                subclassContainer = classContainer.querySelector('.subclass-container');
+                subclassSelect = classContainer.querySelector('select');
+            }
+            
+            // Update subclass options based on class type
+            if (className.toLowerCase().includes('games')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Games Sub Class</option>
+                    <option value="games1">Games Sub Class 1</option>
+                    <option value="games2">Games Sub Class 2</option>
+                    <option value="games3">Games Sub Class 3</option>
+                    <option value="games4">Games Sub Class 4</option>
+                    <option value="games5">Games Sub Class 5</option>
+                `;
+                subclassContainer.style.display = 'block';
+            } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
+                subclassSelect.innerHTML = `
+                    <option value="">Select Obedience Sub Class</option>
+                    <option value="obed1">Obedience Sub Class 1</option>
+                    <option value="obed2">Obedience Sub Class 2</option>
+                    <option value="obed3">Obedience Sub Class 3</option>
+                    <option value="obed4">Obedience Sub Class 4</option>
+                    <option value="obed5">Obedience Sub Class 5</option>
+                `;
+                subclassContainer.style.display = 'block';
+            } else {
+                subclassContainer.style.display = 'none';
+            }
         }
 
         // Add/Remove functions (for edit mode)
@@ -768,8 +860,27 @@
         }
 
         function addRound(dayIndex, classIndex) {
-            const container = document.querySelector(`[data-day-index="${dayIndex}"][data-class-index="${classIndex}"] .rounds-container`);
-            const roundCount = container.children.length;
+            console.log('Adding round to day:', dayIndex, 'class:', classIndex);
+            
+            // Look for the rounds container within the specific class container
+            const classContainer = document.querySelector(`[data-day-index="${dayIndex}"] [data-class-index="${classIndex}"]`);
+            
+            if (!classContainer) {
+                console.error('Could not find class container');
+                alert('Error: Could not find the class container to add round to.');
+                return;
+            }
+            
+            const roundsContainer = classContainer.querySelector('.rounds-container');
+            
+            if (!roundsContainer) {
+                console.error('Could not find rounds container within class container');
+                alert('Error: Could not find the rounds container to add round to.');
+                return;
+            }
+            
+            const roundCount = roundsContainer.children.length;
+            console.log('Current round count:', roundCount);
             
             const newRound = {
                 roundNumber: roundCount + 1,
@@ -778,8 +889,10 @@
             };
             
             const roundHTML = createRoundElement(newRound, dayIndex, classIndex, roundCount);
-            container.insertAdjacentHTML('beforeend', roundHTML);
+            roundsContainer.insertAdjacentHTML('beforeend', roundHTML);
             markAsModified();
+            
+            console.log('Round added successfully');
         }
 
         function removeRound(dayIndex, classIndex, roundIndex) {
