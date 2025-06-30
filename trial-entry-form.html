@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trial Entry Form</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Back to Dashboard Button */
+        .back-to-dashboard {
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            padding: 15px 20px;
+        }
+
+        .back-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s ease;
+        }
+
+        .back-button:hover {
+            background: #5a6268;
+        }
+
+        /* Trial Selection (Secretary Only) */
+        .trial-selection {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .trial-selection h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        /* Entry Fee Configuration (Secretary Only) */
+        .fee-config {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 20px;
+            display: none;
+        }
+
+        .fee-config h3 {
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .fee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .fee-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .fee-group label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+
+        .fee-group input {
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .fee-group input:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        /* Shareable Link Section (Secretary Only) */
+        .shareable-link {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            display: none;
+        }
+
+        .shareable-link h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        .link-display {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .link-url {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-all;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .link-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-copy, .btn-test {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .btn-copy {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-test {
+            background: #28a745;
+            color: white;
+        }
+
+        /* Trial Information */
+        .trial-info {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            display: none;
+        }
+
+        .trial-info h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .trial-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .trial-details > div {
+            font-size: 0.95rem;
+        }
+
+        .trial-details strong {
+            color: #495057;
+        }
+
+        /* C-WAGS Waiver Section */
+        .waiver-section {
+            background: #fff8e1;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 20px;
+        }
+
+        .waiver-content {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+
+        .waiver-agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .waiver-agreement input[type="checkbox"] {
+            margin-top: 0.2rem;
+            width: auto;
+        }
+
+        /* Entry Form */
+        .entry-form {
+            padding: 2rem;
+            display: none;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section h3 {
+            color: #495057;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+
+        .form-section.primary {
+            background: #f0f8ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-section.primary h3 {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .auto-filled {
+            background: #e7f3ff !important;
+            border-color: #0066cc !important;
+            animation: autoFillGlow 2s ease-in-out;
+        }
+
+        @keyframes autoFillGlow {
+            0% { box-shadow: 0 0 5px rgba(0, 102, 204, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(0, 102, 204, 0.8); }
+            100% { box-shadow: none; }
+        }
+
+        .lookup-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .lookup-status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            display: block;
+        }
+
+        .lookup-status.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            display: block;
+        }
+
+        .lookup-status.loading {
+            background: #e7f3ff;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            display: block;
+        }
+
+        /* Day Tabs */
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .day-tab:hover {
+            border-color: #0066cc;
+            color: #0066cc;
+        }
+
+        .day-tab.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+        }
+
+        /* Entry Summary */
+        .entry-summary {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .selected-entries {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .selected-entry {
+            background: white;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
+        /* Class Entries Container */
+        .class-entries-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .class-day-content {
+            display: none;
+        }
+
+        .class-day-content.active {
+            display: block;
+        }
+
+        .class-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .class-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .class-header {
+            background: #28a745;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .class-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .class-fee {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .class-details {
+            background: #f8f9fa;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .rounds-container {
+            padding: 1rem;
+            background: #fff;
+        }
+
+        .round-item {
+            background: #f0f8ff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .round-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .judge-name {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .entry-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .entry-option {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .entry-button {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .entry-button.regular {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .entry-button.regular:hover {
+            background: #28a745;
+            color: white;
+        }
+
+        .entry-button.regular.selected {
+            background: #155724;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(21, 87, 36, 0.4);
+        }
+
+        .entry-button.feo {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffc107;
+        }
+
+        .entry-button.feo:hover {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .entry-button.feo.selected {
+            background: #856404;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
+        }
+
+        /* Submit Section */
+        .submit-section {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            border-top: 2px solid #e9ecef;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn-submit {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 1rem 3rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
+            display: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .day-tabs {
+                flex-direction: column;
+            }
+
+            .day-tab {
+                min-width: auto;
+            }
+
+            .class-details {
+                grid-template-columns: 1fr;
+            }
+
+            .round-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .entry-options {
+                justify-content: center;
+            }
+
+            .entry-option {
+                min-width: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1 id="trialTitle">🏆 Trial Entry Form</h1>
+            <p id="trialSubtitle">Complete your entry for this C-WAGS trial</p>
+        </div>
+
+        <!-- Back to Dashboard Button -->
+        <div class="back-to-dashboard">
+            <a href="trial-secretary-dashboard.html" class="back-button">
+                ← Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Trial Selection (Secretary Only) -->
+        <div class="trial-selection" id="trialSelectionSection">
+            <h3>🎯 Select Trial</h3>
+            <div class="form-row">
+                <div class="form-group required full-width">
+                    <label for="trialSelection">Choose which trial to create entry form for:</label>
+                    <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
+                        <option value="">Loading available trials...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entry Fee Configuration (Secretary Only) -->
+        <div class="fee-config" id="entryFeeSection">
+            <h3>💰 Entry Fee Configuration</h3>
+            <div class="fee-grid">
+                <div class="fee-group">
+                    <label for="regularFee">Regular Entry Fee ($)</label>
+                    <input type="number" id="regularFee" min="0" step="0.01" value="35.00" 
+                           style="font-size: 1.1rem; padding: 0.75rem;">
+                </div>
+                <div class="fee-group">
+                    <label for="feoFee">FEO Entry Fee ($)</label>
+                    <input type="number" id="feoFee" min="0" step="0.01" value="25.00" 
+                           style="font-size: 1.1rem; padding: 0.75rem;">
+                </div>
+                <div class="fee-group">
+                    <label for="juniorFee">Junior Handler Fee ($)</label>
+                    <input type="number" id="juniorFee" min="0" step="0.01" value="20.00" 
+                           style="font-size: 1.1rem; padding: 0.75rem;">
+                </div>
+            </div>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
+                💡 Set any fee to $0.00 to hide that option. Junior Handler fee replaces regular/FEO fees when selected.
+            </p>
+        </div>
+
+        <!-- Shareable Link Section (Secretary Only) -->
+        <div class="shareable-link" id="shareableLinkSection">
+            <h3>🔗 Shareable Entry Link</h3>
+            <p>Share this link with participants so they can enter from home:</p>
+            <div class="link-display">
+                <div class="link-url" id="shareableUrl">
+                    <!-- Generated URL will appear here -->
+                </div>
+                <div class="link-actions">
+                    <button class="btn-copy" onclick="copyShareableLink()">📋 Copy Link</button>
+                    <button class="btn-test" onclick="testShareableLink()">🔗 Test Link</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trial Information -->
+        <div class="trial-info" id="trialInfoSection">
+            <h3>📋 Trial Information</h3>
+            <div class="trial-details">
+                <div><strong>Club:</strong> <span id="clubName">-</span></div>
+                <div><strong>Dates:</strong> <span id="trialDates">-</span></div>
+                <div><strong>Location:</strong> <span id="trialLocation">-</span></div>
+                <div><strong>Secretary:</strong> <span id="trialSecretary">-</span></div>
+            </div>
+        </div>
+
+        <!-- C-WAGS Waiver Section -->
+        <div class="waiver-section" id="waiverSection" style="display: none;">
+            <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
+            <div class="waiver-content">
+                <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
+                <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
+                <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
+                <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
+                
+                <p><strong>C-WAGS Notice to Exhibitors</strong></p>
+                <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:</p>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li>All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.</li>
+                    <li>All judges and trial hosts are expected to show respect to all exhibitors.</li>
+                    <li>This trial is open to all dogs registered with C-WAGS.</li>
+                    <li>Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.</li>
+                    <li>Teams may be entered in multiple levels/classes at the same trial.</li>
+                    <li>Dogs must be shown by a member of the owner's immediate family.</li>
+                    <li>Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.</li>
+                    <li>Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.</li>
+                    <li>Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.</li>
+                    <li>The organizing committee may refuse any entry for any reason.</li>
+                    <li>THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.</li>
+                    <li>Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.</li>
+                    <li>Dogs must be on leash while on show grounds unless being shown.</li>
+                </ul>
+            </div>
+            <div class="waiver-agreement">
+                <input type="checkbox" id="waiverAccepted" required>
+                <label for="waiverAccepted">
+                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above. By entering this trial, I agree to the disclaimer on this entry form.</strong>
+                </label>
+            </div>
+        </div>
+
+        <!-- Entry Form -->
+        <div class="entry-form" id="entryFormContainer">
+            <!-- Success Message -->
+            <div id="successMessage" class="success-message">
+                <h3>✅ Entry Submitted Successfully!</h3>
+                <p>The entry has been recorded for this trial.</p>
+                <button class="btn-submit" onclick="resetForm()">Enter Another Participant</button>
+            </div>
+
+            <form id="entryForm">
+                <!-- Registration Number Lookup -->
+                <div class="form-section primary">
+                    <h3>🔍 C-WAGS Registration Lookup</h3>
+                    <div class="form-row">
+                        <div class="form-group full-width">
+                            <label>C-WAGS Registration Number (optional)</label>
+                            <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
+                                   style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
+                            <small style="color: #666; margin-top: 0.5rem; display: block;">
+                                💡 Enter registration number first - handler and dog info will auto-fill if found
+                            </small>
+                        </div>
+                    </div>
+                    <div id="lookupStatus" class="lookup-status"></div>
+                </div>
+
+                <!-- Handler Information -->
+                <div class="form-section">
+                    <h3>👤 Handler Information</h3>
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label>Handler Name</label>
+                            <input type="text" id="handlerName" required placeholder="Will auto-fill from registration">
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number</label>
+                            <input type="tel" id="handlerPhone" placeholder="(xxx) xxx-xxxx">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="handlerEmail" placeholder="handler@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Emergency Contact</label>
+                            <input type="text" id="emergencyContact" placeholder="Name and phone number">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dog Information -->
+                <div class="form-section">
+                    <h3>🐕 Dog Information</h3>
+                    <div class="form-row">
+                        <div class="form-group required">
+                            <label>Dog's Call Name</label>
+                            <input type="text" id="dogCallName" required placeholder="Will auto-fill from registration">
+                        </div>
+                        <div class="form-group">
+                            <label>Breed</label>
+                            <input type="text" id="dogBreed" placeholder="Enter breed">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            <input type="date" id="dogBirthdate">
+                        </div>
+                        <div class="form-group">
+                            <label>Sex</label>
+                            <select id="dogSex">
+                                <option value="">Select...</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Male Neutered">Male Neutered</option>
+                                <option value="Female Spayed">Female Spayed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Junior Handler (Under 18)</label>
+                            <select id="juniorHandler">
+                                <option value="No">No</option>
+                                <option value="Yes">Yes</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Class Entries Section -->
+                <div class="form-section">
+                    <h3>🎯 Class Entries</h3>
+                    
+                    <!-- Entry Summary -->
+                    <div class="entry-summary" id="entrySummary">
+                        <div class="summary-title">Selected Entries:</div>
+                        <ul class="selected-entries" id="selectedEntriesList">
+                        </ul>
+                        <div style="margin-top: 1rem; font-weight: 600; color: #0066cc;">
+                            Total Fee: $<span id="totalFee">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Day Tabs - Dynamically Generated -->
+                    <div class="day-tabs-container">
+                        <div class="day-tabs" id="dayTabs">
+                            <!-- Tabs will be generated from trial data -->
+                        </div>
+                    </div>
+
+                    <!-- Scrollable Class Entries - Dynamically Generated -->
+                    <div class="class-entries-container" id="classEntriesContainer">
+                        <!-- Content will be generated from trial data -->
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            Please select a trial to see available classes.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Section -->
+                <div class="submit-section">
+                    <button type="button" class="btn-submit" id="submitEntry" disabled>
+                        Submit Entry
+                    </button>
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        Please review your selections before submitting. Entry fees are due upon submission.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global variables
+        let currentTrialData = null;
+        let selectedClasses = new Set();
+        let registrationData = [];
+        let isAutoFilling = false;
+        let availableTrials = [];
+        let isSecretary = false;
+
+        // Fee structure - configurable by secretary
+        let fees = {
+            regular: 35.00,
+            feo: 25.00,
+            juniorHandler: 20.00
+        };
+
+        // Selected entries tracking
+        let selectedEntries = [];
+        let totalFee = 0;
+
+        // Standard field names (using same handles as rest of site)
+        const STANDARD_FIELDS = {
+            HANDLER_NAME: 'handlerName',
+            DOG_CALL_NAME: 'dogCallName',
+            JUDGE_NAME: 'judgeName',
+            CLASS_NAME: 'className',
+            CWAGS_NUMBER: 'cwagsNumber'
+        };
+
+        // Initialize the application
+        async function init() {
+            console.log("🚀 Initializing entry form application...");
+            
+            // Load registration data from dataforsite.xlsx
+            await loadRegistrationData();
+
+            // Check URL parameters for entry link
+            const urlParams = new URLSearchParams(window.location.search);
+            const trialId = urlParams.get('trial');
+
+            if (trialId) {
+                // Load specific trial for public entry
+                console.log("🔗 Loading specific trial for public entry:", trialId);
+                await loadSpecificTrial(trialId);
+            } else {
+                // Normal secretary view
+                console.log("👨‍💼 Setting up secretary view");
+                isSecretary = true;
+                await setupSecretaryView();
+            }
+
+            // Setup form event listeners
+            setupFormEventListeners();
+        }
+
+        // Load registration data from system_data collection (same as dashboard)
+        async function loadRegistrationData() {
+            try {
+                console.log("📊 Loading registration data from Firebase...");
+                
+                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    
+                    // Convert registrations array to searchable format
+                    if (data.registrations && Array.isArray(data.registrations)) {
+                        registrationData = data.registrations;
+                        console.log(`✅ Loaded ${registrationData.length} registration records`);
+                    } else {
+                        console.warn("⚠️ No registrations found in system data");
+                        registrationData = [];
+                    }
+                } else {
+                    console.warn("⚠️ System data document not found");
+                    registrationData = [];
+                }
+            } catch (error) {
+                console.error("❌ Error loading registration data:", error);
+                registrationData = [];
+            }
+        }
+
+        // Setup secretary view
+        async function setupSecretaryView() {
+            try {
+                // Wait for auth
+                await new Promise((resolve) => {
+                    if (auth.currentUser) {
+                        resolve();
+                    } else {
+                        const unsubscribe = auth.onAuthStateChanged((user) => {
+                            unsubscribe();
+                            resolve();
+                        });
+                    }
+                });
+
+                if (!auth.currentUser) {
+                    alert("Please log in to access the entry form");
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                // Load trials for secretary
+                const trialsQuery = firebase.firestore().collection("trials")
+                    .where("createdBy", "==", auth.currentUser.uid);
+                
+                const trialsSnapshot = await trialsQuery.get();
+                
+                if (!trialsSnapshot.empty) {
+                    availableTrials = [];
+                    trialsSnapshot.forEach(doc => {
+                        availableTrials.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // Sort by creation date (newest first)
+                    availableTrials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+                    
+                    populateTrialSelector();
+                } else {
+                    alert("No trials found. Please create a trial first.");
+                    window.location.href = 'trial-secretary-dashboard.html';
+                }
+            } catch (error) {
+                console.error("❌ Error loading trial data:", error);
+                alert("Error loading trial data: " + error.message);
+            }
+        }
+
+        // Load specific trial for public entry
+        async function loadSpecificTrial(trialId) {
+            try {
+                console.log("🔍 Loading specific trial:", trialId);
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists()) {
+                    alert('Trial not found');
+                    return;
+                }
+
+                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
+                console.log("✅ Trial loaded:", currentTrialData.clubName);
+                
+                // Hide secretary-only sections
+                document.getElementById('trialSelectionSection').style.display = 'none';
+                document.getElementById('entryFeeSection').style.display = 'none';
+                
+                // Show waiver, trial info and entry form
+                document.getElementById('waiverSection').style.display = 'block';
+                populateTrialInfo();
+                showEntryForm();
+                
+            } catch (error) {
+                console.error('Error loading specific trial:', error);
+                alert('Error loading trial: ' + error.message);
+            }
+        }
+
+        // Populate trial selector dropdown
+        function populateTrialSelector() {
+            const trialSelect = document.getElementById('trialSelection');
+            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+            availableTrials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        }))
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
+                    }
+                }
+                
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
+
+            // Handle trial selection change
+            trialSelect.addEventListener('change', function(event) {
+                const trialId = event.target.value;
+                console.log("🎯 Trial selected:", trialId);
+                
+                if (trialId) {
+                    currentTrialData = availableTrials.find(t => t.id === trialId);
+                    if (currentTrialData) {
+                        console.log("✅ Found trial data:", currentTrialData.clubName);
+                        
+                        // Show fee configuration section for secretary
+                        document.getElementById('entryFeeSection').style.display = 'block';
+                        
+                        // Setup fee change listeners
+                        setupFeeChangeListeners();
+                        
+                        generateShareableLink();
+                        populateTrialInfo();
+                        document.getElementById('waiverSection').style.display = 'block';
+                        showEntryForm();
+                    } else {
+                        console.error("❌ Could not find trial data for ID:", trialId);
+                    }
+                } else {
+                    console.log("🚫 No trial selected, hiding sections");
+                    hideShareableLink();
+                    hideTrialInfo();
+                    hideEntryForm();
+                    document.getElementById('entryFeeSection').style.display = 'none';
+                    document.getElementById('waiverSection').style.display = 'none';
+                }
+            });
+        }
+
+        // Setup fee change listeners for secretary
+        function setupFeeChangeListeners() {
+            const regularFeeInput = document.getElementById('regularFee');
+            const feoFeeInput = document.getElementById('feoFee');
+            const juniorFeeInput = document.getElementById('juniorFee');
+            
+            function updateFees() {
+                console.log("💰 Updating fees from inputs");
+                fees.regular = parseFloat(regularFeeInput.value) || 0;
+                fees.feo = parseFloat(feoFeeInput.value) || 0;
+                fees.juniorHandler = parseFloat(juniorFeeInput.value) || 0;
+                
+                console.log("💰 New fees:", fees);
+                
+                // Regenerate classes with new fees
+                if (currentTrialData) {
+                    generateTabbedClasses();
+                }
+                
+                // Update summary if entries are selected
+                updateEntrySummary();
+            }
+            
+            regularFeeInput.addEventListener('input', updateFees);
+            feoFeeInput.addEventListener('input', updateFees);
+            juniorFeeInput.addEventListener('input', updateFees);
+        }
+
+        // Generate shareable link
+        function generateShareableLink() {
+            if (!isSecretary || !currentTrialData) return;
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
+            
+            document.getElementById('shareableUrl').textContent = shareableUrl;
+            document.getElementById('shareableLinkSection').style.display = 'block';
+        }
+
+        // Populate trial information and generate tabbed classes
+        function populateTrialInfo() {
+            if (!currentTrialData) return;
+
+            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
+            
+            // Format trial dates
+            const dates = currentTrialData.days && currentTrialData.days.length > 0 
+                ? currentTrialData.days
+                    .filter(day => day.date)
+                    .map(day => new Date(day.date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    }))
+                    .join(', ')
+                : 'No dates specified';
+
+            document.getElementById('clubName').textContent = currentTrialData.clubName || 'TBD';
+            document.getElementById('trialDates').textContent = dates;
+            document.getElementById('trialLocation').textContent = 'TBD';
+            document.getElementById('trialSecretary').textContent = currentTrialData.secretary || 'TBD';
+
+            document.getElementById('trialInfoSection').style.display = 'block';
+            
+            // Generate the tabbed class interface from trial data
+            generateTabbedClasses();
+        }
+
+        // Generate tabbed classes from trial data
+        function generateTabbedClasses() {
+            console.log("🎯 Generating tabbed classes from trial data");
+            
+            if (!currentTrialData.days || currentTrialData.days.length === 0) {
+                console.warn("❌ No days data found");
+                document.getElementById('classEntriesContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
+                return;
+            }
+
+            // Generate day tabs
+            const dayTabsContainer = document.getElementById('dayTabs');
+            dayTabsContainer.innerHTML = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                const dayDate = day.date 
+                    ? new Date(day.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    })
+                    : `Day ${dayIndex + 1}`;
+
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(dayIndex);
+                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
+                
+                dayTabsContainer.appendChild(tabButton);
+            });
+
+            // Generate class content for each day
+            const classEntriesContainer = document.getElementById('classEntriesContainer');
+            let html = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
+
+                if (!day.classes || day.classes.length === 0) {
+                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
+                } else {
+                    day.classes.forEach((cls, classIndex) => {
+                        const className = cls[STANDARD_FIELDS.CLASS_NAME] || cls.className || 'Unnamed Class';
+                        
+                        // Calculate fee based on junior handler status
+                        const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
+                        const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
+                        const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
+
+                        html += `
+                            <div class="class-item">
+                                <div class="class-header">
+                                    <div class="class-name">${className}</div>
+                                </div>
+                                <div class="class-details">
+                                    <div><strong>Sub Class:</strong> ${cls.subClass || 'N/A'}</div>
+                                    <div><strong>Rounds:</strong> ${cls.rounds ? cls.rounds.length : 0}</div>
+                                </div>
+                                <div class="rounds-container">
+                        `;
+
+                        if (cls.rounds && cls.rounds.length > 0) {
+                            cls.rounds.forEach((round, roundIndex) => {
+                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
+                                const roundName = `Round ${roundIndex + 1}`;
+                                
+                                html += `
+                                    <div class="round-item">
+                                        <div class="round-details">
+                                            <span class="judge-name">Judge: ${judgeName}</span>
+                                            <span>${roundName}</span>
+                                        </div>
+                                        <div class="entry-options">
+                                `;
+
+                                // Show Regular button if fee > 0
+                                if (regularFee > 0) {
+                                    html += `
+                                        <div class="entry-option">
+                                            <button class="entry-button regular" type="button"
+                                                    data-class="${className}" 
+                                                    data-round="${roundName}"
+                                                    data-judge="${judgeName}"
+                                                    data-fee="${regularFee.toFixed(2)}" 
+                                                    data-type="regular"
+                                                    data-day="${dayIndex}"
+                                                    data-round-index="${roundIndex}"
+                                                    onclick="toggleEntry(this)">
+                                                Regular ${regularFee > 0 ? `(${regularFee.toFixed(2)})` : '(Free)'}
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+
+                                // Show FEO button if available and fee > 0 and not junior handler
+                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
+                                    html += `
+                                        <div class="entry-option">
+                                            <button class="entry-button feo" type="button"
+                                                    data-class="${className}" 
+                                                    data-round="${roundName}"
+                                                    data-judge="${judgeName}"
+                                                    data-fee="${feoFee.toFixed(2)}" 
+                                                    data-type="feo"
+                                                    data-day="${dayIndex}"
+                                                    data-round-index="${roundIndex}"
+                                                    onclick="toggleEntry(this)">
+                                                FEO ${feoFee > 0 ? `(${feoFee.toFixed(2)})` : '(Free)'}
+                                            </button>
+                                        </div>
+                                    `;
+                                }
+
+                                html += `
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
+                        }
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div>`;
+            });
+
+            classEntriesContainer.innerHTML = html;
+            
+            // Initialize the tabbed interface
+            updateEntrySummary();
+            
+            console.log("✅ Tabbed classes generated successfully");
+        }
+
+        // Show specific day tab
+        function showDay(dayIndex) {
+            // Hide all day content
+            document.querySelectorAll('.class-day-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected day content
+            document.getElementById(`day-${dayIndex}`).classList.add('active');
+            
+            // Add active class to selected tab
+            document.querySelectorAll('.day-tab')[dayIndex].classList.add('active');
+        }
+
+        // Toggle entry selection
+        function toggleEntry(button) {
+            const className = button.dataset.class;
+            const roundName = button.dataset.round;
+            const judgeName = button.dataset.judge;
+            const fee = parseFloat(button.dataset.fee);
+            const entryType = button.dataset.type;
+            const dayIndex = button.dataset.day;
+            const roundIndex = button.dataset.roundIndex;
+            
+            // Create unique identifier for this entry
+            const entryId = `${className}-${roundName}-${dayIndex}-${roundIndex}`;
+            
+            if (button.classList.contains('selected')) {
+                // Remove selection
+                button.classList.remove('selected');
+                selectedEntries = selectedEntries.filter(entry => 
+                    !(entry.entryId === entryId && entry.type === entryType)
+                );
+            } else {
+                // Add selection (but first remove any conflicting entry for same round)
+                const conflictingEntries = selectedEntries.filter(entry => 
+                    entry.entryId === entryId && entry.type !== entryType
+                );
+                
+                conflictingEntries.forEach(conflictEntry => {
+                    // Remove conflicting button selection
+                    const conflictButton = document.querySelector(
+                        `[data-class="${conflictEntry.className}"][data-round="${conflictEntry.roundName}"][data-type="${conflictEntry.type}"][data-day="${conflictEntry.dayIndex}"][data-round-index="${conflictEntry.roundIndex}"]`
+                    );
+                    if (conflictButton) {
+                        conflictButton.classList.remove('selected');
+                    }
+                });
+                
+                // Remove conflicting entries from selectedEntries
+                selectedEntries = selectedEntries.filter(entry => entry.entryId !== entryId);
+                
+                // Add new selection
+                button.classList.add('selected');
+                selectedEntries.push({
+                    entryId: entryId,
+                    className: className,
+                    roundName: roundName,
+                    judgeName: judgeName,
+                    fee: fee,
+                    type: entryType,
+                    dayIndex: dayIndex,
+                    roundIndex: roundIndex
+                });
+            }
+            
+            updateEntrySummary();
+            checkFormValidity();
+        }
+
+        // Update entry summary
+        function updateEntrySummary() {
+            const summaryDiv = document.getElementById('entrySummary');
+            const entriesList = document.getElementById('selectedEntriesList');
+            const totalFeeSpan = document.getElementById('totalFee');
+            
+            if (selectedEntries.length === 0) {
+                summaryDiv.style.display = 'none';
+                return;
+            }
+            
+            summaryDiv.style.display = 'block';
+            
+            // Generate entries list
+            let html = '';
+            selectedEntries.forEach(entry => {
+                html += `
+                    <li class="selected-entry">
+                        Day ${parseInt(entry.dayIndex) + 1}: ${entry.className} - ${entry.roundName} 
+                        (${entry.type.toUpperCase()}) - Judge: ${entry.judgeName} - ${entry.fee.toFixed(2)}
+                    </li>
+                `;
+            });
+            
+            entriesList.innerHTML = html;
+            
+            // Update total fee
+            totalFee = selectedEntries.reduce((sum, entry) => sum + entry.fee, 0);
+            totalFeeSpan.textContent = totalFee.toFixed(2);
+        }
+
+        // C-WAGS number formatting and lookup
+        function formatCwagsNumber(input) {
+            // Remove all non-alphanumeric characters
+            let cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            
+            // Format to XX-XXXX-XX pattern
+            if (cleaned.length >= 2) {
+                let formatted = cleaned.substring(0, 2);
+                if (cleaned.length > 2) {
+                    formatted += '-' + cleaned.substring(2, 6);
+                    if (cleaned.length > 6) {
+                        // Ensure the last part is always 2 digits, pad with 0 if needed
+                        let lastPart = cleaned.substring(6, 8);
+                        if (lastPart.length === 1) {
+                            lastPart = '0' + lastPart;
+                        }
+                        formatted += '-' + lastPart;
+                    }
+                }
+                return formatted;
+            }
+            return cleaned;
+        }
+
+        // Auto-fill from registration data
+        async function autoFillFromRegistration(cwagsNumber) {
+            if (isAutoFilling) return;
+            
+            showLookupStatus('🔍 Looking up registration...', 'loading');
+            
+            try {
+                isAutoFilling = true;
+                
+                console.log("🔍 Looking up registration:", cwagsNumber);
+                
+                // Search in registration data
+                const matchingRegistration = registrationData.find(record => {
+                    return record.cwag === cwagsNumber;
+                });
+                
+                if (matchingRegistration) {
+                    console.log("✅ Found matching registration:", matchingRegistration);
+                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
+                    populateForm(matchingRegistration);
+                } else {
+                    console.log("❌ No matching registration found");
+                    showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error during registration lookup:", error);
+                showLookupStatus('❌ Error looking up registration', 'warning');
+            } finally {
+                isAutoFilling = false;
+            }
+        }
+
+        // Setup form event listeners
+        function setupFormEventListeners() {
+            // C-WAGS number formatting and lookup
+            const cwagsInput = document.getElementById('cwagsNumber');
+            cwagsInput.addEventListener('input', function(e) {
+                const formatted = formatCwagsNumber(e.target.value);
+                e.target.value = formatted;
+                
+                // Clear any existing timeout
+                if (window.cwagsTimeout) {
+                    clearTimeout(window.cwagsTimeout);
+                }
+                
+                if (formatted.length >= 8) { // Minimum length for lookup
+                    window.cwagsTimeout = setTimeout(() => {
+                        autoFillFromRegistration(formatted);
+                    }, 500);
+                } else {
+                    hideLookupStatus();
+                }
+                
+                checkFormValidity();
+            });
+
+            // Form validation listeners
+            ['handlerName', 'dogCallName', 'waiverAccepted'].forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', checkFormValidity);
+                    field.addEventListener('change', checkFormValidity);
+                }
+            });
+
+            // Junior handler change affects fees
+            document.getElementById('juniorHandler').addEventListener('change', function() {
+                if (currentTrialData) {
+                    generateTabbedClasses();
+                }
+                updateEntrySummary();
+            });
+
+            // Submit button
+            document.getElementById('submitEntry').addEventListener('click', submitEntry);
+        }
+
+        // Check form validity
+        function checkFormValidity() {
+            const waiverAccepted = document.getElementById('waiverAccepted').checked;
+            const handlerName = document.getElementById('handlerName').value.trim();
+            const dogCallName = document.getElementById('dogCallName').value.trim();
+            const hasClasses = selectedEntries.length > 0;
+            
+            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
+            
+            document.getElementById('submitEntry').disabled = !isValid;
+            
+            return isValid;
+        }
+
+        // Submit entry
+        async function submitEntry() {
+            console.log("🚀 Starting entry submission...");
+            
+            if (!checkFormValidity()) {
+                alert('Please complete all required fields and select at least one class.');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitEntry');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                // Collect form data
+                const entryData = {
+                    trialId: currentTrialData.id,
+                    trialName: currentTrialData.clubName,
+                    [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
+                    handlerEmail: document.getElementById('handlerEmail').value.trim(),
+                    handlerPhone: document.getElementById('handlerPhone').value.trim(),
+                    emergencyContact: document.getElementById('emergencyContact').value.trim(),
+                    [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
+                    dogBreed: document.getElementById('dogBreed').value.trim(),
+                    dogBirthdate: document.getElementById('dogBirthdate').value,
+                    dogSex: document.getElementById('dogSex').value,
+                    [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
+                    juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+                    selectedEntries: selectedEntries,
+                    totalFee: totalFee,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    waiverAccepted: true
+                };
+                
+                console.log("📝 Entry data prepared:", entryData);
+                
+                // Save to Firebase
+                const docRef = await db.collection("entries").add(entryData);
+                console.log("✅ Entry saved with ID
