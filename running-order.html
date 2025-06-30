@@ -328,9 +328,16 @@
                 </select>
             </div>
 
+            <!-- Day Tabs -->
+            <div class="day-tabs-container" id="dayTabsContainer" style="display: none;">
+                <div class="day-tabs" id="dayTabs">
+                    <!-- Day tabs will be generated here -->
+                </div>
+            </div>
+
             <!-- Controls -->
             <div class="running-order-controls" id="runningOrderControls" style="display: none;">
-                <button class="btn btn-secondary" onclick="randomizeAllOrders()">🎲 Randomize All</button>
+                <button class="btn btn-secondary" onclick="randomizeAllOrders()">🎲 Randomize Day</button>
                 <button class="btn btn-secondary" onclick="sortAlphabetically()">🔤 Sort A-Z</button>
                 <button class="btn btn-secondary" onclick="resetToOriginal()">↩️ Reset to Entry Order</button>
                 <button class="btn btn-secondary" onclick="refreshRunningOrder()">🔄 Refresh</button>
@@ -648,7 +655,10 @@
                                 originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
                             }
                         });
-           
+                    }
+                });
+            }
+
             // Apply existing order if available
             Object.keys(existingOrder).forEach(roundKey => {
                 const [dayIndex] = roundKey.split('-').map(Number);
