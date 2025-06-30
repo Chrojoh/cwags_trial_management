@@ -1037,33 +1037,68 @@
                     return;
                 }
 
-                // Load trials for secretary
-                const trialsQuery = firebase.firestore().collection("trials")
-                    .where("createdBy", "==", auth.currentUser.uid);
+                console.log("🔍 Loading trials for user:", auth.currentUser.uid);
+
+                // Load trials for secretary - using the same query as dashboard
+                const trialsQuery = db.collection("trials")
+                    .where("createdBy", "==", auth.currentUser.uid)
+                    .limit(10);
                 
                 const trialsSnapshot = await trialsQuery.get();
+                
+                console.log("📊 Trials query result:", {
+                    empty: trialsSnapshot.empty,
+                    size: trialsSnapshot.size
+                });
                 
                 if (!trialsSnapshot.empty) {
                     availableTrials = [];
                     trialsSnapshot.forEach(doc => {
-                        availableTrials.push({ id: doc.id, ...doc.data() });
+                        const trialData = doc.data();
+                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
+                        availableTrials.push({ id: doc.id, ...trialData });
                     });
                     
-                    // Sort by creation date (newest first)
+                    // Sort by creation date (newest first) - client-side sorting like dashboard
                     availableTrials.sort((a, b) => {
                         const aTime = a.createdAt ? a.createdAt.seconds : 0;
                         const bTime = b.createdAt ? b.createdAt.seconds : 0;
                         return bTime - aTime;
                     });
                     
+                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
                     populateTrialSelector();
                 } else {
-                    alert("No trials found. Please create a trial first.");
-                    window.location.href = 'trial-secretary-dashboard.html';
+                    console.warn("⚠️ No trials found for this user");
+                    
+                    // Check if there's a Firebase index error
+                    const trialSelect = document.getElementById('trialSelection');
+                    trialSelect.innerHTML = `
+                        <option value="">No trials found - please create a trial first</option>
+                    `;
+                    
+                    // Don't automatically redirect, let user decide
+                    setTimeout(() => {
+                        if (confirm("No trials found. Would you like to go to the dashboard to create one?")) {
+                            window.location.href = 'trial-secretary-dashboard.html';
+                        }
+                    }, 1000);
                 }
             } catch (error) {
                 console.error("❌ Error loading trial data:", error);
-                alert("Error loading trial data: " + error.message);
+                
+                // Show user-friendly error message like the dashboard does
+                const trialSelect = document.getElementById('trialSelection');
+                trialSelect.innerHTML = `
+                    <option value="">Error loading trials - check console for details</option>
+                `;
+                
+                // Check if it's a Firebase index error
+                if (error.message && error.message.includes('index')) {
+                    alert(`Database index required. This is the same issue as the dashboard.\n\nError: ${error.message}\n\nPlease create the required index in Firebase Console.`);
+                } else {
+                    alert("Error loading trial data: " + error.message);
+                }
             }
         }
 
