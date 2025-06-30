@@ -648,10 +648,7 @@
                                 originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
                             }
                         });
-                    }
-                });
-            }
-
+           
             // Apply existing order if available
             Object.keys(existingOrder).forEach(roundKey => {
                 const [dayIndex] = roundKey.split('-').map(Number);
