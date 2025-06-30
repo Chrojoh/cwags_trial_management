@@ -504,7 +504,14 @@
                 await processEntriesIntoRunningOrder(entriesSnapshot, existingOrder);
 
                 showStatus(`Loaded running order for ${currentTrial.clubName}`, 'success');
-                document.getElementById('runningOrderControls').style.display = 'flex';
+                
+                // Show controls after successful load
+                const controlsElement = document.getElementById('runningOrderControls');
+                if (controlsElement) {
+                    controlsElement.style.display = 'flex';
+                } else {
+                    console.warn('runningOrderControls element not found');
+                }
 
             } catch (error) {
                 console.error('Error loading trial running order:', error);
@@ -517,9 +524,17 @@
             runningOrderData = {};
             originalOrderData = {};
 
+            console.log('🔍 Processing trial structure:', currentTrial);
+            console.log('📅 Trial days:', currentTrial.days);
+
             // Create structure organized by days
             if (currentTrial.days) {
                 currentTrial.days.forEach((day, dayIndex) => {
+                    console.log(`📅 Processing Day ${dayIndex + 1}:`, {
+                        date: day.date,
+                        classes: day.classes?.length || 0
+                    });
+
                     runningOrderData[dayIndex] = {
                         dayNumber: dayIndex + 1,
                         date: day.date,
@@ -543,6 +558,8 @@
                                     };
                                     
                                     originalOrderData[dayIndex].rounds[roundKey] = { entries: [] };
+                                    
+                                    console.log(`  📋 Added round: Day ${dayIndex + 1} - ${cls.className} Round ${roundIndex + 1}`);
                                 });
                             }
                         });
@@ -550,15 +567,72 @@
                 });
             }
 
+            console.log('📊 Final runningOrderData structure:', runningOrderData);
+            console.log('📊 Days found:', Object.keys(runningOrderData));
+
             // Add entries to appropriate rounds
             if (!entriesSnapshot.empty) {
                 entriesSnapshot.forEach(doc => {
                     const entry = doc.data();
+                    console.log('📝 Processing entry:', entry.handlerName, entry.dogCallName);
                     
                     if (entry.selectedEntries) {
                         entry.selectedEntries.forEach(selectedEntry => {
+                            console.log('  🎯 Selected entry:', selectedEntry);
                             const dayIndex = selectedEntry.dayIndex;
                             const classIndex = currentTrial.days[dayIndex].classes.findIndex(c => c.className === selectedEntry.className);
+                            const roundKey = `${dayIndex}-${classIndex}-${selectedEntry.roundIndex}`;
+                            
+                            console.log(`  📍 Mapping to: Day ${dayIndex}, Class ${classIndex}, Round ${selectedEntry.roundIndex}, Key: ${roundKey}`);
+                            
+                            if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
+                                const entryItem = {
+                                    id: doc.id + '_' + selectedEntry.entryId,
+                                    handlerName: entry.handlerName,
+                                    dogCallName: entry.dogCallName,
+                                    entryType: selectedEntry.type,
+                                    originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
+                                };
+
+                                runningOrderData[dayIndex].rounds[roundKey].entries.push(entryItem);
+                                originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
+                                
+                                console.log(`  ✅ Added to Day ${dayIndex}: ${entry.handlerName} - ${entry.dogCallName}`);
+                            } else {
+                                console.log(`  ❌ Could not find round for Day ${dayIndex}, Key: ${roundKey}`);
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Apply existing order if available
+            Object.keys(existingOrder).forEach(roundKey => {
+                const [dayIndex] = roundKey.split('-').map(Number);
+                if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey] && existingOrder[roundKey]) {
+                    const round = runningOrderData[dayIndex].rounds[roundKey];
+                    const orderedEntries = [];
+                    const unorderedEntries = [...round.entries];
+
+                    // First, add entries in the saved order
+                    existingOrder[roundKey].forEach(savedEntryId => {
+                        const entryIndex = unorderedEntries.findIndex(e => e.id === savedEntryId);
+                        if (entryIndex !== -1) {
+                            orderedEntries.push(unorderedEntries.splice(entryIndex, 1)[0]);
+                        }
+                    });
+
+                    // Then add any new entries that weren't in the saved order
+                    orderedEntries.push(...unorderedEntries);
+
+                    round.entries = orderedEntries;
+                }
+            });
+
+            console.log('🎯 About to render day tabs...');
+            renderDayTabs();
+            renderRunningOrder();
+        }classes.findIndex(c => c.className === selectedEntry.className);
                             const roundKey = `${dayIndex}-${classIndex}-${selectedEntry.roundIndex}`;
                             
                             if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
@@ -607,24 +681,44 @@
 
         // Render day tabs
         function renderDayTabs() {
+            console.log('🎯 Starting renderDayTabs...');
+            console.log('📊 Available HTML elements:', {
+                dayTabsContainer: !!document.getElementById('dayTabsContainer'),
+                dayTabs: !!document.getElementById('dayTabs'),
+                runningOrderControls: !!document.getElementById('runningOrderControls')
+            });
+            
             const dayTabsContainer = document.getElementById('dayTabsContainer');
             const dayTabs = document.getElementById('dayTabs');
+            const runningOrderControls = document.getElementById('runningOrderControls');
             
             if (!dayTabsContainer || !dayTabs) {
                 console.error('Day tabs container elements not found');
+                console.log('DOM ready state:', document.readyState);
+                console.log('All elements with id containing "day":', 
+                    Array.from(document.querySelectorAll('[id*="day"]')).map(el => ({ id: el.id, tag: el.tagName }))
+                );
                 return;
             }
             
+            console.log('📊 runningOrderData keys:', Object.keys(runningOrderData));
+            
             if (Object.keys(runningOrderData).length === 0) {
+                console.log('No running order data, hiding tabs');
                 dayTabsContainer.style.display = 'none';
+                if (runningOrderControls) runningOrderControls.style.display = 'none';
                 return;
             }
 
+            console.log('Showing day tabs and controls');
             dayTabsContainer.style.display = 'block';
+            if (runningOrderControls) runningOrderControls.style.display = 'flex';
             dayTabs.innerHTML = '';
 
             Object.keys(runningOrderData).forEach((dayIndex, index) => {
                 const dayData = runningOrderData[dayIndex];
+                console.log(`📅 Creating tab for day ${dayIndex}:`, dayData);
+                
                 const dayDate = dayData.date 
                     ? new Date(dayData.date).toLocaleDateString('en-US', { 
                         weekday: 'short', 
@@ -640,11 +734,13 @@
                 tabButton.textContent = dayDate;
                 
                 dayTabs.appendChild(tabButton);
+                console.log(`✅ Added tab: ${dayDate}`);
             });
 
             // Set first day as current
             const firstDayIndex = parseInt(Object.keys(runningOrderData)[0]);
             currentDay = firstDayIndex;
+            console.log('🎯 Set current day to:', currentDay);
         }
 
         // Show specific day
