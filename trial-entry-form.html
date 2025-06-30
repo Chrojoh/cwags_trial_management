@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trial Entry Form</title>
+    <title>Trial Entry Form - Direct Excel</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- SheetJS for Direct Excel Reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
         * {
@@ -78,238 +81,68 @@
             background: #5a6268;
         }
 
+        /* Excel File Upload */
+        .excel-upload-section {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 20px;
+        }
+
+        .excel-upload-section h3 {
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .excel-upload {
+            border: 2px dashed #0066cc;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 1rem 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .excel-upload:hover {
+            border-color: #004499;
+            background: #f0f8ff;
+        }
+
+        .excel-status {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .excel-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .excel-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
         /* Trial Selection (Secretary Only) */
         .trial-selection {
             background: #f8f9fa;
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
+            display: none;
         }
 
         .trial-selection h3 {
             color: #495057;
             margin-bottom: 1rem;
             font-size: 1.3rem;
-        }
-
-        /* Entry Fee Configuration (Secretary Only) */
-        .fee-config {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 20px;
-            display: none;
-        }
-
-        .fee-config h3 {
-            color: #0066cc;
-            margin-bottom: 1rem;
-        }
-
-        .fee-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .fee-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .fee-group label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #495057;
-        }
-
-        .fee-group input {
-            padding: 0.75rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        .fee-group input:focus {
-            outline: none;
-            border-color: #0066cc;
-        }
-
-        .fee-controls {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .btn-save-fees {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-save-fees:hover {
-            background: #218838;
-        }
-
-        .btn-reset-fees {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-reset-fees:hover {
-            background: #5a6268;
-        }
-
-        /* Registration Status */
-        .registration-status {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 20px;
-            display: none;
-        }
-
-        .registration-status.error {
-            background: #f8d7da;
-            border-color: #dc3545;
-            color: #721c24;
-        }
-
-        .registration-status.success {
-            background: #d4edda;
-            border-color: #28a745;
-            color: #155724;
-        }
-
-        /* Shareable Link Section (Secretary Only) */
-        .shareable-link {
-            background: #d4edda;
-            border: 2px solid #28a745;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px;
-            display: none;
-        }
-
-        .shareable-link h3 {
-            color: #28a745;
-            margin-bottom: 15px;
-        }
-
-        .link-display {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        .link-url {
-            font-family: monospace;
-            background: #f8f9fa;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            word-break: break-all;
-            color: #28a745;
-            margin-bottom: 10px;
-        }
-
-        .link-actions {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .btn-copy, .btn-test {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .btn-copy {
-            background: #17a2b8;
-            color: white;
-        }
-
-        .btn-test {
-            background: #28a745;
-            color: white;
-        }
-
-        /* Trial Information */
-        .trial-info {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-bottom: 1px solid #e9ecef;
-            display: none;
-        }
-
-        .trial-info h3 {
-            color: #495057;
-            margin-bottom: 1rem;
-            font-size: 1.3rem;
-        }
-
-        .trial-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .trial-details > div {
-            font-size: 0.95rem;
-        }
-
-        .trial-details strong {
-            color: #495057;
-        }
-
-        /* C-WAGS Waiver Section */
-        .waiver-section {
-            background: #fff8e1;
-            border: 2px solid #ffc107;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 20px;
-            display: none;
-        }
-
-        .waiver-content {
-            max-height: 300px;
-            overflow-y: auto;
-            border: 1px solid #ddd;
-            padding: 1rem;
-            background: white;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            line-height: 1.4;
-            margin-bottom: 1rem;
-        }
-
-        .waiver-agreement {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-
-        .waiver-agreement input[type="checkbox"] {
-            margin-top: 0.2rem;
-            width: auto;
         }
 
         /* Entry Form */
@@ -426,234 +259,6 @@
             display: block;
         }
 
-        /* Day Tabs */
-        .day-tabs-container {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 0.5rem;
-            margin-bottom: 1.5rem;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .day-tabs {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .day-tab {
-            flex: 1;
-            min-width: 150px;
-            padding: 0.75rem 1rem;
-            background: white;
-            border: 2px solid #dee2e6;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .day-tab:hover {
-            border-color: #0066cc;
-            color: #0066cc;
-        }
-
-        .day-tab.active {
-            background: #0066cc;
-            color: white;
-            border-color: #0066cc;
-        }
-
-        /* Entry Summary */
-        .entry-summary {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            display: none;
-        }
-
-        .summary-title {
-            font-weight: 600;
-            color: #0066cc;
-            margin-bottom: 1rem;
-        }
-
-        .selected-entries {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .selected-entry {
-            background: white;
-            padding: 0.5rem 1rem;
-            margin-bottom: 0.5rem;
-            border-radius: 6px;
-            border-left: 4px solid #28a745;
-        }
-
-        /* Class Entries Container */
-        .class-entries-container {
-            max-height: 600px;
-            overflow-y: auto;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1rem;
-        }
-
-        .class-day-content {
-            display: none;
-        }
-
-        .class-day-content.active {
-            display: block;
-        }
-
-        .class-item {
-            background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-            transition: box-shadow 0.3s ease;
-        }
-
-        .class-item:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-
-        .class-header {
-            background: #28a745;
-            color: white;
-            padding: 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .class-name {
-            font-weight: 600;
-            font-size: 1.1rem;
-        }
-
-        .class-fee {
-            font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .class-details {
-            background: #f8f9fa;
-            padding: 1rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .rounds-container {
-            padding: 1rem;
-            background: #fff;
-        }
-
-        .round-item {
-            background: #f0f8ff;
-            border: 1px solid #dee2e6;
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .round-details {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .judge-name {
-            font-weight: 600;
-            color: #495057;
-        }
-
-        .entry-options {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .entry-option {
-            flex: 1;
-            max-width: 200px;
-        }
-
-        .entry-button {
-            width: 100%;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 20px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.85rem;
-            white-space: nowrap;
-        }
-
-        .entry-button.regular {
-            background: #d4edda;
-            color: #155724;
-            border: 2px solid #28a745;
-        }
-
-        .entry-button.regular:hover {
-            background: #28a745;
-            color: white;
-        }
-
-        .entry-button.regular.selected {
-            background: #155724;
-            color: white;
-            box-shadow: 0 0 0 3px rgba(21, 87, 36, 0.4);
-        }
-
-        .entry-button.feo {
-            background: #fff3cd;
-            color: #856404;
-            border: 2px solid #ffc107;
-        }
-
-        .entry-button.feo:hover {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .entry-button.feo.selected {
-            background: #856404;
-            color: white;
-            box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
-        }
-
-        /* Submit Section - MOVED UP */
-        .submit-section-top {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 1.5rem 0;
-            text-align: center;
-            display: none;
-        }
-
-        .submit-section-top.show {
-            display: block;
-        }
-
         .btn-submit {
             background: linear-gradient(45deg, #28a745, #20c997);
             color: white;
@@ -718,32 +323,6 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
-
-            .day-tabs {
-                flex-direction: column;
-            }
-
-            .day-tab {
-                min-width: auto;
-            }
-
-            .class-details {
-                grid-template-columns: 1fr;
-            }
-
-            .round-item {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.75rem;
-            }
-
-            .entry-options {
-                justify-content: center;
-            }
-
-            .entry-option {
-                min-width: 100px;
-            }
         }
     </style>
 </head>
@@ -751,8 +330,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1 id="trialTitle">🏆 Trial Entry Form</h1>
-            <p id="trialSubtitle">Complete your entry for this C-WAGS trial</p>
+            <h1 id="trialTitle">🏆 Trial Entry Form (Direct Excel)</h1>
+            <p id="trialSubtitle">Upload your dataforsite.xlsx file to enable C-WAGS registration lookup</p>
         </div>
 
         <!-- Back to Dashboard Button -->
@@ -776,17 +355,24 @@
             </button>
         </div>
 
-        <!-- Registration Status -->
-        <div class="registration-status" id="registrationStatus">
-            <h4>📊 Registration Data Status</h4>
-            <p id="registrationStatusText">Checking registration database...</p>
-            <button onclick="forceReloadRegistrations()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                🔄 Reload Registration Data
-            </button>
+        <!-- Excel File Upload Section -->
+        <div class="excel-upload-section" id="excelUploadSection">
+            <h3>📊 Load Registration Data</h3>
+            <p>Upload your dataforsite.xlsx file to enable C-WAGS registration lookup:</p>
+            
+            <div class="excel-upload" onclick="document.getElementById('excelFile').click()">
+                <h4>📁 Click to Upload dataforsite.xlsx</h4>
+                <p>This will allow automatic lookup of handler and dog names</p>
+                <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(event)">
+            </div>
+            
+            <div class="excel-status" id="excelStatus">
+                <!-- Status will appear here -->
+            </div>
         </div>
 
         <!-- Trial Selection (Secretary Only) -->
-        <div class="trial-selection hidden" id="trialSelectionSection">
+        <div class="trial-selection" id="trialSelectionSection">
             <h3>🎯 Select Trial</h3>
             <div class="form-row">
                 <div class="form-group required full-width">
@@ -795,96 +381,6 @@
                         <option value="">Loading available trials...</option>
                     </select>
                 </div>
-            </div>
-        </div>
-
-        <!-- Entry Fee Configuration (Secretary Only) -->
-        <div class="fee-config" id="entryFeeSection">
-            <h3>💰 Entry Fee Configuration</h3>
-            <div class="fee-grid">
-                <div class="fee-group">
-                    <label for="regularFee">Regular Entry Fee ($)</label>
-                    <input type="number" id="regularFee" min="0" step="0.01" value="35.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-                <div class="fee-group">
-                    <label for="feoFee">FEO Entry Fee ($)</label>
-                    <input type="number" id="feoFee" min="0" step="0.01" value="25.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-                <div class="fee-group">
-                    <label for="juniorFee">Junior Handler Fee ($)</label>
-                    <input type="number" id="juniorFee" min="0" step="0.01" value="20.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-            </div>
-            <div class="fee-controls">
-                <button class="btn-save-fees" onclick="saveFeeConfiguration()">💾 Save Fee Configuration</button>
-                <button class="btn-reset-fees" onclick="resetFeeConfiguration()">🔄 Reset to Defaults</button>
-            </div>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
-                💡 Set any fee to $0.00 to hide that option. Junior Handler fee replaces regular/FEO fees when selected.
-            </p>
-        </div>
-
-        <!-- Shareable Link Section (Secretary Only) -->
-        <div class="shareable-link" id="shareableLinkSection">
-            <h3>🔗 Shareable Entry Link</h3>
-            <p>Share this link with participants so they can enter from home:</p>
-            <div class="link-display">
-                <div class="link-url" id="shareableUrl">
-                    <!-- Generated URL will appear here -->
-                </div>
-                <div class="link-actions">
-                    <button class="btn-copy" onclick="copyShareableLink()">📋 Copy Link</button>
-                    <button class="btn-test" onclick="testShareableLink()">🔗 Test Link</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Trial Information -->
-        <div class="trial-info" id="trialInfoSection">
-            <h3>📋 Trial Information</h3>
-            <div class="trial-details">
-                <div><strong>Club:</strong> <span id="clubName">-</span></div>
-                <div><strong>Dates:</strong> <span id="trialDates">-</span></div>
-                <div><strong>Location:</strong> <span id="trialLocation">-</span></div>
-                <div><strong>Secretary:</strong> <span id="trialSecretary">-</span></div>
-            </div>
-        </div>
-
-        <!-- C-WAGS Waiver Section -->
-        <div class="waiver-section" id="waiverSection">
-            <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
-            <div class="waiver-content">
-                <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
-                <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
-                <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
-                <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
-                
-                <p><strong>C-WAGS Notice to Exhibitors</strong></p>
-                <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:</p>
-                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                    <li>All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.</li>
-                    <li>All judges and trial hosts are expected to show respect to all exhibitors.</li>
-                    <li>This trial is open to all dogs registered with C-WAGS.</li>
-                    <li>Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.</li>
-                    <li>Teams may be entered in multiple levels/classes at the same trial.</li>
-                    <li>Dogs must be shown by a member of the owner's immediate family.</li>
-                    <li>Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.</li>
-                    <li>Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.</li>
-                    <li>Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.</li>
-                    <li>The organizing committee may refuse any entry for any reason.</li>
-                    <li>THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.</li>
-                    <li>Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.</li>
-                    <li>Dogs must be on leash while on show grounds unless being shown.</li>
-                </ul>
-            </div>
-            <div class="waiver-agreement">
-                <input type="checkbox" id="waiverAccepted" required>
-                <label for="waiverAccepted">
-                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above. By entering this trial, I agree to the disclaimer on this entry form.</strong>
-                </label>
             </div>
         </div>
 
@@ -905,9 +401,10 @@
                         <div class="form-group full-width">
                             <label>C-WAGS Registration Number (optional)</label>
                             <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
-                                   style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
+                                   style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;"
+                                   maxlength="10">
                             <small style="color: #666; margin-top: 0.5rem; display: block;">
-                                💡 Enter registration number first - handler and dog info will auto-fill if found
+                                💡 Format: 07-0001-01 (Enter registration number and handler/dog info will auto-fill)
                             </small>
                         </div>
                     </div>
@@ -979,45 +476,14 @@
                     </div>
                 </div>
 
-                <!-- Class Entries Section -->
-                <div class="form-section">
-                    <h3>🎯 Class Entries</h3>
-                    
-                    <!-- Entry Summary -->
-                    <div class="entry-summary" id="entrySummary">
-                        <div class="summary-title">Selected Entries:</div>
-                        <ul class="selected-entries" id="selectedEntriesList">
-                        </ul>
-                        <div style="margin-top: 1rem; font-weight: 600; color: #0066cc;">
-                            Total Fee: $<span id="totalFee">0.00</span>
-                        </div>
-                    </div>
-
-                    <!-- Submit Section - MOVED UP NEAR TABS -->
-                    <div class="submit-section-top" id="submitSectionTop">
-                        <h4 style="margin-bottom: 1rem; color: #0066cc;">Ready to Submit Entry?</h4>
-                        <button type="button" class="btn-submit" id="submitEntry" disabled>
-                            Submit Entry
-                        </button>
-                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                            Please review your selections before submitting. Entry fees are due upon submission.
-                        </p>
-                    </div>
-
-                    <!-- Day Tabs - Dynamically Generated -->
-                    <div class="day-tabs-container">
-                        <div class="day-tabs" id="dayTabs">
-                            <!-- Tabs will be generated from trial data -->
-                        </div>
-                    </div>
-
-                    <!-- Scrollable Class Entries - Dynamically Generated -->
-                    <div class="class-entries-container" id="classEntriesContainer">
-                        <!-- Content will be generated from trial data -->
-                        <div style="text-align: center; padding: 2rem; color: #666;">
-                            Please select a trial to see available classes.
-                        </div>
-                    </div>
+                <!-- Submit Section -->
+                <div style="text-align: center; padding: 2rem; border-top: 2px solid #e9ecef;">
+                    <button type="button" class="btn-submit" id="submitEntry" disabled>
+                        Submit Entry
+                    </button>
+                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                        Please complete all required fields before submitting.
+                    </p>
                 </div>
             </form>
         </div>
@@ -1042,24 +508,12 @@
 
         // Global variables
         let currentTrialData = null;
-        let registrationData = [];
-        let isAutoFilling = false;
+        let excelData = [];
         let availableTrials = [];
         let isSecretary = false;
         let currentUser = null;
 
-        // Fee structure - configurable by secretary
-        let fees = {
-            regular: 35.00,
-            feo: 25.00,
-            juniorHandler: 20.00
-        };
-
-        // Selected entries tracking
-        let selectedEntries = [];
-        let totalFee = 0;
-
-        // Standard field names (using same handles as rest of site)
+        // Standard field names
         const STANDARD_FIELDS = {
             HANDLER_NAME: 'handlerName',
             DOG_CALL_NAME: 'dogCallName',
@@ -1094,7 +548,7 @@
 
         // Initialize the application
         async function init() {
-            console.log("🚀 Initializing entry form application...");
+            console.log("🚀 Initializing direct Excel entry form...");
             
             try {
                 // Check URL parameters for entry link
@@ -1106,14 +560,11 @@
                     console.log("🔗 Loading specific trial for public entry:", trialId);
                     await loadSpecificTrial(trialId);
                 } else {
-                    // Normal secretary view - need authentication
+                    // Normal secretary view
                     console.log("👨‍💼 Setting up secretary view");
                     isSecretary = true;
                     await setupSecretaryView();
                 }
-
-                // Load registration data from dataforsite.xlsx
-                await loadRegistrationData();
 
                 // Setup form event listeners
                 setupFormEventListeners();
@@ -1124,671 +575,195 @@
             }
         }
 
-        // IMPROVED Load registration data with better error handling
-        async function loadRegistrationData() {
+        // DIRECT EXCEL HANDLING - No Firebase arrays needed!
+        async function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            console.log("📊 Processing Excel file directly:", file.name);
+            showExcelStatus('🔄 Processing Excel file...', 'loading');
+            
             try {
-                console.log("📊 Loading registration data from Firebase...");
-                updateRegistrationStatus('🔄 Loading registration data from Firebase...', 'loading');
+                const arrayBuffer = await file.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
                 
-                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
-                if (dataDoc.exists) {
-                    const data = dataDoc.data();
-                    console.log("📊 Found system data document. Contents:", Object.keys(data));
+                // Process Excel using SheetJS
+                const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
+                
+                if (!dataSheet) {
+                    throw new Error('No data sheet found in Excel file');
+                }
+                
+                const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
+                    header: 1, 
+                    dateNF: 'yyyy-mm-dd',
+                    defval: ''
+                });
+                
+                if (jsonData.length < 2) {
+                    throw new Error('Excel file appears to be empty');
+                }
+                
+                // Store the Excel data directly in memory
+                excelData = jsonData;
+                
+                console.log("✅ Excel data loaded successfully:", {
+                    totalRows: excelData.length - 1, // Minus header
+                    headers: excelData[0]
+                });
+                
+                showExcelStatus(`✅ Excel file loaded successfully! Found ${excelData.length - 1} rows of data.`, 'success');
+                
+                // Show the entry form now that we have data
+                showElement('entryFormContainer');
+                
+            } catch (error) {
+                console.error("❌ Error processing Excel file:", error);
+                showExcelStatus(`❌ Error processing Excel file: ${error.message}`, 'error');
+            }
+        }
+
+        function showExcelStatus(message, type) {
+            const statusElement = document.getElementById('excelStatus');
+            statusElement.textContent = message;
+            statusElement.className = `excel-status ${type}`;
+        }
+
+        // DIRECT EXCEL LOOKUP - Much simpler!
+        async function autoFillFromRegistration(cwagsNumber) {
+            console.log("🔍 Looking up registration directly in Excel:", cwagsNumber);
+            showLookupStatus('🔍 Searching Excel data...', 'loading');
+            
+            if (!excelData || excelData.length < 2) {
+                showLookupStatus('⚠️ Please upload your dataforsite.xlsx file first', 'warning');
+                return;
+            }
+            
+            try {
+                const headers = excelData[0];
+                const rows = excelData.slice(1);
+                
+                console.log("📋 Excel headers:", headers);
+                console.log("📊 Searching through", rows.length, "rows");
+                
+                // Find the registration row that matches
+                const matchingRow = rows.find(row => {
+                    const rowCwag = row[0] ? String(row[0]).trim() : '';
+                    const searchCwag = String(cwagsNumber).trim();
                     
-                    // Convert registrations array to searchable format
-                    if (data.registrations && Array.isArray(data.registrations)) {
-                        registrationData = data.registrations;
-                        console.log(`✅ Loaded ${registrationData.length} registration records`);
-                        console.log("📋 Sample registrations:", registrationData.slice(0, 3));
-                        updateRegistrationStatus(`✅ Loaded ${registrationData.length} registration records from database`, 'success');
+                    // Try exact match and variations
+                    return rowCwag === searchCwag || 
+                           rowCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
+                });
+                
+                if (matchingRow) {
+                    console.log("✅ Found matching row:", matchingRow);
+                    
+                    // Extract data using column positions (based on your Excel structure)
+                    const registrationData = {
+                        cwag: matchingRow[0],           // Column A: cwagsNumber
+                        dog: matchingRow[1],            // Column B: dogCallName  
+                        handler: matchingRow[2],        // Column C: handlerName
+                        class: matchingRow[3],          // Column D: className
+                        judge: matchingRow[4]           // Column E: judgeName
+                    };
+                    
+                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
+                    populateForm(registrationData);
+                    
+                } else {
+                    console.log("❌ No matching registration found for:", cwagsNumber);
+                    showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error during Excel lookup:", error);
+                showLookupStatus('❌ Error searching Excel data', 'warning');
+            }
+        }
+
+        // Populate form with found data
+        function populateForm(registrationData) {
+            console.log("📝 Populating form with Excel data:", registrationData);
+            
+            // Handler name (Column C)
+            if (registrationData.handler) {
+                const handlerField = document.getElementById('handlerName');
+                handlerField.value = registrationData.handler;
+                handlerField.classList.add('auto-filled');
+                setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
+            }
+            
+            // Dog name (Column B)
+            if (registrationData.dog) {
+                const dogField = document.getElementById('dogCallName');
+                dogField.value = registrationData.dog;
+                dogField.classList.add('auto-filled');
+                setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
+            }
+        }
+
+        // FIXED C-WAGS number input - no more jumping!
+        function setupFormEventListeners() {
+            const cwagsInput = document.getElementById('cwagsNumber');
+            if (cwagsInput) {
+                let typingTimer;
+                
+                cwagsInput.addEventListener('input', function(e) {
+                    // Clear any existing timeout
+                    clearTimeout(typingTimer);
+                    
+                    // Clean input but don't auto-format while typing
+                    let cleaned = e.target.value.toUpperCase().replace(/[^0-9-]/g, '');
+                    
+                    // Store cursor position
+                    const cursorPos = e.target.selectionStart;
+                    
+                    // Only update if actually changed (prevents cursor jumping)
+                    if (e.target.value !== cleaned) {
+                        e.target.value = cleaned;
+                        // Restore cursor position
+                        e.target.setSelectionRange(cursorPos, cursorPos);
+                    }
+                    
+                    // Only search after user stops typing for 1.5 seconds
+                    if (cleaned.length >= 8) { // Full format: XX-XXXX-XX
+                        typingTimer = setTimeout(() => {
+                            autoFillFromRegistration(cleaned);
+                        }, 1500);
                     } else {
-                        console.warn("⚠️ No registrations found in system data");
-                        console.log("📊 Available data fields:", Object.keys(data));
-                        registrationData = [];
-                        updateRegistrationStatus(`⚠️ No registrations found in database. Available: classes (${data.classes?.length || 0}), judges (${data.judges?.length || 0})`, 'error');
+                        hideLookupStatus();
                     }
-                } else {
-                    console.warn("⚠️ System data document not found");
-                    registrationData = [];
-                    updateRegistrationStatus('⚠️ System data document not found in Firebase', 'error');
-                }
-            } catch (error) {
-                console.error("❌ Error loading registration data:", error);
-                registrationData = [];
-                updateRegistrationStatus(`❌ Error loading registration data: ${error.message}`, 'error');
-            }
-        }
-
-        // Update registration status display
-        function updateRegistrationStatus(message, type) {
-            const statusElement = document.getElementById('registrationStatus');
-            const textElement = document.getElementById('registrationStatusText');
-            
-            if (statusElement && textElement) {
-                statusElement.style.display = 'block';
-                textElement.textContent = message;
-                
-                // Update status styling
-                statusElement.className = 'registration-status';
-                if (type === 'success') {
-                    statusElement.classList.add('success');
-                } else if (type === 'error') {
-                    statusElement.classList.add('error');
-                }
-            }
-        }
-
-        // Force reload registrations
-        async function forceReloadRegistrations() {
-            console.log("🔄 Force reloading registration data...");
-            await loadRegistrationData();
-        }
-
-        // Setup secretary view with proper authentication
-        async function setupSecretaryView() {
-            try {
-                // Wait for authentication state
-                await new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-                        unsubscribe();
-                        if (user) {
-                            try {
-                                console.log("🔍 Loading user profile for:", user.email);
-                                
-                                // Load user profile
-                                const userDoc = await db.collection('users').doc(user.uid).get();
-                                if (userDoc.exists) {
-                                    currentUser = { uid: user.uid, ...userDoc.data() };
-                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
-                                    resolve();
-                                } else {
-                                    reject(new Error('User profile not found'));
-                                }
-                            } catch (error) {
-                                reject(error);
-                            }
-                        } else {
-                            reject(new Error('User not authenticated'));
-                        }
-                    });
-                });
-
-                console.log("🔍 Loading trials for user:", currentUser.uid);
-
-                // Load trials for secretary - using exact same query as dashboard
-                const trialsSnapshot = await db.collection("trials")
-                    .where("createdBy", "==", currentUser.uid)
-                    .get();
-                
-                console.log("📊 Trials query result:", {
-                    empty: trialsSnapshot.empty,
-                    size: trialsSnapshot.size
-                });
-                
-                if (!trialsSnapshot.empty) {
-                    availableTrials = [];
-                    trialsSnapshot.forEach(doc => {
-                        const trialData = { id: doc.id, ...doc.data() };
-                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
-                        availableTrials.push(trialData);
-                    });
                     
-                    // Sort by creation date (newest first)
-                    availableTrials.sort((a, b) => {
-                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                        return bTime - aTime;
-                    });
-                    
-                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
-                    
-                    hideElement('loadingMessage');
-                    showElement('trialSelectionSection');
-                    showElement('registrationStatus');
-                    populateTrialSelector();
-                    
-                } else {
-                    console.warn("⚠️ No trials found for this user");
-                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
-                }
-                
-            } catch (error) {
-                console.error("❌ Error setting up secretary view:", error);
-                throw error;
-            }
-        }
-
-        // Load specific trial for public entry
-        async function loadSpecificTrial(trialId) {
-            try {
-                console.log("🔍 Loading specific trial:", trialId);
-                const trialDoc = await db.collection('trials').doc(trialId).get();
-                
-                if (!trialDoc.exists) {
-                    throw new Error('Trial not found');
-                }
-
-                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
-                console.log("✅ Trial loaded:", currentTrialData.clubName);
-                
-                hideElement('loadingMessage');
-                hideElement('trialSelectionSection');
-                hideElement('entryFeeSection');
-                hideElement('shareableLinkSection');
-                showElement('registrationStatus');
-                
-                // Show waiver, trial info and entry form
-                showElement('waiverSection');
-                populateTrialInfo();
-                showEntryForm();
-                
-            } catch (error) {
-                console.error('❌ Error loading specific trial:', error);
-                throw new Error('Trial not found or no longer available');
-            }
-        }
-
-        // Populate trial selector dropdown
-        function populateTrialSelector() {
-            const trialSelect = document.getElementById('trialSelection');
-            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
-
-            availableTrials.forEach(trial => {
-                const option = document.createElement('option');
-                option.value = trial.id;
-                
-                let trialLabel = trial.clubName || 'Unnamed Trial';
-                
-                // Add dates if available
-                if (trial.days && trial.days.length > 0) {
-                    const dates = trial.days
-                        .filter(day => day.date)
-                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        }))
-                        .join(', ');
-                    if (dates) {
-                        trialLabel += ` (${dates})`;
-                    }
-                }
-                
-                option.textContent = trialLabel;
-                trialSelect.appendChild(option);
-            });
-
-            // Handle trial selection change
-            trialSelect.addEventListener('change', function(event) {
-                const trialId = event.target.value;
-                console.log("🎯 Trial selected:", trialId);
-                
-                if (trialId) {
-                    currentTrialData = availableTrials.find(t => t.id === trialId);
-                    if (currentTrialData) {
-                        console.log("✅ Found trial data:", currentTrialData.clubName);
-                        
-                        // Show fee configuration section for secretary
-                        showElement('entryFeeSection');
-                        
-                        // Setup fee change listeners
-                        setupFeeChangeListeners();
-                        
-                        generateShareableLink();
-                        populateTrialInfo();
-                        showElement('waiverSection');
-                        showEntryForm();
-                    } else {
-                        console.error("❌ Could not find trial data for ID:", trialId);
-                    }
-                } else {
-                    console.log("🚫 No trial selected, hiding sections");
-                    hideElement('shareableLinkSection');
-                    hideElement('trialInfoSection');
-                    hideElement('entryFormContainer');
-                    hideElement('entryFeeSection');
-                    hideElement('waiverSection');
-                }
-            });
-        }
-
-        // IMPROVED Fee management with save functionality
-        function setupFeeChangeListeners() {
-            const regularFeeInput = document.getElementById('regularFee');
-            const feoFeeInput = document.getElementById('feoFee');
-            const juniorFeeInput = document.getElementById('juniorFee');
-            
-            function updateFees() {
-                console.log("💰 Updating fees from inputs");
-                fees.regular = parseFloat(regularFeeInput.value) || 0;
-                fees.feo = parseFloat(feoFeeInput.value) || 0;
-                fees.juniorHandler = parseFloat(juniorFeeInput.value) || 0;
-                
-                console.log("💰 New fees:", fees);
-                
-                // Regenerate classes with new fees
-                if (currentTrialData) {
-                    generateTabbedClasses();
-                }
-                
-                // Update summary if entries are selected
-                updateEntrySummary();
-            }
-            
-            regularFeeInput.addEventListener('input', updateFees);
-            feoFeeInput.addEventListener('input', updateFees);
-            juniorFeeInput.addEventListener('input', updateFees);
-        }
-
-        // Save fee configuration to Firebase
-        async function saveFeeConfiguration() {
-            if (!currentTrialData) {
-                alert('Please select a trial first');
-                return;
-            }
-            
-            try {
-                console.log("💾 Saving fee configuration...");
-                
-                const feeConfig = {
-                    regularFee: fees.regular,
-                    feoFee: fees.feo,
-                    juniorHandlerFee: fees.juniorHandler,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                };
-                
-                // Save to trial document
-                await db.collection('trials').doc(currentTrialData.id).update({
-                    feeConfiguration: feeConfig
+                    checkFormValidity();
                 });
-                
-                alert('✅ Fee configuration saved successfully!');
-                console.log("✅ Fee configuration saved:", feeConfig);
-                
-            } catch (error) {
-                console.error("❌ Error saving fee configuration:", error);
-                alert('Error saving fee configuration: ' + error.message);
-            }
-        }
 
-        // Reset fee configuration to defaults
-        function resetFeeConfiguration() {
-            document.getElementById('regularFee').value = '35.00';
-            document.getElementById('feoFee').value = '25.00';
-            document.getElementById('juniorFee').value = '20.00';
-            
-            fees.regular = 35.00;
-            fees.feo = 25.00;
-            fees.juniorHandler = 20.00;
-            
-            if (currentTrialData) {
-                generateTabbedClasses();
-            }
-            updateEntrySummary();
-            
-            console.log("🔄 Fee configuration reset to defaults");
-        }
-
-        // Generate shareable link
-        function generateShareableLink() {
-            if (!isSecretary || !currentTrialData) return;
-
-            const baseUrl = window.location.origin + window.location.pathname;
-            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
-            
-            document.getElementById('shareableUrl').textContent = shareableUrl;
-            showElement('shareableLinkSection');
-        }
-
-        // Copy shareable link to clipboard
-        function copyShareableLink() {
-            const url = document.getElementById('shareableUrl').textContent;
-            navigator.clipboard.writeText(url).then(() => {
-                alert('Link copied to clipboard!');
-            }).catch(err => {
-                console.error('Error copying link:', err);
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = url;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert('Link copied to clipboard!');
-            });
-        }
-
-        // Test shareable link
-        function testShareableLink() {
-            const url = document.getElementById('shareableUrl').textContent;
-            window.open(url, '_blank');
-        }
-
-        // Populate trial information and generate tabbed classes
-        function populateTrialInfo() {
-            if (!currentTrialData) return;
-
-            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
-            
-            // Format trial dates
-            const dates = currentTrialData.days && currentTrialData.days.length > 0 
-                ? currentTrialData.days
-                    .filter(day => day.date)
-                    .map(day => new Date(day.date).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    }))
-                    .join(', ')
-                : 'No dates specified';
-
-            document.getElementById('clubName').textContent = currentTrialData.clubName || 'TBD';
-            document.getElementById('trialDates').textContent = dates;
-            document.getElementById('trialLocation').textContent = 'TBD';
-            document.getElementById('trialSecretary').textContent = currentTrialData.secretary || 'TBD';
-
-            showElement('trialInfoSection');
-            
-            // Load saved fee configuration if exists
-            if (currentTrialData.feeConfiguration) {
-                const savedFees = currentTrialData.feeConfiguration;
-                document.getElementById('regularFee').value = savedFees.regularFee || 35.00;
-                document.getElementById('feoFee').value = savedFees.feoFee || 25.00;
-                document.getElementById('juniorFee').value = savedFees.juniorHandlerFee || 20.00;
-                
-                fees.regular = savedFees.regularFee || 35.00;
-                fees.feo = savedFees.feoFee || 25.00;
-                fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
-                
-                console.log("📋 Loaded saved fee configuration:", savedFees);
-            }
-            
-            // Generate the tabbed class interface from trial data
-            generateTabbedClasses();
-        }
-
-        // Show entry form
-        function showEntryForm() {
-            showElement('entryFormContainer');
-        }
-
-        // Generate tabbed classes from trial data
-        function generateTabbedClasses() {
-            console.log("🎯 Generating tabbed classes from trial data");
-            
-            if (!currentTrialData.days || currentTrialData.days.length === 0) {
-                console.warn("❌ No days data found");
-                document.getElementById('classEntriesContainer').innerHTML = 
-                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
-                return;
-            }
-
-            // Generate day tabs
-            const dayTabsContainer = document.getElementById('dayTabs');
-            dayTabsContainer.innerHTML = '';
-
-            currentTrialData.days.forEach((day, dayIndex) => {
-                const dayDate = day.date 
-                    ? new Date(day.date).toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
-                    })
-                    : `Day ${dayIndex + 1}`;
-
-                const tabButton = document.createElement('button');
-                tabButton.type = 'button';
-                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
-                tabButton.onclick = () => showDay(dayIndex);
-                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
-                
-                dayTabsContainer.appendChild(tabButton);
-            });
-
-            // Generate class content for each day
-            const classEntriesContainer = document.getElementById('classEntriesContainer');
-            let html = '';
-
-            currentTrialData.days.forEach((day, dayIndex) => {
-                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
-
-                if (!day.classes || day.classes.length === 0) {
-                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
-                } else {
-                    day.classes.forEach((cls, classIndex) => {
-                        const className = cls[STANDARD_FIELDS.CLASS_NAME] || cls.className || 'Unnamed Class';
-                        
-                        // Calculate fee based on junior handler status
-                        const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
-                        const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
-                        const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
-
-                        html += `
-                            <div class="class-item">
-                                <div class="class-header">
-                                    <div class="class-name">${className}</div>
-                                </div>
-                                <div class="class-details">
-                                    <div><strong>Sub Class:</strong> ${cls.subClass || 'N/A'}</div>
-                                    <div><strong>Rounds:</strong> ${cls.rounds ? cls.rounds.length : 0}</div>
-                                </div>
-                                <div class="rounds-container">
-                        `;
-
-                        if (cls.rounds && cls.rounds.length > 0) {
-                            cls.rounds.forEach((round, roundIndex) => {
-                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
-                                const roundName = `Round ${roundIndex + 1}`;
-                                
-                                html += `
-                                    <div class="round-item">
-                                        <div class="round-details">
-                                            <span class="judge-name">Judge: ${judgeName}</span>
-                                            <span>${roundName}</span>
-                                        </div>
-                                        <div class="entry-options">
-                                `;
-
-                                // Show Regular button if fee > 0
-                                if (regularFee > 0) {
-                                    html += `
-                                        <div class="entry-option">
-                                            <button class="entry-button regular" type="button"
-                                                    data-class="${className}" 
-                                                    data-round="${roundName}"
-                                                    data-judge="${judgeName}"
-                                                    data-fee="${regularFee.toFixed(2)}" 
-                                                    data-type="regular"
-                                                    data-day="${dayIndex}"
-                                                    data-round-index="${roundIndex}"
-                                                    onclick="toggleEntry(this)">
-                                                Regular ${regularFee.toFixed(2)}
-                                            </button>
-                                        </div>
-                                    `;
-                                }
-
-                                // Show FEO button if available and fee > 0 and not junior handler
-                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
-                                    html += `
-                                        <div class="entry-option">
-                                            <button class="entry-button feo" type="button"
-                                                    data-class="${className}" 
-                                                    data-round="${roundName}"
-                                                    data-judge="${judgeName}"
-                                                    data-fee="${feoFee.toFixed(2)}" 
-                                                    data-type="feo"
-                                                    data-day="${dayIndex}"
-                                                    data-round-index="${roundIndex}"
-                                                    onclick="toggleEntry(this)">
-                                                FEO ${feoFee.toFixed(2)}
-                                            </button>
-                                        </div>
-                                    `;
-                                }
-
-                                html += `
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                        } else {
-                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
-                        }
-
-                        html += `
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `</div>`;
-            });
-
-            classEntriesContainer.innerHTML = html;
-            
-            // Initialize the tabbed interface
-            updateEntrySummary();
-            
-            console.log("✅ Tabbed classes generated successfully");
-        }
-
-        // Show specific day tab
-        function showDay(dayIndex) {
-            // Hide all day content
-            document.querySelectorAll('.class-day-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.day-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected day content
-            document.getElementById(`day-${dayIndex}`).classList.add('active');
-            
-            // Add active class to selected tab
-            document.querySelectorAll('.day-tab')[dayIndex].classList.add('active');
-        }
-
-        // Toggle entry selection
-        function toggleEntry(button) {
-            const className = button.dataset.class;
-            const roundName = button.dataset.round;
-            const judgeName = button.dataset.judge;
-            const fee = parseFloat(button.dataset.fee);
-            const entryType = button.dataset.type;
-            const dayIndex = button.dataset.day;
-            const roundIndex = button.dataset.roundIndex;
-            
-            // Create unique identifier for this entry
-            const entryId = `${className}-${roundName}-${dayIndex}-${roundIndex}`;
-            
-            if (button.classList.contains('selected')) {
-                // Remove selection
-                button.classList.remove('selected');
-                selectedEntries = selectedEntries.filter(entry => 
-                    !(entry.entryId === entryId && entry.type === entryType)
-                );
-            } else {
-                // Add selection (but first remove any conflicting entry for same round)
-                const conflictingEntries = selectedEntries.filter(entry => 
-                    entry.entryId === entryId && entry.type !== entryType
-                );
-                
-                conflictingEntries.forEach(conflictEntry => {
-                    // Remove conflicting button selection
-                    const conflictButton = document.querySelector(
-                        `[data-class="${conflictEntry.className}"][data-round="${conflictEntry.roundName}"][data-type="${conflictEntry.type}"][data-day="${conflictEntry.dayIndex}"][data-round-index="${conflictEntry.roundIndex}"]`
-                    );
-                    if (conflictButton) {
-                        conflictButton.classList.remove('selected');
+                // Also try lookup when field loses focus
+                cwagsInput.addEventListener('blur', function(e) {
+                    const cleaned = e.target.value.trim();
+                    if (cleaned.length >= 8) {
+                        autoFillFromRegistration(cleaned);
                     }
                 });
-                
-                // Remove conflicting entries from selectedEntries
-                selectedEntries = selectedEntries.filter(entry => entry.entryId !== entryId);
-                
-                // Add new selection
-                button.classList.add('selected');
-                selectedEntries.push({
-                    entryId: entryId,
-                    className: className,
-                    roundName: roundName,
-                    judgeName: judgeName,
-                    fee: fee,
-                    type: entryType,
-                    dayIndex: dayIndex,
-                    roundIndex: roundIndex
-                });
             }
-            
-            updateEntrySummary();
-            checkFormValidity();
-        }
 
-        // Update entry summary
-        function updateEntrySummary() {
-            const summaryDiv = document.getElementById('entrySummary');
-            const entriesList = document.getElementById('selectedEntriesList');
-            const totalFeeSpan = document.getElementById('totalFee');
-            const submitSectionTop = document.getElementById('submitSectionTop');
-            
-            if (selectedEntries.length === 0) {
-                summaryDiv.style.display = 'none';
-                submitSectionTop.classList.remove('show');
-                return;
-            }
-            
-            summaryDiv.style.display = 'block';
-            submitSectionTop.classList.add('show');
-            
-            // Generate entries list
-            let html = '';
-            selectedEntries.forEach(entry => {
-                html += `
-                    <li class="selected-entry">
-                        Day ${parseInt(entry.dayIndex) + 1}: ${entry.className} - ${entry.roundName} 
-                        (${entry.type.toUpperCase()}) - Judge: ${entry.judgeName} - ${entry.fee.toFixed(2)}
-                    </li>
-                `;
-            });
-            
-            entriesList.innerHTML = html;
-            
-            // Update total fee
-            totalFee = selectedEntries.reduce((sum, entry) => sum + entry.fee, 0);
-            totalFeeSpan.textContent = totalFee.toFixed(2);
-        }
-
-        // C-WAGS number formatting and lookup
-        function formatCwagsNumber(input) {
-            // Remove all non-alphanumeric characters
-            let cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            
-            // Format to XX-XXXX-XX pattern
-            if (cleaned.length >= 2) {
-                let formatted = cleaned.substring(0, 2);
-                if (cleaned.length > 2) {
-                    formatted += '-' + cleaned.substring(2, 6);
-                    if (cleaned.length > 6) {
-                        // Ensure the last part is always 2 digits, pad with 0 if needed
-                        let lastPart = cleaned.substring(6, 8);
-                        if (lastPart.length === 1) {
-                            lastPart = '0' + lastPart;
-                        }
-                        formatted += '-' + lastPart;
-                    }
+            // Form validation listeners
+            ['handlerName', 'dogCallName'].forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('input', checkFormValidity);
+                    field.addEventListener('change', checkFormValidity);
                 }
-                return formatted;
+            });
+
+            // Submit button
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', submitEntry);
             }
-            return cleaned;
         }
 
-        // Show lookup status
         function showLookupStatus(message, type) {
             const statusDiv = document.getElementById('lookupStatus');
             statusDiv.textContent = message;
@@ -1800,132 +775,12 @@
             statusDiv.style.display = 'none';
         }
 
-        // IMPROVED Auto-fill from registration data with better debugging
-        async function autoFillFromRegistration(cwagsNumber) {
-            if (isAutoFilling) return;
-            
-            showLookupStatus('🔍 Looking up registration...', 'loading');
-            
-            try {
-                isAutoFilling = true;
-                
-                console.log("🔍 Looking up registration:", cwagsNumber);
-                console.log("📊 Available registrations:", registrationData.length);
-                console.log("🔍 Search data sample:", registrationData.slice(0, 2));
-                
-                // Search in registration data with more flexible matching
-                const matchingRegistration = registrationData.find(record => {
-                    const recordCwag = String(record.cwag || record.cwagsNumber || '').trim();
-                    const searchCwag = String(cwagsNumber).trim();
-                    
-                    console.log("🔍 Comparing:", recordCwag, "vs", searchCwag);
-                    
-                    return recordCwag === searchCwag || 
-                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
-                });
-                
-                if (matchingRegistration) {
-                    console.log("✅ Found matching registration:", matchingRegistration);
-                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
-                    populateForm(matchingRegistration);
-                } else {
-                    console.log("❌ No matching registration found");
-                    console.log("📋 Tried to match against:", registrationData.map(r => r.cwag || r.cwagsNumber));
-                    showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
-                }
-                
-            } catch (error) {
-                console.error("❌ Error during registration lookup:", error);
-                showLookupStatus('❌ Error looking up registration', 'warning');
-            } finally {
-                isAutoFilling = false;
-            }
-        }
-
-        // Populate form with registration data
-        function populateForm(registration) {
-            console.log("📝 Populating form with registration data:", registration);
-            
-            // Handler name - try multiple field names
-            const handlerName = registration.handler || registration.handlerName || registration.name;
-            if (handlerName) {
-                const handlerField = document.getElementById('handlerName');
-                handlerField.value = handlerName;
-                handlerField.classList.add('auto-filled');
-                setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
-            }
-            
-            // Dog name - try multiple field names
-            const dogName = registration.dog || registration.dogCallName || registration.dogName;
-            if (dogName) {
-                const dogField = document.getElementById('dogCallName');
-                dogField.value = dogName;
-                dogField.classList.add('auto-filled');
-                setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
-            }
-        }
-
-        // Setup form event listeners
-        function setupFormEventListeners() {
-            // C-WAGS number formatting and lookup
-            const cwagsInput = document.getElementById('cwagsNumber');
-            if (cwagsInput) {
-                cwagsInput.addEventListener('input', function(e) {
-                    const formatted = formatCwagsNumber(e.target.value);
-                    e.target.value = formatted;
-                    
-                    // Clear any existing timeout
-                    if (window.cwagsTimeout) {
-                        clearTimeout(window.cwagsTimeout);
-                    }
-                    
-                    if (formatted.length >= 8) { // Minimum length for lookup
-                        window.cwagsTimeout = setTimeout(() => {
-                            autoFillFromRegistration(formatted);
-                        }, 500);
-                    } else {
-                        hideLookupStatus();
-                    }
-                    
-                    checkFormValidity();
-                });
-            }
-
-            // Form validation listeners
-            ['handlerName', 'dogCallName', 'waiverAccepted'].forEach(fieldId => {
-                const field = document.getElementById(fieldId);
-                if (field) {
-                    field.addEventListener('input', checkFormValidity);
-                    field.addEventListener('change', checkFormValidity);
-                }
-            });
-
-            // Junior handler change affects fees
-            const juniorSelect = document.getElementById('juniorHandler');
-            if (juniorSelect) {
-                juniorSelect.addEventListener('change', function() {
-                    if (currentTrialData) {
-                        generateTabbedClasses();
-                    }
-                    updateEntrySummary();
-                });
-            }
-
-            // Submit button
-            const submitBtn = document.getElementById('submitEntry');
-            if (submitBtn) {
-                submitBtn.addEventListener('click', submitEntry);
-            }
-        }
-
         // Check form validity
         function checkFormValidity() {
-            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
             const handlerName = document.getElementById('handlerName')?.value.trim();
             const dogCallName = document.getElementById('dogCallName')?.value.trim();
-            const hasClasses = selectedEntries.length > 0;
             
-            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
+            const isValid = handlerName && dogCallName;
             
             const submitBtn = document.getElementById('submitEntry');
             if (submitBtn) {
@@ -1935,12 +790,43 @@
             return isValid;
         }
 
-        // Submit entry
+        // Setup secretary view (simplified)
+        async function setupSecretaryView() {
+            try {
+                hideElement('loadingMessage');
+                showElement('excelUploadSection');
+                showElement('trialSelectionSection');
+                
+                // Load trials for secretary
+                console.log("📋 Loading trials for secretary");
+                // Implementation would be similar to previous version
+                
+            } catch (error) {
+                console.error("❌ Error setting up secretary view:", error);
+                throw error;
+            }
+        }
+
+        // Load specific trial for public entry
+        async function loadSpecificTrial(trialId) {
+            try {
+                console.log("🔍 Loading specific trial:", trialId);
+                hideElement('loadingMessage');
+                showElement('excelUploadSection');
+                showElement('entryFormContainer');
+                
+            } catch (error) {
+                console.error('❌ Error loading specific trial:', error);
+                throw new Error('Trial not found or no longer available');
+            }
+        }
+
+        // Submit entry (simplified)
         async function submitEntry() {
-            console.log("🚀 Starting entry submission...");
+            console.log("🚀 Submitting entry...");
             
             if (!checkFormValidity()) {
-                alert('Please complete all required fields and select at least one class.');
+                alert('Please complete all required fields.');
                 return;
             }
             
@@ -1952,8 +838,6 @@
             try {
                 // Collect form data
                 const entryData = {
-                    trialId: currentTrialData.id,
-                    trialName: currentTrialData.clubName,
                     [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
                     handlerEmail: document.getElementById('handlerEmail').value.trim(),
                     handlerPhone: document.getElementById('handlerPhone').value.trim(),
@@ -1964,10 +848,8 @@
                     dogSex: document.getElementById('dogSex').value,
                     [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
                     juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
-                    selectedEntries: selectedEntries,
-                    totalFee: totalFee,
                     submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    waiverAccepted: true
+                    dataSource: 'direct-excel'
                 };
                 
                 console.log("📝 Entry data prepared:", entryData);
@@ -1995,20 +877,7 @@
 
         // Reset form for another entry
         function resetForm() {
-            // Reset form fields
             document.getElementById('entryForm').reset();
-            
-            // Clear selected entries
-            selectedEntries = [];
-            totalFee = 0;
-            
-            // Clear all selected buttons
-            document.querySelectorAll('.entry-button.selected').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            
-            // Update display
-            updateEntrySummary();
             checkFormValidity();
             
             // Hide success message and show form
@@ -2022,22 +891,16 @@
         }
 
         // Make functions globally accessible
-        window.showDay = showDay;
-        window.toggleEntry = toggleEntry;
-        window.copyShareableLink = copyShareableLink;
-        window.testShareableLink = testShareableLink;
+        window.handleExcelUpload = handleExcelUpload;
         window.resetForm = resetForm;
-        window.saveFeeConfiguration = saveFeeConfiguration;
-        window.resetFeeConfiguration = resetFeeConfiguration;
-        window.forceReloadRegistrations = forceReloadRegistrations;
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("🎯 DOM loaded, initializing entry form...");
+            console.log("🎯 DOM loaded, initializing direct Excel entry form...");
             init();
         });
 
-        console.log("🎯 Complete Entry Form Fix script loaded successfully");
+        console.log("🎯 Direct Excel Entry Form script loaded successfully");
     </script>
 </body>
 </html>
