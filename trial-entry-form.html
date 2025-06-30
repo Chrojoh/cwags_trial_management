@@ -1483,37 +1483,96 @@ if (registrationData.length > 0) {
             statusDiv.style.display = 'none';
         }
 
-        // Auto-fill from registration data
-        async function autoFillFromRegistration(cwagsNumber) {
-            showLookupStatus('🔍 Looking up registration...', 'info');
+        // IMMEDIATE FIX: Update populateForm function to handle swapped fields
+
+function populateForm(registration) {
+    console.log("📝 Populating form with registration data:", registration);
+    console.log("⚠️ NOTE: Registry has swapped field names - compensating");
+    
+    // ⚠️ SWAPPED: In your registry, handlerName actually contains the dog name
+    const actualHandlerName = registration.dogCallName;  // Handler name is in dogCallName field
+    if (actualHandlerName) {
+        const handlerField = document.getElementById('handlerName');
+        handlerField.value = actualHandlerName;
+        handlerField.style.background = '#e7f3ff';
+        setTimeout(() => handlerField.style.background = '', 3000);
+    }
+    
+    // ⚠️ SWAPPED: In your registry, dogCallName actually contains the handler name  
+    const actualDogName = registration.handlerName;  // Dog name is in handlerName field
+    if (actualDogName) {
+        const dogField = document.getElementById('dogCallName');
+        dogField.value = actualDogName;
+        dogField.style.background = '#e7f3ff';
+        setTimeout(() => dogField.style.background = '', 3000);
+    }
+    
+    // These fields should be correct
+    if (registration.handlerEmail) {
+        document.getElementById('handlerEmail').value = registration.handlerEmail;
+    }
+    
+    if (registration.handlerPhone) {
+        document.getElementById('handlerPhone').value = registration.handlerPhone;
+    }
+    
+    if (registration.emergencyContact) {
+        document.getElementById('emergencyContact').value = registration.emergencyContact;
+    }
+    
+    if (registration.dogBreed) {
+        document.getElementById('dogBreed').value = registration.dogBreed;
+    }
+    
+    if (registration.dogBirthdate) {
+        document.getElementById('dogBirthdate').value = registration.dogBirthdate;
+    }
+    
+    if (registration.dogSex) {
+        document.getElementById('dogSex').value = registration.dogSex;
+    }
+    
+    if (registration.juniorHandler !== undefined) {
+        document.getElementById('juniorHandler').value = registration.juniorHandler ? 'Yes' : 'No';
+    }
+}
+
+// And fix the lookup function with correct field name:
+async function autoFillFromRegistration(cwagsNumber) {
+    showLookupStatus('🔍 Looking up registration...', 'info');
+    
+    try {
+        console.log("🔍 Looking up registration:", cwagsNumber);
+        console.log("📊 Available registrations:", registrationData.length);
+        
+        // ✅ FIXED: Search using the correct field name 'cwagsNumber'
+        const matchingRegistration = registrationData.find(record => {
+            const recordCwag = String(record.cwagsNumber || '').trim();
+            const searchCwag = String(cwagsNumber).trim();
             
-            try {
-                console.log("🔍 Looking up registration:", cwagsNumber);
-                console.log("📊 Available registrations:", registrationData.length);
-                
-                // Search in registration data
-                const matchingRegistration = registrationData.find(record => {
-                    const recordCwag = String(record.cwag || '').trim();
-                    const searchCwag = String(cwagsNumber).trim();
-                    
-                    return recordCwag === searchCwag || 
-                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
-                });
-                
-                if (matchingRegistration) {
-                    console.log("✅ Found matching registration:", matchingRegistration);
-                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
-                    populateForm(matchingRegistration);
-                } else {
-                    console.log("❌ No matching registration found");
-                    showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
-                }
-                
-            } catch (error) {
-                console.error("❌ Error during registration lookup:", error);
-                showLookupStatus('❌ Error looking up registration', 'error');
-            }
+            return recordCwag === searchCwag || 
+                   recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
+        });
+        
+        if (matchingRegistration) {
+            console.log("✅ Found matching registration:", matchingRegistration);
+            showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
+            populateForm(matchingRegistration);
+        } else {
+            console.log("❌ No matching registration found");
+            
+            // Show sample registration numbers for debugging
+            const sampleRegistrations = registrationData.slice(0, 5).map(r => r.cwagsNumber || 'No C-WAGS#');
+            console.log("📋 Sample registration numbers in database:", sampleRegistrations);
+            
+            showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
         }
+        
+    } catch (error) {
+        console.error("❌ Error during registration lookup:", error);
+        showLookupStatus('❌ Error looking up registration', 'error');
+    }
+}
 
         // Populate form with registration data
         function populateForm(registration) {
