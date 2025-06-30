@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running Order Management</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- Sortable.js for drag and drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            margin: 0.25rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .running-order-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .trial-selector {
+            margin-bottom: 2rem;
+        }
+
+        .trial-selector select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .rounds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .round-column {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            min-height: 500px;
+        }
+
+        .round-header {
+            background: #667eea;
+            color: white;
+            padding: 1rem;
+            border-radius: 6px 6px 0 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .round-info {
+            padding: 0.5rem 1rem;
+            background: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .round-info div {
+            margin: 0.25rem 0;
+            font-size: 0.9rem;
+        }
+
+        .entries-list {
+            min-height: 300px;
+            padding: 1rem;
+        }
+
+        .entry-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: move;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .entry-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .entry-item.sortable-ghost {
+            opacity: 0.4;
+        }
+
+        .entry-item.sortable-drag {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .entry-text {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .entry-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .entry-controls button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .entry-controls button:hover {
+            background: #5a6268;
+        }
+
+        .entry-type-regular {
+            border-left: 4px solid #28a745;
+        }
+
+        .entry-type-feo {
+            border-left: 4px solid #ffc107;
+        }
+
+        .status-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .no-entries {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        .running-order-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .rounds-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .running-order-controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📊 Running Order Management</h1>
+                <p>Organize and manage your trial running orders</p>
+            </div>
+            <div>
+                <a href="trial-secretary-dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+                <button class="btn btn-success" onclick="exportRunningOrder()">📤 Export Excel</button>
+                <button class="btn" onclick="saveRunningOrder()">💾 Save Changes</button>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Running Order Container -->
+        <div class="running-order-container">
+            <!-- Trial Selector -->
+            <div class="trial-selector">
+                <label for="trialSelect"><strong>Select Trial:</strong></label>
+                <select id="trialSelect" onchange="loadTrialRunningOrder()">
+                    <option value="">Loading trials...</option>
+                </select>
+            </div>
+
+            <!-- Controls -->
+            <div class="running-order-controls" id="runningOrderControls" style="display: none;">
+                <button class="btn btn-secondary" onclick="randomizeAllOrders()">🎲 Randomize All</button>
+                <button class="btn btn-secondary" onclick="sortAlphabetically()">🔤 Sort A-Z</button>
+                <button class="btn btn-secondary" onclick="resetToOriginal()">↩️ Reset to Entry Order</button>
+                <button class="btn btn-secondary" onclick="refreshRunningOrder()">🔄 Refresh</button>
+            </div>
+
+            <!-- Rounds Grid -->
+            <div class="rounds-grid" id="roundsGrid">
+                <div class="no-entries">
+                    Please select a trial to view running orders.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global variables
+        let currentUser = null;
+        let currentTrial = null;
+        let runningOrderData = {};
+        let originalOrderData = {};
+
+        // Standard field names
+        const STANDARD_FIELDS = {
+            HANDLER_NAME: 'handlerName',
+            DOG_CALL_NAME: 'dogCallName',
+            JUDGE_NAME: 'judgeName',
+            CLASS_NAME: 'className'
+        };
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize the application
+        async function init() {
+            try {
+                // Check authentication
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    });
+                });
+
+                await loadTrials();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showStatus('Error initializing application: ' + error.message, 'error');
+            }
+        }
+
+        // Load trials for the dropdown
+        async function loadTrials() {
+            try {
+                showStatus('Loading your trials...', 'info');
+
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+
+                const trialSelect = document.getElementById('trialSelect');
+                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+                if (!trialsSnapshot.empty) {
+                    const trials = [];
+                    trialsSnapshot.forEach(doc => {
+                        trials.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    // Sort by creation date
+                    trials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+
+                    trials.forEach(trial => {
+                        const option = document.createElement('option');
+                        option.value = trial.id;
+                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        trialSelect.appendChild(option);
+                    });
+
+                    showStatus(`Found ${trials.length} trials`, 'success');
+                } else {
+                    showStatus('No trials found', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, 'error');
+            }
+        }
+
+        // Load running order for selected trial
+        async function loadTrialRunningOrder() {
+            const trialId = document.getElementById('trialSelect').value;
+            
+            if (!trialId) {
+                document.getElementById('roundsGrid').innerHTML = '<div class="no-entries">Please select a trial to view running orders.</div>';
+                document.getElementById('runningOrderControls').style.display = 'none';
+                return;
+            }
+
+            try {
+                showStatus('Loading trial entries...', 'info');
+
+                // Load trial data
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+
+                // Load entries for this trial
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                // Load existing running order if available
+                let existingOrder = {};
+                try {
+                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                    if (orderDoc.exists) {
+                        existingOrder = orderDoc.data().roundOrders || {};
+                    }
+                } catch (error) {
+                    console.log('No existing running order found, will create new one');
+                }
+
+                // Process entries into running order structure
+                await processEntriesIntoRunningOrder(entriesSnapshot, existingOrder);
+
+                showStatus(`Loaded running order for ${currentTrial.clubName}`, 'success');
+                document.getElementById('runningOrderControls').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Error loading trial running order:', error);
+                showStatus('Error loading running order: ' + error.message, 'error');
+            }
+        }
+
+        // Process entries into running order structure
+        async function processEntriesIntoRunningOrder(entriesSnapshot, existingOrder) {
+            runningOrderData = {};
+            originalOrderData = {};
+
+            // Create structure for each round
+            if (currentTrial.days) {
+                currentTrial.days.forEach((day, dayIndex) => {
+                    if (day.classes) {
+                        day.classes.forEach((cls, classIndex) => {
+                            if (cls.rounds) {
+                                cls.rounds.forEach((round, roundIndex) => {
+                                    const roundKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                                    const roundId = `day${dayIndex + 1}_${cls.className || 'Class'}_round${roundIndex + 1}`.replace(/\s+/g, '_');
+                                    
+                                    runningOrderData[roundKey] = {
+                                        id: roundId,
+                                        date: day.date,
+                                        dayNumber: dayIndex + 1,
+                                        className: cls.className || 'Unnamed Class',
+                                        roundNumber: roundIndex + 1,
+                                        judgeName: round.judgeName || 'Judge TBD',
+                                        entries: []
+                                    };
+                                    originalOrderData[roundKey] = { entries: [] };
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Add entries to appropriate rounds
+            if (!entriesSnapshot.empty) {
+                entriesSnapshot.forEach(doc => {
+                    const entry = doc.data();
+                    
+                    if (entry.selectedEntries) {
+                        entry.selectedEntries.forEach(selectedEntry => {
+                            const roundKey = `${selectedEntry.dayIndex}-${currentTrial.days[selectedEntry.dayIndex].classes.findIndex(c => c.className === selectedEntry.className)}-${selectedEntry.roundIndex}`;
+                            
+                            if (runningOrderData[roundKey]) {
+                                const entryItem = {
+                                    id: doc.id + '_' + selectedEntry.entryId,
+                                    handlerName: entry.handlerName,
+                                    dogCallName: entry.dogCallName,
+                                    entryType: selectedEntry.type,
+                                    originalOrder: runningOrderData[roundKey].entries.length
+                                };
+
+                                runningOrderData[roundKey].entries.push(entryItem);
+                                originalOrderData[roundKey].entries.push({ ...entryItem });
+                            }
+                        });
+                    }
+                });
+            }
+
+            // Apply existing order if available
+            Object.keys(existingOrder).forEach(roundKey => {
+                if (runningOrderData[roundKey] && existingOrder[roundKey]) {
+                    const orderedEntries = [];
+                    const unorderedEntries = [...runningOrderData[roundKey].entries];
+
+                    // First, add entries in the saved order
+                    existingOrder[roundKey].forEach(savedEntryId => {
+                        const entryIndex = unorderedEntries.findIndex(e => e.id === savedEntryId);
+                        if (entryIndex !== -1) {
+                            orderedEntries.push(unorderedEntries.splice(entryIndex, 1)[0]);
+                        }
+                    });
+
+                    // Then add any new entries that weren't in the saved order
+                    orderedEntries.push(...unorderedEntries);
+
+                    runningOrderData[roundKey].entries = orderedEntries;
+                }
+            });
+
+            renderRunningOrder();
+        }
+
+        // Render the running order grid
+        function renderRunningOrder() {
+            const roundsGrid = document.getElementById('roundsGrid');
+            
+            if (Object.keys(runningOrderData).length === 0) {
+                roundsGrid.innerHTML = '<div class="no-entries">No entries found for this trial.</div>';
+                return;
+            }
+
+            let html = '';
+
+            Object.keys(runningOrderData).forEach(roundKey => {
+                const round = runningOrderData[roundKey];
+                
+                html += `
+                    <div class="round-column">
+                        <div class="round-header">
+                            ${round.date ? new Date(round.date).toLocaleDateString() : 'Date TBD'}
+                        </div>
+                        <div class="round-info">
+                            <div><strong>Judge:</strong> ${round.judgeName}</div>
+                            <div><strong>Class:</strong> ${round.className}</div>
+                            <div><strong>Round:</strong> ${round.roundNumber}</div>
+                            <div><strong>Entries:</strong> ${round.entries.length}</div>
+                        </div>
+                        <div class="entries-list" id="entries_${roundKey}" data-round-key="${roundKey}">
+                            ${round.entries.map((entry, index) => `
+                                <div class="entry-item entry-type-${entry.entryType}" data-entry-id="${entry.id}">
+                                    <span class="entry-text">${entry.handlerName} - ${entry.dogCallName}</span>
+                                    <div class="entry-controls">
+                                        <button onclick="moveEntryUp('${roundKey}', ${index})" title="Move Up">↑</button>
+                                        <button onclick="moveEntryDown('${roundKey}', ${index})" title="Move Down">↓</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            roundsGrid.innerHTML = html;
+
+            // Initialize drag and drop for each entries list
+            Object.keys(runningOrderData).forEach(roundKey => {
+                const entriesList = document.getElementById(`entries_${roundKey}`);
+                if (entriesList) {
+                    new Sortable(entriesList, {
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        dragClass: 'sortable-drag',
+                        onEnd: function (evt) {
+                            handleDragEnd(roundKey, evt.oldIndex, evt.newIndex);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Handle drag and drop end
+        function handleDragEnd(roundKey, oldIndex, newIndex) {
+            if (oldIndex !== newIndex) {
+                const entries = runningOrderData[roundKey].entries;
+                const movedEntry = entries.splice(oldIndex, 1)[0];
+                entries.splice(newIndex, 0, movedEntry);
+                
+                console.log(`Moved entry from position ${oldIndex} to ${newIndex} in round ${roundKey}`);
+                showStatus('Entry order updated', 'success');
+            }
+        }
+
+        // Move entry up
+        function moveEntryUp(roundKey, index) {
+            if (index > 0) {
+                const entries = runningOrderData[roundKey].entries;
+                [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]];
+                renderRunningOrder();
+                showStatus('Entry moved up', 'success');
+            }
+        }
+
+        // Move entry down
+        function moveEntryDown(roundKey, index) {
+            const entries = runningOrderData[roundKey].entries;
+            if (index < entries.length - 1) {
+                [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
+                renderRunningOrder();
+                showStatus('Entry moved down', 'success');
+            }
+        }
+
+        // Randomize all running orders
+        function randomizeAllOrders() {
+            if (confirm('This will randomize the running order for ALL rounds. Continue?')) {
+                Object.keys(runningOrderData).forEach(roundKey => {
+                    const entries = runningOrderData[roundKey].entries;
+                    for (let i = entries.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [entries[i], entries[j]] = [entries[j], entries[i]];
+                    }
+                });
+                renderRunningOrder();
+                showStatus('All running orders randomized', 'success');
+            }
+        }
+
+        // Sort alphabetically by handler name
+        function sortAlphabetically() {
+            if (confirm('This will sort all entries alphabetically by handler name. Continue?')) {
+                Object.keys(runningOrderData).forEach(roundKey => {
+                    runningOrderData[roundKey].entries.sort((a, b) => 
+                        a.handlerName.localeCompare(b.handlerName)
+                    );
+                });
+                renderRunningOrder();
+                showStatus('All entries sorted alphabetically', 'success');
+            }
+        }
+
+        // Reset to original entry order
+        function resetToOriginal() {
+            if (confirm('This will reset all running orders to the original entry order. Continue?')) {
+                Object.keys(originalOrderData).forEach(roundKey => {
+                    if (runningOrderData[roundKey]) {
+                        runningOrderData[roundKey].entries = [...originalOrderData[roundKey].entries];
+                    }
+                });
+                renderRunningOrder();
+                showStatus('Running orders reset to original entry order', 'success');
+            }
+        }
+
+        // Refresh running order
+        function refreshRunningOrder() {
+            loadTrialRunningOrder();
+        }
+
+        // Save running order to Firebase
+        async function saveRunningOrder() {
+            if (!currentTrial) {
+                showStatus('No trial selected', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Saving running order...', 'info');
+
+                const roundOrders = {};
+                Object.keys(runningOrderData).forEach(roundKey => {
+                    roundOrders[roundKey] = runningOrderData[roundKey].entries.map(entry => entry.id);
+                });
+
+                await db.collection('running_orders').doc(currentTrial.id).set({
+                    trialId: currentTrial.id,
+                    trialName: currentTrial.clubName,
+                    roundOrders: roundOrders,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser.uid
+                });
+
+                showStatus('Running order saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving running order:', error);
+                showStatus('Error saving running order: ' + error.message, 'error');
+            }
+        }
+
+        // Export running order to Excel
+        async function exportRunningOrder() {
+            if (!currentTrial || Object.keys(runningOrderData).length === 0) {
+                showStatus('No running order data to export', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Preparing Excel export...', 'info');
+
+                // This would require SheetJS library
+                // For now, we'll create a CSV-like structure
+                let csvContent = "data:text/csv;charset=utf-8,";
+                
+                // Create header row
+                const rounds = Object.values(runningOrderData);
+                const maxEntries = Math.max(...rounds.map(r => r.entries.length));
+                
+                // Header row with round info
+                csvContent += rounds.map(round => 
+                    `"${round.date ? new Date(round.date).toLocaleDateString() : 'Date TBD'}"`
+                ).join(',') + '\n';
+                
+                csvContent += rounds.map(round => 
+                    `"${round.judgeName}"`
+                ).join(',') + '\n';
+                
+                csvContent += rounds.map(round => 
+                    `"${round.className} - Round ${round.roundNumber}"`
+                ).join(',') + '\n';
+
+                // Entry rows
+                for (let i = 0; i < maxEntries; i++) {
+                    csvContent += rounds.map(round => 
+                        round.entries[i] ? `"${round.entries[i].handlerName} - ${round.entries[i].dogCallName}"` : '""'
+                    ).join(',') + '\n';
+                }
+
+                // Download the file
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `running-order-${currentTrial.clubName.replace(/\s+/g, '-')}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showStatus('Running order exported successfully!', 'success');
+            } catch (error) {
+                console.error('Error exporting running order:', error);
+                showStatus('Error exporting running order: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing running order management...');
+            init();
+        });
+
+        console.log('Running Order Management script loaded successfully');
+    </script>
+</body>
+</html>
