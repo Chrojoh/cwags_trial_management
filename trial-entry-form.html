@@ -1619,7 +1619,7 @@ async function autoFillFromRegistration(cwagsNumber) {
         }
     }
 }
-        } else {
+         else {
             console.log("❌ No matching registration found");
             
             // Show sample registration numbers for debugging
@@ -1627,13 +1627,13 @@ async function autoFillFromRegistration(cwagsNumber) {
             console.log("📋 Sample registration numbers in database:", sampleRegistrations);
             
             showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
-        }
         
-    } catch (error) {
+        
+         } catch (error) {
         console.error("❌ Error during registration lookup:", error);
         showLookupStatus('❌ Error looking up registration', 'error');
     }
-}
+ 
 
         // Populate form with registration data
         function populateForm(registration) {
