@@ -610,6 +610,11 @@
             const dayTabsContainer = document.getElementById('dayTabsContainer');
             const dayTabs = document.getElementById('dayTabs');
             
+            if (!dayTabsContainer || !dayTabs) {
+                console.error('Day tabs container elements not found');
+                return;
+            }
+            
             if (Object.keys(runningOrderData).length === 0) {
                 dayTabsContainer.style.display = 'none';
                 return;
