@@ -117,11 +117,20 @@
             padding: 0.5rem 1rem;
             background: #e9ecef;
             border-bottom: 1px solid #dee2e6;
+            text-align: center;
         }
 
-        .round-info div {
-            margin: 0.25rem 0;
+        .round-info .judge-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+
+        .round-info .class-round {
             font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 500;
         }
 
         .entries-list {
@@ -231,6 +240,47 @@
             flex-wrap: wrap;
         }
 
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .day-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .day-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
         @media (max-width: 768px) {
             .rounds-grid {
                 grid-template-columns: 1fr;
@@ -238,6 +288,14 @@
             
             .running-order-controls {
                 flex-direction: column;
+            }
+
+            .day-tabs {
+                flex-direction: column;
+            }
+
+            .day-tab {
+                min-width: auto;
             }
         }
     </style>
@@ -309,6 +367,7 @@
         let currentTrial = null;
         let runningOrderData = {};
         let originalOrderData = {};
+        let currentDay = 0;
 
         // Standard field names
         const STANDARD_FIELDS = {
@@ -458,9 +517,16 @@
             runningOrderData = {};
             originalOrderData = {};
 
-            // Create structure for each round
+            // Create structure organized by days
             if (currentTrial.days) {
                 currentTrial.days.forEach((day, dayIndex) => {
+                    runningOrderData[dayIndex] = {
+                        dayNumber: dayIndex + 1,
+                        date: day.date,
+                        rounds: {}
+                    };
+                    originalOrderData[dayIndex] = { rounds: {} };
+
                     if (day.classes) {
                         day.classes.forEach((cls, classIndex) => {
                             if (cls.rounds) {
@@ -468,16 +534,15 @@
                                     const roundKey = `${dayIndex}-${classIndex}-${roundIndex}`;
                                     const roundId = `day${dayIndex + 1}_${cls.className || 'Class'}_round${roundIndex + 1}`.replace(/\s+/g, '_');
                                     
-                                    runningOrderData[roundKey] = {
+                                    runningOrderData[dayIndex].rounds[roundKey] = {
                                         id: roundId,
-                                        date: day.date,
-                                        dayNumber: dayIndex + 1,
                                         className: cls.className || 'Unnamed Class',
                                         roundNumber: roundIndex + 1,
                                         judgeName: round.judgeName || 'Judge TBD',
                                         entries: []
                                     };
-                                    originalOrderData[roundKey] = { entries: [] };
+                                    
+                                    originalOrderData[dayIndex].rounds[roundKey] = { entries: [] };
                                 });
                             }
                         });
@@ -492,19 +557,21 @@
                     
                     if (entry.selectedEntries) {
                         entry.selectedEntries.forEach(selectedEntry => {
-                            const roundKey = `${selectedEntry.dayIndex}-${currentTrial.days[selectedEntry.dayIndex].classes.findIndex(c => c.className === selectedEntry.className)}-${selectedEntry.roundIndex}`;
+                            const dayIndex = selectedEntry.dayIndex;
+                            const classIndex = currentTrial.days[dayIndex].classes.findIndex(c => c.className === selectedEntry.className);
+                            const roundKey = `${dayIndex}-${classIndex}-${selectedEntry.roundIndex}`;
                             
-                            if (runningOrderData[roundKey]) {
+                            if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
                                 const entryItem = {
                                     id: doc.id + '_' + selectedEntry.entryId,
                                     handlerName: entry.handlerName,
                                     dogCallName: entry.dogCallName,
                                     entryType: selectedEntry.type,
-                                    originalOrder: runningOrderData[roundKey].entries.length
+                                    originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
                                 };
 
-                                runningOrderData[roundKey].entries.push(entryItem);
-                                originalOrderData[roundKey].entries.push({ ...entryItem });
+                                runningOrderData[dayIndex].rounds[roundKey].entries.push(entryItem);
+                                originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
                             }
                         });
                     }
@@ -513,9 +580,11 @@
 
             // Apply existing order if available
             Object.keys(existingOrder).forEach(roundKey => {
-                if (runningOrderData[roundKey] && existingOrder[roundKey]) {
+                const [dayIndex] = roundKey.split('-').map(Number);
+                if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey] && existingOrder[roundKey]) {
+                    const round = runningOrderData[dayIndex].rounds[roundKey];
                     const orderedEntries = [];
-                    const unorderedEntries = [...runningOrderData[roundKey].entries];
+                    const unorderedEntries = [...round.entries];
 
                     // First, add entries in the saved order
                     existingOrder[roundKey].forEach(savedEntryId => {
@@ -528,14 +597,71 @@
                     // Then add any new entries that weren't in the saved order
                     orderedEntries.push(...unorderedEntries);
 
-                    runningOrderData[roundKey].entries = orderedEntries;
+                    round.entries = orderedEntries;
                 }
             });
 
+            renderDayTabs();
             renderRunningOrder();
         }
 
-        // Render the running order grid
+        // Render day tabs
+        function renderDayTabs() {
+            const dayTabsContainer = document.getElementById('dayTabsContainer');
+            const dayTabs = document.getElementById('dayTabs');
+            
+            if (Object.keys(runningOrderData).length === 0) {
+                dayTabsContainer.style.display = 'none';
+                return;
+            }
+
+            dayTabsContainer.style.display = 'block';
+            dayTabs.innerHTML = '';
+
+            Object.keys(runningOrderData).forEach((dayIndex, index) => {
+                const dayData = runningOrderData[dayIndex];
+                const dayDate = dayData.date 
+                    ? new Date(dayData.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    })
+                    : `Day ${dayData.dayNumber}`;
+
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${index === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(parseInt(dayIndex));
+                tabButton.textContent = dayDate;
+                
+                dayTabs.appendChild(tabButton);
+            });
+
+            // Set first day as current
+            const firstDayIndex = parseInt(Object.keys(runningOrderData)[0]);
+            currentDay = firstDayIndex;
+        }
+
+        // Show specific day
+        function showDay(dayIndex) {
+            currentDay = dayIndex;
+            
+            // Update tab appearance
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            const dayTabs = document.querySelectorAll('.day-tab');
+            const dayKeys = Object.keys(runningOrderData);
+            const tabIndex = dayKeys.indexOf(dayIndex.toString());
+            if (dayTabs[tabIndex]) {
+                dayTabs[tabIndex].classList.add('active');
+            }
+            
+            renderRunningOrder();
+        }
+
+        // Render the running order grid for current day
         function renderRunningOrder() {
             const roundsGrid = document.getElementById('roundsGrid');
             
@@ -544,21 +670,25 @@
                 return;
             }
 
+            if (!runningOrderData[currentDay] || Object.keys(runningOrderData[currentDay].rounds).length === 0) {
+                roundsGrid.innerHTML = '<div class="no-entries">No classes scheduled for this day.</div>';
+                return;
+            }
+
+            const dayData = runningOrderData[currentDay];
             let html = '';
 
-            Object.keys(runningOrderData).forEach(roundKey => {
-                const round = runningOrderData[roundKey];
+            Object.keys(dayData.rounds).forEach(roundKey => {
+                const round = dayData.rounds[roundKey];
                 
                 html += `
                     <div class="round-column">
                         <div class="round-header">
-                            ${round.date ? new Date(round.date).toLocaleDateString() : 'Date TBD'}
+                            ${dayData.date ? new Date(dayData.date).toLocaleDateString() : 'Date TBD'}
                         </div>
                         <div class="round-info">
-                            <div><strong>Judge:</strong> ${round.judgeName}</div>
-                            <div><strong>Class:</strong> ${round.className}</div>
-                            <div><strong>Round:</strong> ${round.roundNumber}</div>
-                            <div><strong>Entries:</strong> ${round.entries.length}</div>
+                            <div class="judge-name">${round.judgeName}</div>
+                            <div class="class-round">${round.className} Round ${round.roundNumber}</div>
                         </div>
                         <div class="entries-list" id="entries_${roundKey}" data-round-key="${roundKey}">
                             ${round.entries.map((entry, index) => `
@@ -578,7 +708,7 @@
             roundsGrid.innerHTML = html;
 
             // Initialize drag and drop for each entries list
-            Object.keys(runningOrderData).forEach(roundKey => {
+            Object.keys(dayData.rounds).forEach(roundKey => {
                 const entriesList = document.getElementById(`entries_${roundKey}`);
                 if (entriesList) {
                     new Sortable(entriesList, {
@@ -596,7 +726,8 @@
         // Handle drag and drop end
         function handleDragEnd(roundKey, oldIndex, newIndex) {
             if (oldIndex !== newIndex) {
-                const entries = runningOrderData[roundKey].entries;
+                const dayData = runningOrderData[currentDay];
+                const entries = dayData.rounds[roundKey].entries;
                 const movedEntry = entries.splice(oldIndex, 1)[0];
                 entries.splice(newIndex, 0, movedEntry);
                 
@@ -608,7 +739,8 @@
         // Move entry up
         function moveEntryUp(roundKey, index) {
             if (index > 0) {
-                const entries = runningOrderData[roundKey].entries;
+                const dayData = runningOrderData[currentDay];
+                const entries = dayData.rounds[roundKey].entries;
                 [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]];
                 renderRunningOrder();
                 showStatus('Entry moved up', 'success');
@@ -617,7 +749,8 @@
 
         // Move entry down
         function moveEntryDown(roundKey, index) {
-            const entries = runningOrderData[roundKey].entries;
+            const dayData = runningOrderData[currentDay];
+            const entries = dayData.rounds[roundKey].entries;
             if (index < entries.length - 1) {
                 [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
                 renderRunningOrder();
@@ -625,44 +758,48 @@
             }
         }
 
-        // Randomize all running orders
+        // Randomize running orders for current day
         function randomizeAllOrders() {
-            if (confirm('This will randomize the running order for ALL rounds. Continue?')) {
-                Object.keys(runningOrderData).forEach(roundKey => {
-                    const entries = runningOrderData[roundKey].entries;
+            if (confirm('This will randomize the running order for ALL rounds on the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                Object.keys(dayData.rounds).forEach(roundKey => {
+                    const entries = dayData.rounds[roundKey].entries;
                     for (let i = entries.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
                         [entries[i], entries[j]] = [entries[j], entries[i]];
                     }
                 });
                 renderRunningOrder();
-                showStatus('All running orders randomized', 'success');
+                showStatus('Running orders randomized for current day', 'success');
             }
         }
 
-        // Sort alphabetically by handler name
+        // Sort alphabetically by handler name for current day
         function sortAlphabetically() {
-            if (confirm('This will sort all entries alphabetically by handler name. Continue?')) {
-                Object.keys(runningOrderData).forEach(roundKey => {
-                    runningOrderData[roundKey].entries.sort((a, b) => 
+            if (confirm('This will sort all entries alphabetically by handler name for the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                Object.keys(dayData.rounds).forEach(roundKey => {
+                    dayData.rounds[roundKey].entries.sort((a, b) => 
                         a.handlerName.localeCompare(b.handlerName)
                     );
                 });
                 renderRunningOrder();
-                showStatus('All entries sorted alphabetically', 'success');
+                showStatus('Entries sorted alphabetically for current day', 'success');
             }
         }
 
-        // Reset to original entry order
+        // Reset to original entry order for current day
         function resetToOriginal() {
-            if (confirm('This will reset all running orders to the original entry order. Continue?')) {
-                Object.keys(originalOrderData).forEach(roundKey => {
-                    if (runningOrderData[roundKey]) {
-                        runningOrderData[roundKey].entries = [...originalOrderData[roundKey].entries];
+            if (confirm('This will reset all running orders to the original entry order for the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                const originalDayData = originalOrderData[currentDay];
+                Object.keys(originalDayData.rounds).forEach(roundKey => {
+                    if (dayData.rounds[roundKey]) {
+                        dayData.rounds[roundKey].entries = [...originalDayData.rounds[roundKey].entries];
                     }
                 });
                 renderRunningOrder();
-                showStatus('Running orders reset to original entry order', 'success');
+                showStatus('Running orders reset to original entry order for current day', 'success');
             }
         }
 
@@ -682,8 +819,11 @@
                 showStatus('Saving running order...', 'info');
 
                 const roundOrders = {};
-                Object.keys(runningOrderData).forEach(roundKey => {
-                    roundOrders[roundKey] = runningOrderData[roundKey].entries.map(entry => entry.id);
+                Object.keys(runningOrderData).forEach(dayIndex => {
+                    const dayData = runningOrderData[dayIndex];
+                    Object.keys(dayData.rounds).forEach(roundKey => {
+                        roundOrders[roundKey] = dayData.rounds[roundKey].entries.map(entry => entry.id);
+                    });
                 });
 
                 await db.collection('running_orders').doc(currentTrial.id).set({
