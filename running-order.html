@@ -90,6 +90,54 @@
             font-size: 1rem;
         }
 
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .day-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .day-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .running-order-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
         .rounds-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -231,54 +279,6 @@
             color: #6c757d;
             font-style: italic;
             padding: 2rem;
-        }
-
-        .running-order-controls {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .day-tabs-container {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 0.5rem;
-            margin-bottom: 1.5rem;
-            position: sticky;
-            top: 20px;
-            z-index: 100;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .day-tabs {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .day-tab {
-            flex: 1;
-            min-width: 150px;
-            padding: 0.75rem 1rem;
-            background: white;
-            border: 2px solid #dee2e6;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .day-tab:hover {
-            border-color: #667eea;
-            color: #667eea;
-        }
-
-        .day-tab.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
         }
 
         @media (max-width: 768px) {
@@ -477,6 +477,7 @@
             if (!trialId) {
                 document.getElementById('roundsGrid').innerHTML = '<div class="no-entries">Please select a trial to view running orders.</div>';
                 document.getElementById('runningOrderControls').style.display = 'none';
+                document.getElementById('dayTabsContainer').style.display = 'none';
                 return;
             }
 
@@ -511,14 +512,7 @@
                 await processEntriesIntoRunningOrder(entriesSnapshot, existingOrder);
 
                 showStatus(`Loaded running order for ${currentTrial.clubName}`, 'success');
-                
-                // Show controls after successful load
-                const controlsElement = document.getElementById('runningOrderControls');
-                if (controlsElement) {
-                    controlsElement.style.display = 'flex';
-                } else {
-                    console.warn('runningOrderControls element not found');
-                }
+                document.getElementById('runningOrderControls').style.display = 'flex';
 
             } catch (error) {
                 console.error('Error loading trial running order:', error);
@@ -639,72 +633,17 @@
             console.log('🎯 About to render day tabs...');
             renderDayTabs();
             renderRunningOrder();
-        }classes.findIndex(c => c.className === selectedEntry.className);
-                            const roundKey = `${dayIndex}-${classIndex}-${selectedEntry.roundIndex}`;
-                            
-                            if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
-                                const entryItem = {
-                                    id: doc.id + '_' + selectedEntry.entryId,
-                                    handlerName: entry.handlerName,
-                                    dogCallName: entry.dogCallName,
-                                    entryType: selectedEntry.type,
-                                    originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
-                                };
-
-                                runningOrderData[dayIndex].rounds[roundKey].entries.push(entryItem);
-                                originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
-                            }
-                        });
-                    }
-                });
-            }
-
-            // Apply existing order if available
-            Object.keys(existingOrder).forEach(roundKey => {
-                const [dayIndex] = roundKey.split('-').map(Number);
-                if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey] && existingOrder[roundKey]) {
-                    const round = runningOrderData[dayIndex].rounds[roundKey];
-                    const orderedEntries = [];
-                    const unorderedEntries = [...round.entries];
-
-                    // First, add entries in the saved order
-                    existingOrder[roundKey].forEach(savedEntryId => {
-                        const entryIndex = unorderedEntries.findIndex(e => e.id === savedEntryId);
-                        if (entryIndex !== -1) {
-                            orderedEntries.push(unorderedEntries.splice(entryIndex, 1)[0]);
-                        }
-                    });
-
-                    // Then add any new entries that weren't in the saved order
-                    orderedEntries.push(...unorderedEntries);
-
-                    round.entries = orderedEntries;
-                }
-            });
-
-            renderDayTabs();
-            renderRunningOrder();
         }
 
         // Render day tabs
         function renderDayTabs() {
             console.log('🎯 Starting renderDayTabs...');
-            console.log('📊 Available HTML elements:', {
-                dayTabsContainer: !!document.getElementById('dayTabsContainer'),
-                dayTabs: !!document.getElementById('dayTabs'),
-                runningOrderControls: !!document.getElementById('runningOrderControls')
-            });
             
             const dayTabsContainer = document.getElementById('dayTabsContainer');
             const dayTabs = document.getElementById('dayTabs');
-            const runningOrderControls = document.getElementById('runningOrderControls');
             
             if (!dayTabsContainer || !dayTabs) {
                 console.error('Day tabs container elements not found');
-                console.log('DOM ready state:', document.readyState);
-                console.log('All elements with id containing "day":', 
-                    Array.from(document.querySelectorAll('[id*="day"]')).map(el => ({ id: el.id, tag: el.tagName }))
-                );
                 return;
             }
             
@@ -713,13 +652,11 @@
             if (Object.keys(runningOrderData).length === 0) {
                 console.log('No running order data, hiding tabs');
                 dayTabsContainer.style.display = 'none';
-                if (runningOrderControls) runningOrderControls.style.display = 'none';
                 return;
             }
 
-            console.log('Showing day tabs and controls');
+            console.log('Showing day tabs');
             dayTabsContainer.style.display = 'block';
-            if (runningOrderControls) runningOrderControls.style.display = 'flex';
             dayTabs.innerHTML = '';
 
             Object.keys(runningOrderData).forEach((dayIndex, index) => {
@@ -959,25 +896,32 @@
             try {
                 showStatus('Preparing Excel export...', 'info');
 
-                // This would require SheetJS library
-                // For now, we'll create a CSV-like structure
+                // Export current day only
+                const dayData = runningOrderData[currentDay];
+                if (!dayData) {
+                    showStatus('No data for current day', 'error');
+                    return;
+                }
+
                 let csvContent = "data:text/csv;charset=utf-8,";
                 
-                // Create header row
-                const rounds = Object.values(runningOrderData);
+                // Get all rounds for current day
+                const rounds = Object.values(dayData.rounds);
                 const maxEntries = Math.max(...rounds.map(r => r.entries.length));
                 
-                // Header row with round info
+                // Header row with date
                 csvContent += rounds.map(round => 
-                    `"${round.date ? new Date(round.date).toLocaleDateString() : 'Date TBD'}"`
+                    `"${dayData.date ? new Date(dayData.date).toLocaleDateString() : 'Date TBD'}"`
                 ).join(',') + '\n';
                 
+                // Judge names
                 csvContent += rounds.map(round => 
                     `"${round.judgeName}"`
                 ).join(',') + '\n';
                 
+                // Class and round info
                 csvContent += rounds.map(round => 
-                    `"${round.className} - Round ${round.roundNumber}"`
+                    `"${round.className} Round ${round.roundNumber}"`
                 ).join(',') + '\n';
 
                 // Entry rows
@@ -991,7 +935,10 @@
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `running-order-${currentTrial.clubName.replace(/\s+/g, '-')}.csv`);
+                
+                const dayDate = dayData.date ? new Date(dayData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day-${dayData.dayNumber}`;
+                link.setAttribute("download", `running-order-${currentTrial.clubName.replace(/\s+/g, '-')}-${dayDate}.csv`);
+                
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
