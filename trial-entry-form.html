@@ -136,6 +136,62 @@
             border-color: #0066cc;
         }
 
+        .fee-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .btn-save-fees {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-save-fees:hover {
+            background: #218838;
+        }
+
+        .btn-reset-fees {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn-reset-fees:hover {
+            background: #5a6268;
+        }
+
+        /* Registration Status */
+        .registration-status {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 20px;
+            display: none;
+        }
+
+        .registration-status.error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .registration-status.success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
         /* Shareable Link Section (Secretary Only) */
         .shareable-link {
             background: #d4edda;
@@ -583,15 +639,19 @@
             box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
         }
 
-        /* Submit Section */
-        .submit-section {
-            position: sticky;
-            bottom: 0;
-            background: white;
-            border-top: 2px solid #e9ecef;
+        /* Submit Section - MOVED UP */
+        .submit-section-top {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
             padding: 1.5rem;
+            margin: 1.5rem 0;
             text-align: center;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .submit-section-top.show {
+            display: block;
         }
 
         .btn-submit {
@@ -716,6 +776,15 @@
             </button>
         </div>
 
+        <!-- Registration Status -->
+        <div class="registration-status" id="registrationStatus">
+            <h4>📊 Registration Data Status</h4>
+            <p id="registrationStatusText">Checking registration database...</p>
+            <button onclick="forceReloadRegistrations()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                🔄 Reload Registration Data
+            </button>
+        </div>
+
         <!-- Trial Selection (Secretary Only) -->
         <div class="trial-selection hidden" id="trialSelectionSection">
             <h3>🎯 Select Trial</h3>
@@ -748,6 +817,10 @@
                     <input type="number" id="juniorFee" min="0" step="0.01" value="20.00" 
                            style="font-size: 1.1rem; padding: 0.75rem;">
                 </div>
+            </div>
+            <div class="fee-controls">
+                <button class="btn-save-fees" onclick="saveFeeConfiguration()">💾 Save Fee Configuration</button>
+                <button class="btn-reset-fees" onclick="resetFeeConfiguration()">🔄 Reset to Defaults</button>
             </div>
             <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
                 💡 Set any fee to $0.00 to hide that option. Junior Handler fee replaces regular/FEO fees when selected.
@@ -920,6 +993,17 @@
                         </div>
                     </div>
 
+                    <!-- Submit Section - MOVED UP NEAR TABS -->
+                    <div class="submit-section-top" id="submitSectionTop">
+                        <h4 style="margin-bottom: 1rem; color: #0066cc;">Ready to Submit Entry?</h4>
+                        <button type="button" class="btn-submit" id="submitEntry" disabled>
+                            Submit Entry
+                        </button>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                            Please review your selections before submitting. Entry fees are due upon submission.
+                        </p>
+                    </div>
+
                     <!-- Day Tabs - Dynamically Generated -->
                     <div class="day-tabs-container">
                         <div class="day-tabs" id="dayTabs">
@@ -934,16 +1018,6 @@
                             Please select a trial to see available classes.
                         </div>
                     </div>
-                </div>
-
-                <!-- Submit Section -->
-                <div class="submit-section">
-                    <button type="button" class="btn-submit" id="submitEntry" disabled>
-                        Submit Entry
-                    </button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                        Please review your selections before submitting. Entry fees are due upon submission.
-                    </p>
                 </div>
             </form>
         </div>
@@ -1050,31 +1124,64 @@
             }
         }
 
-        // Load registration data from system_data collection (same as dashboard)
+        // IMPROVED Load registration data with better error handling
         async function loadRegistrationData() {
             try {
                 console.log("📊 Loading registration data from Firebase...");
+                updateRegistrationStatus('🔄 Loading registration data from Firebase...', 'loading');
                 
                 const dataDoc = await db.collection('system_data').doc('dataforsite').get();
                 if (dataDoc.exists) {
                     const data = dataDoc.data();
+                    console.log("📊 Found system data document. Contents:", Object.keys(data));
                     
                     // Convert registrations array to searchable format
                     if (data.registrations && Array.isArray(data.registrations)) {
                         registrationData = data.registrations;
                         console.log(`✅ Loaded ${registrationData.length} registration records`);
+                        console.log("📋 Sample registrations:", registrationData.slice(0, 3));
+                        updateRegistrationStatus(`✅ Loaded ${registrationData.length} registration records from database`, 'success');
                     } else {
                         console.warn("⚠️ No registrations found in system data");
+                        console.log("📊 Available data fields:", Object.keys(data));
                         registrationData = [];
+                        updateRegistrationStatus(`⚠️ No registrations found in database. Available: classes (${data.classes?.length || 0}), judges (${data.judges?.length || 0})`, 'error');
                     }
                 } else {
                     console.warn("⚠️ System data document not found");
                     registrationData = [];
+                    updateRegistrationStatus('⚠️ System data document not found in Firebase', 'error');
                 }
             } catch (error) {
                 console.error("❌ Error loading registration data:", error);
                 registrationData = [];
+                updateRegistrationStatus(`❌ Error loading registration data: ${error.message}`, 'error');
             }
+        }
+
+        // Update registration status display
+        function updateRegistrationStatus(message, type) {
+            const statusElement = document.getElementById('registrationStatus');
+            const textElement = document.getElementById('registrationStatusText');
+            
+            if (statusElement && textElement) {
+                statusElement.style.display = 'block';
+                textElement.textContent = message;
+                
+                // Update status styling
+                statusElement.className = 'registration-status';
+                if (type === 'success') {
+                    statusElement.classList.add('success');
+                } else if (type === 'error') {
+                    statusElement.classList.add('error');
+                }
+            }
+        }
+
+        // Force reload registrations
+        async function forceReloadRegistrations() {
+            console.log("🔄 Force reloading registration data...");
+            await loadRegistrationData();
         }
 
         // Setup secretary view with proper authentication
@@ -1137,6 +1244,7 @@
                     
                     hideElement('loadingMessage');
                     showElement('trialSelectionSection');
+                    showElement('registrationStatus');
                     populateTrialSelector();
                     
                 } else {
@@ -1167,6 +1275,7 @@
                 hideElement('trialSelectionSection');
                 hideElement('entryFeeSection');
                 hideElement('shareableLinkSection');
+                showElement('registrationStatus');
                 
                 // Show waiver, trial info and entry form
                 showElement('waiverSection');
@@ -1242,7 +1351,7 @@
             });
         }
 
-        // Setup fee change listeners for secretary
+        // IMPROVED Fee management with save functionality
         function setupFeeChangeListeners() {
             const regularFeeInput = document.getElementById('regularFee');
             const feoFeeInput = document.getElementById('feoFee');
@@ -1268,6 +1377,56 @@
             regularFeeInput.addEventListener('input', updateFees);
             feoFeeInput.addEventListener('input', updateFees);
             juniorFeeInput.addEventListener('input', updateFees);
+        }
+
+        // Save fee configuration to Firebase
+        async function saveFeeConfiguration() {
+            if (!currentTrialData) {
+                alert('Please select a trial first');
+                return;
+            }
+            
+            try {
+                console.log("💾 Saving fee configuration...");
+                
+                const feeConfig = {
+                    regularFee: fees.regular,
+                    feoFee: fees.feo,
+                    juniorHandlerFee: fees.juniorHandler,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser.uid
+                };
+                
+                // Save to trial document
+                await db.collection('trials').doc(currentTrialData.id).update({
+                    feeConfiguration: feeConfig
+                });
+                
+                alert('✅ Fee configuration saved successfully!');
+                console.log("✅ Fee configuration saved:", feeConfig);
+                
+            } catch (error) {
+                console.error("❌ Error saving fee configuration:", error);
+                alert('Error saving fee configuration: ' + error.message);
+            }
+        }
+
+        // Reset fee configuration to defaults
+        function resetFeeConfiguration() {
+            document.getElementById('regularFee').value = '35.00';
+            document.getElementById('feoFee').value = '25.00';
+            document.getElementById('juniorFee').value = '20.00';
+            
+            fees.regular = 35.00;
+            fees.feo = 25.00;
+            fees.juniorHandler = 20.00;
+            
+            if (currentTrialData) {
+                generateTabbedClasses();
+            }
+            updateEntrySummary();
+            
+            console.log("🔄 Fee configuration reset to defaults");
         }
 
         // Generate shareable link
@@ -1330,6 +1489,20 @@
             document.getElementById('trialSecretary').textContent = currentTrialData.secretary || 'TBD';
 
             showElement('trialInfoSection');
+            
+            // Load saved fee configuration if exists
+            if (currentTrialData.feeConfiguration) {
+                const savedFees = currentTrialData.feeConfiguration;
+                document.getElementById('regularFee').value = savedFees.regularFee || 35.00;
+                document.getElementById('feoFee').value = savedFees.feoFee || 25.00;
+                document.getElementById('juniorFee').value = savedFees.juniorHandlerFee || 20.00;
+                
+                fees.regular = savedFees.regularFee || 35.00;
+                fees.feo = savedFees.feoFee || 25.00;
+                fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                
+                console.log("📋 Loaded saved fee configuration:", savedFees);
+            }
             
             // Generate the tabbed class interface from trial data
             generateTabbedClasses();
@@ -1562,13 +1735,16 @@
             const summaryDiv = document.getElementById('entrySummary');
             const entriesList = document.getElementById('selectedEntriesList');
             const totalFeeSpan = document.getElementById('totalFee');
+            const submitSectionTop = document.getElementById('submitSectionTop');
             
             if (selectedEntries.length === 0) {
                 summaryDiv.style.display = 'none';
+                submitSectionTop.classList.remove('show');
                 return;
             }
             
             summaryDiv.style.display = 'block';
+            submitSectionTop.classList.add('show');
             
             // Generate entries list
             let html = '';
@@ -1624,7 +1800,7 @@
             statusDiv.style.display = 'none';
         }
 
-        // Auto-fill from registration data
+        // IMPROVED Auto-fill from registration data with better debugging
         async function autoFillFromRegistration(cwagsNumber) {
             if (isAutoFilling) return;
             
@@ -1634,10 +1810,18 @@
                 isAutoFilling = true;
                 
                 console.log("🔍 Looking up registration:", cwagsNumber);
+                console.log("📊 Available registrations:", registrationData.length);
+                console.log("🔍 Search data sample:", registrationData.slice(0, 2));
                 
-                // Search in registration data
+                // Search in registration data with more flexible matching
                 const matchingRegistration = registrationData.find(record => {
-                    return record.cwag === cwagsNumber;
+                    const recordCwag = String(record.cwag || record.cwagsNumber || '').trim();
+                    const searchCwag = String(cwagsNumber).trim();
+                    
+                    console.log("🔍 Comparing:", recordCwag, "vs", searchCwag);
+                    
+                    return recordCwag === searchCwag || 
+                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
                 });
                 
                 if (matchingRegistration) {
@@ -1646,6 +1830,7 @@
                     populateForm(matchingRegistration);
                 } else {
                     console.log("❌ No matching registration found");
+                    console.log("📋 Tried to match against:", registrationData.map(r => r.cwag || r.cwagsNumber));
                     showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
                 }
                 
@@ -1661,18 +1846,20 @@
         function populateForm(registration) {
             console.log("📝 Populating form with registration data:", registration);
             
-            // Handler name
-            if (registration.handler) {
+            // Handler name - try multiple field names
+            const handlerName = registration.handler || registration.handlerName || registration.name;
+            if (handlerName) {
                 const handlerField = document.getElementById('handlerName');
-                handlerField.value = registration.handler;
+                handlerField.value = handlerName;
                 handlerField.classList.add('auto-filled');
                 setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
             }
             
-            // Dog name
-            if (registration.dog) {
+            // Dog name - try multiple field names
+            const dogName = registration.dog || registration.dogCallName || registration.dogName;
+            if (dogName) {
                 const dogField = document.getElementById('dogCallName');
-                dogField.value = registration.dog;
+                dogField.value = dogName;
                 dogField.classList.add('auto-filled');
                 setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
             }
@@ -1840,6 +2027,9 @@
         window.copyShareableLink = copyShareableLink;
         window.testShareableLink = testShareableLink;
         window.resetForm = resetForm;
+        window.saveFeeConfiguration = saveFeeConfiguration;
+        window.resetFeeConfiguration = resetFeeConfiguration;
+        window.forceReloadRegistrations = forceReloadRegistrations;
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -1847,7 +2037,7 @@
             init();
         });
 
-        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
+        console.log("🎯 Complete Entry Form Fix script loaded successfully");
     </script>
 </body>
 </html>
