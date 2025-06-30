@@ -1611,6 +1611,14 @@ async function autoFillFromRegistration(cwagsNumber) {
             console.log("✅ Found matching registration:", matchingRegistration);
             showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
             populateForm(matchingRegistration);
+             // NEW: Also check for existing entry
+    if (currentTrialData) {
+        const existingEntry = await checkForExistingEntry(cwagsNumber, currentTrialData.id);
+        if (existingEntry) {
+            loadExistingEntry(existingEntry);
+        }
+    }
+}
         } else {
             console.log("❌ No matching registration found");
             
