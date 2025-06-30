@@ -922,6 +922,16 @@ async function loadRegistrationData() {
             
             console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
             console.log("📋 Sample registrations:", registrationData.slice(0, 2));
+            // 🔍 ADD THESE DEBUG LINES:
+if (registrationData.length > 0) {
+    console.log("🔍 DEBUGGING: First registration fields:", Object.keys(registrationData[0]));
+    console.log("🔍 DEBUGGING: First registration sample:", registrationData[0]);
+    console.log("🔍 DEBUGGING: C-WAGS field check:", {
+        cwagsNumber: registrationData[0].cwagsNumber,
+        cwag: registrationData[0].cwag,
+        'C-WAGS Number': registrationData[0]['C-WAGS Number']
+    });
+}
             showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
         } else {
             console.log("📊 No registrations found in Firebase registry");
