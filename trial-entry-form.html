@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trial Entry Form - Direct Excel</title>
+    <title>Trial Entry Form</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     
-    <!-- SheetJS for Direct Excel Reading -->
+    <!-- SheetJS for Excel processing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
@@ -81,54 +81,36 @@
             background: #5a6268;
         }
 
-        /* Excel File Upload */
-        .excel-upload-section {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 20px;
-        }
-
-        .excel-upload-section h3 {
-            color: #0066cc;
-            margin-bottom: 1rem;
-        }
-
-        .excel-upload {
-            border: 2px dashed #0066cc;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-
-        .excel-upload:hover {
-            border-color: #004499;
-            background: #f0f8ff;
-        }
-
-        .excel-status {
-            margin-top: 1rem;
+        /* Status Messages */
+        .status-message {
             padding: 1rem;
-            border-radius: 6px;
+            margin: 1rem;
+            border-radius: 8px;
             display: none;
         }
 
-        .excel-status.success {
+        .status-success {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
-            display: block;
         }
 
-        .excel-status.error {
+        .status-error {
             background: #f8d7da;
             color: #721c24;
             border: 1px solid #f5c6cb;
-            display: block;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
         }
 
         /* Trial Selection (Secretary Only) */
@@ -136,13 +118,141 @@
             background: #f8f9fa;
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
-            display: none;
         }
 
         .trial-selection h3 {
             color: #495057;
             margin-bottom: 1rem;
             font-size: 1.3rem;
+        }
+
+        /* Shareable Link Section (Secretary Only) */
+        .shareable-link {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            display: none;
+        }
+
+        .shareable-link h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+        }
+
+        .link-display {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .link-url {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            word-break: break-all;
+            color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .link-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-copy, .btn-test {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .btn-copy {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-test {
+            background: #28a745;
+            color: white;
+        }
+
+        /* Form Styling */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #495057;
+        }
+
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Waiver Section */
+        .waiver-section {
+            background: #fff8e1;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 20px;
+            display: none;
+        }
+
+        .waiver-content {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+        }
+
+        .waiver-agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+
+        .waiver-agreement input[type="checkbox"] {
+            margin-top: 0.2rem;
+            width: auto;
         }
 
         /* Entry Form */
@@ -183,79 +293,181 @@
             margin-bottom: 1.5rem;
         }
 
-        .form-group {
+        /* Day Tabs */
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
             display: flex;
-            flex-direction: column;
+            gap: 0.5rem;
+            flex-wrap: wrap;
         }
 
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .form-group.required label::after {
-            content: " *";
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #495057;
-        }
-
-        input, select, textarea {
-            padding: 0.75rem;
-            border: 2px solid #e1e5e9;
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
             border-radius: 6px;
-            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
             transition: all 0.3s ease;
         }
 
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        .day-tab:hover {
+            border-color: #0066cc;
+            color: #0066cc;
         }
 
-        .auto-filled {
-            background: #e7f3ff !important;
-            border-color: #0066cc !important;
-            animation: autoFillGlow 2s ease-in-out;
+        .day-tab.active {
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
         }
 
-        @keyframes autoFillGlow {
-            0% { box-shadow: 0 0 5px rgba(0, 102, 204, 0.5); }
-            50% { box-shadow: 0 0 20px rgba(0, 102, 204, 0.8); }
-            100% { box-shadow: none; }
+        /* Class Items */
+        .class-entries-container {
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
         }
 
-        .lookup-status {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 14px;
+        .class-day-content {
             display: none;
         }
 
-        .lookup-status.success {
+        .class-day-content.active {
+            display: block;
+        }
+
+        .class-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .class-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .class-header {
+            background: #28a745;
+            color: white;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .class-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .rounds-container {
+            padding: 1rem;
+            background: #fff;
+        }
+
+        .round-item {
+            background: #f0f8ff;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .round-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .judge-name {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .entry-options {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .entry-button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .entry-button.regular {
             background: #d4edda;
-            border: 1px solid #c3e6cb;
             color: #155724;
-            display: block;
+            border: 2px solid #28a745;
         }
 
-        .lookup-status.warning {
+        .entry-button.regular:hover {
+            background: #28a745;
+            color: white;
+        }
+
+        .entry-button.regular.selected {
+            background: #155724;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(21, 87, 36, 0.4);
+        }
+
+        .entry-button.feo {
             background: #fff3cd;
-            border: 1px solid #ffeaa7;
             color: #856404;
-            display: block;
+            border: 2px solid #ffc107;
         }
 
-        .lookup-status.loading {
+        .entry-button.feo:hover {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .entry-button.feo.selected {
+            background: #856404;
+            color: white;
+            box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
+        }
+
+        /* Submit Section */
+        .submit-section {
             background: #e7f3ff;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            display: none;
+        }
+
+        .submit-section.show {
             display: block;
         }
 
@@ -283,17 +495,7 @@
             transform: none !important;
         }
 
-        .success-message {
-            background: #d4edda;
-            border: 2px solid #28a745;
-            color: #155724;
-            padding: 2rem;
-            border-radius: 8px;
-            text-align: center;
-            margin: 2rem;
-            display: none;
-        }
-
+        /* Utility Classes */
         .hidden {
             display: none;
         }
@@ -314,6 +516,47 @@
             margin: 2rem;
         }
 
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
+            display: none;
+        }
+
+        /* Entry Summary */
+        .entry-summary {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .selected-entries {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .selected-entry {
+            background: white;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 0;
@@ -323,6 +566,24 @@
             .form-row {
                 grid-template-columns: 1fr;
             }
+
+            .day-tabs {
+                flex-direction: column;
+            }
+
+            .day-tab {
+                min-width: auto;
+            }
+
+            .round-item {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .entry-options {
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -330,8 +591,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1 id="trialTitle">🏆 Trial Entry Form (Direct Excel)</h1>
-            <p id="trialSubtitle">Upload your dataforsite.xlsx file to enable C-WAGS registration lookup</p>
+            <h1 id="trialTitle">🏆 Trial Entry Form</h1>
+            <p id="trialSubtitle">Complete your entry for this C-WAGS trial</p>
         </div>
 
         <!-- Back to Dashboard Button -->
@@ -340,6 +601,9 @@
                 ← Back to Dashboard
             </a>
         </div>
+
+        <!-- Status Messages -->
+        <div class="status-message" id="statusMessage"></div>
 
         <!-- Loading Message -->
         <div class="loading-message" id="loadingMessage">
@@ -355,32 +619,46 @@
             </button>
         </div>
 
-        <!-- Excel File Upload Section -->
-        <div class="excel-upload-section" id="excelUploadSection">
-            <h3>📊 Load Registration Data</h3>
-            <p>Upload your dataforsite.xlsx file to enable C-WAGS registration lookup:</p>
-            
-            <div class="excel-upload" onclick="document.getElementById('excelFile').click()">
-                <h4>📁 Click to Upload dataforsite.xlsx</h4>
-                <p>This will allow automatic lookup of handler and dog names</p>
-                <input type="file" id="excelFile" accept=".xlsx,.xls" style="display: none;" onchange="handleExcelUpload(event)">
-            </div>
-            
-            <div class="excel-status" id="excelStatus">
-                <!-- Status will appear here -->
+        <!-- Trial Selection (Secretary Only) -->
+        <div class="trial-selection hidden" id="trialSelectionSection">
+            <h3>🎯 Select Trial</h3>
+            <div class="form-group required full-width">
+                <label for="trialSelection">Choose which trial to create entry form for:</label>
+                <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
+                    <option value="">Loading available trials...</option>
+                </select>
             </div>
         </div>
 
-        <!-- Trial Selection (Secretary Only) -->
-        <div class="trial-selection" id="trialSelectionSection">
-            <h3>🎯 Select Trial</h3>
-            <div class="form-row">
-                <div class="form-group required full-width">
-                    <label for="trialSelection">Choose which trial to create entry form for:</label>
-                    <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
-                        <option value="">Loading available trials...</option>
-                    </select>
+        <!-- Shareable Link Section (Secretary Only) -->
+        <div class="shareable-link" id="shareableLinkSection">
+            <h3>🔗 Shareable Entry Link</h3>
+            <p>Share this link with participants so they can enter from home:</p>
+            <div class="link-display">
+                <div class="link-url" id="shareableUrl">
+                    <!-- Generated URL will appear here -->
                 </div>
+                <div class="link-actions">
+                    <button class="btn-copy" onclick="copyShareableLink()">📋 Copy Link</button>
+                    <button class="btn-test" onclick="testShareableLink()">🔗 Test Link</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- C-WAGS Waiver Section -->
+        <div class="waiver-section" id="waiverSection">
+            <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
+            <div class="waiver-content">
+                <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
+                <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
+                <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
+                <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
+            </div>
+            <div class="waiver-agreement">
+                <input type="checkbox" id="waiverAccepted" required>
+                <label for="waiverAccepted">
+                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above.</strong>
+                </label>
             </div>
         </div>
 
@@ -397,18 +675,15 @@
                 <!-- Registration Number Lookup -->
                 <div class="form-section primary">
                     <h3>🔍 C-WAGS Registration Lookup</h3>
-                    <div class="form-row">
-                        <div class="form-group full-width">
-                            <label>C-WAGS Registration Number (optional)</label>
-                            <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
-                                   style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;"
-                                   maxlength="10">
-                            <small style="color: #666; margin-top: 0.5rem; display: block;">
-                                💡 Format: 07-0001-01 (Enter registration number and handler/dog info will auto-fill)
-                            </small>
-                        </div>
+                    <div class="form-group full-width">
+                        <label>C-WAGS Registration Number (optional)</label>
+                        <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
+                               style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
+                        <small style="color: #666; margin-top: 0.5rem; display: block;">
+                            💡 Enter registration number first - handler and dog info will auto-fill if found
+                        </small>
                     </div>
-                    <div id="lookupStatus" class="lookup-status"></div>
+                    <div id="lookupStatus" class="status-message"></div>
                 </div>
 
                 <!-- Handler Information -->
@@ -476,49 +751,44 @@
                     </div>
                 </div>
 
-                <!-- C-WAGS Waiver Section -->
-                <div class="form-section" style="background: #fff8e1; border: 2px solid #ffc107; border-radius: 8px; padding: 1.5rem;">
-                    <h3 style="color: #f57c00;">⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
-                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 1rem; background: white; border-radius: 6px; font-size: 0.9rem; line-height: 1.4; margin-bottom: 1rem;">
-                        <p><strong>DISCLAIMER -- MUST BE SENT WITH ENTRY</strong></p>
-                        <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
-                        <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
-                        <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
-                        
-                        <p><strong>C-WAGS Notice to Exhibitors</strong></p>
-                        <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:</p>
-                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                            <li>All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.</li>
-                            <li>All judges and trial hosts are expected to show respect to all exhibitors.</li>
-                            <li>This trial is open to all dogs registered with C-WAGS.</li>
-                            <li>Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.</li>
-                            <li>Teams may be entered in multiple levels/classes at the same trial.</li>
-                            <li>Dogs must be shown by a member of the owner's immediate family.</li>
-                            <li>Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.</li>
-                            <li>Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.</li>
-                            <li>Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.</li>
-                            <li>The organizing committee may refuse any entry for any reason.</li>
-                            <li>THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.</li>
-                            <li>Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.</li>
-                            <li>Dogs must be on leash while on show grounds unless being shown.</li>
+                <!-- Class Entries Section -->
+                <div class="form-section">
+                    <h3>🎯 Class Entries</h3>
+                    
+                    <!-- Entry Summary -->
+                    <div class="entry-summary" id="entrySummary">
+                        <div class="summary-title">Selected Entries:</div>
+                        <ul class="selected-entries" id="selectedEntriesList">
                         </ul>
+                        <div style="margin-top: 1rem; font-weight: 600; color: #0066cc;">
+                            Total Fee: $<span id="totalFee">0.00</span>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
-                        <input type="checkbox" id="waiverAccepted" required style="margin-top: 0.2rem; width: auto;">
-                        <label for="waiverAccepted">
-                            <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above. By entering this trial, I agree to the disclaimer on this entry form.</strong>
-                        </label>
-                    </div>
-                </div>
 
-                <!-- Submit Section -->
-                <div style="text-align: center; padding: 2rem; border-top: 2px solid #e9ecef;">
-                    <button type="button" class="btn-submit" id="submitEntry" disabled>
-                        Submit Entry
-                    </button>
-                    <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                        Please complete all required fields and accept the waiver before submitting.
-                    </p>
+                    <!-- Submit Section -->
+                    <div class="submit-section" id="submitSection">
+                        <h4 style="margin-bottom: 1rem; color: #0066cc;">Ready to Submit Entry?</h4>
+                        <button type="button" class="btn-submit" id="submitEntry" disabled>
+                            Submit Entry
+                        </button>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+                            Please review your selections before submitting.
+                        </p>
+                    </div>
+
+                    <!-- Day Tabs -->
+                    <div class="day-tabs-container">
+                        <div class="day-tabs" id="dayTabs">
+                            <!-- Tabs will be generated from trial data -->
+                        </div>
+                    </div>
+
+                    <!-- Class Entries -->
+                    <div class="class-entries-container" id="classEntriesContainer">
+                        <div style="text-align: center; padding: 2rem; color: #666;">
+                            Please select a trial to see available classes.
+                        </div>
+                    </div>
                 </div>
             </form>
         </div>
@@ -543,10 +813,12 @@
 
         // Global variables
         let currentTrialData = null;
-        let excelData = [];
+        let registrationData = [];
         let availableTrials = [];
         let isSecretary = false;
         let currentUser = null;
+        let selectedEntries = [];
+        let totalFee = 0;
 
         // Standard field names
         const STANDARD_FIELDS = {
@@ -557,7 +829,25 @@
             CWAGS_NUMBER: 'cwagsNumber'
         };
 
-        // Show/hide elements
+        // Fee structure (default values)
+        let fees = {
+            regular: 35.00,
+            feo: 25.00,
+            juniorHandler: 20.00
+        };
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
         function showElement(id) {
             const element = document.getElementById(id);
             if (element) {
@@ -583,10 +873,10 @@
 
         // Initialize the application
         async function init() {
-            console.log("🚀 Initializing direct Excel entry form...");
+            console.log("🚀 Initializing entry form application...");
             
             try {
-                // Check URL parameters for entry link
+                // Check URL parameters for direct trial link
                 const urlParams = new URLSearchParams(window.location.search);
                 const trialId = urlParams.get('trial');
 
@@ -595,11 +885,14 @@
                     console.log("🔗 Loading specific trial for public entry:", trialId);
                     await loadSpecificTrial(trialId);
                 } else {
-                    // Normal secretary view
+                    // Normal secretary view - need authentication
                     console.log("👨‍💼 Setting up secretary view");
                     isSecretary = true;
                     await setupSecretaryView();
                 }
+
+                // Load registration data
+                await loadRegistrationData();
 
                 // Setup form event listeners
                 setupFormEventListeners();
@@ -610,187 +903,729 @@
             }
         }
 
-        // DIRECT EXCEL HANDLING - No Firebase arrays needed!
-        async function handleExcelUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            console.log("📊 Processing Excel file directly:", file.name);
-            showExcelStatus('🔄 Processing Excel file...', 'loading');
-            
+        // Load registration data from dataforsite.xlsx and Firebase
+        async function loadRegistrationData() {
             try {
-                const arrayBuffer = await file.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
+                console.log("📊 Loading registration data...");
+                showStatus('🔄 Loading registration data...', 'info');
                 
-                // Process Excel using SheetJS
-                const workbook = XLSX.read(data, {type: 'array', cellDates: true});
-                const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
-                
-                if (!dataSheet) {
-                    throw new Error('No data sheet found in Excel file');
+                // Try Firebase first (faster)
+                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
+                if (dataDoc.exists) {
+                    const data = dataDoc.data();
+                    console.log("📊 Found system data in Firebase");
+                    
+                    if (data.registrations && Array.isArray(data.registrations)) {
+                        registrationData = data.registrations;
+                        console.log(`✅ Loaded ${registrationData.length} registration records from Firebase`);
+                        showStatus(`✅ Loaded ${registrationData.length} registration records`, 'success');
+                        return;
+                    }
                 }
                 
-                const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
-                    header: 1, 
-                    dateNF: 'yyyy-mm-dd',
-                    defval: ''
-                });
+                // Try to load from dataforsite.xlsx directly
+                console.log("📁 Attempting to load dataforsite.xlsx from root directory...");
                 
-                if (jsonData.length < 2) {
-                    throw new Error('Excel file appears to be empty');
+                try {
+                    const response = await fetch('./dataforsite.xlsx');
+                    if (response.ok) {
+                        console.log("📁 Found dataforsite.xlsx file");
+                        const arrayBuffer = await response.arrayBuffer();
+                        const data = new Uint8Array(arrayBuffer);
+                        
+                        // Process Excel using SheetJS
+                        const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                        const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
+                        
+                        if (dataSheet) {
+                            const jsonData = XLSX.utils.sheet_to_json(dataSheet, {
+                                header: 1, 
+                                dateNF: 'yyyy-mm-dd',
+                                defval: ''
+                            });
+                            
+                            if (jsonData.length > 0) {
+                                const headers = jsonData[0];
+                                const rows = jsonData.slice(1).filter(row => row.some(cell => cell !== ''));
+                                
+                                console.log("📋 Processing Excel data with", rows.length, "rows");
+                                
+                                // Extract registration data (assuming structure: cwag, handler, dog, ...)
+                                registrationData = rows.map(row => ({
+                                    cwag: row[0] ? String(row[0]).trim() : null,
+                                    handler: row[1] ? String(row[1]).trim() : null,
+                                    dog: row[2] ? String(row[2]).trim() : null,
+                                    className: row[3] ? String(row[3]).trim() : null,
+                                    judge: row[4] ? String(row[4]).trim() : null
+                                })).filter(reg => reg.cwag && reg.handler && reg.dog);
+                                
+                                console.log(`✅ Processed ${registrationData.length} valid registrations from Excel`);
+                                showStatus(`✅ Loaded ${registrationData.length} registrations from dataforsite.xlsx`, 'success');
+                                
+                                // Save to Firebase for future use
+                                if (currentUser) {
+                                    try {
+                                        await db.collection('system_data').doc('dataforsite').set({
+                                            registrations: registrationData,
+                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                            updatedBy: currentUser.uid
+                                        }, { merge: true });
+                                        console.log("💾 Saved registration data to Firebase");
+                                    } catch (saveError) {
+                                        console.warn("⚠️ Could not save to Firebase:", saveError.message);
+                                    }
+                                }
+                                return;
+                            }
+                        }
+                    }
+                } catch (fetchError) {
+                    console.log("📁 Could not load dataforsite.xlsx:", fetchError.message);
                 }
                 
-                // Store the Excel data directly in memory
-                excelData = jsonData;
-                
-                console.log("✅ Excel data loaded successfully:", {
-                    totalRows: excelData.length - 1, // Minus header
-                    headers: excelData[0]
-                });
-                
-                showExcelStatus(`✅ Excel file loaded successfully! Found ${excelData.length - 1} rows of data.`, 'success');
-                
-                // Show the entry form now that we have data
-                showElement('entryFormContainer');
+                // Fallback - no data available
+                console.warn("⚠️ No registration data found");
+                registrationData = [];
+                showStatus('⚠️ No registration data found. Manual entry only.', 'warning');
                 
             } catch (error) {
-                console.error("❌ Error processing Excel file:", error);
-                showExcelStatus(`❌ Error processing Excel file: ${error.message}`, 'error');
+                console.error("❌ Error loading registration data:", error);
+                registrationData = [];
+                showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
             }
         }
 
-        function showExcelStatus(message, type) {
-            const statusElement = document.getElementById('excelStatus');
-            statusElement.textContent = message;
-            statusElement.className = `excel-status ${type}`;
+        // Setup secretary view with authentication
+        async function setupSecretaryView() {
+            try {
+                console.log("🔐 Setting up secretary authentication...");
+                
+                // Wait for authentication state
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                console.log("🔍 Loading user profile for:", user.email);
+                                
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            reject(new Error('User not authenticated'));
+                        }
+                    });
+                });
+
+                console.log("🔍 Loading trials for user:", currentUser.uid);
+                showStatus('🔄 Loading your trials...', 'info');
+
+                // Load trials - FIXED QUERY
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .orderBy("createdAt", "desc")
+                    .get();
+                
+                console.log("📊 Trials query result:", {
+                    empty: trialsSnapshot.empty,
+                    size: trialsSnapshot.size
+                });
+                
+                if (!trialsSnapshot.empty) {
+                    availableTrials = [];
+                    trialsSnapshot.forEach(doc => {
+                        const trialData = { id: doc.id, ...doc.data() };
+                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
+                        availableTrials.push(trialData);
+                    });
+                    
+                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
+                    
+                    hideElement('loadingMessage');
+                    showElement('trialSelectionSection');
+                    populateTrialSelector();
+                    showStatus(`✅ Found ${availableTrials.length} trials`, 'success');
+                    
+                } else {
+                    console.warn("⚠️ No trials found for this user");
+                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
+                }
+                
+            } catch (error) {
+                console.error("❌ Error setting up secretary view:", error);
+                if (error.message.includes('not authenticated')) {
+                    // Redirect to login
+                    window.location.href = 'index.html';
+                } else {
+                    throw error;
+                }
+            }
         }
 
-        // DIRECT EXCEL LOOKUP - Much simpler!
-        async function autoFillFromRegistration(cwagsNumber) {
-            console.log("🔍 Looking up registration directly in Excel:", cwagsNumber);
-            showLookupStatus('🔍 Searching Excel data...', 'loading');
+        // Load specific trial for public entry
+        async function loadSpecificTrial(trialId) {
+            try {
+                console.log("🔍 Loading specific trial:", trialId);
+                showStatus('🔄 Loading trial information...', 'info');
+                
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
+                console.log("✅ Trial loaded:", currentTrialData.clubName);
+                
+                // Load saved fee configuration if exists
+                if (currentTrialData.feeConfiguration) {
+                    const savedFees = currentTrialData.feeConfiguration;
+                    fees.regular = savedFees.regularFee || 35.00;
+                    fees.feo = savedFees.feoFee || 25.00;
+                    fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                    console.log("💰 Loaded saved fee configuration:", savedFees);
+                }
+                
+                hideElement('loadingMessage');
+                hideElement('trialSelectionSection');
+                
+                // Show trial info and form
+                populateTrialInfo();
+                showElement('waiverSection');
+                showEntryForm();
+                showStatus('✅ Trial loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error loading specific trial:', error);
+                throw new Error('Trial not found or no longer available');
+            }
+        }
+
+        // Populate trial selector dropdown
+        function populateTrialSelector() {
+            const trialSelect = document.getElementById('trialSelection');
+            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+            availableTrials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                        }))
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
+                    }
+                }
+                
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
+
+            // Handle trial selection change
+            trialSelect.addEventListener('change', function(event) {
+                const trialId = event.target.value;
+                console.log("🎯 Trial selected:", trialId);
+                
+                if (trialId) {
+                    currentTrialData = availableTrials.find(t => t.id === trialId);
+                    if (currentTrialData) {
+                        console.log("✅ Found trial data:", currentTrialData.clubName);
+                        
+                        // Load saved fee configuration if exists
+                        if (currentTrialData.feeConfiguration) {
+                            const savedFees = currentTrialData.feeConfiguration;
+                            fees.regular = savedFees.regularFee || 35.00;
+                            fees.feo = savedFees.feoFee || 25.00;
+                            fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                            console.log("💰 Loaded saved fee configuration:", savedFees);
+                        }
+                        
+                        generateShareableLink();
+                        populateTrialInfo();
+                        showElement('waiverSection');
+                        showEntryForm();
+                        showStatus('✅ Trial selected successfully!', 'success');
+                    } else {
+                        console.error("❌ Could not find trial data for ID:", trialId);
+                        showStatus('❌ Error loading trial data', 'error');
+                    }
+                } else {
+                    console.log("🚫 No trial selected, hiding sections");
+                    hideElement('shareableLinkSection');
+                    hideElement('entryFormContainer');
+                    hideElement('waiverSection');
+                }
+            });
+        }
+
+        // Generate shareable link
+        function generateShareableLink() {
+            if (!isSecretary || !currentTrialData) return;
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
             
-            if (!excelData || excelData.length < 2) {
-                showLookupStatus('⚠️ Please upload your dataforsite.xlsx file first', 'warning');
+            document.getElementById('shareableUrl').textContent = shareableUrl;
+            showElement('shareableLinkSection');
+            
+            console.log("🔗 Generated shareable link:", shareableUrl);
+        }
+
+        // Copy shareable link to clipboard
+        function copyShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                showStatus('📋 Link copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Error copying link:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showStatus('📋 Link copied to clipboard!', 'success');
+            });
+        }
+
+        // Test shareable link
+        function testShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            window.open(url, '_blank');
+        }
+
+        // Populate trial information
+        function populateTrialInfo() {
+            if (!currentTrialData) return;
+
+            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
+            
+            console.log("📋 Populating trial info for:", currentTrialData.clubName);
+            console.log("📅 Trial data structure:", {
+                days: currentTrialData.days?.length || 0,
+                firstDay: currentTrialData.days?.[0]
+            });
+            
+            // Generate the tabbed class interface from trial data
+            generateTabbedClasses();
+        }
+
+        // Show entry form
+        function showEntryForm() {
+            showElement('entryFormContainer');
+        }
+
+        // Generate tabbed classes from trial data
+        function generateTabbedClasses() {
+            console.log("🎯 Generating tabbed classes from trial data");
+            
+            if (!currentTrialData.days || currentTrialData.days.length === 0) {
+                console.warn("❌ No days data found");
+                document.getElementById('classEntriesContainer').innerHTML = 
+                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
+                return;
+            }
+
+            console.log(`📅 Processing ${currentTrialData.days.length} days`);
+
+            // Generate day tabs
+            const dayTabsContainer = document.getElementById('dayTabs');
+            dayTabsContainer.innerHTML = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                const dayDate = day.date 
+                    ? new Date(day.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                    })
+                    : `Day ${dayIndex + 1}`;
+
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(dayIndex);
+                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
+                
+                dayTabsContainer.appendChild(tabButton);
+            });
+
+            // Generate class content for each day
+            const classEntriesContainer = document.getElementById('classEntriesContainer');
+            let html = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
+
+                if (!day.classes || day.classes.length === 0) {
+                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
+                } else {
+                    console.log(`📋 Day ${dayIndex + 1} has ${day.classes.length} classes`);
+                    
+                    day.classes.forEach((cls, classIndex) => {
+                        const className = cls[STANDARD_FIELDS.CLASS_NAME] || cls.className || 'Unnamed Class';
+                        
+                        console.log(`🎯 Processing class: ${className} with ${cls.rounds?.length || 0} rounds`);
+
+                        html += `
+                            <div class="class-item">
+                                <div class="class-header">
+                                    <div class="class-name">${className}</div>
+                                </div>
+                                <div class="rounds-container">
+                        `;
+
+                        if (cls.rounds && cls.rounds.length > 0) {
+                            cls.rounds.forEach((round, roundIndex) => {
+                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
+                                const roundName = `Round ${roundIndex + 1}`;
+                                
+                                // Calculate fees
+                                const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
+                                const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
+                                const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
+                                
+                                html += `
+                                    <div class="round-item">
+                                        <div class="round-details">
+                                            <span class="judge-name">Judge: ${judgeName}</span>
+                                            <span>${roundName}</span>
+                                        </div>
+                                        <div class="entry-options">
+                                `;
+
+                                // Show Regular button if fee > 0
+                                if (regularFee > 0) {
+                                    html += `
+                                        <button class="entry-button regular" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${regularFee.toFixed(2)}" 
+                                                data-type="regular"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            Regular ${regularFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                // Show FEO button if available and fee > 0 and not junior handler
+                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
+                                    html += `
+                                        <button class="entry-button feo" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${feoFee.toFixed(2)}" 
+                                                data-type="feo"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            FEO ${feoFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                html += `
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
+                        }
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div>`;
+            });
+
+            classEntriesContainer.innerHTML = html;
+            
+            console.log("✅ Tabbed classes generated successfully");
+            updateEntrySummary();
+        }
+
+        // Show specific day tab
+        function showDay(dayIndex) {
+            // Hide all day content
+            document.querySelectorAll('.class-day-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected day content
+            const dayContent = document.getElementById(`day-${dayIndex}`);
+            if (dayContent) {
+                dayContent.classList.add('active');
+            }
+            
+            // Add active class to selected tab
+            const dayTabs = document.querySelectorAll('.day-tab');
+            if (dayTabs[dayIndex]) {
+                dayTabs[dayIndex].classList.add('active');
+            }
+        }
+
+        // Toggle entry selection
+        function toggleEntry(button) {
+            const className = button.dataset.class;
+            const roundName = button.dataset.round;
+            const judgeName = button.dataset.judge;
+            const fee = parseFloat(button.dataset.fee);
+            const entryType = button.dataset.type;
+            const dayIndex = button.dataset.day;
+            const roundIndex = button.dataset.roundIndex;
+            
+            // Create unique identifier for this entry
+            const entryId = `${className}-${roundName}-${dayIndex}-${roundIndex}`;
+            
+            if (button.classList.contains('selected')) {
+                // Remove selection
+                button.classList.remove('selected');
+                selectedEntries = selectedEntries.filter(entry => 
+                    !(entry.entryId === entryId && entry.type === entryType)
+                );
+                console.log("❌ Removed entry:", entryId, entryType);
+            } else {
+                // Add selection (but first remove any conflicting entry for same round)
+                const conflictingEntries = selectedEntries.filter(entry => 
+                    entry.entryId === entryId && entry.type !== entryType
+                );
+                
+                conflictingEntries.forEach(conflictEntry => {
+                    // Remove conflicting button selection
+                    const conflictButton = document.querySelector(
+                        `[data-class="${conflictEntry.className}"][data-round="${conflictEntry.roundName}"][data-type="${conflictEntry.type}"][data-day="${conflictEntry.dayIndex}"][data-round-index="${conflictEntry.roundIndex}"]`
+                    );
+                    if (conflictButton) {
+                        conflictButton.classList.remove('selected');
+                    }
+                });
+                
+                // Remove conflicting entries from selectedEntries
+                selectedEntries = selectedEntries.filter(entry => entry.entryId !== entryId);
+                
+                // Add new selection
+                button.classList.add('selected');
+                selectedEntries.push({
+                    entryId: entryId,
+                    className: className,
+                    roundName: roundName,
+                    judgeName: judgeName,
+                    fee: fee,
+                    type: entryType,
+                    dayIndex: dayIndex,
+                    roundIndex: roundIndex
+                });
+                console.log("✅ Added entry:", entryId, entryType, `${fee}`);
+            }
+            
+            updateEntrySummary();
+            checkFormValidity();
+        }
+
+        // Update entry summary
+        function updateEntrySummary() {
+            const summaryDiv = document.getElementById('entrySummary');
+            const entriesList = document.getElementById('selectedEntriesList');
+            const totalFeeSpan = document.getElementById('totalFee');
+            const submitSection = document.getElementById('submitSection');
+            
+            if (selectedEntries.length === 0) {
+                summaryDiv.style.display = 'none';
+                submitSection.classList.remove('show');
                 return;
             }
             
+            summaryDiv.style.display = 'block';
+            submitSection.classList.add('show');
+            
+            // Generate entries list
+            let html = '';
+            selectedEntries.forEach(entry => {
+                html += `
+                    <li class="selected-entry">
+                        Day ${parseInt(entry.dayIndex) + 1}: ${entry.className} - ${entry.roundName} 
+                        (${entry.type.toUpperCase()}) - Judge: ${entry.judgeName} - ${entry.fee.toFixed(2)}
+                    </li>
+                `;
+            });
+            
+            entriesList.innerHTML = html;
+            
+            // Update total fee
+            totalFee = selectedEntries.reduce((sum, entry) => sum + entry.fee, 0);
+            totalFeeSpan.textContent = totalFee.toFixed(2);
+            
+            console.log("💰 Updated summary:", selectedEntries.length, "entries, total:", `${totalFee.toFixed(2)}`);
+        }
+
+        // C-WAGS number formatting and lookup
+        function formatCwagsNumber(input) {
+            // Remove all non-alphanumeric characters
+            let cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            
+            // Format to XX-XXXX-XX pattern
+            if (cleaned.length >= 2) {
+                let formatted = cleaned.substring(0, 2);
+                if (cleaned.length > 2) {
+                    formatted += '-' + cleaned.substring(2, 6);
+                    if (cleaned.length > 6) {
+                        let lastPart = cleaned.substring(6, 8);
+                        if (lastPart.length === 1) {
+                            lastPart = '0' + lastPart;
+                        }
+                        formatted += '-' + lastPart;
+                    }
+                }
+                return formatted;
+            }
+            return cleaned;
+        }
+
+        // Show lookup status
+        function showLookupStatus(message, type) {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideLookupStatus() {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.style.display = 'none';
+        }
+
+        // Auto-fill from registration data
+        async function autoFillFromRegistration(cwagsNumber) {
+            showLookupStatus('🔍 Looking up registration...', 'info');
+            
             try {
-                const headers = excelData[0];
-                const rows = excelData.slice(1);
+                console.log("🔍 Looking up registration:", cwagsNumber);
+                console.log("📊 Available registrations:", registrationData.length);
                 
-                console.log("📋 Excel headers:", headers);
-                console.log("📊 Searching through", rows.length, "rows");
-                
-                // Find the registration row that matches
-                const matchingRow = rows.find(row => {
-                    const rowCwag = row[0] ? String(row[0]).trim() : '';
+                // Search in registration data
+                const matchingRegistration = registrationData.find(record => {
+                    const recordCwag = String(record.cwag || '').trim();
                     const searchCwag = String(cwagsNumber).trim();
                     
-                    // Try exact match and variations
-                    return rowCwag === searchCwag || 
-                           rowCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
+                    return recordCwag === searchCwag || 
+                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
                 });
                 
-                if (matchingRow) {
-                    console.log("✅ Found matching row:", matchingRow);
-                    
-                    // Extract data using column positions (based on your Excel structure)
-                    const registrationData = {
-                        cwag: matchingRow[0],           // Column A: cwagsNumber
-                        dog: matchingRow[1],            // Column B: dogCallName  
-                        handler: matchingRow[2],        // Column C: handlerName
-                        class: matchingRow[3],          // Column D: className
-                        judge: matchingRow[4]           // Column E: judgeName
-                    };
-                    
+                if (matchingRegistration) {
+                    console.log("✅ Found matching registration:", matchingRegistration);
                     showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
-                    populateForm(registrationData);
-                    
+                    populateForm(matchingRegistration);
                 } else {
-                    console.log("❌ No matching registration found for:", cwagsNumber);
+                    console.log("❌ No matching registration found");
                     showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
                 }
                 
             } catch (error) {
-                console.error("❌ Error during Excel lookup:", error);
-                showLookupStatus('❌ Error searching Excel data', 'warning');
+                console.error("❌ Error during registration lookup:", error);
+                showLookupStatus('❌ Error looking up registration', 'error');
             }
         }
 
-        // Populate form with found data
-        function populateForm(registrationData) {
-            console.log("📝 Populating form with Excel data:", registrationData);
+        // Populate form with registration data
+        function populateForm(registration) {
+            console.log("📝 Populating form with registration data:", registration);
             
-            // Handler name (Column C)
-            if (registrationData.handler) {
+            // Handler name
+            const handlerName = registration.handler || registration.handlerName;
+            if (handlerName) {
                 const handlerField = document.getElementById('handlerName');
-                handlerField.value = registrationData.handler;
-                handlerField.classList.add('auto-filled');
-                setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
+                handlerField.value = handlerName;
+                handlerField.style.background = '#e7f3ff';
+                setTimeout(() => handlerField.style.background = '', 3000);
             }
             
-            // Dog name (Column B)
-            if (registrationData.dog) {
+            // Dog name
+            const dogName = registration.dog || registration.dogCallName;
+            if (dogName) {
                 const dogField = document.getElementById('dogCallName');
-                dogField.value = registrationData.dog;
-                dogField.classList.add('auto-filled');
-                setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
+                dogField.value = dogName;
+                dogField.style.background = '#e7f3ff';
+                setTimeout(() => dogField.style.background = '', 3000);
             }
         }
 
-        // FIXED C-WAGS number input - no more jumping!
+        // Setup form event listeners
         function setupFormEventListeners() {
+            // C-WAGS number formatting and lookup
             const cwagsInput = document.getElementById('cwagsNumber');
             if (cwagsInput) {
-                let typingTimer;
-                
                 cwagsInput.addEventListener('input', function(e) {
+                    const formatted = formatCwagsNumber(e.target.value);
+                    e.target.value = formatted;
+                    
                     // Clear any existing timeout
-                    clearTimeout(typingTimer);
-                    
-                    // Clean input but don't auto-format while typing
-                    let cleaned = e.target.value.toUpperCase().replace(/[^0-9-]/g, '');
-                    
-                    // Store cursor position
-                    const cursorPos = e.target.selectionStart;
-                    
-                    // Only update if actually changed (prevents cursor jumping)
-                    if (e.target.value !== cleaned) {
-                        e.target.value = cleaned;
-                        // Restore cursor position
-                        e.target.setSelectionRange(cursorPos, cursorPos);
+                    if (window.cwagsTimeout) {
+                        clearTimeout(window.cwagsTimeout);
                     }
                     
-                    // Only search after user stops typing for 1.5 seconds
-                    if (cleaned.length >= 8) { // Full format: XX-XXXX-XX
-                        typingTimer = setTimeout(() => {
-                            autoFillFromRegistration(cleaned);
-                        }, 1500);
+                    if (formatted.length >= 8) { // Minimum length for lookup
+                        window.cwagsTimeout = setTimeout(() => {
+                            autoFillFromRegistration(formatted);
+                        }, 500);
                     } else {
                         hideLookupStatus();
                     }
                     
                     checkFormValidity();
                 });
-
-                // Also try lookup when field loses focus
-                cwagsInput.addEventListener('blur', function(e) {
-                    const cleaned = e.target.value.trim();
-                    if (cleaned.length >= 8) {
-                        autoFillFromRegistration(cleaned);
-                    }
-                });
             }
 
             // Form validation listeners
-            ['handlerName', 'dogCallName'].forEach(fieldId => {
+            ['handlerName', 'dogCallName', 'waiverAccepted'].forEach(fieldId => {
                 const field = document.getElementById(fieldId);
                 if (field) {
                     field.addEventListener('input', checkFormValidity);
                     field.addEventListener('change', checkFormValidity);
                 }
             });
+
+            // Junior handler change affects fees
+            const juniorSelect = document.getElementById('juniorHandler');
+            if (juniorSelect) {
+                juniorSelect.addEventListener('change', function() {
+                    if (currentTrialData) {
+                        generateTabbedClasses();
+                    }
+                    updateEntrySummary();
+                });
+            }
 
             // Submit button
             const submitBtn = document.getElementById('submitEntry');
@@ -799,23 +1634,14 @@
             }
         }
 
-        function showLookupStatus(message, type) {
-            const statusDiv = document.getElementById('lookupStatus');
-            statusDiv.textContent = message;
-            statusDiv.className = `lookup-status ${type}`;
-        }
-
-        function hideLookupStatus() {
-            const statusDiv = document.getElementById('lookupStatus');
-            statusDiv.style.display = 'none';
-        }
-
         // Check form validity
         function checkFormValidity() {
+            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
             const handlerName = document.getElementById('handlerName')?.value.trim();
             const dogCallName = document.getElementById('dogCallName')?.value.trim();
+            const hasClasses = selectedEntries.length > 0;
             
-            const isValid = handlerName && dogCallName;
+            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
             
             const submitBtn = document.getElementById('submitEntry');
             if (submitBtn) {
@@ -825,43 +1651,12 @@
             return isValid;
         }
 
-        // Setup secretary view (simplified)
-        async function setupSecretaryView() {
-            try {
-                hideElement('loadingMessage');
-                showElement('excelUploadSection');
-                showElement('trialSelectionSection');
-                
-                // Load trials for secretary
-                console.log("📋 Loading trials for secretary");
-                // Implementation would be similar to previous version
-                
-            } catch (error) {
-                console.error("❌ Error setting up secretary view:", error);
-                throw error;
-            }
-        }
-
-        // Load specific trial for public entry
-        async function loadSpecificTrial(trialId) {
-            try {
-                console.log("🔍 Loading specific trial:", trialId);
-                hideElement('loadingMessage');
-                showElement('excelUploadSection');
-                showElement('entryFormContainer');
-                
-            } catch (error) {
-                console.error('❌ Error loading specific trial:', error);
-                throw new Error('Trial not found or no longer available');
-            }
-        }
-
-        // Submit entry (simplified)
+        // Submit entry
         async function submitEntry() {
-            console.log("🚀 Submitting entry...");
+            console.log("🚀 Starting entry submission...");
             
             if (!checkFormValidity()) {
-                alert('Please complete all required fields.');
+                showStatus('Please complete all required fields and select at least one class.', 'error');
                 return;
             }
             
@@ -873,6 +1668,8 @@
             try {
                 // Collect form data
                 const entryData = {
+                    trialId: currentTrialData.id,
+                    trialName: currentTrialData.clubName,
                     [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
                     handlerEmail: document.getElementById('handlerEmail').value.trim(),
                     handlerPhone: document.getElementById('handlerPhone').value.trim(),
@@ -883,8 +1680,10 @@
                     dogSex: document.getElementById('dogSex').value,
                     [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
                     juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+                    selectedEntries: selectedEntries,
+                    totalFee: totalFee,
                     submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    dataSource: 'direct-excel'
+                    waiverAccepted: true
                 };
                 
                 console.log("📝 Entry data prepared:", entryData);
@@ -900,9 +1699,11 @@
                 // Scroll to top
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 
+                showStatus('✅ Entry submitted successfully!', 'success');
+                
             } catch (error) {
                 console.error("❌ Error submitting entry:", error);
-                alert("Error submitting entry: " + error.message);
+                showStatus("Error submitting entry: " + error.message, 'error');
                 
                 // Reset button
                 submitBtn.textContent = originalText;
@@ -912,7 +1713,20 @@
 
         // Reset form for another entry
         function resetForm() {
+            // Reset form fields
             document.getElementById('entryForm').reset();
+            
+            // Clear selected entries
+            selectedEntries = [];
+            totalFee = 0;
+            
+            // Clear all selected buttons
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Update display
+            updateEntrySummary();
             checkFormValidity();
             
             // Hide success message and show form
@@ -923,19 +1737,23 @@
             hideLookupStatus();
             
             console.log("📝 Form reset for new entry");
+            showStatus('Form reset for new entry', 'info');
         }
 
         // Make functions globally accessible
-        window.handleExcelUpload = handleExcelUpload;
+        window.showDay = showDay;
+        window.toggleEntry = toggleEntry;
+        window.copyShareableLink = copyShareableLink;
+        window.testShareableLink = testShareableLink;
         window.resetForm = resetForm;
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            console.log("🎯 DOM loaded, initializing direct Excel entry form...");
+            console.log("🎯 DOM loaded, initializing entry form...");
             init();
         });
 
-        console.log("🎯 Direct Excel Entry Form script loaded successfully");
+        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
     </script>
 </body>
 </html>
