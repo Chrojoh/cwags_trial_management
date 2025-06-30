@@ -1578,23 +1578,23 @@ async function autoFillFromRegistration(cwagsNumber) {
         function populateForm(registration) {
             console.log("📝 Populating form with registration data:", registration);
             
-            // Handler name
-            const handlerName = registration.handler || registration.handlerName;
-            if (handlerName) {
-                const handlerField = document.getElementById('handlerName');
-                handlerField.value = handlerName;
-                handlerField.style.background = '#e7f3ff';
-                setTimeout(() => handlerField.style.background = '', 3000);
-            }
-            
-            // Dog name
-            const dogName = registration.dog || registration.dogCallName;
-            if (dogName) {
-                const dogField = document.getElementById('dogCallName');
-                dogField.value = dogName;
-                dogField.style.background = '#e7f3ff';
-                setTimeout(() => dogField.style.background = '', 3000);
-            }
+            // Handler name (swapped because registry has fields backwards)
+const handlerName = registration.dogCallName || registration.dog;
+if (handlerName) {
+    const handlerField = document.getElementById('handlerName');
+    handlerField.value = handlerName;
+    handlerField.style.background = '#e7f3ff';
+    setTimeout(() => handlerField.style.background = '', 3000);
+}
+
+// Dog name (swapped because registry has fields backwards)
+const dogName = registration.handlerName || registration.handler;
+if (dogName) {
+    const dogField = document.getElementById('dogCallName');
+    dogField.value = dogName;
+    dogField.style.background = '#e7f3ff';
+    setTimeout(() => dogField.style.background = '', 3000);
+}
         }
 
         // Setup form event listeners
