@@ -990,7 +990,7 @@ if (finalClassIndex >= currentTrial.days[dayIndex].classes.length) {
                 html += `
                     <div class="round-column">
                         <div class="round-header">
-                            ${dayData.date ? new Date(dayData.date).toLocaleDateString() : 'Date TBD'}
+                            ${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}
                         </div>
                         <div class="round-info">
                             <div class="judge-name">${round.judgeName}</div>
