@@ -517,7 +517,45 @@ function getDateFromFirebase(firebaseDate) {
                 showStatus('Error loading trials: ' + error.message, 'error');
             }
         }
+// Add this debugging code to your running-order.html file temporarily
+// Place it after loading trial data to see what's happening with dates
 
+function debugDates() {
+    console.log('=== DATE DEBUGGING ===');
+    
+    if (currentTrial && currentTrial.days) {
+        currentTrial.days.forEach((day, index) => {
+            console.log(`Day ${index + 1}:`);
+            console.log('  Raw day.date:', day.date);
+            console.log('  Type:', typeof day.date);
+            
+            if (day.date && day.date.toDate) {
+                console.log('  Firestore Timestamp:', day.date.toDate());
+                console.log('  UTC String:', day.date.toDate().toISOString());
+                console.log('  Local String:', day.date.toDate().toString());
+            }
+            
+            const processedDate = getDateFromFirebase(day.date);
+            console.log('  Processed by getDateFromFirebase:', processedDate);
+            
+            if (processedDate) {
+                const testDate = createLocalDate(processedDate);
+                console.log('  Re-created date:', testDate);
+                console.log('  Re-formatted:', formatLocalDate(testDate));
+            }
+            
+            console.log('---');
+        });
+    }
+    
+    // Also check what's being displayed
+    console.log('Current user timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    console.log('Current date for reference:', new Date().toString());
+}
+
+// Call this after loadTrialRunningOrder() completes
+// You can add: debugDates(); right after the line:
+// currentTrial = { id: trialDoc.id, ...trialDoc.data() };
         // Load running order for selected trial
         async function loadTrialRunningOrder() {
             const trialId = document.getElementById('trialSelect').value;
