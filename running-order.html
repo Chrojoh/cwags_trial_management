@@ -1171,9 +1171,9 @@ if (finalClassIndex >= currentTrial.days[dayIndex].classes.length) {
                 const maxEntries = Math.max(...rounds.map(r => r.entries.length));
                 
                 // Header row with date
-                csvContent += rounds.map(round => 
-                   ${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}
-                ).join(',') + '\n';
+csvContent += rounds.map(round => 
+    `"${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}"`
+).join(',') + '\n';
                 
                 // Judge names
                 csvContent += rounds.map(round => 
