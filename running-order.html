@@ -791,7 +791,7 @@ if (currentTrial.days) {
 
             console.log('📊 Final runningOrderData structure:', runningOrderData);
             console.log('📊 Days found:', Object.keys(runningOrderData));
-
+analyzeEntryData(entriesSnapshot);
            // Add entries to appropriate rounds
 if (!entriesSnapshot.empty) {
     entriesSnapshot.forEach(doc => {
