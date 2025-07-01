@@ -1909,9 +1909,19 @@ function loadExistingSelectedEntries(savedEntries) {
                 
                 console.log("📝 Entry data prepared:", entryData);
                 
-                // Save entry to Firebase
-                const docRef = await db.collection("entries").add(entryData);
-                console.log("✅ Entry saved with ID:", docRef.id);
+                // Check if we're editing an existing entry
+const urlParams = new URLSearchParams(window.location.search);
+const editingEntryId = urlParams.get('entry');
+
+if (editingEntryId) {
+    // Update existing entry
+    await db.collection("entries").doc(editingEntryId).update(entryData);
+    console.log("✅ Entry updated with ID:", editingEntryId);
+} else {
+    // Create new entry
+    const docRef = await db.collection("entries").add(entryData);
+    console.log("✅ Entry saved with ID:", docRef.id);
+}
                 
                 // Update running order automatically
                 await updateRunningOrderOnEntry(entryData, docRef.id);
