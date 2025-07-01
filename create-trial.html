@@ -261,6 +261,171 @@
       statusDiv.className = message.includes('✅') ? 'data-status' : 'data-status';
     }
 
+// ========================================
+// LOAD EXISTING TRIAL FOR EDITING
+// ========================================
+async function checkForExistingTrial() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const trialId = urlParams.get('id');
+  const mode = urlParams.get('mode');
+  
+  if (trialId) {
+    console.log(`Loading existing trial: ${trialId} in ${mode || 'edit'} mode`);
+    await loadExistingTrial(trialId, mode);
+  }
+}
+
+async function loadExistingTrial(trialId, mode) {
+  try {
+    updateDataStatus('🔄 Loading trial data...');
+    
+    // Load trial from Firebase
+    const trialDoc = await db.collection('trials').doc(trialId).get();
+    
+    if (!trialDoc.exists) {
+      updateDataStatus('❌ Trial not found!');
+      return;
+    }
+    
+    const trialData = trialDoc.data();
+    currentTrialData = trialData;
+    isEditMode = true;
+    
+    console.log('Loaded trial data:', trialData);
+    
+    // Populate the form with existing data
+    document.querySelector('input[name="clubName"]').value = trialData.clubName || '';
+    document.querySelector('input[name="secretary"]').value = trialData.secretary || '';
+    document.getElementById('numDays').value = trialData.numDays || 0;
+    
+    // Generate days structure first
+    if (trialData.numDays > 0) {
+      generateDays();
+      
+      // Wait for DOM to update, then populate
+      setTimeout(() => {
+        populateExistingDays(trialData);
+      }, 200);
+    }
+    
+    // Update page title and submit button
+    document.title = `${mode === 'view' ? 'View' : 'Edit'} Trial - ${trialData.clubName}`;
+    const submitButton = document.querySelector('button[type="submit"]');
+    submitButton.textContent = mode === 'view' ? 'View Only' : 'Update Trial';
+    
+    // If in view mode, make form read-only
+    if (mode === 'view') {
+      makeFormReadOnly();
+    }
+    
+    updateDataStatus(`✅ Trial loaded successfully! (${mode || 'edit'} mode)`);
+    
+  } catch (error) {
+    console.error('Error loading trial:', error);
+    updateDataStatus('❌ Error loading trial: ' + error.message);
+  }
+}
+
+function populateExistingDays(trialData) {
+  if (!trialData.days) return;
+  
+  trialData.days.forEach((day, dayIndex) => {
+    // Set the date
+    const dateInput = document.querySelector(`input[name="date${dayIndex}"]`);
+    if (dateInput && day.date) {
+      dateInput.value = day.date;
+    }
+    
+    // Set number of classes and generate them
+    const numClassesInput = document.getElementById(`numClasses_${dayIndex}`);
+    if (numClassesInput && day.classes) {
+      numClassesInput.value = day.classes.length;
+      generateClasses(dayIndex);
+      
+      // Wait a bit more for classes to generate
+      setTimeout(() => {
+        populateExistingClasses(day, dayIndex);
+      }, 100);
+    }
+  });
+}
+
+function populateExistingClasses(day, dayIndex) {
+  if (!day.classes) return;
+  
+  day.classes.forEach((classData, classIndex) => {
+    // Populate class name
+    const classInput = document.querySelector(`.classes-container-${dayIndex} .class-container:nth-child(${classIndex + 1}) .class-autocomplete`);
+    if (classInput) {
+      const className = classData[FIELD_HANDLES.CLASS] || classData.className || '';
+      classInput.value = className;
+      
+      // Trigger subclass handling
+      handleClassSelection(dayIndex, classIndex, className);
+      
+      // Set subclass if exists
+      if (classData.subClass) {
+        setTimeout(() => {
+          const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
+          if (subclassSelect) {
+            subclassSelect.value = classData.subClass;
+          }
+        }, 50);
+      }
+    }
+    
+    // Set number of rounds and generate them
+    const numRoundsInput = document.getElementById(`numRounds_${dayIndex}_${classIndex}`);
+    if (numRoundsInput && classData.rounds) {
+      numRoundsInput.value = classData.rounds.length;
+      generateRounds(dayIndex, classIndex);
+      
+      // Wait for rounds to generate, then populate
+      setTimeout(() => {
+        populateExistingRounds(classData, dayIndex, classIndex);
+      }, 100);
+    }
+  });
+}
+
+function populateExistingRounds(classData, dayIndex, classIndex) {
+  if (!classData.rounds) return;
+  
+  classData.rounds.forEach((roundData, roundIndex) => {
+    const roundContainer = document.querySelector(`.rounds-container-${dayIndex}-${classIndex} .round-container:nth-child(${roundIndex + 1})`);
+    if (roundContainer) {
+      // Set judge name
+      const judgeInput = roundContainer.querySelector('.judge-autocomplete');
+      if (judgeInput) {
+        judgeInput.value = roundData[FIELD_HANDLES.JUDGE] || roundData.judge || '';
+      }
+      
+      // Set FEO checkbox
+      const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+      if (feoCheckbox) {
+        feoCheckbox.checked = roundData.feoAvailable || false;
+      }
+    }
+  });
+}
+
+function makeFormReadOnly() {
+  // Disable all inputs except the back button
+  const inputs = document.querySelectorAll('input, select, button');
+  inputs.forEach(input => {
+    if (!input.classList.contains('back-button')) {
+      input.disabled = true;
+    }
+  });
+  
+  // Change submit button text and keep it disabled
+  const submitButton = document.querySelector('button[type="submit"]');
+  if (submitButton) {
+    submitButton.textContent = 'View Only - Cannot Edit';
+    submitButton.style.backgroundColor = '#6c757d';
+  }
+}
+    
     // ========================================
     // ENHANCED ENTER KEY HANDLING FIX
     // ========================================
