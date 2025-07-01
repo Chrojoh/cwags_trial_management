@@ -849,12 +849,12 @@ if (finalClassIndex >= currentTrial.days[dayIndex].classes.length) {
                 
                 if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
                     const entryItem = {
-                        id: doc.id + '_' + selectedEntry.entryId,
-                        handlerName: entry.handlerName,
-                        dogCallName: entry.dogCallName,
-                        entryType: selectedEntry.type,
-                        originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
-                    };
+    id: doc.id + '_' + selectedEntry.entryId,
+    handlerName: entry.handlerName.split(' ')[0], // Only first name
+    dogCallName: entry.dogCallName,
+    entryType: selectedEntry.type,
+    originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
+};
                     runningOrderData[dayIndex].rounds[roundKey].entries.push(entryItem);
                     originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
                     
