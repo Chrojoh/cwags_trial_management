@@ -807,7 +807,7 @@ if (!entriesSnapshot.empty) {
     const dayIndex = selectedEntry.dayIndex;
     console.log('  🔍 Available classes for day', dayIndex + 1, ':', currentTrial.days[dayIndex].classes.map(c => c.className || c.class || c.CLASS_NAME));
     
-   // Handle different field name possibilities for class matching
+  // Handle different field name possibilities for class matching
 let classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
     const clsName = c.className || c.class || c.CLASS_NAME || '';
     console.log('    🔎 Comparing:', clsName, 'vs', selectedEntry.className);
