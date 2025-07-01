@@ -1639,15 +1639,35 @@ if (!className) {
                                 <div class="rounds-container">
                         `;
 
-                        if (cls.rounds && cls.rounds.length > 0) {
-                            cls.rounds.forEach((round, roundIndex) => {
-                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
-                                const roundName = `Round ${roundIndex + 1}`;
-                                
-                                // Calculate fees
-                                const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
-                                const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
-                                const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
+                       if (cls.rounds && cls.rounds.length > 0) {
+    cls.rounds.forEach((round, roundIndex) => {
+        console.log(`🔍 Raw round data for round ${roundIndex}:`, round);
+        console.log(`🔍 All round properties:`, Object.keys(round));
+        
+        // Try multiple possible field names for judge names
+        let judgeName = null;
+        const possibleJudgeFields = ['judgeName', 'judge', 'JUDGE_NAME', STANDARD_FIELDS.JUDGE_NAME, 'name'];
+        
+        for (const field of possibleJudgeFields) {
+            if (round[field] && round[field].trim()) {
+                judgeName = round[field].trim();
+                console.log(`✅ Found judge name "${judgeName}" in field: ${field}`);
+                break;
+            }
+        }
+        
+        // If no judge name found, use fallback
+        if (!judgeName) {
+            judgeName = 'Judge TBD';
+            console.log(`⚠️ No judge name found, using fallback: ${judgeName}`);
+        }
+        
+        const roundName = `Round ${roundIndex + 1}`;
+        
+        // Calculate fees
+        const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
+        const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
+        const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
                                 
                                 html += `
                                     <div class="round-item">
