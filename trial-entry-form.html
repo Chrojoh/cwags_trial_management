@@ -1256,7 +1256,7 @@ async function loadExistingEntryForEditing(entryId) {
         // Load selected entries after the form is ready
         setTimeout(() => {
             loadExistingSelectedEntries(entryData.selectedEntries);
-        }, 500);
+        }, 1000);
         
         // Update submit button
         const submitBtn = document.getElementById('submitEntry');
@@ -1272,27 +1272,46 @@ async function loadExistingEntryForEditing(entryId) {
     }
 }
 
-function loadExistingSelectedEntries(selectedEntries) {
-    if (!selectedEntries || selectedEntries.length === 0) return;
+function loadExistingSelectedEntries(savedEntries) {
+    if (!savedEntries || savedEntries.length === 0) return;
     
-    // Clear current selections
+    console.log("🔄 Loading saved class selections:", savedEntries);
+    
+    // Clear current selections first
     selectedEntries = [];
     document.querySelectorAll('.entry-button.selected').forEach(btn => {
         btn.classList.remove('selected');
     });
     
     // Apply saved selections
-    selectedEntries.forEach(entry => {
+    savedEntries.forEach(entry => {
+        console.log("🎯 Looking for button for:", entry);
+        
         const button = document.querySelector(
             `[data-class="${entry.className}"][data-round="${entry.roundName}"][data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
         );
         
         if (button) {
+            console.log("✅ Found and selecting button:", entry.className, entry.type);
             button.classList.add('selected');
             selectedEntries.push(entry);
+        } else {
+            console.log("❌ Button not found for:", entry.className, entry.type);
+            
+            // Try a more flexible search
+            const flexibleButton = document.querySelector(
+                `[data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+            );
+            
+            if (flexibleButton) {
+                console.log("✅ Found flexible match:", flexibleButton.dataset);
+                flexibleButton.classList.add('selected');
+                selectedEntries.push(entry);
+            }
         }
     });
     
+    console.log("📊 Final selected entries:", selectedEntries);
     updateEntrySummary();
 }
         
