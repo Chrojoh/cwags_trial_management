@@ -639,22 +639,28 @@ if (!entriesSnapshot.empty) {
         console.log('📝 Processing entry:', entry.handlerName, entry.dogCallName);
         
         if (entry.selectedEntries) {
-            entry.selectedEntries.forEach(selectedEntry => {
-                console.log('  🎯 Selected entry:', selectedEntry);
-                const dayIndex = selectedEntry.dayIndex;
-                
-                // Handle different field name possibilities for class matching
-                const classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
-                    const clsName = c.className || c.class || c.CLASS_NAME || '';
-                    return clsName === selectedEntry.className;
-                });
-                
-                // Use selectedEntry.classIndex as fallback if name matching fails
-                const finalClassIndex = classIndex !== -1 ? classIndex : (selectedEntry.classIndex || 0);
-                const roundKey = `${dayIndex}-${finalClassIndex}-${selectedEntry.roundIndex}`;
-                
-                console.log(`  📍 Mapping to: Day ${dayIndex}, Class ${finalClassIndex}, Round ${selectedEntry.roundIndex}, Key: ${roundKey}`);
-                console.log(`  🔍 Available classes:`, currentTrial.days[dayIndex].classes.map(c => c.className || c.class || c.CLASS_NAME));
+           entry.selectedEntries.forEach(selectedEntry => {
+    console.log('  🎯 Selected entry:', selectedEntry);
+    console.log('  🔍 selectedEntry.classIndex:', selectedEntry.classIndex);
+    console.log('  🔍 selectedEntry.className:', selectedEntry.className);
+    
+    const dayIndex = selectedEntry.dayIndex;
+    console.log('  🔍 Available classes for day', dayIndex + 1, ':', currentTrial.days[dayIndex].classes.map(c => c.className || c.class || c.CLASS_NAME));
+    
+    // Handle different field name possibilities for class matching
+    const classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
+        const clsName = c.className || c.class || c.CLASS_NAME || '';
+        console.log('    🔎 Comparing:', clsName, 'vs', selectedEntry.className);
+        return clsName === selectedEntry.className;
+    });
+    
+    console.log('  🔍 findIndex result:', classIndex);
+    
+    // Use selectedEntry.classIndex as fallback if name matching fails
+    const finalClassIndex = classIndex !== -1 ? classIndex : (selectedEntry.classIndex || 0);
+    const roundKey = `${dayIndex}-${finalClassIndex}-${selectedEntry.roundIndex}`;
+    
+    console.log(`  📍 Mapping to: Day ${dayIndex}, Class ${finalClassIndex}, Round ${selectedEntry.roundIndex}, Key: ${roundKey}`);
                 
                 if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
                     const entryItem = {
