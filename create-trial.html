@@ -387,7 +387,14 @@ function populateExistingDays(trialData) {
     if (dateInput && day.date) {
       dateInput.value = day.date;
     }
-    
+    function populateExistingFees(trialData) {
+  if (trialData.feeConfiguration) {
+    const fees = trialData.feeConfiguration;
+    document.getElementById('regularFee').value = fees.regularFee || 35.00;
+    document.getElementById('feoFee').value = fees.feoFee || 25.00;
+    document.getElementById('juniorHandlerFee').value = fees.juniorHandlerFee || 20.00;
+  }
+}
     // Set number of classes and generate them
     const numClassesInput = document.getElementById(`numClasses_${dayIndex}`);
     if (numClassesInput && day.classes) {
