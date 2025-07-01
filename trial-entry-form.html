@@ -1224,6 +1224,78 @@
             }
         }
 
+// Load existing entry for editing
+async function loadExistingEntryForEditing(entryId) {
+    try {
+        console.log("🔍 Loading entry for editing:", entryId);
+        showStatus('🔄 Loading entry data...', 'info');
+        
+        const entryDoc = await db.collection('entries').doc(entryId).get();
+        
+        if (!entryDoc.exists) {
+            showStatus('❌ Entry not found!', 'error');
+            return;
+        }
+        
+        const entryData = entryDoc.data();
+        console.log("✅ Entry data loaded:", entryData);
+        
+        // Populate form fields
+        document.getElementById('handlerName').value = entryData.handlerName || '';
+        document.getElementById('handlerPhone').value = entryData.handlerPhone || '';
+        document.getElementById('handlerEmail').value = entryData.handlerEmail || '';
+        document.getElementById('emergencyContact').value = entryData.emergencyContact || '';
+        document.getElementById('dogCallName').value = entryData.dogCallName || '';
+        document.getElementById('dogBreed').value = entryData.dogBreed || '';
+        document.getElementById('dogBirthdate').value = entryData.dogBirthdate || '';
+        document.getElementById('dogSex').value = entryData.dogSex || '';
+        document.getElementById('cwagsNumber').value = entryData.cwagsNumber || '';
+        document.getElementById('juniorHandler').value = entryData.juniorHandler ? 'Yes' : 'No';
+        document.getElementById('waiverAccepted').checked = true;
+        
+        // Load selected entries after the form is ready
+        setTimeout(() => {
+            loadExistingSelectedEntries(entryData.selectedEntries);
+        }, 500);
+        
+        // Update submit button
+        const submitBtn = document.getElementById('submitEntry');
+        if (submitBtn) {
+            submitBtn.textContent = 'Update Entry';
+        }
+        
+        showStatus('✅ Entry loaded for editing!', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error loading entry:', error);
+        showStatus('❌ Error loading entry: ' + error.message, 'error');
+    }
+}
+
+function loadExistingSelectedEntries(selectedEntries) {
+    if (!selectedEntries || selectedEntries.length === 0) return;
+    
+    // Clear current selections
+    selectedEntries = [];
+    document.querySelectorAll('.entry-button.selected').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Apply saved selections
+    selectedEntries.forEach(entry => {
+        const button = document.querySelector(
+            `[data-class="${entry.className}"][data-round="${entry.roundName}"][data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+        );
+        
+        if (button) {
+            button.classList.add('selected');
+            selectedEntries.push(entry);
+        }
+    });
+    
+    updateEntrySummary();
+}
+        
         // Setup secretary view with authentication
         async function setupSecretaryView() {
             try {
