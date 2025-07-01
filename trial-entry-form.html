@@ -1950,22 +1950,25 @@ if (!className) {
                 
                 console.log("📝 Entry data prepared:", entryData);
                 
-                // Check if we're editing an existing entry
+            // Check if we're editing an existing entry
 const urlParams = new URLSearchParams(window.location.search);
 const editingEntryId = urlParams.get('entry');
+let entryId;
 
 if (editingEntryId) {
     // Update existing entry
     await db.collection("entries").doc(editingEntryId).update(entryData);
     console.log("✅ Entry updated with ID:", editingEntryId);
+    entryId = editingEntryId;
 } else {
     // Create new entry
     const docRef = await db.collection("entries").add(entryData);
     console.log("✅ Entry saved with ID:", docRef.id);
+    entryId = docRef.id;
 }
-                
-                // Update running order automatically
-                await updateRunningOrderOnEntry(entryData, docRef.id);
+
+// Update running order automatically
+await updateRunningOrderOnEntry(entryData, entryId);
                 
                 // Show success message
                 document.getElementById('entryForm').style.display = 'none';
