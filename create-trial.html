@@ -746,8 +746,7 @@ function makeFormReadOnly() {
         
         console.log("Saving trial data with correct field handles:", trialData);
         
-        let docRef;
-if (isEditMode && currentTrialData) {
+      if (isEditMode && currentTrialData) {
   // Update existing trial
   const urlParams = new URLSearchParams(window.location.search);
   const trialId = urlParams.get('id');
@@ -756,23 +755,21 @@ if (isEditMode && currentTrialData) {
   alert("Trial updated successfully!");
 } else {
   // Create new trial
-  docRef = await db.collection('trials').add(trialData);
+  const docRef = await db.collection('trials').add(trialData);
   console.log("Trial saved with ID:", docRef.id);
   alert("Trial saved successfully!");
 }
-        console.log("Trial saved with ID:", docRef.id);
-        alert("Trial saved successfully!");
-        
-        // Reset form
-        document.getElementById('trialForm').reset();
-        document.getElementById('daysContainer').innerHTML = '';
-        
-        // Reset button
-        submitButton.textContent = originalText;
-        submitButton.disabled = false;
-        
-        // Go back to dashboard
-        window.location.href = "trial-secretary-dashboard.html";
+
+// Reset form
+document.getElementById('trialForm').reset();
+document.getElementById('daysContainer').innerHTML = '';
+
+// Reset button
+submitButton.textContent = originalText;
+submitButton.disabled = false;
+
+// Go back to dashboard
+window.location.href = "trial-secretary-dashboard.html";
         
       } catch (error) {
         console.error("Error saving trial:", error);
