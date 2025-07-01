@@ -1560,17 +1560,19 @@ function loadExistingSelectedEntries(savedEntries) {
         }
 
         // Generate tabbed classes from trial data
-        function generateTabbedClasses() {
-            console.log("🎯 Generating tabbed classes from trial data");
-            
-            if (!currentTrialData.days || currentTrialData.days.length === 0) {
-                console.warn("❌ No days data found");
-                document.getElementById('classEntriesContainer').innerHTML = 
-                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
-                return;
-            }
+function generateTabbedClasses() {
+    console.log("🎯 Generating tabbed classes from trial data");
+    console.log("🔍 Current trial data:", currentTrialData);
+    
+    if (!currentTrialData.days || currentTrialData.days.length === 0) {
+        console.warn("❌ No days data found");
+        document.getElementById('classEntriesContainer').innerHTML = 
+            '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
+        return;
+    }
 
-            console.log(`📅 Processing ${currentTrialData.days.length} days`);
+    console.log(`📅 Processing ${currentTrialData.days.length} days`);
+    console.log("🔍 Days structure:", currentTrialData.days);
 
             // Generate day tabs
             const dayTabsContainer = document.getElementById('dayTabs');
