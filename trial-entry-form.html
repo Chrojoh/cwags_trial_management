@@ -903,48 +903,284 @@
             }
         }
 
-        // Load registration data from Firebase registry - CORRECTED VERSION
-async function loadRegistrationData() {
-    try {
-        console.log("📊 Loading registration data from Firebase registry...");
-        showStatus('🔄 Loading registration data...', 'info');
-        
-        // Load from Firebase registry collection (NOT system_data)
-        console.log("📊 Loading from Firebase registrations collection...");
-        const registrationsSnapshot = await db.collection('registrations').get();
-        
-        if (!registrationsSnapshot.empty) {
-            registrationData = [];
-            registrationsSnapshot.forEach(doc => {
-                const regData = { id: doc.id, ...doc.data() };
-                registrationData.push(regData);
+        // Load registration data from Firebase registry
+        async function loadRegistrationData() {
+            try {
+                console.log("📊 Loading registration data from Firebase registry...");
+                showStatus('🔄 Loading registration data...', 'info');
+                
+                // Load from Firebase registry collection
+                const registrationsSnapshot = await db.collection('registrations').get();
+                
+                if (!registrationsSnapshot.empty) {
+                    registrationData = [];
+                    registrationsSnapshot.forEach(doc => {
+                        const regData = { id: doc.id, ...doc.data() };
+                        registrationData.push(regData);
+                    });
+                    
+                    console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
+                    console.log("📋 Sample registrations:", registrationData.slice(0, 2));
+                    showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
+                } else {
+                    console.log("📊 No registrations found in Firebase registry");
+                    registrationData = [];
+                    showStatus('ℹ️ No registrations in registry yet. New entries will be saved.', 'info');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error loading registration data:", error);
+                registrationData = [];
+                showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
+            }
+        }
+
+        // Check for existing entries for this C-WAGS number and trial
+        async function checkForExistingEntry(cwagsNumber, trialId) {
+            if (!cwagsNumber || !trialId) return null;
+            
+            try {
+                console.log(`🔍 Checking for existing entry: ${cwagsNumber} in trial ${trialId}`);
+                
+                const entriesSnapshot = await db.collection('entries')
+                    .where('cwagsNumber', '==', cwagsNumber)
+                    .where('trialId', '==', trialId)
+                    .get();
+                
+                if (!entriesSnapshot.empty) {
+                    const existingEntry = entriesSnapshot.docs[0];
+                    console.log('✅ Found existing entry:', existingEntry.id);
+                    return { id: existingEntry.id, ...existingEntry.data() };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error checking for existing entry:', error);
+                return null;
+            }
+        }
+
+        // Load existing entry data into form
+        function loadExistingEntry(entryData) {
+            console.log('📝 Loading existing entry data:', entryData);
+            
+            // Clear current selections
+            selectedEntries = [];
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
             });
             
-            console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
-            console.log("📋 Sample registrations:", registrationData.slice(0, 2));
-            // 🔍 ADD THESE DEBUG LINES:
-if (registrationData.length > 0) {
-    console.log("🔍 DEBUGGING: First registration fields:", Object.keys(registrationData[0]));
-    console.log("🔍 DEBUGGING: First registration sample:", registrationData[0]);
-    console.log("🔍 DEBUGGING: C-WAGS field check:", {
-        cwagsNumber: registrationData[0].cwagsNumber,
-        cwag: registrationData[0].cwag,
-        'C-WAGS Number': registrationData[0]['C-WAGS Number']
-    });
-}
-            showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
-        } else {
-            console.log("📊 No registrations found in Firebase registry");
-            registrationData = [];
-            showStatus('ℹ️ No registrations in registry yet. New entries will be saved.', 'info');
+            // Load the selected entries
+            if (entryData.selectedEntries) {
+                entryData.selectedEntries.forEach(selectedEntry => {
+                    const button = document.querySelector(
+                        `[data-class="${selectedEntry.className}"][data-round="${selectedEntry.roundName}"][data-type="${selectedEntry.type}"][data-day="${selectedEntry.dayIndex}"][data-round-index="${selectedEntry.roundIndex}"]`
+                    );
+                    
+                    if (button) {
+                        button.classList.add('selected');
+                        selectedEntries.push(selectedEntry);
+                    }
+                });
+            }
+
+            // Submit button
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', submitEntry);
+            }
         }
-        
-    } catch (error) {
-        console.error("❌ Error loading registration data:", error);
-        registrationData = [];
-        showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
-    }
-}
+
+        // Check form validity
+        function checkFormValidity() {
+            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
+            const handlerName = document.getElementById('handlerName')?.value.trim();
+            const dogCallName = document.getElementById('dogCallName')?.value.trim();
+            const hasClasses = selectedEntries.length > 0;
+            
+            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
+            
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.disabled = !isValid;
+            }
+            
+            return isValid;
+        }
+
+        // Submit entry
+        async function submitEntry() {
+            console.log("🚀 Starting entry submission...");
+            
+            if (!checkFormValidity()) {
+                showStatus('Please complete all required fields and select at least one class.', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitEntry');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                // Collect form data with class index for running order
+                const entryData = {
+                    trialId: currentTrialData.id,
+                    trialName: currentTrialData.clubName,
+                    [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
+                    handlerEmail: document.getElementById('handlerEmail').value.trim(),
+                    handlerPhone: document.getElementById('handlerPhone').value.trim(),
+                    emergencyContact: document.getElementById('emergencyContact').value.trim(),
+                    [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
+                    dogBreed: document.getElementById('dogBreed').value.trim(),
+                    dogBirthdate: document.getElementById('dogBirthdate').value,
+                    dogSex: document.getElementById('dogSex').value,
+                    [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
+                    juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+                    selectedEntries: selectedEntries.map(entry => ({
+                        ...entry,
+                        // Add class index for running order mapping
+                        classIndex: currentTrialData.days[entry.dayIndex].classes.findIndex(c => 
+                            c.className === entry.className || c[STANDARD_FIELDS.CLASS_NAME] === entry.className
+                        )
+                    })),
+                    totalFee: totalFee,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    waiverAccepted: true
+                };
+                
+                console.log("📝 Entry data prepared:", entryData);
+                
+                // Save entry to Firebase
+                const docRef = await db.collection("entries").add(entryData);
+                console.log("✅ Entry saved with ID:", docRef.id);
+                
+                // Update running order automatically
+                await updateRunningOrderOnEntry(entryData, docRef.id);
+                
+                // Show success message
+                document.getElementById('entryForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                showStatus('✅ Entry submitted and running order updated!', 'success');
+                
+            } catch (error) {
+                console.error("❌ Error submitting entry:", error);
+                showStatus("Error submitting entry: " + error.message, 'error');
+                
+                // Reset button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Update running order when entry is submitted
+        async function updateRunningOrderOnEntry(entryData, entryId) {
+            try {
+                console.log('📊 Updating running order for new entry...');
+                
+                // Load existing running order or create new one
+                let runningOrderDoc;
+                try {
+                    runningOrderDoc = await db.collection('running_orders').doc(entryData.trialId).get();
+                } catch (error) {
+                    console.log('No existing running order found, will create new structure');
+                }
+                
+                let roundOrders = {};
+                if (runningOrderDoc && runningOrderDoc.exists) {
+                    roundOrders = runningOrderDoc.data().roundOrders || {};
+                }
+                
+                // Add each selected entry to appropriate round
+                entryData.selectedEntries.forEach(selectedEntry => {
+                    const roundKey = `${selectedEntry.dayIndex}-${selectedEntry.classIndex || 0}-${selectedEntry.roundIndex}`;
+                    
+                    // Create the entry ID for running order
+                    const runningOrderEntryId = entryId + '_' + selectedEntry.entryId;
+                    
+                    // Initialize round array if it doesn't exist
+                    if (!roundOrders[roundKey]) {
+                        roundOrders[roundKey] = [];
+                    }
+                    
+                    // Add entry to the end of the running order (if not already present)
+                    if (!roundOrders[roundKey].includes(runningOrderEntryId)) {
+                        roundOrders[roundKey].push(runningOrderEntryId);
+                        console.log(`✅ Added to running order: ${entryData.handlerName} - ${entryData.dogCallName} in round ${roundKey}`);
+                    }
+                });
+                
+                // Save updated running order
+                await db.collection('running_orders').doc(entryData.trialId).set({
+                    trialId: entryData.trialId,
+                    trialName: entryData.trialName,
+                    roundOrders: roundOrders,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: entryData.submittedBy || 'entry_form'
+                }, { merge: true });
+                
+                console.log('📊 Running order updated successfully');
+                
+            } catch (error) {
+                console.error('❌ Error updating running order:', error);
+                // Don't fail the entry submission if running order update fails
+            }
+        }
+
+        // Reset form for another entry
+        function resetForm() {
+            // Reset form fields
+            document.getElementById('entryForm').reset();
+            
+            // Clear selected entries
+            selectedEntries = [];
+            totalFee = 0;
+            
+            // Clear all selected buttons
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Update display
+            updateEntrySummary();
+            checkFormValidity();
+            
+            // Hide success message and show form
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('entryForm').style.display = 'block';
+            
+            // Clear lookup status
+            hideLookupStatus();
+            
+            console.log("📝 Form reset for new entry");
+            showStatus('Form reset for new entry', 'info');
+        }
+
+        // Make functions globally accessible
+        window.showDay = showDay;
+        window.toggleEntry = toggleEntry;
+        window.copyShareableLink = copyShareableLink;
+        window.testShareableLink = testShareableLink;
+        window.resetForm = resetForm;
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("🎯 DOM loaded, initializing entry form...");
+            init();
+        });
+
+        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
+    </script>
+</body>
+</html>
+            
+            updateEntrySummary();
+            showStatus('✅ Loaded existing entry - you can modify and re-submit', 'success');
+        }
 
         // Setup secretary view with authentication
         async function setupSecretaryView() {
@@ -1027,59 +1263,6 @@ if (registrationData.length > 0) {
             }
         }
 
-// Check for existing entries for this C-WAGS number and trial
-async function checkForExistingEntry(cwagsNumber, trialId) {
-    if (!cwagsNumber || !trialId) return null;
-    
-    try {
-        console.log(`🔍 Checking for existing entry: ${cwagsNumber} in trial ${trialId}`);
-        
-        const entriesSnapshot = await db.collection('entries')
-            .where('cwagsNumber', '==', cwagsNumber)
-            .where('trialId', '==', trialId)
-            .get();
-        
-        if (!entriesSnapshot.empty) {
-            const existingEntry = entriesSnapshot.docs[0];
-            console.log('✅ Found existing entry:', existingEntry.id);
-            return { id: existingEntry.id, ...existingEntry.data() };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('Error checking for existing entry:', error);
-        return null;
-    }
-}
-
-// Load existing entry data into form
-function loadExistingEntry(entryData) {
-    console.log('📝 Loading existing entry data:', entryData);
-    
-    // Clear current selections
-    selectedEntries = [];
-    document.querySelectorAll('.entry-button.selected').forEach(btn => {
-        btn.classList.remove('selected');
-    });
-    
-    // Load the selected entries
-    if (entryData.selectedEntries) {
-        entryData.selectedEntries.forEach(selectedEntry => {
-            const button = document.querySelector(
-                `[data-class="${selectedEntry.className}"][data-round="${selectedEntry.roundName}"][data-type="${selectedEntry.type}"][data-day="${selectedEntry.dayIndex}"][data-round-index="${selectedEntry.roundIndex}"]`
-            );
-            
-            if (button) {
-                button.classList.add('selected');
-                selectedEntries.push(selectedEntry);
-            }
-        });
-    }
-    
-    updateEntrySummary();
-    showStatus('✅ Loaded existing entry - you can modify and re-submit', 'success');
-}
-        
         // Load specific trial for public entry
         async function loadSpecificTrial(trialId) {
             try {
@@ -1536,126 +1719,96 @@ function loadExistingEntry(entryData) {
             statusDiv.style.display = 'none';
         }
 
-        // IMMEDIATE FIX: Update populateForm function to handle swapped fields
-
-function populateForm(registration) {
-    console.log("📝 Populating form with registration data:", registration);
-    console.log("⚠️ NOTE: Registry has swapped field names - compensating");
-    
-    // ⚠️ SWAPPED: In your registry, handlerName actually contains the dog name
-    const actualHandlerName = registration.dogCallName;  // Handler name is in dogCallName field
-    if (actualHandlerName) {
-        const handlerField = document.getElementById('handlerName');
-        handlerField.value = actualHandlerName;
-        handlerField.style.background = '#e7f3ff';
-        setTimeout(() => handlerField.style.background = '', 3000);
-    }
-    
-    // ⚠️ SWAPPED: In your registry, dogCallName actually contains the handler name  
-    const actualDogName = registration.handlerName;  // Dog name is in handlerName field
-    if (actualDogName) {
-        const dogField = document.getElementById('dogCallName');
-        dogField.value = actualDogName;
-        dogField.style.background = '#e7f3ff';
-        setTimeout(() => dogField.style.background = '', 3000);
-    }
-    
-    // These fields should be correct
-    if (registration.handlerEmail) {
-        document.getElementById('handlerEmail').value = registration.handlerEmail;
-    }
-    
-    if (registration.handlerPhone) {
-        document.getElementById('handlerPhone').value = registration.handlerPhone;
-    }
-    
-    if (registration.emergencyContact) {
-        document.getElementById('emergencyContact').value = registration.emergencyContact;
-    }
-    
-    if (registration.dogBreed) {
-        document.getElementById('dogBreed').value = registration.dogBreed;
-    }
-    
-    if (registration.dogBirthdate) {
-        document.getElementById('dogBirthdate').value = registration.dogBirthdate;
-    }
-    
-    if (registration.dogSex) {
-        document.getElementById('dogSex').value = registration.dogSex;
-    }
-    
-    if (registration.juniorHandler !== undefined) {
-        document.getElementById('juniorHandler').value = registration.juniorHandler ? 'Yes' : 'No';
-    }
-}
-
-// And fix the lookup function with correct field name:
-async function autoFillFromRegistration(cwagsNumber) {
-    showLookupStatus('🔍 Looking up registration...', 'info');
-    
-    try {
-        console.log("🔍 Looking up registration:", cwagsNumber);
-        console.log("📊 Available registrations:", registrationData.length);
-        
-        // ✅ FIXED: Search using the correct field name 'cwagsNumber'
-        const matchingRegistration = registrationData.find(record => {
-            const recordCwag = String(record.cwagsNumber || '').trim();
-            const searchCwag = String(cwagsNumber).trim();
+        // Auto-fill from registration data with enhanced fields
+        async function autoFillFromRegistration(cwagsNumber) {
+            showLookupStatus('🔍 Looking up registration...', 'info');
             
-            return recordCwag === searchCwag || 
-                   recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
-        });
-        
-        if (matchingRegistration) {
-            console.log("✅ Found matching registration:", matchingRegistration);
-            showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
-            populateForm(matchingRegistration);
-             // NEW: Also check for existing entry
-    if (currentTrialData) {
-        const existingEntry = await checkForExistingEntry(cwagsNumber, currentTrialData.id);
-        if (existingEntry) {
-            loadExistingEntry(existingEntry);
+            try {
+                console.log("🔍 Looking up registration:", cwagsNumber);
+                console.log("📊 Available registrations:", registrationData.length);
+                
+                // Search in registration data
+                const matchingRegistration = registrationData.find(record => {
+                    const recordCwag = String(record.cwagsNumber || record.cwag || '').trim();
+                    const searchCwag = String(cwagsNumber).trim();
+                    
+                    return recordCwag === searchCwag || 
+                           recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
+                });
+                
+                if (matchingRegistration) {
+                    console.log("✅ Found matching registration:", matchingRegistration);
+                    showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
+                    populateForm(matchingRegistration);
+                    
+                    // Check for existing entry
+                    if (currentTrialData) {
+                        const existingEntry = await checkForExistingEntry(cwagsNumber, currentTrialData.id);
+                        if (existingEntry) {
+                            loadExistingEntry(existingEntry);
+                        }
+                    }
+                } else {
+                    console.log("❌ No matching registration found for:", cwagsNumber);
+                    showLookupStatus('ℹ️ Registration number not found. Information will be saved when you submit.', 'warning');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error during registration lookup:", error);
+                showLookupStatus('❌ Error looking up registration', 'error');
+            }
         }
-    }
-}
-         else {
-            console.log("❌ No matching registration found");
-            
-            // Show sample registration numbers for debugging
-            const sampleRegistrations = registrationData.slice(0, 5).map(r => r.cwagsNumber || 'No C-WAGS#');
-            console.log("📋 Sample registration numbers in database:", sampleRegistrations);
-            
-            showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
-        
-        
-         } catch (error) {
-        console.error("❌ Error during registration lookup:", error);
-        showLookupStatus('❌ Error looking up registration', 'error');
-    }
- 
 
         // Populate form with registration data
         function populateForm(registration) {
             console.log("📝 Populating form with registration data:", registration);
             
             // Handler name (swapped because registry has fields backwards)
-const handlerName = registration.dogCallName || registration.dog;
-if (handlerName) {
-    const handlerField = document.getElementById('handlerName');
-    handlerField.value = handlerName;
-    handlerField.style.background = '#e7f3ff';
-    setTimeout(() => handlerField.style.background = '', 3000);
-}
+            const handlerName = registration.dogCallName || registration.dog;
+            if (handlerName) {
+                const handlerField = document.getElementById('handlerName');
+                handlerField.value = handlerName;
+                handlerField.style.background = '#e7f3ff';
+                setTimeout(() => handlerField.style.background = '', 3000);
+            }
 
-// Dog name (swapped because registry has fields backwards)
-const dogName = registration.handlerName || registration.handler;
-if (dogName) {
-    const dogField = document.getElementById('dogCallName');
-    dogField.value = dogName;
-    dogField.style.background = '#e7f3ff';
-    setTimeout(() => dogField.style.background = '', 3000);
-}
+            // Dog name (swapped because registry has fields backwards)
+            const dogName = registration.handlerName || registration.handler;
+            if (dogName) {
+                const dogField = document.getElementById('dogCallName');
+                dogField.value = dogName;
+                dogField.style.background = '#e7f3ff';
+                setTimeout(() => dogField.style.background = '', 3000);
+            }
+            
+            // Fill other fields if available
+            if (registration.handlerEmail) {
+                document.getElementById('handlerEmail').value = registration.handlerEmail;
+            }
+            
+            if (registration.handlerPhone) {
+                document.getElementById('handlerPhone').value = registration.handlerPhone;
+            }
+            
+            if (registration.emergencyContact) {
+                document.getElementById('emergencyContact').value = registration.emergencyContact;
+            }
+            
+            if (registration.dogBreed) {
+                document.getElementById('dogBreed').value = registration.dogBreed;
+            }
+            
+            if (registration.dogBirthdate) {
+                document.getElementById('dogBirthdate').value = registration.dogBirthdate;
+            }
+            
+            if (registration.dogSex) {
+                document.getElementById('dogSex').value = registration.dogSex;
+            }
+            
+            if (registration.juniorHandler !== undefined) {
+                document.getElementById('juniorHandler').value = registration.juniorHandler ? 'Yes' : 'No';
+            }
         }
 
         // Setup form event listeners
@@ -1701,199 +1854,3 @@ if (dogName) {
                         generateTabbedClasses();
                     }
                     updateEntrySummary();
-                });
-            }
-
-            // Submit button
-            const submitBtn = document.getElementById('submitEntry');
-            if (submitBtn) {
-                submitBtn.addEventListener('click', submitEntry);
-            }
-        }
-
-        // Check form validity
-        function checkFormValidity() {
-            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
-            const handlerName = document.getElementById('handlerName')?.value.trim();
-            const dogCallName = document.getElementById('dogCallName')?.value.trim();
-            const hasClasses = selectedEntries.length > 0;
-            
-            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
-            
-            const submitBtn = document.getElementById('submitEntry');
-            if (submitBtn) {
-                submitBtn.disabled = !isValid;
-            }
-            
-            return isValid;
-        }
-
-// Submit entry
-async function submitEntry() {
-    console.log("🚀 Starting entry submission...");
-    
-    if (!checkFormValidity()) {
-        showStatus('Please complete all required fields and select at least one class.', 'error');
-        return;
-    }
-    
-    const submitBtn = document.getElementById('submitEntry');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
-    
-    try {
-        // Collect form data with class index for running order
-        const entryData = {
-            trialId: currentTrialData.id,
-            trialName: currentTrialData.clubName,
-            [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
-            handlerEmail: document.getElementById('handlerEmail').value.trim(),
-            handlerPhone: document.getElementById('handlerPhone').value.trim(),
-            emergencyContact: document.getElementById('emergencyContact').value.trim(),
-            [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
-            dogBreed: document.getElementById('dogBreed').value.trim(),
-            dogBirthdate: document.getElementById('dogBirthdate').value,
-            dogSex: document.getElementById('dogSex').value,
-            [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
-            juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
-            selectedEntries: selectedEntries.map(entry => ({
-                ...entry,
-                // Add class index for running order mapping
-                classIndex: currentTrialData.days[entry.dayIndex].classes.findIndex(c => 
-                    c.className === entry.className || c[STANDARD_FIELDS.CLASS_NAME] === entry.className
-                )
-            })),
-            totalFee: totalFee,
-            submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            waiverAccepted: true
-        };
-        
-        console.log("📝 Entry data prepared:", entryData);
-        
-        // Save entry to Firebase
-        const docRef = await db.collection("entries").add(entryData);
-        console.log("✅ Entry saved with ID:", docRef.id);
-        
-        // Update running order automatically
-        await updateRunningOrderOnEntry(entryData, docRef.id);
-        
-        // Show success message
-        document.getElementById('entryForm').style.display = 'none';
-        document.getElementById('successMessage').style.display = 'block';
-        
-        // Scroll to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-        showStatus('✅ Entry submitted and running order updated!', 'success');
-        
-    } catch (error) {
-        console.error("❌ Error submitting entry:", error);
-        showStatus("Error submitting entry: " + error.message, 'error');
-        
-        // Reset button
-        submitBtn.textContent = originalText;
-        submitBtn.disabled = false;
-    }
-}
-
-// Update running order when entry is submitted
-async function updateRunningOrderOnEntry(entryData, entryId) {
-    try {
-        console.log('📊 Updating running order for new entry...');
-        
-        // Load existing running order or create new one
-        let runningOrderDoc;
-        try {
-            runningOrderDoc = await db.collection('running_orders').doc(entryData.trialId).get();
-        } catch (error) {
-            console.log('No existing running order found, will create new structure');
-        }
-        
-        let roundOrders = {};
-        if (runningOrderDoc && runningOrderDoc.exists) {
-            roundOrders = runningOrderDoc.data().roundOrders || {};
-        }
-        
-        // Add each selected entry to appropriate round
-        entryData.selectedEntries.forEach(selectedEntry => {
-            const roundKey = `${selectedEntry.dayIndex}-${selectedEntry.classIndex || 0}-${selectedEntry.roundIndex}`;
-            
-            // Create the entry ID for running order
-            const runningOrderEntryId = entryId + '_' + selectedEntry.entryId;
-            
-            // Initialize round array if it doesn't exist
-            if (!roundOrders[roundKey]) {
-                roundOrders[roundKey] = [];
-            }
-            
-            // Add entry to the end of the running order (if not already present)
-            if (!roundOrders[roundKey].includes(runningOrderEntryId)) {
-                roundOrders[roundKey].push(runningOrderEntryId);
-                console.log(`✅ Added to running order: ${entryData.handlerName} - ${entryData.dogCallName} in round ${roundKey}`);
-            }
-        });
-        
-        // Save updated running order
-        await db.collection('running_orders').doc(entryData.trialId).set({
-            trialId: entryData.trialId,
-            trialName: entryData.trialName,
-            roundOrders: roundOrders,
-            lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: entryData.submittedBy || 'entry_form'
-        }, { merge: true });
-        
-        console.log('📊 Running order updated successfully');
-        
-    } catch (error) {
-        console.error('❌ Error updating running order:', error);
-        // Don't fail the entry submission if running order update fails
-    }
-}
-
-// Reset form for another entry
-function resetForm() {
-    // Reset form fields
-    document.getElementById('entryForm').reset();
-    
-    // Clear selected entries
-    selectedEntries = [];
-    totalFee = 0;
-    
-    // Clear all selected buttons
-    document.querySelectorAll('.entry-button.selected').forEach(btn => {
-        btn.classList.remove('selected');
-    });
-    
-    // Update display
-    updateEntrySummary();
-    checkFormValidity();
-    
-    // Hide success message and show form
-    document.getElementById('successMessage').style.display = 'none';
-    document.getElementById('entryForm').style.display = 'block';
-    
-    // Clear lookup status
-    hideLookupStatus();
-    
-    console.log("📝 Form reset for new entry");
-    showStatus('Form reset for new entry', 'info');
-}
-
-// Make functions globally accessible
-window.showDay = showDay;
-window.toggleEntry = toggleEntry;
-window.copyShareableLink = copyShareableLink;
-window.testShareableLink = testShareableLink;
-window.resetForm = resetForm;
-
-// Initialize when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("🎯 DOM loaded, initializing entry form...");
-    init();
-});
-
-console.log("🎯 Fixed Trial Entry Form script loaded successfully");
-    </script>
-</body>
-</html>
