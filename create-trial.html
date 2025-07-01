@@ -101,6 +101,58 @@
       <input type="text" name="secretary" placeholder="Trial Secretary" style="width: 300px; padding: 5px;"
              onkeydown="handleEnterKey(event)">
     </div>
+
+<div style="margin-bottom: 15px;">
+  <label>Trial Secretary:</label><br>
+  <input type="text" name="secretary" placeholder="Trial Secretary" style="width: 300px; padding: 5px;"
+         onkeydown="handleEnterKey(event)">
+</div>
+
+<!-- ADD THE FEE CONFIGURATION SECTION HERE -->
+<div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border: 2px solid #0066cc; border-radius: 8px;">
+  <h3 style="color: #0066cc; margin-bottom: 15px;">💰 Entry Fee Configuration</h3>
+  <p style="color: #666; margin-bottom: 15px;">Set the entry fees for this trial. These will be used in the entry form.</p>
+  
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+    <div>
+      <label style="display: block; font-weight: 600; margin-bottom: 5px;">Regular Entry Fee ($)</label>
+      <input type="number" id="regularFee" step="0.01" min="0" value="35.00" 
+             style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+             onkeydown="handleEnterKey(event)">
+      <small style="color: #666;">Standard entry fee</small>
+    </div>
+    
+    <div>
+      <label style="display: block; font-weight: 600; margin-bottom: 5px;">FEO Entry Fee ($)</label>
+      <input type="number" id="feoFee" step="0.01" min="0" value="25.00" 
+             style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+             onkeydown="handleEnterKey(event)">
+      <small style="color: #666;">For Exhibition Only fee</small>
+    </div>
+    
+    <div>
+      <label style="display: block; font-weight: 600; margin-bottom: 5px;">Junior Handler Fee ($)</label>
+      <input type="number" id="juniorHandlerFee" step="0.01" min="0" value="20.00" 
+             style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+             onkeydown="handleEnterKey(event)">
+      <small style="color: #666;">Reduced fee for handlers under 18</small>
+    </div>
+  </div>
+  
+  <div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px;">
+    <small style="color: #0066cc;">
+      💡 <strong>Note:</strong> Junior handlers will pay the Junior Handler Fee regardless of Regular/FEO selection. 
+      Set any fee to $0.00 to hide that option in the entry form.
+    </small>
+  </div>
+</div>
+
+<div style="margin-bottom: 15px;">
+  <label>How many days?</label><br>
+  <input type="number" id="numDays" min="1" max="10" style="width: 100px; padding: 5px;"
+         onkeydown="handleEnterKey(event)">
+  <button type="button" onclick="generateDays()">Create Days</button>
+</div>
     
     <div style="margin-bottom: 15px;">
       <label>How many days?</label><br>
