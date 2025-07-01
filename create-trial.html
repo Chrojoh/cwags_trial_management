@@ -794,18 +794,21 @@ function makeFormReadOnly() {
     // INITIALIZATION
     // ========================================
     async function initializePage() {
-      console.log("Initializing create trial page...");
-      
-      // Load data from dataforsite.xlsx
-      await loadDataFromExcel();
-      
-      console.log("Page initialized with data:", {
-        classes: globalClasses.length,
-        judges: globalJudges.length,
-        cwagsNumbers: globalCwagsNumbers.length,
-        dogNames: globalDogNames.length
-      });
-    }
+  console.log("Initializing create trial page...");
+  
+  // Load data from dataforsite.xlsx
+  await loadDataFromExcel();
+  
+  // Check if we're editing an existing trial
+  await checkForExistingTrial();
+  
+  console.log("Page initialized with data:", {
+    classes: globalClasses.length,
+    judges: globalJudges.length,
+    cwagsNumbers: globalCwagsNumbers.length,
+    dogNames: globalDogNames.length
+  });
+}
 
     // Make functions globally accessible
     window.generateDays = generateDays;
