@@ -1024,7 +1024,7 @@ if (!entriesSnapshot.empty) {
                 
                 // Header row with date
                 csvContent += rounds.map(round => 
-                    `"${dayData.date ? new Date(dayData.date).toLocaleDateString() : 'Date TBD'}"`
+                   ${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}
                 ).join(',') + '\n';
                 
                 // Judge names
