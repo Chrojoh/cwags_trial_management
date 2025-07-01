@@ -1284,33 +1284,37 @@ function loadExistingSelectedEntries(savedEntries) {
     });
     
     // Apply saved selections
-    savedEntries.forEach(entry => {
-        console.log("🎯 Looking for button for:", entry);
-        
-        const button = document.querySelector(
-            `[data-class="${entry.className}"][data-round="${entry.roundName}"][data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+savedEntries.forEach(entry => {
+    console.log("🎯 Looking for button for:", entry);
+    
+    // First try exact match
+    let button = document.querySelector(
+        `[data-class="${entry.className}"][data-round="${entry.roundName}"][data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+    );
+    
+    if (!button) {
+        // If no exact match, try flexible match by position only
+        button = document.querySelector(
+            `[data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
         );
         
         if (button) {
-            console.log("✅ Found and selecting button:", entry.className, entry.type);
-            button.classList.add('selected');
-            selectedEntries.push(entry);
-        } else {
-            console.log("❌ Button not found for:", entry.className, entry.type);
-            
-            // Try a more flexible search
-            const flexibleButton = document.querySelector(
-                `[data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
-            );
-            
-            if (flexibleButton) {
-                console.log("✅ Found flexible match:", flexibleButton.dataset);
-                flexibleButton.classList.add('selected');
-                selectedEntries.push(entry);
-            }
+            console.log("🔄 Found flexible match, updating entry data with current class name");
+            // Update the entry data with the current class name from the button
+            entry.className = button.dataset.class;
+            entry.roundName = button.dataset.round;
+            entry.judgeName = button.dataset.judge;
         }
-    });
+    }
     
+    if (button) {
+        console.log("✅ Found and selecting button:", entry.className, entry.type);
+        button.classList.add('selected');
+        selectedEntries.push(entry);
+    } else {
+        console.log("❌ Button not found for:", entry.className, entry.type);
+    }
+});
     console.log("📊 Final selected entries:", selectedEntries);
     updateEntrySummary();
 }
