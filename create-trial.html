@@ -750,6 +750,13 @@ function makeFormReadOnly() {
         secretary: secretary.trim(),
         numDays: numDays,
         days: days,
+         // ADD THIS - Fee Configuration
+    feeConfiguration: {
+      regularFee: parseFloat(document.getElementById('regularFee').value) || 35.00,
+      feoFee: parseFloat(document.getElementById('feoFee').value) || 25.00,
+      juniorHandlerFee: parseFloat(document.getElementById('juniorHandlerFee').value) || 20.00
+    },
+        
         createdBy: auth.currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
