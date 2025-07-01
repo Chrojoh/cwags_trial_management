@@ -1162,11 +1162,18 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const trialId = urlParams.get('trial');
 
-                if (trialId) {
-                    // Load specific trial for public entry
-                    console.log("🔗 Loading specific trial for public entry:", trialId);
-                    await loadSpecificTrial(trialId);
-                } else {
+              if (trialId) {
+    // Load specific trial for public entry
+    console.log("🔗 Loading specific trial for public entry:", trialId);
+    await loadSpecificTrial(trialId);
+    
+    // Check if we're editing an existing entry
+    const entryId = urlParams.get('entry');
+    if (entryId) {
+        console.log("📝 Loading existing entry for editing:", entryId);
+        await loadExistingEntryForEditing(entryId);
+    }
+} else {
                     // Normal secretary view - need authentication
                     console.log("👨‍💼 Setting up secretary view");
                     isSecretary = true;
