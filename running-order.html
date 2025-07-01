@@ -685,17 +685,43 @@ if (!entriesSnapshot.empty) {
     const dayIndex = selectedEntry.dayIndex;
     console.log('  🔍 Available classes for day', dayIndex + 1, ':', currentTrial.days[dayIndex].classes.map(c => c.className || c.class || c.CLASS_NAME));
     
-    // Handle different field name possibilities for class matching
-    const classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
-        const clsName = c.className || c.class || c.CLASS_NAME || '';
-        console.log('    🔎 Comparing:', clsName, 'vs', selectedEntry.className);
-        return clsName === selectedEntry.className;
-    });
+   // Handle different field name possibilities for class matching
+let classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
+    const clsName = c.className || c.class || c.CLASS_NAME || '';
+    console.log('    🔎 Comparing:', clsName, 'vs', selectedEntry.className);
+    return clsName === selectedEntry.className;
+});
+
+console.log('  🔍 findIndex result:', classIndex);
+
+// Enhanced fallback logic
+let finalClassIndex;
+if (classIndex !== -1) {
+    // Name matching worked
+    finalClassIndex = classIndex;
+    console.log('  ✅ Using name-matched class index:', finalClassIndex);
+} else if (selectedEntry.classIndex !== undefined && selectedEntry.classIndex !== -1) {
+    // Fall back to stored classIndex
+    finalClassIndex = selectedEntry.classIndex;
+    console.log('  🔄 Falling back to stored classIndex:', finalClassIndex);
     
-    console.log('  🔍 findIndex result:', classIndex);
-    
-    // Use selectedEntry.classIndex as fallback if name matching fails
-    const finalClassIndex = classIndex !== -1 ? classIndex : (selectedEntry.classIndex || 0);
+    // Log what class this maps to for debugging
+    const fallbackClass = currentTrial.days[dayIndex].classes[finalClassIndex];
+    if (fallbackClass) {
+        const fallbackClassName = fallbackClass.className || fallbackClass.class || fallbackClass.CLASS_NAME || 'Unknown';
+        console.log('  📍 Fallback maps to class:', fallbackClassName);
+    }
+} else {
+    // Last resort - use index 0
+    finalClassIndex = 0;
+    console.log('  ⚠️ Using default class index 0');
+}
+
+// Validate the final index
+if (finalClassIndex >= currentTrial.days[dayIndex].classes.length) {
+    console.log('  ❌ Class index out of bounds, using 0');
+    finalClassIndex = 0;
+}
     const roundKey = `${dayIndex}-${finalClassIndex}-${selectedEntry.roundIndex}`;
     
     console.log(`  📍 Mapping to: Day ${dayIndex}, Class ${finalClassIndex}, Round ${selectedEntry.roundIndex}, Key: ${roundKey}`);
