@@ -746,7 +746,20 @@ function makeFormReadOnly() {
         
         console.log("Saving trial data with correct field handles:", trialData);
         
-        const docRef = await db.collection('trials').add(trialData);
+        let docRef;
+if (isEditMode && currentTrialData) {
+  // Update existing trial
+  const urlParams = new URLSearchParams(window.location.search);
+  const trialId = urlParams.get('id');
+  await db.collection('trials').doc(trialId).update(trialData);
+  console.log("Trial updated with ID:", trialId);
+  alert("Trial updated successfully!");
+} else {
+  // Create new trial
+  docRef = await db.collection('trials').add(trialData);
+  console.log("Trial saved with ID:", docRef.id);
+  alert("Trial saved successfully!");
+}
         console.log("Trial saved with ID:", docRef.id);
         alert("Trial saved successfully!");
         
