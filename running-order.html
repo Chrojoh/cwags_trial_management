@@ -585,7 +585,7 @@ if (currentTrial.days && Array.isArray(currentTrial.days)) {
         date: day.date ? getDateFromFirebase(day.date) : null
     }));
 }
-
+debugDates(); // <-- ADD THIS LINE HERE
                 // Load entries for this trial
                 const entriesSnapshot = await db.collection('entries')
                     .where('trialId', '==', trialId)
