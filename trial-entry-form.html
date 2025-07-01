@@ -811,6 +811,80 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // ========================================
+        // TIMEZONE-SAFE DATE UTILITIES
+        // ========================================
+
+        // Creates a date object that stays in local timezone
+        function createLocalDate(dateStr) {
+            if (!dateStr) return null;
+            
+            // Always add noon time to prevent timezone shifts
+            if (typeof dateStr === 'string') {
+                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+                return new Date(dateWithTime);
+            }
+            
+            return new Date(dateStr);
+        }
+
+        // Formats a date to YYYY-MM-DD string in local timezone
+        function formatLocalDate(date) {
+            if (!date || !(date instanceof Date)) return '';
+            
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}`;
+        }
+
+        // Formats date for display with timezone consideration
+        function formatDateDisplay(dateInput, options = {}) {
+            let date;
+            
+            if (typeof dateInput === 'string') {
+                date = createLocalDate(dateInput);
+            } else if (dateInput instanceof Date) {
+                date = new Date(dateInput);
+            } else {
+                return 'Invalid Date';
+            }
+            
+            if (!date || isNaN(date.getTime())) return 'Invalid Date';
+            
+            const defaultOptions = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            const formatOptions = { ...defaultOptions, ...options };
+            return new Intl.DateTimeFormat('en-US', formatOptions).format(date);
+        }
+
+        // Retrieves date data from Firebase (converts back to local date string)
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            
+            let date;
+            
+            // Handle Firestore Timestamps
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
+            } else {
+                return '';
+            }
+            
+            return formatLocalDate(date);
+        }
+
         // Global variables
         let currentTrialData = null;
         let registrationData = [];
@@ -1189,8 +1263,18 @@
                 if (!trialsSnapshot.empty) {
                     availableTrials = [];
                     trialsSnapshot.forEach(doc => {
-                        const trialData = { id: doc.id, ...doc.data() };
-                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
+                        const rawTrialData = doc.data();
+                        
+                        // Fix date handling for trial days using timezone-safe utilities
+                        if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
+                            rawTrialData.days = rawTrialData.days.map(day => ({
+                                ...day,
+                                date: day.date ? getDateFromFirebase(day.date) : null
+                            }));
+                        }
+                        
+                        const trialData = { id: doc.id, ...rawTrialData };
+                        console.log("📋 Found trial with fixed dates:", trialData.clubName, "ID:", doc.id);
                         availableTrials.push(trialData);
                     });
                     
@@ -1236,8 +1320,18 @@
                     throw new Error('Trial not found');
                 }
 
-                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
-                console.log("✅ Trial loaded:", currentTrialData.clubName);
+                const rawTrialData = trialDoc.data();
+                
+                // Fix date handling for trial days using timezone-safe utilities
+                if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
+                    rawTrialData.days = rawTrialData.days.map(day => ({
+                        ...day,
+                        date: day.date ? getDateFromFirebase(day.date) : null
+                    }));
+                }
+
+                currentTrialData = { id: trialDoc.id, ...rawTrialData };
+                console.log("✅ Trial loaded with fixed dates:", currentTrialData.clubName);
                 
                 // Load saved fee configuration if exists
                 if (currentTrialData.feeConfiguration) {
@@ -1274,14 +1368,18 @@
                 
                 let trialLabel = trial.clubName || 'Unnamed Trial';
                 
-                // Add dates if available
+                // Add dates if available using timezone-safe formatting
                 if (trial.days && trial.days.length > 0) {
                     const dates = trial.days
                         .filter(day => day.date)
-                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        }))
+                        .map(day => {
+                            const localDate = createLocalDate(day.date);
+                            return localDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                            });
+                        })
                         .join(', ');
                     if (dates) {
                         trialLabel += ` (${dates})`;
@@ -1382,10 +1480,11 @@
 
             currentTrialData.days.forEach((day, dayIndex) => {
                 const dayDate = day.date 
-                    ? new Date(day.date).toLocaleDateString('en-US', { 
+                    ? createLocalDate(day.date).toLocaleDateString('en-US', { 
                         weekday: 'short', 
                         month: 'short', 
-                        day: 'numeric' 
+                        day: 'numeric',
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
                     })
                     : `Day ${dayIndex + 1}`;
 
