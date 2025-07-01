@@ -540,6 +540,14 @@ function getDateFromFirebase(firebaseDate) {
 
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
 
+                // Fix date handling for trial days using timezone-safe utilities
+if (currentTrial.days && Array.isArray(currentTrial.days)) {
+    currentTrial.days = currentTrial.days.map(day => ({
+        ...day,
+        date: day.date ? getDateFromFirebase(day.date) : null
+    }));
+}
+
                 // Load entries for this trial
                 const entriesSnapshot = await db.collection('entries')
                     .where('trialId', '==', trialId)
