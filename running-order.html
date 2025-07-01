@@ -776,13 +776,13 @@ if (!entriesSnapshot.empty) {
                 const dayData = runningOrderData[dayIndex];
                 console.log(`📅 Creating tab for day ${dayIndex}:`, dayData);
                 
-                const dayDate = dayData.date 
-                    ? new Date(dayData.date).toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
-                    })
-                    : `Day ${dayData.dayNumber}`;
+               const dayDate = dayData.date 
+    ? createLocalDate(dayData.date).toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+    })
+    : `Day ${dayData.dayNumber}`;
 
                 const tabButton = document.createElement('button');
                 tabButton.type = 'button';
