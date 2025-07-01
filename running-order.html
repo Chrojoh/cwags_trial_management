@@ -517,7 +517,129 @@ function getDateFromFirebase(firebaseDate) {
                 showStatus('Error loading trials: ' + error.message, 'error');
             }
         }
-// Add this debugging code to your running-order.html file temporarily
+
+        // Add this diagnostic function to your running-order.html file
+// This will help us understand where class names are getting lost
+
+function diagnoseClassNameIssues() {
+    console.log('=== CLASS NAME DIAGNOSTIC ===');
+    
+    // Check current trial structure
+    if (currentTrial && currentTrial.days) {
+        console.log('Trial class structure:');
+        currentTrial.days.forEach((day, dayIndex) => {
+            console.log(`Day ${dayIndex}:`, day.classes?.map(c => ({
+                name: c.className || c.class || c.CLASS_NAME || 'NO NAME',
+                hasClassName: !!c.className,
+                hasClass: !!c.class,
+                hasCLASS_NAME: !!c.CLASS_NAME
+            })));
+        });
+    }
+    
+    // Analyze entry patterns
+    console.log('\nEntry analysis:');
+    const workingEntries = [];
+    const brokenEntries = [];
+    
+    // This would need to be called after entries are loaded
+    // You can call this manually in console after loading a trial
+}
+
+// Add this to your processEntriesIntoRunningOrder function 
+// right after the entries are loaded:
+
+function analyzeEntryData(entriesSnapshot) {
+    console.log('=== ENTRY DATA ANALYSIS ===');
+    
+    let totalEntries = 0;
+    let entriesWithProperClassNames = 0;
+    let entriesWithUnnamedClass = 0;
+    let entriesWithClassIndex = 0;
+    
+    const classNamePatterns = new Set();
+    const problemEntries = [];
+    
+    entriesSnapshot.forEach(doc => {
+        const entry = doc.data();
+        totalEntries++;
+        
+        console.log(`\n📝 Entry: ${entry.handlerName} - ${entry.dogCallName}`);
+        console.log('  Entry structure:', {
+            hasSelectedEntries: !!entry.selectedEntries,
+            selectedEntriesCount: entry.selectedEntries?.length || 0,
+            createdAt: entry.createdAt?.toDate?.() || entry.createdAt
+        });
+        
+        if (entry.selectedEntries) {
+            entry.selectedEntries.forEach((selectedEntry, index) => {
+                console.log(`    Selected Entry ${index}:`, {
+                    className: selectedEntry.className,
+                    classIndex: selectedEntry.classIndex,
+                    dayIndex: selectedEntry.dayIndex,
+                    roundIndex: selectedEntry.roundIndex,
+                    hasProperClassName: selectedEntry.className && selectedEntry.className !== 'Unnamed Class'
+                });
+                
+                classNamePatterns.add(selectedEntry.className || 'NULL');
+                
+                if (selectedEntry.className === 'Unnamed Class' || !selectedEntry.className) {
+                    entriesWithUnnamedClass++;
+                    problemEntries.push({
+                        handler: entry.handlerName,
+                        dog: entry.dogCallName,
+                        className: selectedEntry.className,
+                        classIndex: selectedEntry.classIndex,
+                        dayIndex: selectedEntry.dayIndex,
+                        entryCreated: entry.createdAt?.toDate?.() || 'Unknown'
+                    });
+                } else {
+                    entriesWithProperClassNames++;
+                }
+                
+                if (selectedEntry.classIndex !== undefined && selectedEntry.classIndex !== -1) {
+                    entriesWithClassIndex++;
+                }
+            });
+        }
+    });
+    
+    console.log('\n=== SUMMARY ===');
+    console.log(`Total entries: ${totalEntries}`);
+    console.log(`Entries with proper class names: ${entriesWithProperClassNames}`);
+    console.log(`Entries with "Unnamed Class": ${entriesWithUnnamedClass}`);
+    console.log(`Entries with valid classIndex: ${entriesWithClassIndex}`);
+    console.log('\nAll class name patterns found:', [...classNamePatterns]);
+    
+    console.log('\n=== PROBLEM ENTRIES ===');
+    problemEntries.forEach(entry => {
+        console.log(`${entry.handler} - ${entry.dog}: "${entry.className}" (classIndex: ${entry.classIndex}, day: ${entry.dayIndex}) - Created: ${entry.entryCreated}`);
+    });
+    
+    // Try to determine when the issue started
+    const workingEntries = [];
+    const brokenEntries = [];
+    
+    problemEntries.forEach(entry => {
+        if (entry.entryCreated && entry.entryCreated !== 'Unknown') {
+            brokenEntries.push(entry);
+        }
+    });
+    
+    if (brokenEntries.length > 0) {
+        brokenEntries.sort((a, b) => new Date(a.entryCreated) - new Date(b.entryCreated));
+        console.log('\n=== TIMELINE ===');
+        console.log('First broken entry created:', brokenEntries[0].entryCreated);
+        console.log('Latest broken entry created:', brokenEntries[brokenEntries.length - 1].entryCreated);
+    }
+}
+
+// Call this in your processEntriesIntoRunningOrder function by adding this line
+// right after: console.log('📊 Days found:', Object.keys(runningOrderData));
+
+analyzeEntryData(entriesSnapshot);
+        
+        // Add this debugging code to your running-order.html file temporarily
 // Place it after loading trial data to see what's happening with dates
 
 function debugDates() {
