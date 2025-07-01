@@ -576,45 +576,50 @@ function getDateFromFirebase(firebaseDate) {
             console.log('🔍 Processing trial structure:', currentTrial);
             console.log('📅 Trial days:', currentTrial.days);
 
-            // Create structure organized by days
-            if (currentTrial.days) {
-                currentTrial.days.forEach((day, dayIndex) => {
-                    console.log(`📅 Processing Day ${dayIndex + 1}:`, {
-                        date: day.date,
-                        classes: day.classes?.length || 0
+           // Create structure organized by days
+if (currentTrial.days) {
+    currentTrial.days.forEach((day, dayIndex) => {
+        console.log(`📅 Processing Day ${dayIndex + 1}:`, {
+            date: day.date,
+            classes: day.classes?.length || 0
+        });
+        runningOrderData[dayIndex] = {
+            dayNumber: dayIndex + 1,
+            date: day.date,
+            rounds: {}
+        };
+        originalOrderData[dayIndex] = { rounds: {} };
+        
+        if (day.classes) {
+            day.classes.forEach((cls, classIndex) => {
+                // Handle different field name possibilities
+                const className = cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`;
+                
+                if (cls.rounds) {
+                    cls.rounds.forEach((round, roundIndex) => {
+                        const roundKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                        const roundId = `day${dayIndex + 1}_${className}_round${roundIndex + 1}`.replace(/\s+/g, '_');
+                        
+                        // Handle different judge field name possibilities
+                        const judgeName = round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD';
+                        
+                        runningOrderData[dayIndex].rounds[roundKey] = {
+                            id: roundId,
+                            className: className,
+                            roundNumber: roundIndex + 1,
+                            judgeName: judgeName,
+                            entries: []
+                        };
+                        
+                        originalOrderData[dayIndex].rounds[roundKey] = { entries: [] };
+                        
+                        console.log(`  📋 Added round: Day ${dayIndex + 1} - ${className} Round ${roundIndex + 1}`);
                     });
-
-                    runningOrderData[dayIndex] = {
-                        dayNumber: dayIndex + 1,
-                        date: day.date,
-                        rounds: {}
-                    };
-                    originalOrderData[dayIndex] = { rounds: {} };
-
-                    if (day.classes) {
-                        day.classes.forEach((cls, classIndex) => {
-                            if (cls.rounds) {
-                                cls.rounds.forEach((round, roundIndex) => {
-                                    const roundKey = `${dayIndex}-${classIndex}-${roundIndex}`;
-                                    const roundId = `day${dayIndex + 1}_${cls.className || 'Class'}_round${roundIndex + 1}`.replace(/\s+/g, '_');
-                                    
-                                    runningOrderData[dayIndex].rounds[roundKey] = {
-                                        id: roundId,
-                                        className: cls.className || 'Unnamed Class',
-                                        roundNumber: roundIndex + 1,
-                                        judgeName: round.judgeName || 'Judge TBD',
-                                        entries: []
-                                    };
-                                    
-                                    originalOrderData[dayIndex].rounds[roundKey] = { entries: [] };
-                                    
-                                    console.log(`  📋 Added round: Day ${dayIndex + 1} - ${cls.className} Round ${roundIndex + 1}`);
-                                });
-                            }
-                        });
-                    }
-                });
-            }
+                }
+            });
+        }
+    });
+}
 
             console.log('📊 Final runningOrderData structure:', runningOrderData);
             console.log('📊 Days found:', Object.keys(runningOrderData));
