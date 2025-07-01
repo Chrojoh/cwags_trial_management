@@ -1049,7 +1049,7 @@ if (!entriesSnapshot.empty) {
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
                 
-                const dayDate = dayData.date ? new Date(dayData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day-${dayData.dayNumber}`;
+                const dayDate = dayData.date ? createLocalDate(dayData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day-${dayData.dayNumber}`;
                 link.setAttribute("download", `running-order-${currentTrial.clubName.replace(/\s+/g, '-')}-${dayDate}.csv`);
                 
                 document.body.appendChild(link);
