@@ -373,12 +373,15 @@
       console.log('📋 Populating existing fees:', trialData.feeConfiguration);
       if (trialData.feeConfiguration) {
         const fees = trialData.feeConfiguration;
-        document.getElementById('regularFee').value = fees.regularFee || 35.00;
-        document.getElementById('feoFee').value = fees.feoFee || 25.00;
-        document.getElementById('juniorHandlerFee').value = fees.juniorHandlerFee || 20.00;
+        document.getElementById('regularFee').value = fees.regularFee !== undefined ? fees.regularFee : 35.00;
+        document.getElementById('feoFee').value = fees.feoFee !== undefined ? fees.feoFee : 25.00;
+        document.getElementById('juniorHandlerFee').value = fees.juniorHandlerFee !== undefined ? fees.juniorHandlerFee : 20.00;
         console.log('✅ Fee configuration loaded successfully');
       } else {
-        console.log('⚠️ No fee configuration found in trial data');
+        console.log('⚠️ No fee configuration found in trial data - using defaults');
+        document.getElementById('regularFee').value = 35.00;
+        document.getElementById('feoFee').value = 25.00;
+        document.getElementById('juniorHandlerFee').value = 20.00;
       }
     }
 
@@ -757,9 +760,9 @@
         
         // Fee Configuration
         feeConfiguration: {
-          regularFee: parseFloat(document.getElementById('regularFee').value) || 35.00,
-          feoFee: parseFloat(document.getElementById('feoFee').value) || 25.00,
-          juniorHandlerFee: parseFloat(document.getElementById('juniorHandlerFee').value) || 20.00
+          regularFee: parseFloat(document.getElementById('regularFee').value) || 0.00,
+          feoFee: parseFloat(document.getElementById('feoFee').value) || 0.00,
+          juniorHandlerFee: parseFloat(document.getElementById('juniorHandlerFee').value) || 0.00
         },
         
         createdBy: auth.currentUser.uid,
@@ -814,11 +817,17 @@
           // Update existing trial
           const urlParams = new URLSearchParams(window.location.search);
           const trialId = urlParams.get('id');
+          
+          // Log the fee data being saved
+          console.log("💰 Updating trial with fee configuration:", trialData.feeConfiguration);
+          
           await db.collection('trials').doc(trialId).update(trialData);
           console.log("Trial updated with ID:", trialId);
           alert("Trial updated successfully!");
         } else {
           // Create new trial
+          console.log("💰 Creating new trial with fee configuration:", trialData.feeConfiguration);
+          
           const docRef = await db.collection('trials').add(trialData);
           console.log("Trial saved with ID:", docRef.id);
           alert("Trial saved successfully!");
