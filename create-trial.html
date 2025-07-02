@@ -101,7 +101,46 @@
       <input type="text" name="secretary" placeholder="Trial Secretary" style="width: 300px; padding: 5px;"
              onkeydown="handleEnterKey(event)">
     </div>
-    
+
+    <!-- Fee Configuration Section -->
+    <div style="margin: 20px 0; padding: 20px; background: #f8f9fa; border: 2px solid #0066cc; border-radius: 8px;">
+      <h3 style="color: #0066cc; margin-bottom: 15px;">💰 Entry Fee Configuration</h3>
+      <p style="color: #666; margin-bottom: 15px;">Set the entry fees for this trial. These will be used in the entry form.</p>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">Regular Entry Fee ($)</label>
+          <input type="number" id="regularFee" step="0.01" min="0" value="35.00" 
+                 style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+                 onkeydown="handleEnterKey(event)">
+          <small style="color: #666;">Standard entry fee</small>
+        </div>
+        
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">FEO Entry Fee ($)</label>
+          <input type="number" id="feoFee" step="0.01" min="0" value="25.00" 
+                 style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+                 onkeydown="handleEnterKey(event)">
+          <small style="color: #666;">For Exhibition Only fee</small>
+        </div>
+        
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 5px;">Junior Handler Fee ($)</label>
+          <input type="number" id="juniorHandlerFee" step="0.01" min="0" value="20.00" 
+                 style="width: 100%; padding: 8px; border: 2px solid #e1e5e9; border-radius: 6px;"
+                 onkeydown="handleEnterKey(event)">
+          <small style="color: #666;">Reduced fee for handlers under 18</small>
+        </div>
+      </div>
+      
+      <div style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 6px;">
+        <small style="color: #0066cc;">
+          💡 <strong>Note:</strong> Junior handlers will pay the Junior Handler Fee regardless of Regular/FEO selection. 
+          Set any fee to $0.00 to hide that option in the entry form.
+        </small>
+      </div>
+    </div>
+
     <div style="margin-bottom: 15px;">
       <label>How many days?</label><br>
       <input type="number" id="numDays" min="1" max="10" style="width: 100px; padding: 5px;"
@@ -261,6 +300,191 @@
       statusDiv.className = message.includes('✅') ? 'data-status' : 'data-status';
     }
 
+    // ========================================
+    // LOAD EXISTING TRIAL FOR EDITING
+    // ========================================
+    async function checkForExistingTrial() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const trialId = urlParams.get('id');
+      const mode = urlParams.get('mode');
+      
+      if (trialId) {
+        console.log(`Loading existing trial: ${trialId} in ${mode || 'edit'} mode`);
+        await loadExistingTrial(trialId, mode);
+      }
+    }
+
+    async function loadExistingTrial(trialId, mode) {
+      try {
+        updateDataStatus('🔄 Loading trial data...');
+        
+        // Load trial from Firebase
+        const trialDoc = await db.collection('trials').doc(trialId).get();
+        
+        if (!trialDoc.exists) {
+          updateDataStatus('❌ Trial not found!');
+          return;
+        }
+        
+        const trialData = trialDoc.data();
+        currentTrialData = trialData;
+        isEditMode = true;
+        
+        console.log('Loaded trial data:', trialData);
+        
+        // Populate the form with existing data
+        document.querySelector('input[name="clubName"]').value = trialData.clubName || '';
+        document.querySelector('input[name="secretary"]').value = trialData.secretary || '';
+        document.getElementById('numDays').value = trialData.numDays || 0;
+        
+        // Load fee configuration
+        populateExistingFees(trialData);
+        
+        // Generate days structure first
+        if (trialData.numDays > 0) {
+          generateDays();
+          
+          // Wait for DOM to update, then populate
+          setTimeout(() => {
+            populateExistingDays(trialData);
+          }, 200);
+        }
+        
+        // Update page title and submit button
+        document.title = `${mode === 'view' ? 'View' : 'Edit'} Trial - ${trialData.clubName}`;
+        const submitButton = document.querySelector('button[type="submit"]');
+        submitButton.textContent = mode === 'view' ? 'View Only' : 'Update Trial';
+        
+        // If in view mode, make form read-only
+        if (mode === 'view') {
+          makeFormReadOnly();
+        }
+        
+        updateDataStatus(`✅ Trial loaded successfully! (${mode || 'edit'} mode)`);
+        
+      } catch (error) {
+        console.error('Error loading trial:', error);
+        updateDataStatus('❌ Error loading trial: ' + error.message);
+      }
+    }
+
+    // FIXED: Move populateExistingFees outside other functions
+    function populateExistingFees(trialData) {
+      console.log('📋 Populating existing fees:', trialData.feeConfiguration);
+      if (trialData.feeConfiguration) {
+        const fees = trialData.feeConfiguration;
+        document.getElementById('regularFee').value = fees.regularFee !== undefined ? fees.regularFee : 35.00;
+        document.getElementById('feoFee').value = fees.feoFee !== undefined ? fees.feoFee : 25.00;
+        document.getElementById('juniorHandlerFee').value = fees.juniorHandlerFee !== undefined ? fees.juniorHandlerFee : 20.00;
+        console.log('✅ Fee configuration loaded successfully');
+      } else {
+        console.log('⚠️ No fee configuration found in trial data - using defaults');
+        document.getElementById('regularFee').value = 35.00;
+        document.getElementById('feoFee').value = 25.00;
+        document.getElementById('juniorHandlerFee').value = 20.00;
+      }
+    }
+
+    function populateExistingDays(trialData) {
+      if (!trialData.days) return;
+      
+      trialData.days.forEach((day, dayIndex) => {
+        // Set the date
+        const dateInput = document.querySelector(`input[name="date${dayIndex}"]`);
+        if (dateInput && day.date) {
+          dateInput.value = day.date;
+        }
+        
+        // Set number of classes and generate them
+        const numClassesInput = document.getElementById(`numClasses_${dayIndex}`);
+        if (numClassesInput && day.classes) {
+          numClassesInput.value = day.classes.length;
+          generateClasses(dayIndex);
+          
+          // Wait a bit more for classes to generate
+          setTimeout(() => {
+            populateExistingClasses(day, dayIndex);
+          }, 100);
+        }
+      });
+    }
+
+    function populateExistingClasses(day, dayIndex) {
+      if (!day.classes) return;
+      
+      day.classes.forEach((classData, classIndex) => {
+        // Populate class name
+        const classInput = document.querySelector(`.classes-container-${dayIndex} .class-container:nth-child(${classIndex + 1}) .class-autocomplete`);
+        if (classInput) {
+          const className = classData[FIELD_HANDLES.CLASS] || classData.className || '';
+          classInput.value = className;
+          
+          // Trigger subclass handling
+          handleClassSelection(dayIndex, classIndex, className);
+          
+          // Set subclass if exists
+          if (classData.subClass) {
+            setTimeout(() => {
+              const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
+              if (subclassSelect) {
+                subclassSelect.value = classData.subClass;
+              }
+            }, 50);
+          }
+        }
+        
+        // Set number of rounds and generate them
+        const numRoundsInput = document.getElementById(`numRounds_${dayIndex}_${classIndex}`);
+        if (numRoundsInput && classData.rounds) {
+          numRoundsInput.value = classData.rounds.length;
+          generateRounds(dayIndex, classIndex);
+          
+          // Wait for rounds to generate, then populate
+          setTimeout(() => {
+            populateExistingRounds(classData, dayIndex, classIndex);
+          }, 100);
+        }
+      });
+    }
+
+    function populateExistingRounds(classData, dayIndex, classIndex) {
+      if (!classData.rounds) return;
+      
+      classData.rounds.forEach((roundData, roundIndex) => {
+        const roundContainer = document.querySelector(`.rounds-container-${dayIndex}-${classIndex} .round-container:nth-child(${roundIndex + 1})`);
+        if (roundContainer) {
+          // Set judge name
+          const judgeInput = roundContainer.querySelector('.judge-autocomplete');
+          if (judgeInput) {
+            judgeInput.value = roundData[FIELD_HANDLES.JUDGE] || roundData.judge || '';
+          }
+          
+          // Set FEO checkbox
+          const feoCheckbox = roundContainer.querySelector('input[type="checkbox"]');
+          if (feoCheckbox) {
+            feoCheckbox.checked = roundData.feoAvailable || false;
+          }
+        }
+      });
+    }
+
+    function makeFormReadOnly() {
+      // Disable all inputs except the back button
+      const inputs = document.querySelectorAll('input, select, button');
+      inputs.forEach(input => {
+        if (!input.classList.contains('back-button')) {
+          input.disabled = true;
+        }
+      });
+      
+      // Change submit button text and keep it disabled
+      const submitButton = document.querySelector('button[type="submit"]');
+      if (submitButton) {
+        submitButton.textContent = 'View Only - Cannot Edit';
+        submitButton.style.backgroundColor = '#6c757d';
+      }
+    }
+        
     // ========================================
     // ENHANCED ENTER KEY HANDLING FIX
     // ========================================
@@ -533,6 +757,14 @@
         secretary: secretary.trim(),
         numDays: numDays,
         days: days,
+        
+        // Fee Configuration
+        feeConfiguration: {
+          regularFee: parseFloat(document.getElementById('regularFee').value) || 0.00,
+          feoFee: parseFloat(document.getElementById('feoFee').value) || 0.00,
+          juniorHandlerFee: parseFloat(document.getElementById('juniorHandlerFee').value) || 0.00
+        },
+        
         createdBy: auth.currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -579,20 +811,36 @@
         // Collect trial data with correct field handles
         const trialData = collectAllTrialData();
         
-        console.log("Saving trial data with correct field handles:", trialData);
+        console.log("Saving trial data with fee configuration:", trialData);
         
-        const docRef = await db.collection('trials').add(trialData);
-        console.log("Trial saved with ID:", docRef.id);
-        alert("Trial saved successfully!");
-        
+        if (isEditMode && currentTrialData) {
+          // Update existing trial
+          const urlParams = new URLSearchParams(window.location.search);
+          const trialId = urlParams.get('id');
+          
+          // Log the fee data being saved
+          console.log("💰 Updating trial with fee configuration:", trialData.feeConfiguration);
+          
+          await db.collection('trials').doc(trialId).update(trialData);
+          console.log("Trial updated with ID:", trialId);
+          alert("Trial updated successfully!");
+        } else {
+          // Create new trial
+          console.log("💰 Creating new trial with fee configuration:", trialData.feeConfiguration);
+          
+          const docRef = await db.collection('trials').add(trialData);
+          console.log("Trial saved with ID:", docRef.id);
+          alert("Trial saved successfully!");
+        }
+
         // Reset form
         document.getElementById('trialForm').reset();
         document.getElementById('daysContainer').innerHTML = '';
-        
+
         // Reset button
         submitButton.textContent = originalText;
         submitButton.disabled = false;
-        
+
         // Go back to dashboard
         window.location.href = "trial-secretary-dashboard.html";
         
@@ -633,6 +881,9 @@
       
       // Load data from dataforsite.xlsx
       await loadDataFromExcel();
+      
+      // Check if we're editing an existing trial
+      await checkForExistingTrial();
       
       console.log("Page initialized with data:", {
         classes: globalClasses.length,

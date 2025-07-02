@@ -10,6 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -78,6 +81,38 @@
             background: #5a6268;
         }
 
+        /* Status Messages */
+        .status-message {
+            padding: 1rem;
+            margin: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
         /* Trial Selection (Secretary Only) */
         .trial-selection {
             background: #f8f9fa;
@@ -89,107 +124,6 @@
             color: #495057;
             margin-bottom: 1rem;
             font-size: 1.3rem;
-        }
-
-        /* Entry Fee Configuration (Secretary Only) */
-        .fee-config {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin: 20px;
-            display: none;
-        }
-
-        .fee-config h3 {
-            color: #0066cc;
-            margin-bottom: 1rem;
-        }
-
-        .fee-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .fee-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .fee-group label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #495057;
-        }
-
-        .fee-group input {
-            padding: 0.75rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        .fee-group input:focus {
-            outline: none;
-            border-color: #0066cc;
-        }
-
-        .fee-controls {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .btn-save-fees {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-save-fees:hover {
-            background: #218838;
-        }
-
-        .btn-reset-fees {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .btn-reset-fees:hover {
-            background: #5a6268;
-        }
-
-        /* Registration Status */
-        .registration-status {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 20px;
-            display: none;
-        }
-
-        .registration-status.error {
-            background: #f8d7da;
-            border-color: #dc3545;
-            color: #721c24;
-        }
-
-        .registration-status.success {
-            background: #d4edda;
-            border-color: #28a745;
-            color: #155724;
         }
 
         /* Shareable Link Section (Secretary Only) */
@@ -251,35 +185,44 @@
             color: white;
         }
 
-        /* Trial Information */
-        .trial-info {
-            background: #f8f9fa;
-            padding: 1.5rem;
-            border-bottom: 1px solid #e9ecef;
-            display: none;
-        }
-
-        .trial-info h3 {
-            color: #495057;
+        /* Form Styling */
+        .form-group {
+            display: flex;
+            flex-direction: column;
             margin-bottom: 1rem;
-            font-size: 1.3rem;
         }
 
-        .trial-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+        .form-group.full-width {
+            grid-column: 1 / -1;
         }
 
-        .trial-details > div {
-            font-size: 0.95rem;
+        .form-group.required label::after {
+            content: " *";
+            color: #dc3545;
+            font-weight: bold;
         }
 
-        .trial-details strong {
+        label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
             color: #495057;
         }
 
-        /* C-WAGS Waiver Section */
+        input, select, textarea {
+            padding: 0.75rem;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Waiver Section */
         .waiver-section {
             background: #fff8e1;
             border: 2px solid #ffc107;
@@ -350,82 +293,6 @@
             margin-bottom: 1.5rem;
         }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .form-group.required label::after {
-            content: " *";
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        label {
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: #495057;
-        }
-
-        input, select, textarea {
-            padding: 0.75rem;
-            border: 2px solid #e1e5e9;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        input:focus, select:focus, textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .auto-filled {
-            background: #e7f3ff !important;
-            border-color: #0066cc !important;
-            animation: autoFillGlow 2s ease-in-out;
-        }
-
-        @keyframes autoFillGlow {
-            0% { box-shadow: 0 0 5px rgba(0, 102, 204, 0.5); }
-            50% { box-shadow: 0 0 20px rgba(0, 102, 204, 0.8); }
-            100% { box-shadow: none; }
-        }
-
-        .lookup-status {
-            margin-top: 10px;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 14px;
-            display: none;
-        }
-
-        .lookup-status.success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-            display: block;
-        }
-
-        .lookup-status.warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-            display: block;
-        }
-
-        .lookup-status.loading {
-            background: #e7f3ff;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
-            display: block;
-        }
-
         /* Day Tabs */
         .day-tabs-container {
             background: #f8f9fa;
@@ -468,37 +335,7 @@
             border-color: #0066cc;
         }
 
-        /* Entry Summary */
-        .entry-summary {
-            background: #e7f3ff;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            display: none;
-        }
-
-        .summary-title {
-            font-weight: 600;
-            color: #0066cc;
-            margin-bottom: 1rem;
-        }
-
-        .selected-entries {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .selected-entry {
-            background: white;
-            padding: 0.5rem 1rem;
-            margin-bottom: 0.5rem;
-            border-radius: 6px;
-            border-left: 4px solid #28a745;
-        }
-
-        /* Class Entries Container */
+        /* Class Items */
         .class-entries-container {
             max-height: 600px;
             overflow-y: auto;
@@ -542,20 +379,6 @@
             font-size: 1.1rem;
         }
 
-        .class-fee {
-            font-weight: 700;
-            font-size: 1rem;
-        }
-
-        .class-details {
-            background: #f8f9fa;
-            padding: 1rem;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-            font-size: 0.9rem;
-        }
-
         .rounds-container {
             padding: 1rem;
             background: #fff;
@@ -588,13 +411,7 @@
             gap: 0.5rem;
         }
 
-        .entry-option {
-            flex: 1;
-            max-width: 200px;
-        }
-
         .entry-button {
-            width: 100%;
             padding: 0.5rem 1rem;
             border: none;
             border-radius: 20px;
@@ -639,8 +456,8 @@
             box-shadow: 0 0 0 3px rgba(133, 100, 4, 0.4);
         }
 
-        /* Submit Section - MOVED UP */
-        .submit-section-top {
+        /* Submit Section */
+        .submit-section {
             background: #e7f3ff;
             border: 2px solid #0066cc;
             border-radius: 8px;
@@ -650,7 +467,7 @@
             display: none;
         }
 
-        .submit-section-top.show {
+        .submit-section.show {
             display: block;
         }
 
@@ -678,17 +495,7 @@
             transform: none !important;
         }
 
-        .success-message {
-            background: #d4edda;
-            border: 2px solid #28a745;
-            color: #155724;
-            padding: 2rem;
-            border-radius: 8px;
-            text-align: center;
-            margin: 2rem;
-            display: none;
-        }
-
+        /* Utility Classes */
         .hidden {
             display: none;
         }
@@ -709,6 +516,47 @@
             margin: 2rem;
         }
 
+        .success-message {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            padding: 2rem;
+            border-radius: 8px;
+            text-align: center;
+            margin: 2rem;
+            display: none;
+        }
+
+        /* Entry Summary */
+        .entry-summary {
+            background: #e7f3ff;
+            border: 2px solid #0066cc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: none;
+        }
+
+        .summary-title {
+            font-weight: 600;
+            color: #0066cc;
+            margin-bottom: 1rem;
+        }
+
+        .selected-entries {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .selected-entry {
+            background: white;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #28a745;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 0;
@@ -727,10 +575,6 @@
                 min-width: auto;
             }
 
-            .class-details {
-                grid-template-columns: 1fr;
-            }
-
             .round-item {
                 flex-direction: column;
                 align-items: stretch;
@@ -739,10 +583,6 @@
 
             .entry-options {
                 justify-content: center;
-            }
-
-            .entry-option {
-                min-width: 100px;
             }
         }
     </style>
@@ -755,12 +595,14 @@
             <p id="trialSubtitle">Complete your entry for this C-WAGS trial</p>
         </div>
 
-        <!-- Back to Dashboard Button -->
-        <div class="back-to-dashboard">
-            <a href="trial-secretary-dashboard.html" class="back-button">
-                ← Back to Dashboard
-            </a>
-        </div>
+       <!-- Back to Dashboard Button (Secretary Only) -->
+<div class="back-to-dashboard" id="backToDashboard">
+    <a href="trial-secretary-dashboard.html" class="back-button">
+        ← Back to Dashboard
+    </a>
+</div>
+        <!-- Status Messages -->
+        <div class="status-message" id="statusMessage"></div>
 
         <!-- Loading Message -->
         <div class="loading-message" id="loadingMessage">
@@ -776,55 +618,15 @@
             </button>
         </div>
 
-        <!-- Registration Status -->
-        <div class="registration-status" id="registrationStatus">
-            <h4>📊 Registration Data Status</h4>
-            <p id="registrationStatusText">Checking registration database...</p>
-            <button onclick="forceReloadRegistrations()" style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                🔄 Reload Registration Data
-            </button>
-        </div>
-
         <!-- Trial Selection (Secretary Only) -->
         <div class="trial-selection hidden" id="trialSelectionSection">
             <h3>🎯 Select Trial</h3>
-            <div class="form-row">
-                <div class="form-group required full-width">
-                    <label for="trialSelection">Choose which trial to create entry form for:</label>
-                    <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
-                        <option value="">Loading available trials...</option>
-                    </select>
-                </div>
+            <div class="form-group required full-width">
+                <label for="trialSelection">Choose which trial to create entry form for:</label>
+                <select id="trialSelection" required style="font-size: 1.1rem; padding: 1rem;">
+                    <option value="">Loading available trials...</option>
+                </select>
             </div>
-        </div>
-
-        <!-- Entry Fee Configuration (Secretary Only) -->
-        <div class="fee-config" id="entryFeeSection">
-            <h3>💰 Entry Fee Configuration</h3>
-            <div class="fee-grid">
-                <div class="fee-group">
-                    <label for="regularFee">Regular Entry Fee ($)</label>
-                    <input type="number" id="regularFee" min="0" step="0.01" value="35.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-                <div class="fee-group">
-                    <label for="feoFee">FEO Entry Fee ($)</label>
-                    <input type="number" id="feoFee" min="0" step="0.01" value="25.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-                <div class="fee-group">
-                    <label for="juniorFee">Junior Handler Fee ($)</label>
-                    <input type="number" id="juniorFee" min="0" step="0.01" value="20.00" 
-                           style="font-size: 1.1rem; padding: 0.75rem;">
-                </div>
-            </div>
-            <div class="fee-controls">
-                <button class="btn-save-fees" onclick="saveFeeConfiguration()">💾 Save Fee Configuration</button>
-                <button class="btn-reset-fees" onclick="resetFeeConfiguration()">🔄 Reset to Defaults</button>
-            </div>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 1rem;">
-                💡 Set any fee to $0.00 to hide that option. Junior Handler fee replaces regular/FEO fees when selected.
-            </p>
         </div>
 
         <!-- Shareable Link Section (Secretary Only) -->
@@ -842,17 +644,6 @@
             </div>
         </div>
 
-        <!-- Trial Information -->
-        <div class="trial-info" id="trialInfoSection">
-            <h3>📋 Trial Information</h3>
-            <div class="trial-details">
-                <div><strong>Club:</strong> <span id="clubName">-</span></div>
-                <div><strong>Dates:</strong> <span id="trialDates">-</span></div>
-                <div><strong>Location:</strong> <span id="trialLocation">-</span></div>
-                <div><strong>Secretary:</strong> <span id="trialSecretary">-</span></div>
-            </div>
-        </div>
-
         <!-- C-WAGS Waiver Section -->
         <div class="waiver-section" id="waiverSection">
             <h3>⚠️ C-WAGS Disclaimer & Liability Waiver</h3>
@@ -861,29 +652,11 @@
                 <p>I/we acknowledge that I am/we are familiar with the current rules applying to Canine-Work And GameS Trials. I/we agree that the Host Club holding the Trial has the right to refuse entry for cause which the Host Club shall deem to be sufficient. Upon acceptance of this entry, I/we agree to hold Canine-Work And GameS, LLC, and its members and officers, this Host Club, its members, directors, officers, agents, show secretary, show chairperson, show committee and the owner or lessor of the premises and any employees of the aforementioned parties, any sponsors of this event, harmless from any claim or loss or injury which may be alleged to have been caused directly or indirectly to any person or thing by the act of this dog or handler while in or upon the show trial premises or grounds or near any entrance thereto, and I/we further agree to hold the fore mentioned parties harmless from any claim or loss of this dog by disappearance, theft, death or otherwise, and from any claim for damage or injury to the dog, whether any claim be caused or alleged to be caused by the negligence of the Host Club or any of the parties aforementioned, or by the negligence of any other person, or any other cause or causes.</p>
                 <p>I/we hereby assume sole responsibility for and agree to indemnify and save the aforementioned parties harmless from any and all loss and expense (including legal fees) by reason of the liability imposed by law upon any of the aforementioned parties for damage because of bodily injuries, including death at any time resulting there from, sustained by any person or persons, including myself/ourselves or on account of damage to property, arising out of or in consequence of my/our participation in the Trial, howsoever such injuries, death or damage to property may be caused and whether or not the same may have been caused by negligence of the aforementioned parties or any of their employees or agents, or any other persons.</p>
                 <p><strong>I/we agree to abide by the rules of C-WAGS currently in effect at the time of the trial. I/we testify that the dog entered is healthy and vaccinated or titered. I/we certify that the dog entered is not dangerous to any person or other dog.</strong></p>
-                
-                <p><strong>C-WAGS Notice to Exhibitors</strong></p>
-                <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:</p>
-                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                    <li>All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.</li>
-                    <li>All judges and trial hosts are expected to show respect to all exhibitors.</li>
-                    <li>This trial is open to all dogs registered with C-WAGS.</li>
-                    <li>Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.</li>
-                    <li>Teams may be entered in multiple levels/classes at the same trial.</li>
-                    <li>Dogs must be shown by a member of the owner's immediate family.</li>
-                    <li>Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.</li>
-                    <li>Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.</li>
-                    <li>Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.</li>
-                    <li>The organizing committee may refuse any entry for any reason.</li>
-                    <li>THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.</li>
-                    <li>Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.</li>
-                    <li>Dogs must be on leash while on show grounds unless being shown.</li>
-                </ul>
             </div>
             <div class="waiver-agreement">
                 <input type="checkbox" id="waiverAccepted" required>
                 <label for="waiverAccepted">
-                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above. By entering this trial, I agree to the disclaimer on this entry form.</strong>
+                    <strong>I have read, understood, and agree to the complete C-WAGS disclaimer and all terms above.</strong>
                 </label>
             </div>
         </div>
@@ -901,17 +674,15 @@
                 <!-- Registration Number Lookup -->
                 <div class="form-section primary">
                     <h3>🔍 C-WAGS Registration Lookup</h3>
-                    <div class="form-row">
-                        <div class="form-group full-width">
-                            <label>C-WAGS Registration Number (optional)</label>
-                            <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
-                                   style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
-                            <small style="color: #666; margin-top: 0.5rem; display: block;">
-                                💡 Enter registration number first - handler and dog info will auto-fill if found
-                            </small>
-                        </div>
+                    <div class="form-group full-width">
+                        <label>C-WAGS Registration Number (optional)</label>
+                        <input type="text" id="cwagsNumber" placeholder="XX-XXXX-XX" 
+                               style="font-size: 1.2rem; font-weight: bold; background: #f0f8ff;">
+                        <small style="color: #666; margin-top: 0.5rem; display: block;">
+                            💡 Enter registration number first - handler and dog info will auto-fill if found
+                        </small>
                     </div>
-                    <div id="lookupStatus" class="lookup-status"></div>
+                    <div id="lookupStatus" class="status-message"></div>
                 </div>
 
                 <!-- Handler Information -->
@@ -993,27 +764,26 @@
                         </div>
                     </div>
 
-                    <!-- Submit Section - MOVED UP NEAR TABS -->
-                    <div class="submit-section-top" id="submitSectionTop">
+                    <!-- Submit Section -->
+                    <div class="submit-section" id="submitSection">
                         <h4 style="margin-bottom: 1rem; color: #0066cc;">Ready to Submit Entry?</h4>
                         <button type="button" class="btn-submit" id="submitEntry" disabled>
                             Submit Entry
                         </button>
                         <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
-                            Please review your selections before submitting. Entry fees are due upon submission.
+                            Please review your selections before submitting.
                         </p>
                     </div>
 
-                    <!-- Day Tabs - Dynamically Generated -->
+                    <!-- Day Tabs -->
                     <div class="day-tabs-container">
                         <div class="day-tabs" id="dayTabs">
                             <!-- Tabs will be generated from trial data -->
                         </div>
                     </div>
 
-                    <!-- Scrollable Class Entries - Dynamically Generated -->
+                    <!-- Class Entries -->
                     <div class="class-entries-container" id="classEntriesContainer">
-                        <!-- Content will be generated from trial data -->
                         <div style="text-align: center; padding: 2rem; color: #666;">
                             Please select a trial to see available classes.
                         </div>
@@ -1040,26 +810,90 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // ========================================
+        // TIMEZONE-SAFE DATE UTILITIES
+        // ========================================
+
+        // Creates a date object that stays in local timezone
+        function createLocalDate(dateStr) {
+            if (!dateStr) return null;
+            
+            // Always add noon time to prevent timezone shifts
+            if (typeof dateStr === 'string') {
+                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+                return new Date(dateWithTime);
+            }
+            
+            return new Date(dateStr);
+        }
+
+        // Formats a date to YYYY-MM-DD string in local timezone
+        function formatLocalDate(date) {
+            if (!date || !(date instanceof Date)) return '';
+            
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            
+            return `${year}-${month}-${day}`;
+        }
+
+        // Formats date for display with timezone consideration
+        function formatDateDisplay(dateInput, options = {}) {
+            let date;
+            
+            if (typeof dateInput === 'string') {
+                date = createLocalDate(dateInput);
+            } else if (dateInput instanceof Date) {
+                date = new Date(dateInput);
+            } else {
+                return 'Invalid Date';
+            }
+            
+            if (!date || isNaN(date.getTime())) return 'Invalid Date';
+            
+            const defaultOptions = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            const formatOptions = { ...defaultOptions, ...options };
+            return new Intl.DateTimeFormat('en-US', formatOptions).format(date);
+        }
+
+        // Retrieves date data from Firebase (converts back to local date string)
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            
+            let date;
+            
+            // Handle Firestore Timestamps
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
+            } else {
+                return '';
+            }
+            
+            return formatLocalDate(date);
+        }
+
         // Global variables
         let currentTrialData = null;
         let registrationData = [];
-        let isAutoFilling = false;
         let availableTrials = [];
         let isSecretary = false;
         let currentUser = null;
-
-        // Fee structure - configurable by secretary
-        let fees = {
-            regular: 35.00,
-            feo: 25.00,
-            juniorHandler: 20.00
-        };
-
-        // Selected entries tracking
         let selectedEntries = [];
         let totalFee = 0;
 
-        // Standard field names (using same handles as rest of site)
+        // Standard field names
         const STANDARD_FIELDS = {
             HANDLER_NAME: 'handlerName',
             DOG_CALL_NAME: 'dogCallName',
@@ -1068,593 +902,15 @@
             CWAGS_NUMBER: 'cwagsNumber'
         };
 
-        // Show/hide elements
-        function showElement(id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.classList.remove('hidden');
-                element.style.display = 'block';
-            }
-        }
+        // Fee structure (default values)
+        let fees = {
+            regular: 35.00,
+            feo: 25.00,
+            juniorHandler: 20.00
+        };
 
-        function hideElement(id) {
-            const element = document.getElementById(id);
-            if (element) {
-                element.classList.add('hidden');
-                element.style.display = 'none';
-            }
-        }
-
-        function showError(message) {
-            console.error(message);
-            hideElement('loadingMessage');
-            document.getElementById('errorText').textContent = message;
-            showElement('errorMessage');
-        }
-
-        // Initialize the application
-        async function init() {
-            console.log("🚀 Initializing entry form application...");
-            
-            try {
-                // Check URL parameters for entry link
-                const urlParams = new URLSearchParams(window.location.search);
-                const trialId = urlParams.get('trial');
-
-                if (trialId) {
-                    // Load specific trial for public entry
-                    console.log("🔗 Loading specific trial for public entry:", trialId);
-                    await loadSpecificTrial(trialId);
-                } else {
-                    // Normal secretary view - need authentication
-                    console.log("👨‍💼 Setting up secretary view");
-                    isSecretary = true;
-                    await setupSecretaryView();
-                }
-
-                // Load registration data from dataforsite.xlsx
-                await loadRegistrationData();
-
-                // Setup form event listeners
-                setupFormEventListeners();
-                
-            } catch (error) {
-                console.error("❌ Error initializing application:", error);
-                showError("Failed to initialize entry form: " + error.message);
-            }
-        }
-
-        // IMPROVED Load registration data with better error handling
-        async function loadRegistrationData() {
-            try {
-                console.log("📊 Loading registration data from Firebase...");
-                updateRegistrationStatus('🔄 Loading registration data from Firebase...', 'loading');
-                
-                const dataDoc = await db.collection('system_data').doc('dataforsite').get();
-                if (dataDoc.exists) {
-                    const data = dataDoc.data();
-                    console.log("📊 Found system data document. Contents:", Object.keys(data));
-                    
-                    // Convert registrations array to searchable format
-                    if (data.registrations && Array.isArray(data.registrations)) {
-                        registrationData = data.registrations;
-                        console.log(`✅ Loaded ${registrationData.length} registration records`);
-                        console.log("📋 Sample registrations:", registrationData.slice(0, 3));
-                        updateRegistrationStatus(`✅ Loaded ${registrationData.length} registration records from database`, 'success');
-                    } else {
-                        console.warn("⚠️ No registrations found in system data");
-                        console.log("📊 Available data fields:", Object.keys(data));
-                        registrationData = [];
-                        updateRegistrationStatus(`⚠️ No registrations found in database. Available: classes (${data.classes?.length || 0}), judges (${data.judges?.length || 0})`, 'error');
-                    }
-                } else {
-                    console.warn("⚠️ System data document not found");
-                    registrationData = [];
-                    updateRegistrationStatus('⚠️ System data document not found in Firebase', 'error');
-                }
-            } catch (error) {
-                console.error("❌ Error loading registration data:", error);
-                registrationData = [];
-                updateRegistrationStatus(`❌ Error loading registration data: ${error.message}`, 'error');
-            }
-        }
-
-        // Update registration status display
-        function updateRegistrationStatus(message, type) {
-            const statusElement = document.getElementById('registrationStatus');
-            const textElement = document.getElementById('registrationStatusText');
-            
-            if (statusElement && textElement) {
-                statusElement.style.display = 'block';
-                textElement.textContent = message;
-                
-                // Update status styling
-                statusElement.className = 'registration-status';
-                if (type === 'success') {
-                    statusElement.classList.add('success');
-                } else if (type === 'error') {
-                    statusElement.classList.add('error');
-                }
-            }
-        }
-
-        // Force reload registrations
-        async function forceReloadRegistrations() {
-            console.log("🔄 Force reloading registration data...");
-            await loadRegistrationData();
-        }
-
-        // Setup secretary view with proper authentication
-        async function setupSecretaryView() {
-            try {
-                // Wait for authentication state
-                await new Promise((resolve, reject) => {
-                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-                        unsubscribe();
-                        if (user) {
-                            try {
-                                console.log("🔍 Loading user profile for:", user.email);
-                                
-                                // Load user profile
-                                const userDoc = await db.collection('users').doc(user.uid).get();
-                                if (userDoc.exists) {
-                                    currentUser = { uid: user.uid, ...userDoc.data() };
-                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
-                                    resolve();
-                                } else {
-                                    reject(new Error('User profile not found'));
-                                }
-                            } catch (error) {
-                                reject(error);
-                            }
-                        } else {
-                            reject(new Error('User not authenticated'));
-                        }
-                    });
-                });
-
-                console.log("🔍 Loading trials for user:", currentUser.uid);
-
-                // Load trials for secretary - using exact same query as dashboard
-                const trialsSnapshot = await db.collection("trials")
-                    .where("createdBy", "==", currentUser.uid)
-                    .get();
-                
-                console.log("📊 Trials query result:", {
-                    empty: trialsSnapshot.empty,
-                    size: trialsSnapshot.size
-                });
-                
-                if (!trialsSnapshot.empty) {
-                    availableTrials = [];
-                    trialsSnapshot.forEach(doc => {
-                        const trialData = { id: doc.id, ...doc.data() };
-                        console.log("📋 Found trial:", trialData.clubName, "ID:", doc.id);
-                        availableTrials.push(trialData);
-                    });
-                    
-                    // Sort by creation date (newest first)
-                    availableTrials.sort((a, b) => {
-                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                        return bTime - aTime;
-                    });
-                    
-                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
-                    
-                    hideElement('loadingMessage');
-                    showElement('trialSelectionSection');
-                    showElement('registrationStatus');
-                    populateTrialSelector();
-                    
-                } else {
-                    console.warn("⚠️ No trials found for this user");
-                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
-                }
-                
-            } catch (error) {
-                console.error("❌ Error setting up secretary view:", error);
-                throw error;
-            }
-        }
-
-        // Load specific trial for public entry
-        async function loadSpecificTrial(trialId) {
-            try {
-                console.log("🔍 Loading specific trial:", trialId);
-                const trialDoc = await db.collection('trials').doc(trialId).get();
-                
-                if (!trialDoc.exists) {
-                    throw new Error('Trial not found');
-                }
-
-                currentTrialData = { id: trialDoc.id, ...trialDoc.data() };
-                console.log("✅ Trial loaded:", currentTrialData.clubName);
-                
-                hideElement('loadingMessage');
-                hideElement('trialSelectionSection');
-                hideElement('entryFeeSection');
-                hideElement('shareableLinkSection');
-                showElement('registrationStatus');
-                
-                // Show waiver, trial info and entry form
-                showElement('waiverSection');
-                populateTrialInfo();
-                showEntryForm();
-                
-            } catch (error) {
-                console.error('❌ Error loading specific trial:', error);
-                throw new Error('Trial not found or no longer available');
-            }
-        }
-
-        // Populate trial selector dropdown
-        function populateTrialSelector() {
-            const trialSelect = document.getElementById('trialSelection');
-            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
-
-            availableTrials.forEach(trial => {
-                const option = document.createElement('option');
-                option.value = trial.id;
-                
-                let trialLabel = trial.clubName || 'Unnamed Trial';
-                
-                // Add dates if available
-                if (trial.days && trial.days.length > 0) {
-                    const dates = trial.days
-                        .filter(day => day.date)
-                        .map(day => new Date(day.date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric' 
-                        }))
-                        .join(', ');
-                    if (dates) {
-                        trialLabel += ` (${dates})`;
-                    }
-                }
-                
-                option.textContent = trialLabel;
-                trialSelect.appendChild(option);
-            });
-
-            // Handle trial selection change
-            trialSelect.addEventListener('change', function(event) {
-                const trialId = event.target.value;
-                console.log("🎯 Trial selected:", trialId);
-                
-                if (trialId) {
-                    currentTrialData = availableTrials.find(t => t.id === trialId);
-                    if (currentTrialData) {
-                        console.log("✅ Found trial data:", currentTrialData.clubName);
-                        
-                        // Show fee configuration section for secretary
-                        showElement('entryFeeSection');
-                        
-                        // Setup fee change listeners
-                        setupFeeChangeListeners();
-                        
-                        generateShareableLink();
-                        populateTrialInfo();
-                        showElement('waiverSection');
-                        showEntryForm();
-                    } else {
-                        console.error("❌ Could not find trial data for ID:", trialId);
-                    }
-                } else {
-                    console.log("🚫 No trial selected, hiding sections");
-                    hideElement('shareableLinkSection');
-                    hideElement('trialInfoSection');
-                    hideElement('entryFormContainer');
-                    hideElement('entryFeeSection');
-                    hideElement('waiverSection');
-                }
-            });
-        }
-
-        // IMPROVED Fee management with save functionality
-        function setupFeeChangeListeners() {
-            const regularFeeInput = document.getElementById('regularFee');
-            const feoFeeInput = document.getElementById('feoFee');
-            const juniorFeeInput = document.getElementById('juniorFee');
-            
-            function updateFees() {
-                console.log("💰 Updating fees from inputs");
-                fees.regular = parseFloat(regularFeeInput.value) || 0;
-                fees.feo = parseFloat(feoFeeInput.value) || 0;
-                fees.juniorHandler = parseFloat(juniorFeeInput.value) || 0;
-                
-                console.log("💰 New fees:", fees);
-                
-                // Regenerate classes with new fees
-                if (currentTrialData) {
-                    generateTabbedClasses();
-                }
-                
-                // Update summary if entries are selected
-                updateEntrySummary();
-            }
-            
-            regularFeeInput.addEventListener('input', updateFees);
-            feoFeeInput.addEventListener('input', updateFees);
-            juniorFeeInput.addEventListener('input', updateFees);
-        }
-
-        // Save fee configuration to Firebase
-        async function saveFeeConfiguration() {
-            if (!currentTrialData) {
-                alert('Please select a trial first');
-                return;
-            }
-            
-            try {
-                console.log("💾 Saving fee configuration...");
-                
-                const feeConfig = {
-                    regularFee: fees.regular,
-                    feoFee: fees.feo,
-                    juniorHandlerFee: fees.juniorHandler,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedBy: currentUser.uid
-                };
-                
-                // Save to trial document
-                await db.collection('trials').doc(currentTrialData.id).update({
-                    feeConfiguration: feeConfig
-                });
-                
-                alert('✅ Fee configuration saved successfully!');
-                console.log("✅ Fee configuration saved:", feeConfig);
-                
-            } catch (error) {
-                console.error("❌ Error saving fee configuration:", error);
-                alert('Error saving fee configuration: ' + error.message);
-            }
-        }
-
-        // Reset fee configuration to defaults
-        function resetFeeConfiguration() {
-            document.getElementById('regularFee').value = '35.00';
-            document.getElementById('feoFee').value = '25.00';
-            document.getElementById('juniorFee').value = '20.00';
-            
-            fees.regular = 35.00;
-            fees.feo = 25.00;
-            fees.juniorHandler = 20.00;
-            
-            if (currentTrialData) {
-                generateTabbedClasses();
-            }
-            updateEntrySummary();
-            
-            console.log("🔄 Fee configuration reset to defaults");
-        }
-
-        // Generate shareable link
-        function generateShareableLink() {
-            if (!isSecretary || !currentTrialData) return;
-
-            const baseUrl = window.location.origin + window.location.pathname;
-            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
-            
-            document.getElementById('shareableUrl').textContent = shareableUrl;
-            showElement('shareableLinkSection');
-        }
-
-        // Copy shareable link to clipboard
-        function copyShareableLink() {
-            const url = document.getElementById('shareableUrl').textContent;
-            navigator.clipboard.writeText(url).then(() => {
-                alert('Link copied to clipboard!');
-            }).catch(err => {
-                console.error('Error copying link:', err);
-                // Fallback for older browsers
-                const textArea = document.createElement('textarea');
-                textArea.value = url;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-                alert('Link copied to clipboard!');
-            });
-        }
-
-        // Test shareable link
-        function testShareableLink() {
-            const url = document.getElementById('shareableUrl').textContent;
-            window.open(url, '_blank');
-        }
-
-        // Populate trial information and generate tabbed classes
-        function populateTrialInfo() {
-            if (!currentTrialData) return;
-
-            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
-            
-            // Format trial dates
-            const dates = currentTrialData.days && currentTrialData.days.length > 0 
-                ? currentTrialData.days
-                    .filter(day => day.date)
-                    .map(day => new Date(day.date).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                    }))
-                    .join(', ')
-                : 'No dates specified';
-
-            document.getElementById('clubName').textContent = currentTrialData.clubName || 'TBD';
-            document.getElementById('trialDates').textContent = dates;
-            document.getElementById('trialLocation').textContent = 'TBD';
-            document.getElementById('trialSecretary').textContent = currentTrialData.secretary || 'TBD';
-
-            showElement('trialInfoSection');
-            
-            // Load saved fee configuration if exists
-            if (currentTrialData.feeConfiguration) {
-                const savedFees = currentTrialData.feeConfiguration;
-                document.getElementById('regularFee').value = savedFees.regularFee || 35.00;
-                document.getElementById('feoFee').value = savedFees.feoFee || 25.00;
-                document.getElementById('juniorFee').value = savedFees.juniorHandlerFee || 20.00;
-                
-                fees.regular = savedFees.regularFee || 35.00;
-                fees.feo = savedFees.feoFee || 25.00;
-                fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
-                
-                console.log("📋 Loaded saved fee configuration:", savedFees);
-            }
-            
-            // Generate the tabbed class interface from trial data
-            generateTabbedClasses();
-        }
-
-        // Show entry form
-        function showEntryForm() {
-            showElement('entryFormContainer');
-        }
-
-        // Generate tabbed classes from trial data
-        function generateTabbedClasses() {
-            console.log("🎯 Generating tabbed classes from trial data");
-            
-            if (!currentTrialData.days || currentTrialData.days.length === 0) {
-                console.warn("❌ No days data found");
-                document.getElementById('classEntriesContainer').innerHTML = 
-                    '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
-                return;
-            }
-
-            // Generate day tabs
-            const dayTabsContainer = document.getElementById('dayTabs');
-            dayTabsContainer.innerHTML = '';
-
-            currentTrialData.days.forEach((day, dayIndex) => {
-                const dayDate = day.date 
-                    ? new Date(day.date).toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric' 
-                    })
-                    : `Day ${dayIndex + 1}`;
-
-                const tabButton = document.createElement('button');
-                tabButton.type = 'button';
-                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
-                tabButton.onclick = () => showDay(dayIndex);
-                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
-                
-                dayTabsContainer.appendChild(tabButton);
-            });
-
-            // Generate class content for each day
-            const classEntriesContainer = document.getElementById('classEntriesContainer');
-            let html = '';
-
-            currentTrialData.days.forEach((day, dayIndex) => {
-                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
-
-                if (!day.classes || day.classes.length === 0) {
-                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
-                } else {
-                    day.classes.forEach((cls, classIndex) => {
-                        const className = cls[STANDARD_FIELDS.CLASS_NAME] || cls.className || 'Unnamed Class';
-                        
-                        // Calculate fee based on junior handler status
-                        const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
-                        const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
-                        const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
-
-                        html += `
-                            <div class="class-item">
-                                <div class="class-header">
-                                    <div class="class-name">${className}</div>
-                                </div>
-                                <div class="class-details">
-                                    <div><strong>Sub Class:</strong> ${cls.subClass || 'N/A'}</div>
-                                    <div><strong>Rounds:</strong> ${cls.rounds ? cls.rounds.length : 0}</div>
-                                </div>
-                                <div class="rounds-container">
-                        `;
-
-                        if (cls.rounds && cls.rounds.length > 0) {
-                            cls.rounds.forEach((round, roundIndex) => {
-                                const judgeName = round[STANDARD_FIELDS.JUDGE_NAME] || round.judge || 'Judge TBD';
-                                const roundName = `Round ${roundIndex + 1}`;
-                                
-                                html += `
-                                    <div class="round-item">
-                                        <div class="round-details">
-                                            <span class="judge-name">Judge: ${judgeName}</span>
-                                            <span>${roundName}</span>
-                                        </div>
-                                        <div class="entry-options">
-                                `;
-
-                                // Show Regular button if fee > 0
-                                if (regularFee > 0) {
-                                    html += `
-                                        <div class="entry-option">
-                                            <button class="entry-button regular" type="button"
-                                                    data-class="${className}" 
-                                                    data-round="${roundName}"
-                                                    data-judge="${judgeName}"
-                                                    data-fee="${regularFee.toFixed(2)}" 
-                                                    data-type="regular"
-                                                    data-day="${dayIndex}"
-                                                    data-round-index="${roundIndex}"
-                                                    onclick="toggleEntry(this)">
-                                                Regular ${regularFee.toFixed(2)}
-                                            </button>
-                                        </div>
-                                    `;
-                                }
-
-                                // Show FEO button if available and fee > 0 and not junior handler
-                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
-                                    html += `
-                                        <div class="entry-option">
-                                            <button class="entry-button feo" type="button"
-                                                    data-class="${className}" 
-                                                    data-round="${roundName}"
-                                                    data-judge="${judgeName}"
-                                                    data-fee="${feoFee.toFixed(2)}" 
-                                                    data-type="feo"
-                                                    data-day="${dayIndex}"
-                                                    data-round-index="${roundIndex}"
-                                                    onclick="toggleEntry(this)">
-                                                FEO ${feoFee.toFixed(2)}
-                                            </button>
-                                        </div>
-                                    `;
-                                }
-
-                                html += `
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                        } else {
-                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
-                        }
-
-                        html += `
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-
-                html += `</div>`;
-            });
-
-            classEntriesContainer.innerHTML = html;
-            
-            // Initialize the tabbed interface
-            updateEntrySummary();
-            
-            console.log("✅ Tabbed classes generated successfully");
-        }
-
+        // GLOBAL FUNCTIONS (moved outside init to be accessible from HTML)
+        
         // Show specific day tab
         function showDay(dayIndex) {
             // Hide all day content
@@ -1668,10 +924,16 @@
             });
             
             // Show selected day content
-            document.getElementById(`day-${dayIndex}`).classList.add('active');
+            const dayContent = document.getElementById(`day-${dayIndex}`);
+            if (dayContent) {
+                dayContent.classList.add('active');
+            }
             
             // Add active class to selected tab
-            document.querySelectorAll('.day-tab')[dayIndex].classList.add('active');
+            const dayTabs = document.querySelectorAll('.day-tab');
+            if (dayTabs[dayIndex]) {
+                dayTabs[dayIndex].classList.add('active');
+            }
         }
 
         // Toggle entry selection
@@ -1693,6 +955,7 @@
                 selectedEntries = selectedEntries.filter(entry => 
                     !(entry.entryId === entryId && entry.type === entryType)
                 );
+                console.log("❌ Removed entry:", entryId, entryType);
             } else {
                 // Add selection (but first remove any conflicting entry for same round)
                 const conflictingEntries = selectedEntries.filter(entry => 
@@ -1724,10 +987,101 @@
                     dayIndex: dayIndex,
                     roundIndex: roundIndex
                 });
+                console.log("✅ Added entry:", entryId, entryType, `${fee}`);
             }
             
             updateEntrySummary();
             checkFormValidity();
+        }
+
+        // Copy shareable link to clipboard
+        function copyShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                showStatus('📋 Link copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Error copying link:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showStatus('📋 Link copied to clipboard!', 'success');
+            });
+        }
+
+        // Test shareable link
+        function testShareableLink() {
+            const url = document.getElementById('shareableUrl').textContent;
+            window.open(url, '_blank');
+        }
+
+        // Reset form for another entry
+        function resetForm() {
+            // Reset form fields
+            document.getElementById('entryForm').reset();
+            
+            // Clear selected entries
+            selectedEntries = [];
+            totalFee = 0;
+            
+            // Clear all selected buttons
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Update display
+            updateEntrySummary();
+            checkFormValidity();
+            
+            // Hide success message and show form
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('entryForm').style.display = 'block';
+            
+            // Clear lookup status
+            hideLookupStatus();
+            
+            console.log("📝 Form reset for new entry");
+            showStatus('Form reset for new entry', 'info');
+        }
+
+        // OTHER UTILITY FUNCTIONS
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.remove('hidden');
+                element.style.display = 'block';
+            }
+        }
+
+        function hideElement(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.classList.add('hidden');
+                element.style.display = 'none';
+            }
+        }
+
+        function showError(message) {
+            console.error(message);
+            hideElement('loadingMessage');
+            document.getElementById('errorText').textContent = message;
+            showElement('errorMessage');
         }
 
         // Update entry summary
@@ -1735,16 +1089,16 @@
             const summaryDiv = document.getElementById('entrySummary');
             const entriesList = document.getElementById('selectedEntriesList');
             const totalFeeSpan = document.getElementById('totalFee');
-            const submitSectionTop = document.getElementById('submitSectionTop');
+            const submitSection = document.getElementById('submitSection');
             
             if (selectedEntries.length === 0) {
                 summaryDiv.style.display = 'none';
-                submitSectionTop.classList.remove('show');
+                submitSection.classList.remove('show');
                 return;
             }
             
             summaryDiv.style.display = 'block';
-            submitSectionTop.classList.add('show');
+            submitSection.classList.add('show');
             
             // Generate entries list
             let html = '';
@@ -1762,6 +1116,630 @@
             // Update total fee
             totalFee = selectedEntries.reduce((sum, entry) => sum + entry.fee, 0);
             totalFeeSpan.textContent = totalFee.toFixed(2);
+            
+            console.log("💰 Updated summary:", selectedEntries.length, "entries, total:", `${totalFee.toFixed(2)}`);
+        }
+
+        // Check form validity
+        function checkFormValidity() {
+            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
+            const handlerName = document.getElementById('handlerName')?.value.trim();
+            const dogCallName = document.getElementById('dogCallName')?.value.trim();
+            const hasClasses = selectedEntries.length > 0;
+            
+            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
+            
+            const submitBtn = document.getElementById('submitEntry');
+            if (submitBtn) {
+                submitBtn.disabled = !isValid;
+            }
+            
+            return isValid;
+        }
+
+        // Show lookup status
+        function showLookupStatus(message, type) {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        function hideLookupStatus() {
+            const statusDiv = document.getElementById('lookupStatus');
+            statusDiv.style.display = 'none';
+        }
+
+        // MAIN APPLICATION FUNCTIONS
+
+        // Initialize the application
+        async function init() {
+            console.log("🚀 Initializing entry form application...");
+            
+            try {
+                // Check URL parameters for direct trial link
+                const urlParams = new URLSearchParams(window.location.search);
+                const trialId = urlParams.get('trial');
+
+              if (trialId) {
+    // Load specific trial for public entry
+    console.log("🔗 Loading specific trial for public entry:", trialId);
+    await loadSpecificTrial(trialId);
+    
+    // Check if we're editing an existing entry
+    const entryId = urlParams.get('entry');
+    if (entryId) {
+        console.log("📝 Loading existing entry for editing:", entryId);
+        await loadExistingEntryForEditing(entryId);
+    }
+} else {
+                    // Normal secretary view - need authentication
+                    console.log("👨‍💼 Setting up secretary view");
+                    isSecretary = true;
+                    await setupSecretaryView();
+                }
+
+                // Load registration data
+                await loadRegistrationData();
+
+                // Setup form event listeners
+                setupFormEventListeners();
+                
+            } catch (error) {
+                console.error("❌ Error initializing application:", error);
+                showError("Failed to initialize entry form: " + error.message);
+            }
+        }
+
+        // Load registration data from Firebase registry
+        async function loadRegistrationData() {
+            try {
+                console.log("📊 Loading registration data from Firebase registry...");
+                showStatus('🔄 Loading registration data...', 'info');
+                
+                // Load from Firebase registry collection
+                const registrationsSnapshot = await db.collection('registrations').get();
+                
+                if (!registrationsSnapshot.empty) {
+                    registrationData = [];
+                    registrationsSnapshot.forEach(doc => {
+                        const regData = { id: doc.id, ...doc.data() };
+                        registrationData.push(regData);
+                    });
+                    
+                    console.log(`✅ Loaded ${registrationData.length} registrations from Firebase registry`);
+                    console.log("📋 Sample registrations:", registrationData.slice(0, 2));
+                    showStatus(`✅ Loaded ${registrationData.length} registrations from registry`, 'success');
+                } else {
+                    console.log("📊 No registrations found in Firebase registry");
+                    registrationData = [];
+                    showStatus('ℹ️ No registrations in registry yet. New entries will be saved.', 'info');
+                }
+                
+            } catch (error) {
+                console.error("❌ Error loading registration data:", error);
+                registrationData = [];
+                showStatus(`❌ Error loading registration data: ${error.message}`, 'error');
+            }
+        }
+
+// Load existing entry for editing
+async function loadExistingEntryForEditing(entryId) {
+    try {
+        console.log("🔍 Loading entry for editing:", entryId);
+        showStatus('🔄 Loading entry data...', 'info');
+        
+        const entryDoc = await db.collection('entries').doc(entryId).get();
+        
+        if (!entryDoc.exists) {
+            showStatus('❌ Entry not found!', 'error');
+            return;
+        }
+        
+        const entryData = entryDoc.data();
+        console.log("✅ Entry data loaded:", entryData);
+        
+        // Populate form fields
+        document.getElementById('handlerName').value = entryData.handlerName || '';
+        document.getElementById('handlerPhone').value = entryData.handlerPhone || '';
+        document.getElementById('handlerEmail').value = entryData.handlerEmail || '';
+        document.getElementById('emergencyContact').value = entryData.emergencyContact || '';
+        document.getElementById('dogCallName').value = entryData.dogCallName || '';
+        document.getElementById('dogBreed').value = entryData.dogBreed || '';
+        document.getElementById('dogBirthdate').value = entryData.dogBirthdate || '';
+        document.getElementById('dogSex').value = entryData.dogSex || '';
+        document.getElementById('cwagsNumber').value = entryData.cwagsNumber || '';
+        document.getElementById('juniorHandler').value = entryData.juniorHandler ? 'Yes' : 'No';
+        document.getElementById('waiverAccepted').checked = true;
+        
+        // Load selected entries after the form is ready
+        setTimeout(() => {
+            loadExistingSelectedEntries(entryData.selectedEntries);
+        }, 1000);
+        
+        // Update submit button
+        const submitBtn = document.getElementById('submitEntry');
+        if (submitBtn) {
+            submitBtn.textContent = 'Update Entry';
+        }
+        
+        showStatus('✅ Entry loaded for editing!', 'success');
+        
+    } catch (error) {
+        console.error('❌ Error loading entry:', error);
+        showStatus('❌ Error loading entry: ' + error.message, 'error');
+    }
+}
+
+function loadExistingSelectedEntries(savedEntries) {
+    if (!savedEntries || savedEntries.length === 0) return;
+    
+    console.log("🔄 Loading saved class selections:", savedEntries);
+    
+    // Clear current selections first
+    selectedEntries = [];
+    document.querySelectorAll('.entry-button.selected').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Apply saved selections
+savedEntries.forEach(entry => {
+    console.log("🎯 Looking for button for:", entry);
+    
+    // First try exact match
+    let button = document.querySelector(
+        `[data-class="${entry.className}"][data-round="${entry.roundName}"][data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+    );
+    
+    if (!button) {
+        // If no exact match, try flexible match by position only
+        button = document.querySelector(
+            `[data-type="${entry.type}"][data-day="${entry.dayIndex}"][data-round-index="${entry.roundIndex}"]`
+        );
+        
+        if (button) {
+            console.log("🔄 Found flexible match, updating entry data with current class name");
+            // Update the entry data with the current class name from the button
+            entry.className = button.dataset.class;
+            entry.roundName = button.dataset.round;
+            entry.judgeName = button.dataset.judge;
+        }
+    }
+    
+    if (button) {
+        console.log("✅ Found and selecting button:", entry.className, entry.type);
+        button.classList.add('selected');
+        selectedEntries.push(entry);
+    } else {
+        console.log("❌ Button not found for:", entry.className, entry.type);
+    }
+});
+    console.log("📊 Final selected entries:", selectedEntries);
+    updateEntrySummary();
+}
+        
+        // Setup secretary view with authentication
+        async function setupSecretaryView() {
+            try {
+                console.log("🔐 Setting up secretary authentication...");
+                
+                // Wait for authentication state
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                console.log("🔍 Loading user profile for:", user.email);
+                                
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log("✅ User profile loaded:", currentUser.firstName, currentUser.lastName, "Role:", currentUser.role);
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            reject(new Error('User not authenticated'));
+                        }
+                    });
+                });
+
+                console.log("🔍 Loading trials for user:", currentUser.uid);
+                showStatus('🔄 Loading your trials...', 'info');
+
+                // Load trials - SIMPLIFIED QUERY (no orderBy to avoid index requirement)
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+                
+                console.log("📊 Trials query result:", {
+                    empty: trialsSnapshot.empty,
+                    size: trialsSnapshot.size
+                });
+                
+                if (!trialsSnapshot.empty) {
+                    availableTrials = [];
+                    trialsSnapshot.forEach(doc => {
+                        const rawTrialData = doc.data();
+                        
+                        // Fix date handling for trial days using timezone-safe utilities
+                        if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
+                            rawTrialData.days = rawTrialData.days.map(day => ({
+                                ...day,
+                                date: day.date ? getDateFromFirebase(day.date) : null
+                            }));
+                        }
+                        
+                        const trialData = { id: doc.id, ...rawTrialData };
+                        console.log("📋 Found trial with fixed dates:", trialData.clubName, "ID:", doc.id);
+                        availableTrials.push(trialData);
+                    });
+                    
+                    // Sort by creation date manually (newest first)
+                    availableTrials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+                    
+                    console.log(`✅ Loaded ${availableTrials.length} trials for dropdown`);
+                    
+                    hideElement('loadingMessage');
+                    showElement('trialSelectionSection');
+                    populateTrialSelector();
+                    showStatus(`✅ Found ${availableTrials.length} trials`, 'success');
+                    
+                } else {
+                    console.warn("⚠️ No trials found for this user");
+                    throw new Error("No trials found. Please create a trial first in the Trial Secretary Dashboard.");
+                }
+                
+            } catch (error) {
+                console.error("❌ Error setting up secretary view:", error);
+                if (error.message.includes('not authenticated')) {
+                    // Redirect to login
+                    window.location.href = 'index.html';
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        // Load specific trial for public entry
+        async function loadSpecificTrial(trialId) {
+            try {
+                console.log("🔍 Loading specific trial:", trialId);
+                showStatus('🔄 Loading trial information...', 'info');
+                
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                const rawTrialData = trialDoc.data();
+                
+                // Fix date handling for trial days using timezone-safe utilities
+                if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
+                    rawTrialData.days = rawTrialData.days.map(day => ({
+                        ...day,
+                        date: day.date ? getDateFromFirebase(day.date) : null
+                    }));
+                }
+
+                currentTrialData = { id: trialDoc.id, ...rawTrialData };
+                console.log("✅ Trial loaded with fixed dates:", currentTrialData.clubName);
+                
+                // Load saved fee configuration if exists
+                if (currentTrialData.feeConfiguration) {
+                    const savedFees = currentTrialData.feeConfiguration;
+                    fees.regular = savedFees.regularFee || 35.00;
+                    fees.feo = savedFees.feoFee || 25.00;
+                    fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                    console.log("💰 Loaded saved fee configuration:", savedFees);
+                }
+                
+                hideElement('loadingMessage');
+                hideElement('trialSelectionSection');
+                
+                // Show trial info and form
+                populateTrialInfo();
+                showElement('waiverSection');
+                showEntryForm();
+                showStatus('✅ Trial loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error loading specific trial:', error);
+                throw new Error('Trial not found or no longer available');
+            }
+        }
+
+        // Populate trial selector dropdown
+        function populateTrialSelector() {
+            const trialSelect = document.getElementById('trialSelection');
+            trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+            availableTrials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available using timezone-safe formatting
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => {
+                            const localDate = createLocalDate(day.date);
+                            return localDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                            });
+                        })
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
+                    }
+                }
+                
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
+
+            // Handle trial selection change
+            trialSelect.addEventListener('change', function(event) {
+                const trialId = event.target.value;
+                console.log("🎯 Trial selected:", trialId);
+                
+                if (trialId) {
+                    currentTrialData = availableTrials.find(t => t.id === trialId);
+                    if (currentTrialData) {
+                        console.log("✅ Found trial data:", currentTrialData.clubName);
+                        
+                        // Load saved fee configuration if exists
+                        if (currentTrialData.feeConfiguration) {
+                            const savedFees = currentTrialData.feeConfiguration;
+                            fees.regular = savedFees.regularFee || 35.00;
+                            fees.feo = savedFees.feoFee || 25.00;
+                            fees.juniorHandler = savedFees.juniorHandlerFee || 20.00;
+                            console.log("💰 Loaded saved fee configuration:", savedFees);
+                        }
+                        
+                        generateShareableLink();
+                        populateTrialInfo();
+                        showElement('waiverSection');
+                        showEntryForm();
+                        showStatus('✅ Trial selected successfully!', 'success');
+                    } else {
+                        console.error("❌ Could not find trial data for ID:", trialId);
+                        showStatus('❌ Error loading trial data', 'error');
+                    }
+                } else {
+                    console.log("🚫 No trial selected, hiding sections");
+                    hideElement('shareableLinkSection');
+                    hideElement('entryFormContainer');
+                    hideElement('waiverSection');
+                }
+            });
+        }
+
+        // Generate shareable link
+        function generateShareableLink() {
+            if (!isSecretary || !currentTrialData) return;
+
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareableUrl = `${baseUrl}?trial=${currentTrialData.id}`;
+            
+            document.getElementById('shareableUrl').textContent = shareableUrl;
+            showElement('shareableLinkSection');
+            
+            console.log("🔗 Generated shareable link:", shareableUrl);
+        }
+
+        // Populate trial information
+        function populateTrialInfo() {
+            if (!currentTrialData) return;
+
+            document.getElementById('trialTitle').textContent = `${currentTrialData.clubName || 'Trial'} Entry Form`;
+            
+            console.log("📋 Populating trial info for:", currentTrialData.clubName);
+            console.log("📅 Trial data structure:", {
+                days: currentTrialData.days?.length || 0,
+                firstDay: currentTrialData.days?.[0]
+            });
+            
+            // Generate the tabbed class interface from trial data
+            generateTabbedClasses();
+        }
+
+        // Show entry form
+        function showEntryForm() {
+            showElement('entryFormContainer');
+        }
+
+        // Generate tabbed classes from trial data
+function generateTabbedClasses() {
+    console.log("🎯 Generating tabbed classes from trial data");
+    console.log("🔍 Current trial data:", currentTrialData);
+    
+    if (!currentTrialData.days || currentTrialData.days.length === 0) {
+        console.warn("❌ No days data found");
+        document.getElementById('classEntriesContainer').innerHTML = 
+            '<div style="text-align: center; padding: 2rem; color: #666;">No classes available for this trial.</div>';
+        return;
+    }
+
+    console.log(`📅 Processing ${currentTrialData.days.length} days`);
+    console.log("🔍 Days structure:", currentTrialData.days);
+
+            // Generate day tabs
+            const dayTabsContainer = document.getElementById('dayTabs');
+            dayTabsContainer.innerHTML = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                const dayDate = day.date 
+                    ? createLocalDate(day.date).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric',
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    })
+                    : `Day ${dayIndex + 1}`;
+
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${dayIndex === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(dayIndex);
+                tabButton.textContent = `Day ${dayIndex + 1} - ${dayDate}`;
+                
+                dayTabsContainer.appendChild(tabButton);
+            });
+
+            // Generate class content for each day
+            const classEntriesContainer = document.getElementById('classEntriesContainer');
+            let html = '';
+
+            currentTrialData.days.forEach((day, dayIndex) => {
+                html += `<div class="class-day-content ${dayIndex === 0 ? 'active' : ''}" id="day-${dayIndex}">`;
+
+                if (!day.classes || day.classes.length === 0) {
+                    html += '<div style="text-align: center; padding: 2rem; color: #666;">No classes scheduled for this day.</div>';
+                } else {
+                    console.log(`📋 Day ${dayIndex + 1} has ${day.classes.length} classes`);
+                    
+                    day.classes.forEach((cls, classIndex) => {
+                        console.log(`🔍 Raw class data for class ${classIndex}:`, cls);
+console.log(`🔍 All class properties:`, Object.keys(cls));
+
+// Try multiple possible field names for class names
+let className = null;
+const possibleFields = ['className', 'class', 'CLASS_NAME', STANDARD_FIELDS.CLASS_NAME, 'name'];
+
+for (const field of possibleFields) {
+    if (cls[field] && cls[field].trim() && cls[field].trim() !== 'Unnamed Class') {
+        className = cls[field].trim();
+        console.log(`✅ Found class name "${className}" in field: ${field}`);
+        break;
+    }
+}
+
+// If no proper class name found, use a fallback
+if (!className) {
+    className = `Class ${classIndex + 1}`;
+    console.log(`⚠️ No class name found, using fallback: ${className}`);
+}
+                        
+                        console.log(`🎯 Processing class: ${className} with ${cls.rounds?.length || 0} rounds`);
+
+                        html += `
+                            <div class="class-item">
+                                <div class="class-header">
+                                    <div class="class-name">${className}</div>
+                                </div>
+                                <div class="rounds-container">
+                        `;
+
+                       if (cls.rounds && cls.rounds.length > 0) {
+    cls.rounds.forEach((round, roundIndex) => {
+        console.log(`🔍 Raw round data for round ${roundIndex}:`, round);
+        console.log(`🔍 All round properties:`, Object.keys(round));
+        
+        // Try multiple possible field names for judge names
+        let judgeName = null;
+        const possibleJudgeFields = ['judgeName', 'judge', 'JUDGE_NAME', STANDARD_FIELDS.JUDGE_NAME, 'name'];
+        
+        for (const field of possibleJudgeFields) {
+            if (round[field] && round[field].trim()) {
+                judgeName = round[field].trim();
+                console.log(`✅ Found judge name "${judgeName}" in field: ${field}`);
+                break;
+            }
+        }
+        
+        // If no judge name found, use fallback
+        if (!judgeName) {
+            judgeName = 'Judge TBD';
+            console.log(`⚠️ No judge name found, using fallback: ${judgeName}`);
+        }
+        
+        const roundName = `Round ${roundIndex + 1}`;
+        
+        // Calculate fees
+        const isJuniorHandler = document.getElementById('juniorHandler')?.value === 'Yes';
+        const regularFee = isJuniorHandler ? fees.juniorHandler : fees.regular;
+        const feoFee = isJuniorHandler ? fees.juniorHandler : fees.feo;
+                                
+                                html += `
+                                    <div class="round-item">
+                                        <div class="round-details">
+                                            <span class="judge-name">Judge: ${judgeName}</span>
+                                            <span>${roundName}</span>
+                                        </div>
+                                        <div class="entry-options">
+                                `;
+
+                                // Show Regular button if fee > 0
+                                if (regularFee > 0) {
+                                    html += `
+                                        <button class="entry-button regular" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${regularFee.toFixed(2)}" 
+                                                data-type="regular"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            Regular ${regularFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                // Show FEO button if available and fee > 0 and not junior handler
+                                if (round.feoAvailable && feoFee > 0 && !isJuniorHandler) {
+                                    html += `
+                                        <button class="entry-button feo" type="button"
+                                                data-class="${className}" 
+                                                data-round="${roundName}"
+                                                data-judge="${judgeName}"
+                                                data-fee="${feoFee.toFixed(2)}" 
+                                                data-type="feo"
+                                                data-day="${dayIndex}"
+                                                data-round-index="${roundIndex}"
+                                                onclick="toggleEntry(this)">
+                                            FEO ${feoFee.toFixed(2)}
+                                        </button>
+                                    `;
+                                }
+
+                                html += `
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                        } else {
+                            html += '<div style="text-align: center; color: #666; padding: 1rem;">No rounds configured</div>';
+                        }
+
+                        html += `
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `</div>`;
+            });
+
+            classEntriesContainer.innerHTML = html;
+            
+            console.log("✅ Tabbed classes generated successfully");
+            updateEntrySummary();
         }
 
         // C-WAGS number formatting and lookup
@@ -1775,7 +1753,6 @@
                 if (cleaned.length > 2) {
                     formatted += '-' + cleaned.substring(2, 6);
                     if (cleaned.length > 6) {
-                        // Ensure the last part is always 2 digits, pad with 0 if needed
                         let lastPart = cleaned.substring(6, 8);
                         if (lastPart.length === 1) {
                             lastPart = '0' + lastPart;
@@ -1788,37 +1765,18 @@
             return cleaned;
         }
 
-        // Show lookup status
-        function showLookupStatus(message, type) {
-            const statusDiv = document.getElementById('lookupStatus');
-            statusDiv.textContent = message;
-            statusDiv.className = `lookup-status ${type}`;
-        }
-
-        function hideLookupStatus() {
-            const statusDiv = document.getElementById('lookupStatus');
-            statusDiv.style.display = 'none';
-        }
-
-        // IMPROVED Auto-fill from registration data with better debugging
+        // Auto-fill from registration data with enhanced fields
         async function autoFillFromRegistration(cwagsNumber) {
-            if (isAutoFilling) return;
-            
-            showLookupStatus('🔍 Looking up registration...', 'loading');
+            showLookupStatus('🔍 Looking up registration...', 'info');
             
             try {
-                isAutoFilling = true;
-                
                 console.log("🔍 Looking up registration:", cwagsNumber);
                 console.log("📊 Available registrations:", registrationData.length);
-                console.log("🔍 Search data sample:", registrationData.slice(0, 2));
                 
-                // Search in registration data with more flexible matching
+                // Search in registration data
                 const matchingRegistration = registrationData.find(record => {
-                    const recordCwag = String(record.cwag || record.cwagsNumber || '').trim();
+                    const recordCwag = String(record.cwagsNumber || record.cwag || '').trim();
                     const searchCwag = String(cwagsNumber).trim();
-                    
-                    console.log("🔍 Comparing:", recordCwag, "vs", searchCwag);
                     
                     return recordCwag === searchCwag || 
                            recordCwag.replace(/-/g, '') === searchCwag.replace(/-/g, '');
@@ -1828,17 +1786,22 @@
                     console.log("✅ Found matching registration:", matchingRegistration);
                     showLookupStatus('✅ Registration found! Auto-filling information...', 'success');
                     populateForm(matchingRegistration);
+                    
+                    // Check for existing entry
+                    if (currentTrialData) {
+                        const existingEntry = await checkForExistingEntry(cwagsNumber, currentTrialData.id);
+                        if (existingEntry) {
+                            loadExistingEntry(existingEntry);
+                        }
+                    }
                 } else {
-                    console.log("❌ No matching registration found");
-                    console.log("📋 Tried to match against:", registrationData.map(r => r.cwag || r.cwagsNumber));
-                    showLookupStatus('ℹ️ Registration number not found. You can continue with manual entry.', 'warning');
+                    console.log("❌ No matching registration found for:", cwagsNumber);
+                    showLookupStatus('ℹ️ Registration number not found. Information will be saved when you submit.', 'warning');
                 }
                 
             } catch (error) {
                 console.error("❌ Error during registration lookup:", error);
-                showLookupStatus('❌ Error looking up registration', 'warning');
-            } finally {
-                isAutoFilling = false;
+                showLookupStatus('❌ Error looking up registration', 'error');
             }
         }
 
@@ -1846,22 +1809,240 @@
         function populateForm(registration) {
             console.log("📝 Populating form with registration data:", registration);
             
-            // Handler name - try multiple field names
-            const handlerName = registration.handler || registration.handlerName || registration.name;
+            // Handler name (swapped because registry has fields backwards)
+            const handlerName = registration.dogCallName || registration.dog;
             if (handlerName) {
                 const handlerField = document.getElementById('handlerName');
                 handlerField.value = handlerName;
-                handlerField.classList.add('auto-filled');
-                setTimeout(() => handlerField.classList.remove('auto-filled'), 3000);
+                handlerField.style.background = '#e7f3ff';
+                setTimeout(() => handlerField.style.background = '', 3000);
             }
-            
-            // Dog name - try multiple field names
-            const dogName = registration.dog || registration.dogCallName || registration.dogName;
+
+            // Dog name (swapped because registry has fields backwards)
+            const dogName = registration.handlerName || registration.handler;
             if (dogName) {
                 const dogField = document.getElementById('dogCallName');
                 dogField.value = dogName;
-                dogField.classList.add('auto-filled');
-                setTimeout(() => dogField.classList.remove('auto-filled'), 3000);
+                dogField.style.background = '#e7f3ff';
+                setTimeout(() => dogField.style.background = '', 3000);
+            }
+            
+            // Fill other fields if available
+            if (registration.handlerEmail) {
+                document.getElementById('handlerEmail').value = registration.handlerEmail;
+            }
+            
+            if (registration.handlerPhone) {
+                document.getElementById('handlerPhone').value = registration.handlerPhone;
+            }
+            
+            if (registration.emergencyContact) {
+                document.getElementById('emergencyContact').value = registration.emergencyContact;
+            }
+            
+            if (registration.dogBreed) {
+                document.getElementById('dogBreed').value = registration.dogBreed;
+            }
+            
+            if (registration.dogBirthdate) {
+                document.getElementById('dogBirthdate').value = registration.dogBirthdate;
+            }
+            
+            if (registration.dogSex) {
+                document.getElementById('dogSex').value = registration.dogSex;
+            }
+            
+            if (registration.juniorHandler !== undefined) {
+                document.getElementById('juniorHandler').value = registration.juniorHandler ? 'Yes' : 'No';
+            }
+        }
+
+        // Check for existing entries for this C-WAGS number and trial
+        async function checkForExistingEntry(cwagsNumber, trialId) {
+            if (!cwagsNumber || !trialId) return null;
+            
+            try {
+                console.log(`🔍 Checking for existing entry: ${cwagsNumber} in trial ${trialId}`);
+                
+                const entriesSnapshot = await db.collection('entries')
+                    .where('cwagsNumber', '==', cwagsNumber)
+                    .where('trialId', '==', trialId)
+                    .get();
+                
+                if (!entriesSnapshot.empty) {
+                    const existingEntry = entriesSnapshot.docs[0];
+                    console.log('✅ Found existing entry:', existingEntry.id);
+                    return { id: existingEntry.id, ...existingEntry.data() };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('Error checking for existing entry:', error);
+                return null;
+            }
+        }
+
+        // Load existing entry data into form
+        function loadExistingEntry(entryData) {
+            console.log('📝 Loading existing entry data:', entryData);
+            
+            // Clear current selections
+            selectedEntries = [];
+            document.querySelectorAll('.entry-button.selected').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            // Load the selected entries
+            if (entryData.selectedEntries) {
+                entryData.selectedEntries.forEach(selectedEntry => {
+                    const button = document.querySelector(
+                        `[data-class="${selectedEntry.className}"][data-round="${selectedEntry.roundName}"][data-type="${selectedEntry.type}"][data-day="${selectedEntry.dayIndex}"][data-round-index="${selectedEntry.roundIndex}"]`
+                    );
+                    
+                    if (button) {
+                        button.classList.add('selected');
+                        selectedEntries.push(selectedEntry);
+                    }
+                });
+            }
+
+            updateEntrySummary();
+            showStatus('✅ Loaded existing entry - you can modify and re-submit', 'success');
+        }
+
+        // Submit entry
+        async function submitEntry() {
+            console.log("🚀 Starting entry submission...");
+            
+            if (!checkFormValidity()) {
+                showStatus('Please complete all required fields and select at least one class.', 'error');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitEntry');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                // Collect form data with class index for running order
+                const entryData = {
+                    trialId: currentTrialData.id,
+                    trialName: currentTrialData.clubName,
+                    [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
+                    handlerEmail: document.getElementById('handlerEmail').value.trim(),
+                    handlerPhone: document.getElementById('handlerPhone').value.trim(),
+                    emergencyContact: document.getElementById('emergencyContact').value.trim(),
+                    [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
+                    dogBreed: document.getElementById('dogBreed').value.trim(),
+                    dogBirthdate: document.getElementById('dogBirthdate').value,
+                    dogSex: document.getElementById('dogSex').value,
+                    [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
+                    juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
+                    selectedEntries: selectedEntries.map(entry => ({
+                        ...entry,
+                        // Add class index for running order mapping
+                        classIndex: currentTrialData.days[entry.dayIndex].classes.findIndex(c => 
+                            c.className === entry.className || c[STANDARD_FIELDS.CLASS_NAME] === entry.className
+                        )
+                    })),
+                    totalFee: totalFee,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    waiverAccepted: true
+                };
+                
+                console.log("📝 Entry data prepared:", entryData);
+                
+            // Check if we're editing an existing entry
+const urlParams = new URLSearchParams(window.location.search);
+const editingEntryId = urlParams.get('entry');
+let entryId;
+
+if (editingEntryId) {
+    // Update existing entry
+    await db.collection("entries").doc(editingEntryId).update(entryData);
+    console.log("✅ Entry updated with ID:", editingEntryId);
+    entryId = editingEntryId;
+} else {
+    // Create new entry
+    const docRef = await db.collection("entries").add(entryData);
+    console.log("✅ Entry saved with ID:", docRef.id);
+    entryId = docRef.id;
+}
+
+// Update running order automatically
+await updateRunningOrderOnEntry(entryData, entryId);
+                
+                // Show success message
+                document.getElementById('entryForm').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                showStatus('✅ Entry submitted and running order updated!', 'success');
+                
+            } catch (error) {
+                console.error("❌ Error submitting entry:", error);
+                showStatus("Error submitting entry: " + error.message, 'error');
+                
+                // Reset button
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Update running order when entry is submitted
+        async function updateRunningOrderOnEntry(entryData, entryId) {
+            try {
+                console.log('📊 Updating running order for new entry...');
+                
+                // Load existing running order or create new one
+                let runningOrderDoc;
+                try {
+                    runningOrderDoc = await db.collection('running_orders').doc(entryData.trialId).get();
+                } catch (error) {
+                    console.log('No existing running order found, will create new structure');
+                }
+                
+                let roundOrders = {};
+                if (runningOrderDoc && runningOrderDoc.exists) {
+                    roundOrders = runningOrderDoc.data().roundOrders || {};
+                }
+                
+                // Add each selected entry to appropriate round
+                entryData.selectedEntries.forEach(selectedEntry => {
+                    const roundKey = `${selectedEntry.dayIndex}-${selectedEntry.classIndex || 0}-${selectedEntry.roundIndex}`;
+                    
+                    // Create the entry ID for running order
+                    const runningOrderEntryId = entryId + '_' + selectedEntry.entryId;
+                    
+                    // Initialize round array if it doesn't exist
+                    if (!roundOrders[roundKey]) {
+                        roundOrders[roundKey] = [];
+                    }
+                    
+                    // Add entry to the end of the running order (if not already present)
+                    if (!roundOrders[roundKey].includes(runningOrderEntryId)) {
+                        roundOrders[roundKey].push(runningOrderEntryId);
+                        console.log(`✅ Added to running order: ${entryData.handlerName} - ${entryData.dogCallName} in round ${roundKey}`);
+                    }
+                });
+                
+                // Save updated running order
+                await db.collection('running_orders').doc(entryData.trialId).set({
+                    trialId: entryData.trialId,
+                    trialName: entryData.trialName,
+                    roundOrders: roundOrders,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: entryData.submittedBy || 'entry_form'
+                }, { merge: true });
+                
+                console.log('📊 Running order updated successfully');
+                
+            } catch (error) {
+                console.error('❌ Error updating running order:', error);
+                // Don't fail the entry submission if running order update fails
             }
         }
 
@@ -1918,126 +2099,13 @@
             }
         }
 
-        // Check form validity
-        function checkFormValidity() {
-            const waiverAccepted = document.getElementById('waiverAccepted')?.checked;
-            const handlerName = document.getElementById('handlerName')?.value.trim();
-            const dogCallName = document.getElementById('dogCallName')?.value.trim();
-            const hasClasses = selectedEntries.length > 0;
-            
-            const isValid = waiverAccepted && handlerName && dogCallName && hasClasses;
-            
-            const submitBtn = document.getElementById('submitEntry');
-            if (submitBtn) {
-                submitBtn.disabled = !isValid;
-            }
-            
-            return isValid;
-        }
-
-        // Submit entry
-        async function submitEntry() {
-            console.log("🚀 Starting entry submission...");
-            
-            if (!checkFormValidity()) {
-                alert('Please complete all required fields and select at least one class.');
-                return;
-            }
-            
-            const submitBtn = document.getElementById('submitEntry');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Submitting...';
-            
-            try {
-                // Collect form data
-                const entryData = {
-                    trialId: currentTrialData.id,
-                    trialName: currentTrialData.clubName,
-                    [STANDARD_FIELDS.HANDLER_NAME]: document.getElementById('handlerName').value.trim(),
-                    handlerEmail: document.getElementById('handlerEmail').value.trim(),
-                    handlerPhone: document.getElementById('handlerPhone').value.trim(),
-                    emergencyContact: document.getElementById('emergencyContact').value.trim(),
-                    [STANDARD_FIELDS.DOG_CALL_NAME]: document.getElementById('dogCallName').value.trim(),
-                    dogBreed: document.getElementById('dogBreed').value.trim(),
-                    dogBirthdate: document.getElementById('dogBirthdate').value,
-                    dogSex: document.getElementById('dogSex').value,
-                    [STANDARD_FIELDS.CWAGS_NUMBER]: document.getElementById('cwagsNumber').value.trim(),
-                    juniorHandler: document.getElementById('juniorHandler').value === 'Yes',
-                    selectedEntries: selectedEntries,
-                    totalFee: totalFee,
-                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    waiverAccepted: true
-                };
-                
-                console.log("📝 Entry data prepared:", entryData);
-                
-                // Save to Firebase
-                const docRef = await db.collection("entries").add(entryData);
-                console.log("✅ Entry saved with ID:", docRef.id);
-                
-                // Show success message
-                document.getElementById('entryForm').style.display = 'none';
-                document.getElementById('successMessage').style.display = 'block';
-                
-                // Scroll to top
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                
-            } catch (error) {
-                console.error("❌ Error submitting entry:", error);
-                alert("Error submitting entry: " + error.message);
-                
-                // Reset button
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
-            }
-        }
-
-        // Reset form for another entry
-        function resetForm() {
-            // Reset form fields
-            document.getElementById('entryForm').reset();
-            
-            // Clear selected entries
-            selectedEntries = [];
-            totalFee = 0;
-            
-            // Clear all selected buttons
-            document.querySelectorAll('.entry-button.selected').forEach(btn => {
-                btn.classList.remove('selected');
-            });
-            
-            // Update display
-            updateEntrySummary();
-            checkFormValidity();
-            
-            // Hide success message and show form
-            document.getElementById('successMessage').style.display = 'none';
-            document.getElementById('entryForm').style.display = 'block';
-            
-            // Clear lookup status
-            hideLookupStatus();
-            
-            console.log("📝 Form reset for new entry");
-        }
-
-        // Make functions globally accessible
-        window.showDay = showDay;
-        window.toggleEntry = toggleEntry;
-        window.copyShareableLink = copyShareableLink;
-        window.testShareableLink = testShareableLink;
-        window.resetForm = resetForm;
-        window.saveFeeConfiguration = saveFeeConfiguration;
-        window.resetFeeConfiguration = resetFeeConfiguration;
-        window.forceReloadRegistrations = forceReloadRegistrations;
-
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log("🎯 DOM loaded, initializing entry form...");
             init();
         });
 
-        console.log("🎯 Complete Entry Form Fix script loaded successfully");
+        console.log("🎯 Fixed Trial Entry Form script loaded successfully");
     </script>
 </body>
 </html>

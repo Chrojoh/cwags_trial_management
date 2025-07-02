@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Running Order Management</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- Sortable.js for drag and drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            margin: 0.25rem;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .running-order-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .trial-selector {
+            margin-bottom: 2rem;
+        }
+
+        .trial-selector select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .day-tabs-container {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .day-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .day-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .day-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .day-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .running-order-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .rounds-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .round-column {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f8f9fa;
+            min-height: 500px;
+        }
+
+        .round-header {
+            background: #667eea;
+            color: white;
+            padding: 1rem;
+            border-radius: 6px 6px 0 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .round-info {
+            padding: 0.5rem 1rem;
+            background: #e9ecef;
+            border-bottom: 1px solid #dee2e6;
+            text-align: center;
+        }
+
+        .round-info .judge-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+
+        .round-info .class-round {
+            font-size: 0.9rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .entries-list {
+            min-height: 300px;
+            padding: 1rem;
+        }
+
+        .entry-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: move;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .entry-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+
+        .entry-item.sortable-ghost {
+            opacity: 0.4;
+        }
+
+        .entry-item.sortable-drag {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .entry-text {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .entry-controls {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .entry-controls button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .entry-controls button:hover {
+            background: #5a6268;
+        }
+
+        .entry-type-regular {
+            border-left: 4px solid #28a745;
+        }
+
+        .entry-type-feo {
+            border-left: 4px solid #ffc107;
+        }
+
+        .status-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .no-entries {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .rounds-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .running-order-controls {
+                flex-direction: column;
+            }
+
+            .day-tabs {
+                flex-direction: column;
+            }
+
+            .day-tab {
+                min-width: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📊 Running Order Management</h1>
+                <p>Organize and manage your trial running orders</p>
+            </div>
+            <div>
+                <a href="trial-secretary-dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+                <button class="btn btn-success" onclick="exportRunningOrder()">📤 Export Excel</button>
+                <button class="btn" onclick="saveRunningOrder()">💾 Save Changes</button>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Running Order Container -->
+        <div class="running-order-container">
+            <!-- Trial Selector -->
+            <div class="trial-selector">
+                <label for="trialSelect"><strong>Select Trial:</strong></label>
+                <select id="trialSelect" onchange="loadTrialRunningOrder()">
+                    <option value="">Loading trials...</option>
+                </select>
+            </div>
+
+            <!-- Day Tabs -->
+            <div class="day-tabs-container" id="dayTabsContainer" style="display: none;">
+                <div class="day-tabs" id="dayTabs">
+                    <!-- Day tabs will be generated here -->
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="running-order-controls" id="runningOrderControls" style="display: none;">
+                <button class="btn btn-secondary" onclick="randomizeAllOrders()">🎲 Randomize Day</button>
+                <button class="btn btn-secondary" onclick="sortAlphabetically()">🔤 Sort A-Z</button>
+                <button class="btn btn-secondary" onclick="resetToOriginal()">↩️ Reset to Entry Order</button>
+                <button class="btn btn-secondary" onclick="refreshRunningOrder()">🔄 Refresh</button>
+            </div>
+
+            <!-- Rounds Grid -->
+            <div class="rounds-grid" id="roundsGrid">
+                <div class="no-entries">
+                    Please select a trial to view running orders.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // ========================================
+// TIMEZONE-SAFE DATE UTILITIES
+// ========================================
+
+// Creates a date object that stays in local timezone
+function createLocalDate(dateStr) {
+    if (!dateStr) return null;
+    
+    // Always add noon time to prevent timezone shifts
+    if (typeof dateStr === 'string') {
+        const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+        return new Date(dateWithTime);
+    }
+    
+    return new Date(dateStr);
+}
+
+// Formats a date to YYYY-MM-DD string in local timezone
+function formatLocalDate(date) {
+    if (!date || !(date instanceof Date)) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+// Retrieves date data from Firebase (converts back to local date string)
+function getDateFromFirebase(firebaseDate) {
+    if (!firebaseDate) return '';
+    
+    let date;
+    
+    // Handle Firestore Timestamps
+    if (firebaseDate.toDate) {
+        date = firebaseDate.toDate();
+    } else if (firebaseDate instanceof Date) {
+        date = firebaseDate;
+    } else if (typeof firebaseDate === 'string') {
+        date = createLocalDate(firebaseDate);
+    } else {
+        return '';
+    }
+    
+    return formatLocalDate(date);
+}
+
+        // Global variables
+        let currentUser = null;
+        let currentTrial = null;
+        let runningOrderData = {};
+        let originalOrderData = {};
+        let currentDay = 0;
+
+        // Standard field names
+        const STANDARD_FIELDS = {
+            HANDLER_NAME: 'handlerName',
+            DOG_CALL_NAME: 'dogCallName',
+            JUDGE_NAME: 'judgeName',
+            CLASS_NAME: 'className'
+        };
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize the application
+        async function init() {
+            try {
+                // Check authentication
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    });
+                });
+
+                await loadTrials();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showStatus('Error initializing application: ' + error.message, 'error');
+            }
+        }
+
+        // Load trials for the dropdown
+        async function loadTrials() {
+            try {
+                showStatus('Loading your trials...', 'info');
+
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+
+                const trialSelect = document.getElementById('trialSelect');
+                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+                if (!trialsSnapshot.empty) {
+                    const trials = [];
+                    trialsSnapshot.forEach(doc => {
+                        trials.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    // Sort by creation date
+                    trials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+
+                    trials.forEach(trial => {
+                        const option = document.createElement('option');
+                        option.value = trial.id;
+                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        trialSelect.appendChild(option);
+                    });
+
+                    showStatus(`Found ${trials.length} trials`, 'success');
+                } else {
+                    showStatus('No trials found', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, 'error');
+            }
+        }
+
+        // Add this diagnostic function to your running-order.html file
+// This will help us understand where class names are getting lost
+
+function diagnoseClassNameIssues() {
+    console.log('=== CLASS NAME DIAGNOSTIC ===');
+    
+    // Check current trial structure
+    if (currentTrial && currentTrial.days) {
+        console.log('Trial class structure:');
+        currentTrial.days.forEach((day, dayIndex) => {
+            console.log(`Day ${dayIndex}:`, day.classes?.map(c => ({
+                name: c.className || c.class || c.CLASS_NAME || 'NO NAME',
+                hasClassName: !!c.className,
+                hasClass: !!c.class,
+                hasCLASS_NAME: !!c.CLASS_NAME
+            })));
+        });
+    }
+    
+    // Analyze entry patterns
+    console.log('\nEntry analysis:');
+    const workingEntries = [];
+    const brokenEntries = [];
+    
+    // This would need to be called after entries are loaded
+    // You can call this manually in console after loading a trial
+}
+
+// Add this to your processEntriesIntoRunningOrder function 
+// right after the entries are loaded:
+
+function analyzeEntryData(entriesSnapshot) {
+    console.log('=== ENTRY DATA ANALYSIS ===');
+    
+    let totalEntries = 0;
+    let entriesWithProperClassNames = 0;
+    let entriesWithUnnamedClass = 0;
+    let entriesWithClassIndex = 0;
+    
+    const classNamePatterns = new Set();
+    const problemEntries = [];
+    
+    entriesSnapshot.forEach(doc => {
+        const entry = doc.data();
+        totalEntries++;
+        
+        console.log(`\n📝 Entry: ${entry.handlerName} - ${entry.dogCallName}`);
+        console.log('  Entry structure:', {
+            hasSelectedEntries: !!entry.selectedEntries,
+            selectedEntriesCount: entry.selectedEntries?.length || 0,
+            createdAt: entry.createdAt?.toDate?.() || entry.createdAt
+        });
+        
+        if (entry.selectedEntries) {
+            entry.selectedEntries.forEach((selectedEntry, index) => {
+                console.log(`    Selected Entry ${index}:`, {
+                    className: selectedEntry.className,
+                    classIndex: selectedEntry.classIndex,
+                    dayIndex: selectedEntry.dayIndex,
+                    roundIndex: selectedEntry.roundIndex,
+                    hasProperClassName: selectedEntry.className && selectedEntry.className !== 'Unnamed Class'
+                });
+                
+                classNamePatterns.add(selectedEntry.className || 'NULL');
+                
+                if (selectedEntry.className === 'Unnamed Class' || !selectedEntry.className) {
+                    entriesWithUnnamedClass++;
+                    problemEntries.push({
+                        handler: entry.handlerName,
+                        dog: entry.dogCallName,
+                        className: selectedEntry.className,
+                        classIndex: selectedEntry.classIndex,
+                        dayIndex: selectedEntry.dayIndex,
+                        entryCreated: entry.createdAt?.toDate?.() || 'Unknown'
+                    });
+                } else {
+                    entriesWithProperClassNames++;
+                }
+                
+                if (selectedEntry.classIndex !== undefined && selectedEntry.classIndex !== -1) {
+                    entriesWithClassIndex++;
+                }
+            });
+        }
+    });
+    
+    console.log('\n=== SUMMARY ===');
+    console.log(`Total entries: ${totalEntries}`);
+    console.log(`Entries with proper class names: ${entriesWithProperClassNames}`);
+    console.log(`Entries with "Unnamed Class": ${entriesWithUnnamedClass}`);
+    console.log(`Entries with valid classIndex: ${entriesWithClassIndex}`);
+    console.log('\nAll class name patterns found:', [...classNamePatterns]);
+    
+    console.log('\n=== PROBLEM ENTRIES ===');
+    problemEntries.forEach(entry => {
+        console.log(`${entry.handler} - ${entry.dog}: "${entry.className}" (classIndex: ${entry.classIndex}, day: ${entry.dayIndex}) - Created: ${entry.entryCreated}`);
+    });
+    
+    // Try to determine when the issue started
+    const workingEntries = [];
+    const brokenEntries = [];
+    
+    problemEntries.forEach(entry => {
+        if (entry.entryCreated && entry.entryCreated !== 'Unknown') {
+            brokenEntries.push(entry);
+        }
+    });
+    
+    if (brokenEntries.length > 0) {
+        brokenEntries.sort((a, b) => new Date(a.entryCreated) - new Date(b.entryCreated));
+        console.log('\n=== TIMELINE ===');
+        console.log('First broken entry created:', brokenEntries[0].entryCreated);
+        console.log('Latest broken entry created:', brokenEntries[brokenEntries.length - 1].entryCreated);
+    }
+}
+
+// Call this in your processEntriesIntoRunningOrder function by adding this line
+// right after: console.log('📊 Days found:', Object.keys(runningOrderData));
+
+       
+        // Add this debugging code to your running-order.html file temporarily
+// Place it after loading trial data to see what's happening with dates
+
+function debugDates() {
+    console.log('=== DATE DEBUGGING ===');
+    
+    if (currentTrial && currentTrial.days) {
+        currentTrial.days.forEach((day, index) => {
+            console.log(`Day ${index + 1}:`);
+            console.log('  Raw day.date:', day.date);
+            console.log('  Type:', typeof day.date);
+            
+            if (day.date && day.date.toDate) {
+                console.log('  Firestore Timestamp:', day.date.toDate());
+                console.log('  UTC String:', day.date.toDate().toISOString());
+                console.log('  Local String:', day.date.toDate().toString());
+            }
+            
+            const processedDate = getDateFromFirebase(day.date);
+            console.log('  Processed by getDateFromFirebase:', processedDate);
+            
+            if (processedDate) {
+                const testDate = createLocalDate(processedDate);
+                console.log('  Re-created date:', testDate);
+                console.log('  Re-formatted:', formatLocalDate(testDate));
+            }
+            
+            console.log('---');
+        });
+    }
+    
+    // Also check what's being displayed
+    console.log('Current user timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+    console.log('Current date for reference:', new Date().toString());
+}
+
+// Call this after loadTrialRunningOrder() completes
+// You can add: debugDates(); right after the line:
+// currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+        // Load running order for selected trial
+        async function loadTrialRunningOrder() {
+            const trialId = document.getElementById('trialSelect').value;
+            
+            if (!trialId) {
+                document.getElementById('roundsGrid').innerHTML = '<div class="no-entries">Please select a trial to view running orders.</div>';
+                document.getElementById('runningOrderControls').style.display = 'none';
+                document.getElementById('dayTabsContainer').style.display = 'none';
+                return;
+            }
+
+            try {
+                showStatus('Loading trial entries...', 'info');
+
+                // Load trial data
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+
+                // Fix date handling for trial days using timezone-safe utilities
+if (currentTrial.days && Array.isArray(currentTrial.days)) {
+    currentTrial.days = currentTrial.days.map(day => ({
+        ...day,
+        date: day.date ? getDateFromFirebase(day.date) : null
+    }));
+}
+debugDates(); // <-- ADD THIS LINE HERE
+                // Load entries for this trial
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                // Load existing running order if available
+                let existingOrder = {};
+                try {
+                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                    if (orderDoc.exists) {
+                        existingOrder = orderDoc.data().roundOrders || {};
+                    }
+                } catch (error) {
+                    console.log('No existing running order found, will create new one');
+                }
+
+                // Process entries into running order structure
+                await processEntriesIntoRunningOrder(entriesSnapshot, existingOrder);
+
+                showStatus(`Loaded running order for ${currentTrial.clubName}`, 'success');
+                document.getElementById('runningOrderControls').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Error loading trial running order:', error);
+                showStatus('Error loading running order: ' + error.message, 'error');
+            }
+        }
+
+        // Process entries into running order structure
+        async function processEntriesIntoRunningOrder(entriesSnapshot, existingOrder) {
+            runningOrderData = {};
+            originalOrderData = {};
+
+            console.log('🔍 Processing trial structure:', currentTrial);
+            console.log('📅 Trial days:', currentTrial.days);
+
+           // Create structure organized by days
+if (currentTrial.days) {
+    currentTrial.days.forEach((day, dayIndex) => {
+        console.log(`📅 Processing Day ${dayIndex + 1}:`, {
+            date: day.date,
+            classes: day.classes?.length || 0
+        });
+        runningOrderData[dayIndex] = {
+            dayNumber: dayIndex + 1,
+            date: day.date,
+            rounds: {}
+        };
+        originalOrderData[dayIndex] = { rounds: {} };
+        
+        if (day.classes) {
+            day.classes.forEach((cls, classIndex) => {
+                // Handle different field name possibilities
+                const className = cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`;
+                
+                if (cls.rounds) {
+                    cls.rounds.forEach((round, roundIndex) => {
+                        const roundKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                        const roundId = `day${dayIndex + 1}_${className}_round${roundIndex + 1}`.replace(/\s+/g, '_');
+                        
+                        // Handle different judge field name possibilities
+                        const judgeName = round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD';
+                        
+                        runningOrderData[dayIndex].rounds[roundKey] = {
+                            id: roundId,
+                            className: className,
+                            roundNumber: roundIndex + 1,
+                            judgeName: judgeName,
+                            entries: []
+                        };
+                        
+                        originalOrderData[dayIndex].rounds[roundKey] = { entries: [] };
+                        
+                        console.log(`  📋 Added round: Day ${dayIndex + 1} - ${className} Round ${roundIndex + 1}`);
+                    });
+                }
+            });
+        }
+    });
+}
+
+            console.log('📊 Final runningOrderData structure:', runningOrderData);
+            console.log('📊 Days found:', Object.keys(runningOrderData));
+analyzeEntryData(entriesSnapshot);
+           // Add entries to appropriate rounds
+if (!entriesSnapshot.empty) {
+    entriesSnapshot.forEach(doc => {
+        const entry = doc.data();
+        console.log('📝 Processing entry:', entry.handlerName, entry.dogCallName);
+        
+        if (entry.selectedEntries) {
+           entry.selectedEntries.forEach(selectedEntry => {
+    console.log('  🎯 Selected entry:', selectedEntry);
+    console.log('  🔍 selectedEntry.classIndex:', selectedEntry.classIndex);
+    console.log('  🔍 selectedEntry.className:', selectedEntry.className);
+    
+    const dayIndex = selectedEntry.dayIndex;
+    console.log('  🔍 Available classes for day', dayIndex + 1, ':', currentTrial.days[dayIndex].classes.map(c => c.className || c.class || c.CLASS_NAME));
+    
+  // Handle different field name possibilities for class matching
+let classIndex = currentTrial.days[dayIndex].classes.findIndex(c => {
+    const clsName = c.className || c.class || c.CLASS_NAME || '';
+    console.log('    🔎 Comparing:', clsName, 'vs', selectedEntry.className);
+    return clsName === selectedEntry.className;
+});
+
+console.log('  🔍 findIndex result:', classIndex);
+
+// Enhanced fallback logic
+let finalClassIndex;
+if (classIndex !== -1) {
+    // Name matching worked
+    finalClassIndex = classIndex;
+    console.log('  ✅ Using name-matched class index:', finalClassIndex);
+} else if (selectedEntry.classIndex !== undefined && selectedEntry.classIndex !== -1) {
+    // Fall back to stored classIndex
+    finalClassIndex = selectedEntry.classIndex;
+    console.log('  🔄 Falling back to stored classIndex:', finalClassIndex);
+    
+    // Log what class this maps to for debugging
+    const fallbackClass = currentTrial.days[dayIndex].classes[finalClassIndex];
+    if (fallbackClass) {
+        const fallbackClassName = fallbackClass.className || fallbackClass.class || fallbackClass.CLASS_NAME || 'Unknown';
+        console.log('  📍 Fallback maps to class:', fallbackClassName);
+    }
+} else {
+    // Last resort - use index 0
+    finalClassIndex = 0;
+    console.log('  ⚠️ Using default class index 0');
+}
+
+// Validate the final index
+if (finalClassIndex >= currentTrial.days[dayIndex].classes.length) {
+    console.log('  ❌ Class index out of bounds, using 0');
+    finalClassIndex = 0;
+}
+    const roundKey = `${dayIndex}-${finalClassIndex}-${selectedEntry.roundIndex}`;
+    
+    console.log(`  📍 Mapping to: Day ${dayIndex}, Class ${finalClassIndex}, Round ${selectedEntry.roundIndex}, Key: ${roundKey}`);
+                
+                if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey]) {
+                    const entryItem = {
+    id: doc.id + '_' + selectedEntry.entryId,
+    handlerName: entry.handlerName.split(' ')[0], // Only first name
+    dogCallName: entry.dogCallName,
+    entryType: selectedEntry.type,
+    originalOrder: runningOrderData[dayIndex].rounds[roundKey].entries.length
+};
+                    runningOrderData[dayIndex].rounds[roundKey].entries.push(entryItem);
+                    originalOrderData[dayIndex].rounds[roundKey].entries.push({ ...entryItem });
+                    
+                    console.log(`  ✅ Added to Day ${dayIndex}: ${entry.handlerName} - ${entry.dogCallName}`);
+                } else {
+                    console.log(`  ❌ Could not find round for Day ${dayIndex}, Key: ${roundKey}`);
+                    console.log(`  🔍 Available round keys for day ${dayIndex}:`, Object.keys(runningOrderData[dayIndex]?.rounds || {}));
+                }
+            });
+        }
+    });
+}
+            // Apply existing order if available
+            Object.keys(existingOrder).forEach(roundKey => {
+                const [dayIndex] = roundKey.split('-').map(Number);
+                if (runningOrderData[dayIndex] && runningOrderData[dayIndex].rounds[roundKey] && existingOrder[roundKey]) {
+                    const round = runningOrderData[dayIndex].rounds[roundKey];
+                    const orderedEntries = [];
+                    const unorderedEntries = [...round.entries];
+
+                    // First, add entries in the saved order
+                    existingOrder[roundKey].forEach(savedEntryId => {
+                        const entryIndex = unorderedEntries.findIndex(e => e.id === savedEntryId);
+                        if (entryIndex !== -1) {
+                            orderedEntries.push(unorderedEntries.splice(entryIndex, 1)[0]);
+                        }
+                    });
+
+                    // Then add any new entries that weren't in the saved order
+                    orderedEntries.push(...unorderedEntries);
+
+                    round.entries = orderedEntries;
+                }
+            });
+
+            console.log('🎯 About to render day tabs...');
+            renderDayTabs();
+            renderRunningOrder();
+        }
+
+        // Render day tabs
+        function renderDayTabs() {
+            console.log('🎯 Starting renderDayTabs...');
+            
+            const dayTabsContainer = document.getElementById('dayTabsContainer');
+            const dayTabs = document.getElementById('dayTabs');
+            
+            if (!dayTabsContainer || !dayTabs) {
+                console.error('Day tabs container elements not found');
+                return;
+            }
+            
+            console.log('📊 runningOrderData keys:', Object.keys(runningOrderData));
+            
+            if (Object.keys(runningOrderData).length === 0) {
+                console.log('No running order data, hiding tabs');
+                dayTabsContainer.style.display = 'none';
+                return;
+            }
+
+            console.log('Showing day tabs');
+            dayTabsContainer.style.display = 'block';
+            dayTabs.innerHTML = '';
+
+            Object.keys(runningOrderData).forEach((dayIndex, index) => {
+                const dayData = runningOrderData[dayIndex];
+                console.log(`📅 Creating tab for day ${dayIndex}:`, dayData);
+                
+               const dayDate = dayData.date 
+    ? createLocalDate(dayData.date).toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+    })
+    : `Day ${dayData.dayNumber}`;
+
+                const tabButton = document.createElement('button');
+                tabButton.type = 'button';
+                tabButton.className = `day-tab ${index === 0 ? 'active' : ''}`;
+                tabButton.onclick = () => showDay(parseInt(dayIndex));
+                tabButton.textContent = dayDate;
+                
+                dayTabs.appendChild(tabButton);
+                console.log(`✅ Added tab: ${dayDate}`);
+            });
+
+            // Set first day as current
+            const firstDayIndex = parseInt(Object.keys(runningOrderData)[0]);
+            currentDay = firstDayIndex;
+            console.log('🎯 Set current day to:', currentDay);
+        }
+
+        // Show specific day
+        function showDay(dayIndex) {
+            currentDay = dayIndex;
+            
+            // Update tab appearance
+            document.querySelectorAll('.day-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            const dayTabs = document.querySelectorAll('.day-tab');
+            const dayKeys = Object.keys(runningOrderData);
+            const tabIndex = dayKeys.indexOf(dayIndex.toString());
+            if (dayTabs[tabIndex]) {
+                dayTabs[tabIndex].classList.add('active');
+            }
+            
+            renderRunningOrder();
+        }
+
+        // Render the running order grid for current day
+        function renderRunningOrder() {
+            const roundsGrid = document.getElementById('roundsGrid');
+            
+            if (Object.keys(runningOrderData).length === 0) {
+                roundsGrid.innerHTML = '<div class="no-entries">No entries found for this trial.</div>';
+                return;
+            }
+
+            if (!runningOrderData[currentDay] || Object.keys(runningOrderData[currentDay].rounds).length === 0) {
+                roundsGrid.innerHTML = '<div class="no-entries">No classes scheduled for this day.</div>';
+                return;
+            }
+
+            const dayData = runningOrderData[currentDay];
+            let html = '';
+
+            Object.keys(dayData.rounds).forEach(roundKey => {
+                const round = dayData.rounds[roundKey];
+                
+                html += `
+                    <div class="round-column">
+                        <div class="round-header">
+                            ${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}
+                        </div>
+                        <div class="round-info">
+                            <div class="judge-name">${round.judgeName}</div>
+                            <div class="class-round">${round.className} Round ${round.roundNumber}</div>
+                        </div>
+                        <div class="entries-list" id="entries_${roundKey}" data-round-key="${roundKey}">
+                            ${round.entries.map((entry, index) => `
+                                <div class="entry-item entry-type-${entry.entryType}" data-entry-id="${entry.id}">
+                                    <span class="entry-text">${entry.handlerName} - ${entry.dogCallName}</span>
+                                    <div class="entry-controls">
+                                        <button onclick="moveEntryUp('${roundKey}', ${index})" title="Move Up">↑</button>
+                                        <button onclick="moveEntryDown('${roundKey}', ${index})" title="Move Down">↓</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+
+            roundsGrid.innerHTML = html;
+
+            // Initialize drag and drop for each entries list
+            Object.keys(dayData.rounds).forEach(roundKey => {
+                const entriesList = document.getElementById(`entries_${roundKey}`);
+                if (entriesList) {
+                    new Sortable(entriesList, {
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        dragClass: 'sortable-drag',
+                        onEnd: function (evt) {
+                            handleDragEnd(roundKey, evt.oldIndex, evt.newIndex);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Handle drag and drop end
+        function handleDragEnd(roundKey, oldIndex, newIndex) {
+            if (oldIndex !== newIndex) {
+                const dayData = runningOrderData[currentDay];
+                const entries = dayData.rounds[roundKey].entries;
+                const movedEntry = entries.splice(oldIndex, 1)[0];
+                entries.splice(newIndex, 0, movedEntry);
+                
+                console.log(`Moved entry from position ${oldIndex} to ${newIndex} in round ${roundKey}`);
+                showStatus('Entry order updated', 'success');
+            }
+        }
+
+        // Move entry up
+        function moveEntryUp(roundKey, index) {
+            if (index > 0) {
+                const dayData = runningOrderData[currentDay];
+                const entries = dayData.rounds[roundKey].entries;
+                [entries[index - 1], entries[index]] = [entries[index], entries[index - 1]];
+                renderRunningOrder();
+                showStatus('Entry moved up', 'success');
+            }
+        }
+
+        // Move entry down
+        function moveEntryDown(roundKey, index) {
+            const dayData = runningOrderData[currentDay];
+            const entries = dayData.rounds[roundKey].entries;
+            if (index < entries.length - 1) {
+                [entries[index], entries[index + 1]] = [entries[index + 1], entries[index]];
+                renderRunningOrder();
+                showStatus('Entry moved down', 'success');
+            }
+        }
+
+        // Randomize running orders for current day
+        function randomizeAllOrders() {
+            if (confirm('This will randomize the running order for ALL rounds on the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                Object.keys(dayData.rounds).forEach(roundKey => {
+                    const entries = dayData.rounds[roundKey].entries;
+                    for (let i = entries.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [entries[i], entries[j]] = [entries[j], entries[i]];
+                    }
+                });
+                renderRunningOrder();
+                showStatus('Running orders randomized for current day', 'success');
+            }
+        }
+
+        // Sort alphabetically by handler name for current day
+        function sortAlphabetically() {
+            if (confirm('This will sort all entries alphabetically by handler name for the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                Object.keys(dayData.rounds).forEach(roundKey => {
+                    dayData.rounds[roundKey].entries.sort((a, b) => 
+                        a.handlerName.localeCompare(b.handlerName)
+                    );
+                });
+                renderRunningOrder();
+                showStatus('Entries sorted alphabetically for current day', 'success');
+            }
+        }
+
+        // Reset to original entry order for current day
+        function resetToOriginal() {
+            if (confirm('This will reset all running orders to the original entry order for the current day. Continue?')) {
+                const dayData = runningOrderData[currentDay];
+                const originalDayData = originalOrderData[currentDay];
+                Object.keys(originalDayData.rounds).forEach(roundKey => {
+                    if (dayData.rounds[roundKey]) {
+                        dayData.rounds[roundKey].entries = [...originalDayData.rounds[roundKey].entries];
+                    }
+                });
+                renderRunningOrder();
+                showStatus('Running orders reset to original entry order for current day', 'success');
+            }
+        }
+
+        // Refresh running order
+        function refreshRunningOrder() {
+            loadTrialRunningOrder();
+        }
+
+        // Save running order to Firebase
+        async function saveRunningOrder() {
+            if (!currentTrial) {
+                showStatus('No trial selected', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Saving running order...', 'info');
+
+                const roundOrders = {};
+                Object.keys(runningOrderData).forEach(dayIndex => {
+                    const dayData = runningOrderData[dayIndex];
+                    Object.keys(dayData.rounds).forEach(roundKey => {
+                        roundOrders[roundKey] = dayData.rounds[roundKey].entries.map(entry => entry.id);
+                    });
+                });
+
+                await db.collection('running_orders').doc(currentTrial.id).set({
+                    trialId: currentTrial.id,
+                    trialName: currentTrial.clubName,
+                    roundOrders: roundOrders,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedBy: currentUser.uid
+                });
+
+                showStatus('Running order saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving running order:', error);
+                showStatus('Error saving running order: ' + error.message, 'error');
+            }
+        }
+
+        // Export running order to Excel
+        async function exportRunningOrder() {
+            if (!currentTrial || Object.keys(runningOrderData).length === 0) {
+                showStatus('No running order data to export', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Preparing Excel export...', 'info');
+
+                // Export current day only
+                const dayData = runningOrderData[currentDay];
+                if (!dayData) {
+                    showStatus('No data for current day', 'error');
+                    return;
+                }
+
+                let csvContent = "data:text/csv;charset=utf-8,";
+                
+                // Get all rounds for current day
+                const rounds = Object.values(dayData.rounds);
+                const maxEntries = Math.max(...rounds.map(r => r.entries.length));
+                
+                // Header row with date
+csvContent += rounds.map(round => 
+    `"${dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date TBD'}"`
+).join(',') + '\n';
+                
+                // Judge names
+                csvContent += rounds.map(round => 
+                    `"${round.judgeName}"`
+                ).join(',') + '\n';
+                
+                // Class and round info
+                csvContent += rounds.map(round => 
+                    `"${round.className} Round ${round.roundNumber}"`
+                ).join(',') + '\n';
+
+                // Entry rows
+                for (let i = 0; i < maxEntries; i++) {
+                    csvContent += rounds.map(round => 
+                        round.entries[i] ? `"${round.entries[i].handlerName} - ${round.entries[i].dogCallName}"` : '""'
+                    ).join(',') + '\n';
+                }
+
+                // Download the file
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                
+                const dayDate = dayData.date ? createLocalDate(dayData.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : `Day-${dayData.dayNumber}`;
+                link.setAttribute("download", `running-order-${currentTrial.clubName.replace(/\s+/g, '-')}-${dayDate}.csv`);
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                showStatus('Running order exported successfully!', 'success');
+            } catch (error) {
+                console.error('Error exporting running order:', error);
+                showStatus('Error exporting running order: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing running order management...');
+            init();
+        });
+
+        console.log('Running Order Management script loaded successfully');
+    </script>
+</body>
+</html>
