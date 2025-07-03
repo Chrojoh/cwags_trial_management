@@ -552,7 +552,13 @@
                 classSelect.innerHTML = '<option value="">Select a class...</option>';
                 
                 if (classNames.size > 0) {
-                    const sortedClasses = Array.from(classNames).sort();
+                    // Sort classes by C-WAGS order instead of alphabetically
+                    const sortedClasses = Array.from(classNames).sort((a, b) => {
+                        const orderA = getCWAGSClassOrder(a);
+                        const orderB = getCWAGSClassOrder(b);
+                        return orderA - orderB;
+                    });
+                    
                     sortedClasses.forEach(className => {
                         const option = document.createElement('option');
                         option.value = className;
