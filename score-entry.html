@@ -260,6 +260,10 @@
             text-align: left !important;
             font-weight: 600;
             background: #f0f8ff;
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+            font-size: 0.85rem;
         }
 
         .scent-cell {
@@ -274,7 +278,8 @@
         }
 
         .fault-cell {
-            width: 80px;
+            width: 150px;
+            min-width: 150px;
         }
 
         .fault-cell input {
@@ -282,6 +287,7 @@
             padding: 0.25rem;
             border: 1px solid #dee2e6;
             border-radius: 4px;
+            font-size: 0.85rem;
         }
 
         .time-cell {
@@ -473,6 +479,7 @@
                     <div class="sheet-title">Scent Detective Master Score Sheet</div>
                     <div class="sheet-info">
                         <div><strong>Class:</strong> <span id="sheetClass">-</span></div>
+                        <div><strong>Round:</strong> <span id="sheetRound">-</span></div>
                         <div><strong>Date:</strong> <span id="sheetDate">-</span></div>
                         <div><strong>Judge:</strong> <span id="sheetJudge">-</span></div>
                     </div>
@@ -507,8 +514,8 @@
                             <th>Scent 2</th>
                             <th>Scent 3</th>
                             <th>Scent 4</th>
-                            <th>Fault</th>
-                            <th>Fault</th>
+                            <th>Fault Description</th>
+                            <th>Fault Description</th>
                             <th>Time</th>
                             <th>Pass/Fail</th>
                         </tr>
@@ -1107,6 +1114,7 @@
         function renderScoreSheet(round, participants) {
             // Update header info
             document.getElementById('sheetClass').textContent = round.className;
+            document.getElementById('sheetRound').textContent = `Round ${round.roundNumber}`;
             document.getElementById('sheetDate').textContent = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
             document.getElementById('sheetJudge').textContent = round.judgeName;
 
@@ -1157,12 +1165,12 @@
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault1 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault1', this.value)"
-                               placeholder="Fault">
+                               placeholder="Fault description">
                     </td>
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault2 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault2', this.value)"
-                               placeholder="Fault">
+                               placeholder="Fault description">
                     </td>
                     <td class="time-cell">
                         <input type="text" value="${participantScores.time || ''}" 
