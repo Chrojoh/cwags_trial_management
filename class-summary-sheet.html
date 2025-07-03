@@ -742,37 +742,65 @@
                         if (orderDoc.exists) {
                             const runningOrderData = orderDoc.data();
                             
-                            // Check for different possible field names
+                            // Check for different possible field names from your running order system
                             let finalizedData = null;
                             if (runningOrderData.finalizedRunningOrders) {
                                 finalizedData = runningOrderData.finalizedRunningOrders;
                             } else if (runningOrderData.generatedSheets) {
                                 finalizedData = runningOrderData.generatedSheets;
                             } else if (runningOrderData.roundOrders) {
+                                // This is the format your running-order.html saves
                                 finalizedData = runningOrderData.roundOrders;
                             }
 
                             if (finalizedData) {
-                                // Find rounds for this class
-                                Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                                // Get all entries to resolve participant details
+                                const entriesSnapshot = await db.collection('entries')
+                                    .where('trialId', '==', trialId)
+                                    .get();
+
+                                const entryMap = {};
+                                entriesSnapshot.forEach(doc => {
+                                    entryMap[doc.id] = doc.data();
+                                });
+
+                                // Process running order data to create rounds
+                                Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
                                     const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
                                     const day = currentTrial.days[dayIndex];
                                     const cls = day?.classes[classIndex];
                                     const round = cls?.rounds[roundIndex];
 
-                                    if (day && cls && round) {
-                                        const roundClassName = roundData.className || cls.className || cls.class || cls.CLASS_NAME;
+                                    if (day && cls && round && entryIds && entryIds.length > 0) {
+                                        const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
                                         
                                         // Check if this round matches our selected class
                                         if (roundClassName && roundClassName.trim() === className.trim()) {
-                                            rounds.push({
-                                                roundKey: roundKey,
-                                                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                                                roundNumber: roundIndex + 1,
-                                                className: roundClassName,
-                                                participants: roundData.participants || [],
-                                                hasScores: false
+                                            // Build participants list from entryIds
+                                            const participants = [];
+                                            entryIds.forEach(entryId => {
+                                                const [docId] = entryId.split('_');
+                                                const entry = entryMap[docId];
+                                                if (entry) {
+                                                    participants.push({
+                                                        id: entryId,
+                                                        handlerName: entry.handlerName || 'Unknown Handler',
+                                                        dogCallName: entry.dogCallName || 'Unknown',
+                                                        cwagsNumber: entry.cwagsNumber || 'TBD'
+                                                    });
+                                                }
                                             });
+
+                                            if (participants.length > 0) {
+                                                rounds.push({
+                                                    roundKey: roundKey,
+                                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                                    roundNumber: roundIndex + 1,
+                                                    className: roundClassName,
+                                                    participants: participants,
+                                                    hasScores: false
+                                                });
+                                            }
                                         }
                                     }
                                 });
