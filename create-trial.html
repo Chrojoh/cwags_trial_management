@@ -164,14 +164,6 @@ const CWAGS_CLASS_ORDER = [
     'Zoom 1', 'Zoom 1.5', 'Zoom 2',
     'Games 1', 'Games 2', 'Games 3', 'Games 4'
 ];
-    // Function to sort classes in C-WAGS order
-function sortClassesByOrder(classes) {
-    return classes.sort((a, b) => {
-        const aIndex = CWAGS_CLASS_ORDER.indexOf(a);
-        const bIndex = CWAGS_CLASS_ORDER.indexOf(b);
-        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-    });
-}
     // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
