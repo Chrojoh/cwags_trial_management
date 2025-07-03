@@ -824,36 +824,86 @@
 
                 const runningOrderData = orderDoc.data();
                 
-                // Check if we have the finalized running order structure
-                if (!runningOrderData.finalizedRunningOrders || Object.keys(runningOrderData.finalizedRunningOrders).length === 0) {
-                    throw new Error('No finalized running orders found. Please generate running orders first.');
+                // Debug: Let's see what fields are actually available
+                console.log('Running order data structure:', Object.keys(runningOrderData));
+                console.log('Full running order data:', runningOrderData);
+                
+                // Check for different possible field names your system might use
+                let finalizedData = null;
+                if (runningOrderData.finalizedRunningOrders) {
+                    finalizedData = runningOrderData.finalizedRunningOrders;
+                    console.log('Using finalizedRunningOrders');
+                } else if (runningOrderData.generatedSheets) {
+                    finalizedData = runningOrderData.generatedSheets;
+                    console.log('Using generatedSheets');
+                } else if (runningOrderData.roundOrders) {
+                    // Fall back to the old structure but process it differently
+                    console.log('Using roundOrders as fallback');
+                    finalizedData = runningOrderData.roundOrders;
+                } else {
+                    throw new Error('No running order data found. Please generate running orders first.');
                 }
 
                 allRounds = [];
 
-                // Process rounds from FINALIZED running orders (same as PDF generation)
-                Object.entries(runningOrderData.finalizedRunningOrders).forEach(([roundKey, roundData]) => {
-                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                    const day = currentTrial.days[dayIndex];
-                    const cls = day?.classes[classIndex];
-                    const round = cls?.rounds[roundIndex];
+                // Process rounds from the available data structure
+                if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders) {
+                    // Process from organized sheet data
+                    Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
 
-                    if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
-                        allRounds.push({
-                            key: roundKey,
-                            dayIndex,
-                            classIndex,
-                            roundIndex,
-                            className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                            judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                            roundNumber: roundIndex + 1,
-                            date: day.date,
-                            participants: roundData.participants, // Use finalized participant list
-                            entryCount: roundData.participants.length,
-                            cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
-                        });
-                    }
-                });
+                        if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
+                            allRounds.push({
+                                key: roundKey,
+                                dayIndex,
+                                classIndex,
+                                roundIndex,
+                                className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                roundNumber: roundIndex + 1,
+                                date: day.date,
+                                participants: roundData.participants,
+                                entryCount: roundData.participants.length,
+                                cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
+                            });
+                        }
+                    });
+                } else {
+                    // Fall back to processing roundOrders but group by unique rounds
+                    const uniqueRounds = {};
+                    
+                    Object.keys(finalizedData).forEach(roundKey => {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
+
+                        if (day && cls && round && finalizedData[roundKey].length > 0) {
+                            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                            
+                            if (!uniqueRounds[uniqueKey]) {
+                                uniqueRounds[uniqueKey] = {
+                                    key: uniqueKey,
+                                    dayIndex,
+                                    classIndex,
+                                    roundIndex,
+                                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                    roundNumber: roundIndex + 1,
+                                    date: day.date,
+                                    entryIds: finalizedData[roundKey],
+                                    entryCount: finalizedData[roundKey].length,
+                                    cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
+                                };
+                            }
+                        }
+                    });
+                    
+                    allRounds = Object.values(uniqueRounds);
+                }
 
                 if (allRounds.length === 0) {
                     document.getElementById('noDataMessage').style.display = 'block';
@@ -997,12 +1047,40 @@
 
                 currentRound = round;
 
-                // Use the finalized participants list directly (no need to rebuild from entries)
-                const participants = round.participants.map(participant => ({
-                    id: participant.id,
-                    handlerName: participant.handlerName,
-                    dogCallName: participant.dogCallName
-                }));
+                let participants = [];
+
+                // Handle different data structures
+                if (round.participants) {
+                    // Use finalized participants list directly
+                    participants = round.participants.map(participant => ({
+                        id: participant.id,
+                        handlerName: participant.handlerName,
+                        dogCallName: participant.dogCallName
+                    }));
+                } else if (round.entryIds) {
+                    // Fall back to building from entryIds
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', currentTrial.id)
+                        .get();
+
+                    const entryMap = {};
+                    entriesSnapshot.forEach(doc => {
+                        entryMap[doc.id] = doc.data();
+                    });
+
+                    // Build participant list in running order
+                    round.entryIds.forEach(entryId => {
+                        const [docId] = entryId.split('_');
+                        const entry = entryMap[docId];
+                        if (entry) {
+                            participants.push({
+                                id: entryId,
+                                handlerName: entry.handlerName.split(' ')[0],
+                                dogCallName: entry.dogCallName
+                            });
+                        }
+                    });
+                }
 
                 // Load existing scores if any
                 try {
@@ -1237,8 +1315,40 @@
                 // Table headers
                 csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
                 
-                // Get participants from current round (use finalized participant list)
-                const participants = currentRound.participants || [];
+                // Get participants from current round
+                let participants = [];
+                
+                if (currentRound.participants) {
+                    // Use finalized participant list
+                    participants = currentRound.participants;
+                } else if (currentRound.entryIds) {
+                    // Fall back to loading from entries
+                    try {
+                        const entriesSnapshot = await db.collection('entries')
+                            .where('trialId', '==', currentTrial.id)
+                            .get();
+
+                        const entryMap = {};
+                        entriesSnapshot.forEach(doc => {
+                            entryMap[doc.id] = doc.data();
+                        });
+
+                        // Build participant list in running order
+                        currentRound.entryIds.forEach(entryId => {
+                            const [docId] = entryId.split('_');
+                            const entry = entryMap[docId];
+                            if (entry) {
+                                participants.push({
+                                    id: entryId,
+                                    handlerName: entry.handlerName.split(' ')[0],
+                                    dogCallName: entry.dogCallName
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error loading participants:', error);
+                    }
+                }
                 
                 // Add participant rows with scores
                 participants.forEach(participant => {
