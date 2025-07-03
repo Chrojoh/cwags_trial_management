@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Summary Sheet</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1rem;
+        }
+
+        .control-group {
+            flex: 1;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .summary-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .summary-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1rem;
+        }
+
+        .summary-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-info {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .summary-table-container {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid #dee2e6;
+            padding: 0.75rem 0.5rem;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .summary-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .participant-name {
+            text-align: left !important;
+            font-weight: 600;
+            background: #f0f8ff;
+            min-width: 200px;
+            max-width: 200px;
+            font-size: 0.9rem;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+
+        .round-header {
+            min-width: 100px;
+            max-width: 120px;
+            font-size: 0.85rem;
+            line-height: 1.2;
+        }
+
+        .judge-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .round-date {
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+
+        .round-info {
+            color: #495057;
+            font-size: 0.8rem;
+        }
+
+        .result-cell {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .result-pass {
+            color: #28a745;
+        }
+
+        .result-fail {
+            color: #dc3545;
+        }
+
+        .result-absent {
+            color: #6c757d;
+        }
+
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid #e9ecef;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .status-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 3rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .control-row {
+                flex-direction: column;
+            }
+            
+            .export-buttons {
+                flex-direction: column;
+            }
+            
+            .summary-table {
+                font-size: 0.8rem;
+            }
+            
+            .participant-name {
+                min-width: 150px;
+                max-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📊 Class Summary Sheet</h1>
+                <p>Track competitor progress across all rounds of a class</p>
+            </div>
+            <div>
+                <a href="trial-secretary-dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="trialSelect">Select Trial:</label>
+                    <select id="trialSelect" onchange="loadTrialClasses()">
+                        <option value="">Loading trials...</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="classSelect">Select Class:</label>
+                    <select id="classSelect" onchange="generateSummary()">
+                        <option value="">Select a trial first</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="generateSummary()">📋 Generate Summary</button>
+            </div>
+        </div>
+
+        <!-- Summary Container -->
+        <div class="summary-container" id="summaryContainer">
+            <div class="summary-header">
+                <div class="summary-title" id="summaryTitle">Class Summary</div>
+                <div class="summary-info" id="summaryInfo">Trial • Class • Total Participants</div>
+            </div>
+
+            <div class="summary-table-container">
+                <table class="summary-table" id="summaryTable">
+                    <thead id="summaryTableHead">
+                        <!-- Table headers will be generated here -->
+                    </thead>
+                    <tbody id="summaryTableBody">
+                        <!-- Table body will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="stats-section" id="statsSection">
+                <!-- Statistics will be generated here -->
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportSummaryCSV()">📄 Export CSV</button>
+                <button class="btn btn-warning" onclick="exportSummaryPDF()">📑 Export PDF</button>
+            </div>
+        </div>
+
+        <!-- No Data Message -->
+        <div class="no-data" id="noDataMessage" style="display: none;">
+            <h3>📋 No Data Available</h3>
+            <p>Please select a trial and class to generate the summary.</p>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global variables
+        let currentUser = null;
+        let currentTrial = null;
+        let currentClass = null;
+        let summaryData = null;
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function createLocalDate(dateStr) {
+            if (!dateStr) return null;
+            if (typeof dateStr === 'string') {
+                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+                return new Date(dateWithTime);
+            }
+            return new Date(dateStr);
+        }
+
+        function formatLocalDate(date) {
+            if (!date || !(date instanceof Date)) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            let date;
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
+            } else {
+                return '';
+            }
+            return formatLocalDate(date);
+        }
+
+        // Initialize the application
+        async function init() {
+            try {
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    });
+                });
+
+                await loadTrials();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showStatus('Error initializing application: ' + error.message, 'error');
+            }
+        }
+
+        // Load trials for the dropdown
+        async function loadTrials() {
+            try {
+                showStatus('Loading your trials...', 'info');
+
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+
+                const trialSelect = document.getElementById('trialSelect');
+                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+                if (!trialsSnapshot.empty) {
+                    const trials = [];
+                    trialsSnapshot.forEach(doc => {
+                        trials.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    trials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+
+                    trials.forEach(trial => {
+                        const option = document.createElement('option');
+                        option.value = trial.id;
+                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        trialSelect.appendChild(option);
+                    });
+
+                    showStatus(`Found ${trials.length} trials`, 'success');
+                } else {
+                    showStatus('No trials found', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, 'error');
+            }
+        }
+
+        // Load classes for selected trial
+        async function loadTrialClasses() {
+            const trialId = document.getElementById('trialSelect').value;
+            const classSelect = document.getElementById('classSelect');
+            
+            if (!trialId) {
+                classSelect.innerHTML = '<option value="">Select a trial first</option>';
+                document.getElementById('summaryContainer').style.display = 'none';
+                return;
+            }
+
+            try {
+                showStatus('Loading trial classes...', 'info');
+
+                // Load trial data
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+
+                // Extract unique class names from all days
+                const classNames = new Set();
+                
+                if (currentTrial.days && Array.isArray(currentTrial.days)) {
+                    currentTrial.days.forEach(day => {
+                        if (day.classes && Array.isArray(day.classes)) {
+                            day.classes.forEach(cls => {
+                                const className = cls.className || cls.class || cls.CLASS_NAME;
+                                if (className) {
+                                    classNames.add(className.trim());
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // Populate class dropdown
+                classSelect.innerHTML = '<option value="">Select a class...</option>';
+                
+                if (classNames.size > 0) {
+                    const sortedClasses = Array.from(classNames).sort();
+                    sortedClasses.forEach(className => {
+                        const option = document.createElement('option');
+                        option.value = className;
+                        option.textContent = className;
+                        classSelect.appendChild(option);
+                    });
+                    
+                    showStatus(`Found ${classNames.size} classes`, 'success');
+                } else {
+                    showStatus('No classes found in this trial', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error loading trial classes:', error);
+                showStatus('Error loading classes: ' + error.message, 'error');
+            }
+        }
+
+        // Generate class summary
+        async function generateSummary() {
+            const trialId = document.getElementById('trialSelect').value;
+            const className = document.getElementById('classSelect').value;
+            
+            if (!trialId || !className) {
+                showStatus('Please select both trial and class', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Generating class summary...', 'info');
+                currentClass = className;
+
+                // Step 1: Identify all rounds for this class
+                const rounds = [];
+                const scoresSnapshot = await db.collection('scores')
+                    .where('trialId', '==', trialId)
+                    .where('className', '==', className)
+                    .get();
+
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    rounds.push({
+                        id: doc.id,
+                        roundKey: scoreData.roundKey,
+                        judgeName: scoreData.judgeName,
+                        roundNumber: scoreData.roundNumber,
+                        lastUpdated: scoreData.lastUpdated,
+                        participants: scoreData.participants || {},
+                        ...scoreData
+                    });
+                });
+
+                if (rounds.length === 0) {
+                    showStatus('No scored rounds found for this class', 'error');
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('summaryContainer').style.display = 'none';
+                    return;
+                }
+
+                // Step 2: Sort rounds by date and round number
+                rounds.sort((a, b) => {
+                    const aKey = a.roundKey || '';
+                    const bKey = b.roundKey || '';
+                    return aKey.localeCompare(bKey);
+                });
+
+                // Step 3: Collect all unique participants
+                const allParticipants = new Map();
+                
+                rounds.forEach(round => {
+                    Object.keys(round.participants).forEach(participantId => {
+                        if (!allParticipants.has(participantId)) {
+                            // Try to get participant name from first occurrence
+                            const entryId = participantId;
+                            allParticipants.set(participantId, {
+                                id: participantId,
+                                name: `Participant ${participantId.slice(-4)}` // Fallback
+                            });
+                        }
+                    });
+                });
+
+                // Step 4: Get participant names from entries
+                if (allParticipants.size > 0) {
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    const entryMap = {};
+                    entriesSnapshot.forEach(doc => {
+                        entryMap[doc.id] = doc.data();
+                    });
+
+                    // Update participant names
+                    allParticipants.forEach((participant, participantId) => {
+                        const [docId] = participantId.split('_');
+                        const entry = entryMap[docId];
+                        if (entry) {
+                            const handlerFirstName = entry.handlerName ? entry.handlerName.split(' ')[0] : 'Unknown';
+                            participant.name = `${handlerFirstName} - ${entry.dogCallName || 'Unknown'}`;
+                        }
+                    });
+                }
+
+                // Step 5: Build summary data
+                summaryData = {
+                    trialName: currentTrial.clubName || 'Trial',
+                    className: className,
+                    rounds: rounds,
+                    participants: Array.from(allParticipants.values()),
+                    totalParticipants: allParticipants.size,
+                    totalRounds: rounds.length
+                };
+
+                renderSummary();
+                showStatus('Summary generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Error generating summary:', error);
+                showStatus('Error generating summary: ' + error.message, 'error');
+            }
+        }
+
+        // Render the summary table
+        function renderSummary() {
+            if (!summaryData) return;
+
+            // Update header
+            document.getElementById('summaryTitle').textContent = `Class Summary: ${summaryData.className}`;
+            document.getElementById('summaryInfo').textContent = 
+                `${summaryData.trialName} • ${summaryData.className} • ${summaryData.totalParticipants} Participants`;
+
+            // Build table headers
+            const thead = document.getElementById('summaryTableHead');
+            thead.innerHTML = '';
+
+            // Create header rows
+            const judgeRow = document.createElement('tr');
+            const dateRow = document.createElement('tr');
+            const roundRow = document.createElement('tr');
+
+            // First column - participant names
+            judgeRow.appendChild(createHeaderCell('Participant', 'participant-name', 3));
+            
+            // Round columns
+            summaryData.rounds.forEach((round, index) => {
+                // Get date from round key or other source
+                const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                    ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                    : 'Date TBD';
+
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                // Count rounds for same judge on same date
+                const sameJudgeDate = summaryData.rounds.filter((r, i) => 
+                    i <= index && 
+                    r.judgeName === round.judgeName && 
+                    getDateFromRound(r) === getDateFromRound(round)
+                ).length;
+
+                const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+
+                judgeRow.appendChild(createHeaderCell(round.judgeName || 'Judge TBD', 'round-header judge-name'));
+                dateRow.appendChild(createHeaderCell(formattedDate, 'round-header round-date'));
+                roundRow.appendChild(createHeaderCell(`${round.className || 'Class'}${roundSuffix}`, 'round-header round-info'));
+            });
+
+            thead.appendChild(judgeRow);
+            thead.appendChild(dateRow);
+            thead.appendChild(roundRow);
+
+            // Build table body
+            const tbody = document.getElementById('summaryTableBody');
+            tbody.innerHTML = '';
+
+            summaryData.participants.forEach(participant => {
+                const row = document.createElement('tr');
+                
+                // Participant name cell
+                const nameCell = document.createElement('td');
+                nameCell.className = 'participant-name';
+                nameCell.textContent = participant.name;
+                row.appendChild(nameCell);
+
+                // Result cells for each round
+                summaryData.rounds.forEach(round => {
+                    const cell = document.createElement('td');
+                    cell.className = 'result-cell';
+                    
+                    const participantResult = round.participants[participant.id];
+                    if (participantResult && participantResult.passFail) {
+                        const result = participantResult.passFail;
+                        if (result === 'Pass') {
+                            cell.textContent = 'P';
+                            cell.classList.add('result-pass');
+                        } else if (result === 'Fail') {
+                            cell.textContent = 'F';
+                            cell.classList.add('result-fail');
+                        } else {
+                            cell.textContent = '-';
+                            cell.classList.add('result-absent');
+                        }
+                    } else {
+                        cell.textContent = '-';
+                        cell.classList.add('result-absent');
+                    }
+                    
+                    row.appendChild(cell);
+                });
+
+                tbody.appendChild(row);
+            });
+
+            // Generate statistics
+            generateStatistics();
+
+            // Show the summary
+            document.getElementById('summaryContainer').style.display = 'block';
+            document.getElementById('noDataMessage').style.display = 'none';
+        }
+
+        function createHeaderCell(text, className, rowspan = 1) {
+            const th = document.createElement('th');
+            th.textContent = text;
+            th.className = className;
+            if (rowspan > 1) {
+                th.rowSpan = rowspan;
+            }
+            return th;
+        }
+
+        function getDateFromRound(round) {
+            if (!round.roundKey) return 'unknown';
+            const [dayIndex] = round.roundKey.split('-').map(Number);
+            const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                : 'Date TBD';
+            return dayDate;
+        }
+
+        // Generate statistics
+        function generateStatistics() {
+            if (!summaryData) return;
+
+            const statsSection = document.getElementById('statsSection');
+            statsSection.innerHTML = '';
+
+            // Calculate stats
+            let totalRuns = 0;
+            let totalPasses = 0;
+            let totalFails = 0;
+            let participantStats = {};
+
+            summaryData.participants.forEach(participant => {
+                participantStats[participant.id] = { runs: 0, passes: 0, fails: 0 };
+            });
+
+            summaryData.rounds.forEach(round => {
+                Object.entries(round.participants).forEach(([participantId, result]) => {
+                    if (result.passFail && result.passFail !== '-') {
+                        totalRuns++;
+                        if (participantStats[participantId]) {
+                            participantStats[participantId].runs++;
+                            if (result.passFail === 'Pass') {
+                                totalPasses++;
+                                participantStats[participantId].passes++;
+                            } else if (result.passFail === 'Fail') {
+                                totalFails++;
+                                participantStats[participantId].fails++;
+                            }
+                        }
+                    }
+                });
+            });
+
+            const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+
+            // Create stat cards
+            const stats = [
+                { label: 'Total Participants', value: summaryData.totalParticipants },
+                { label: 'Total Rounds', value: summaryData.totalRounds },
+                { label: 'Total Runs', value: totalRuns },
+                { label: 'Total Passes', value: totalPasses },
+                { label: 'Total Fails', value: totalFails },
+                { label: 'Pass Rate', value: `${passRate}%` }
+            ];
+
+            stats.forEach(stat => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                `;
+                statsSection.appendChild(card);
+            });
+        }
+
+        // Export summary as CSV
+        function exportSummaryCSV() {
+            if (!summaryData) {
+                showStatus('No summary data to export', 'error');
+                return;
+            }
+
+            try {
+                let csvContent = '';
+                
+                // Header information
+                csvContent += `"Class Summary Report"\n`;
+                csvContent += `"Trial","${summaryData.trialName}"\n`;
+                csvContent += `"Class","${summaryData.className}"\n`;
+                csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Table headers
+                let headerRow = '"Participant"';
+                summaryData.rounds.forEach((round, index) => {
+                    const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                    const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                        ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                        : 'Date TBD';
+                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                    
+                    const sameJudgeDate = summaryData.rounds.filter((r, i) => 
+                        i <= index && 
+                        r.judgeName === round.judgeName && 
+                        getDateFromRound(r) === getDateFromRound(round)
+                    ).length;
+                    const roundSuffix = sameJudgeDate >
