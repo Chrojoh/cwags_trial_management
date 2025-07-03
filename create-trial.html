@@ -266,7 +266,9 @@ const CWAGS_CLASS_ORDER = [
                 if (dogIndex >= 0 && row[dogIndex]) dogs.add(String(row[dogIndex]).trim());
               });
               
-              globalClasses = Array.from(classes).sort();
+             // Sort classes in C-WAGS order instead of alphabetically
+globalClasses = Array.from(classes);
+globalClasses = sortClassesByOrder(globalClasses);
               globalJudges = Array.from(judges).sort();
               globalCwagsNumbers = Array.from(cwags).sort();
               globalDogNames = Array.from(dogs).sort();
