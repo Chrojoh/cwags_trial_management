@@ -60,42 +60,96 @@
             font-size: 1rem;
         }
 
+        /* NEW: Day-based round selector layout */
         .round-selector {
-            display: flex;
-            gap: 1rem;
             margin-bottom: 2rem;
-            flex-wrap: wrap;
+        }
+
+        .days-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .day-column {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+        }
+
+        .day-header {
+            text-align: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .day-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+
+        .day-date {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .day-rounds {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
 
         .round-card {
-            background: #f8f9fa;
+            background: white;
             border: 2px solid #dee2e6;
             border-radius: 8px;
             padding: 1rem;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-width: 200px;
+            position: relative;
         }
 
         .round-card:hover {
             border-color: #667eea;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
 
         .round-card.active {
             background: #667eea;
             color: white;
             border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .round-info {
             font-weight: 600;
             margin-bottom: 0.5rem;
+            font-size: 0.95rem;
         }
 
         .judge-info {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             opacity: 0.8;
+            margin-bottom: 0.25rem;
+        }
+
+        .round-card.active .judge-info {
+            opacity: 0.9;
+        }
+
+        .no-rounds-message {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
         }
 
         .score-sheet {
@@ -306,6 +360,10 @@
         }
 
         @media (max-width: 768px) {
+            .days-container {
+                grid-template-columns: 1fr;
+            }
+            
             .scoring-table {
                 font-size: 0.8rem;
             }
@@ -316,6 +374,11 @@
 
             .control-buttons {
                 flex-direction: column;
+            }
+
+            .sheet-info {
+                flex-direction: column;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -348,7 +411,9 @@
 
             <!-- Round Selector -->
             <div class="round-selector" id="roundSelector" style="display: none;">
-                <!-- Round cards will be generated here -->
+                <div class="days-container" id="daysContainer">
+                    <!-- Day columns will be generated here -->
+                </div>
             </div>
 
             <!-- Score Sheet -->
@@ -448,6 +513,32 @@
         let allRounds = [];
         let currentScores = {};
 
+        // C-WAGS class order mapping
+        const CWAGS_CLASS_ORDER = {
+            'CLE': 1,    // Container Level Elite
+            'CLA': 2,    // Container Level Advanced  
+            'CLN': 3,    // Container Level Novice
+            'ILE': 4,    // Interior Level Elite
+            'ILA': 5,    // Interior Level Advanced
+            'ILN': 6,    // Interior Level Novice
+            'ELE': 7,    // Exterior Level Elite
+            'ELA': 8,    // Exterior Level Advanced
+            'ELN': 9,    // Exterior Level Novice
+            'VLE': 10,   // Vehicle Level Elite
+            'VLA': 11,   // Vehicle Level Advanced
+            'VLN': 12,   // Vehicle Level Novice
+            'BLE': 13,   // Buried Level Elite
+            'BLA': 14,   // Buried Level Advanced
+            'BLN': 15,   // Buried Level Novice
+            'HLE': 16,   // Handler Level Elite
+            'HLA': 17,   // Handler Level Advanced
+            'HLN': 18,   // Handler Level Novice
+            'DET': 19,   // Detective
+            'SWN': 20,   // Scent Work Novice
+            'SWA': 21,   // Scent Work Advanced
+            'SWE': 22    // Scent Work Elite
+        };
+
         // Utility functions
         function showStatus(message, type = 'info') {
             const statusDiv = document.getElementById('statusMessage');
@@ -490,6 +581,25 @@
                 return '';
             }
             return formatLocalDate(date);
+        }
+
+        function getCWAGSClassOrder(className) {
+            if (!className) return 999;
+            
+            // Try exact match first
+            const exactMatch = CWAGS_CLASS_ORDER[className.toUpperCase()];
+            if (exactMatch) return exactMatch;
+            
+            // Try to extract class code from longer strings
+            const upperClassName = className.toUpperCase();
+            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                if (upperClassName.includes(code)) {
+                    return order;
+                }
+            }
+            
+            // Default order for unrecognized classes
+            return 999;
         }
 
         // Initialize the application
@@ -620,7 +730,8 @@
                             judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
                             roundNumber: roundIndex + 1,
                             date: day.date,
-                            entryIds: runningOrderData.roundOrders[roundKey]
+                            entryIds: runningOrderData.roundOrders[roundKey],
+                            cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
                         });
                     }
                 });
@@ -642,28 +753,88 @@
             }
         }
 
-        // Render round selector cards
+        // NEW: Render round selector organized by days
         function renderRoundSelector() {
-            const roundSelector = document.getElementById('roundSelector');
-            roundSelector.innerHTML = '';
+            const daysContainer = document.getElementById('daysContainer');
+            daysContainer.innerHTML = '';
 
-            allRounds.forEach((round, index) => {
-                const card = document.createElement('div');
-                card.className = 'round-card';
-                card.onclick = () => selectRound(round);
-                
-                const dateStr = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
-                
-                card.innerHTML = `
-                    <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
-                    <div class="judge-info">Judge: ${round.judgeName}</div>
-                    <div class="judge-info">${dateStr} • ${round.entryIds.length} entries</div>
-                `;
-                
-                roundSelector.appendChild(card);
+            // Group rounds by day
+            const roundsByDay = {};
+            allRounds.forEach(round => {
+                if (!roundsByDay[round.dayIndex]) {
+                    roundsByDay[round.dayIndex] = [];
+                }
+                roundsByDay[round.dayIndex].push(round);
             });
 
-            roundSelector.style.display = 'flex';
+            // Sort rounds within each day by C-WAGS class order, then by round number
+            Object.keys(roundsByDay).forEach(dayIndex => {
+                roundsByDay[dayIndex].sort((a, b) => {
+                    // First sort by C-WAGS class order
+                    if (a.cwagsSortOrder !== b.cwagsSortOrder) {
+                        return a.cwagsSortOrder - b.cwagsSortOrder;
+                    }
+                    // Then by round number
+                    return a.roundNumber - b.roundNumber;
+                });
+            });
+
+            // Create day columns
+            const sortedDayIndices = Object.keys(roundsByDay).sort((a, b) => Number(a) - Number(b));
+            
+            sortedDayIndices.forEach(dayIndex => {
+                const dayRounds = roundsByDay[dayIndex];
+                const day = currentTrial.days[dayIndex];
+                
+                const dayColumn = document.createElement('div');
+                dayColumn.className = 'day-column';
+                
+                // Day header
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'day-header';
+                
+                const dayTitle = document.createElement('div');
+                dayTitle.className = 'day-title';
+                dayTitle.textContent = `Day ${Number(dayIndex) + 1}`;
+                
+                const dayDate = document.createElement('div');
+                dayDate.className = 'day-date';
+                dayDate.textContent = day.date ? createLocalDate(day.date).toLocaleDateString() : 'Date TBD';
+                
+                dayHeader.appendChild(dayTitle);
+                dayHeader.appendChild(dayDate);
+                
+                // Day rounds container
+                const dayRoundsContainer = document.createElement('div');
+                dayRoundsContainer.className = 'day-rounds';
+                
+                if (dayRounds.length === 0) {
+                    const noRoundsMsg = document.createElement('div');
+                    noRoundsMsg.className = 'no-rounds-message';
+                    noRoundsMsg.textContent = 'No rounds scheduled';
+                    dayRoundsContainer.appendChild(noRoundsMsg);
+                } else {
+                    dayRounds.forEach(round => {
+                        const card = document.createElement('div');
+                        card.className = 'round-card';
+                        card.onclick = () => selectRound(round);
+                        
+                        card.innerHTML = `
+                            <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
+                            <div class="judge-info">Judge: ${round.judgeName}</div>
+                            <div class="judge-info">${round.entryIds.length} entries</div>
+                        `;
+                        
+                        dayRoundsContainer.appendChild(card);
+                    });
+                }
+                
+                dayColumn.appendChild(dayHeader);
+                dayColumn.appendChild(dayRoundsContainer);
+                daysContainer.appendChild(dayColumn);
+            });
+
+            document.getElementById('roundSelector').style.display = 'block';
         }
 
         // Select a round for scoring
