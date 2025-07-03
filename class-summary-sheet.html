@@ -825,40 +825,74 @@
                     return aKey.localeCompare(bKey);
                 });
 
-                const allParticipants = new Map();
+                // Group participants by unique dog/handler combinations
+                const participantMap = new Map();
                 
                 rounds.forEach(round => {
                     if (round.hasScores) {
                         // Handle scored rounds
                         Object.keys(round.participants).forEach(participantId => {
-                            if (!allParticipants.has(participantId)) {
-                                allParticipants.set(participantId, {
-                                    id: participantId,
+                            const [docId] = participantId.split('_');
+                            const uniqueKey = docId; // Use base docId as unique identifier
+                            
+                            if (!participantMap.has(uniqueKey)) {
+                                participantMap.set(uniqueKey, {
+                                    id: uniqueKey,
                                     dogName: 'Unknown',
                                     handlerName: 'Unknown Handler',
-                                    cwagsNumber: 'TBD'
+                                    cwagsNumber: 'TBD',
+                                    participantIds: [participantId], // Track all participant IDs for this team
+                                    rounds: new Map() // Track which rounds they participated in
                                 });
+                            }
+                            
+                            // Add this participant ID if not already tracked
+                            const participant = participantMap.get(uniqueKey);
+                            if (!participant.participantIds.includes(participantId)) {
+                                participant.participantIds.push(participantId);
                             }
                         });
                     } else {
                         // Handle unscored rounds - get participants from running order
                         if (round.participants && Array.isArray(round.participants)) {
                             round.participants.forEach(participant => {
-                                if (!allParticipants.has(participant.id)) {
-                                    allParticipants.set(participant.id, {
-                                        id: participant.id,
+                                const [docId] = participant.id.split('_');
+                                const uniqueKey = docId;
+                                
+                                if (!participantMap.has(uniqueKey)) {
+                                    participantMap.set(uniqueKey, {
+                                        id: uniqueKey,
                                         dogName: participant.dogCallName || 'Unknown',
                                         handlerName: participant.handlerName || 'Unknown Handler',
-                                        cwagsNumber: participant.cwagsNumber || 'TBD'
+                                        cwagsNumber: participant.cwagsNumber || 'TBD',
+                                        participantIds: [participant.id],
+                                        rounds: new Map()
                                     });
+                                } else {
+                                    // Add this participant ID if not already tracked
+                                    const existingParticipant = participantMap.get(uniqueKey);
+                                    if (!existingParticipant.participantIds.includes(participant.id)) {
+                                        existingParticipant.participantIds.push(participant.id);
+                                    }
+                                    
+                                    // Update with better data if available
+                                    if (existingParticipant.dogName === 'Unknown' && participant.dogCallName) {
+                                        existingParticipant.dogName = participant.dogCallName;
+                                    }
+                                    if (existingParticipant.handlerName === 'Unknown Handler' && participant.handlerName) {
+                                        existingParticipant.handlerName = participant.handlerName;
+                                    }
+                                    if (existingParticipant.cwagsNumber === 'TBD' && participant.cwagsNumber) {
+                                        existingParticipant.cwagsNumber = participant.cwagsNumber;
+                                    }
                                 }
                             });
                         }
                     }
                 });
 
-                // Get participant names from entries for scored rounds
-                if (allParticipants.size > 0) {
+                // Get participant details from entries for any missing data
+                if (participantMap.size > 0) {
                     const entriesSnapshot = await db.collection('entries')
                         .where('trialId', '==', trialId)
                         .get();
@@ -868,16 +902,18 @@
                         entryMap[doc.id] = doc.data();
                     });
 
-                    // Update participant data for scored rounds
-                    allParticipants.forEach((participant, participantId) => {
-                        // Skip if already has proper data (from running order)
-                        if (!participant.dogName || participant.dogName === 'Unknown' || participant.cwagsNumber === 'TBD') {
-                            const [docId] = participantId.split('_');
-                            const entry = entryMap[docId];
-                            if (entry) {
-                                participant.dogName = entry.dogCallName || 'Unknown';
-                                participant.handlerName = entry.handlerName || 'Unknown Handler';
-                                participant.cwagsNumber = entry.cwagsNumber || 'TBD';
+                    // Update participant data from entries
+                    participantMap.forEach((participant, uniqueKey) => {
+                        const entry = entryMap[uniqueKey];
+                        if (entry) {
+                            if (participant.dogName === 'Unknown' && entry.dogCallName) {
+                                participant.dogName = entry.dogCallName;
+                            }
+                            if (participant.handlerName === 'Unknown Handler' && entry.handlerName) {
+                                participant.handlerName = entry.handlerName;
+                            }
+                            if (participant.cwagsNumber === 'TBD' && entry.cwagsNumber) {
+                                participant.cwagsNumber = entry.cwagsNumber;
                             }
                         }
                     });
@@ -887,8 +923,8 @@
                     trialName: currentTrial.clubName || 'Trial',
                     className: className,
                     rounds: rounds,
-                    participants: Array.from(allParticipants.values()),
-                    totalParticipants: allParticipants.size,
+                    participants: Array.from(participantMap.values()),
+                    totalParticipants: participantMap.size,
                     totalRounds: rounds.length
                 };
 
@@ -969,45 +1005,52 @@
                 handlerCell.textContent = participant.handlerName || 'Unknown Handler';
                 row.appendChild(handlerCell);
 
+                // Result cells for each round
                 summaryData.rounds.forEach(round => {
                     const cell = document.createElement('td');
                     cell.className = 'result-cell';
                     
+                    // Check if this participant participated in this round
+                    let participatedInRound = false;
+                    let result = '-';
+                    let cssClass = 'result-absent';
+                    
                     if (round.hasScores) {
-                        // Show actual scores for scored rounds
-                        const participantResult = round.participants[participant.id];
-                        if (participantResult && participantResult.passFail) {
-                            const result = participantResult.passFail;
-                            if (result === 'Pass') {
-                                cell.textContent = 'P';
-                                cell.classList.add('result-pass');
-                            } else if (result === 'Fail') {
-                                cell.textContent = 'F';
-                                cell.classList.add('result-fail');
-                            } else {
-                                cell.textContent = '-';
-                                cell.classList.add('result-absent');
+                        // Check if any of the participant's IDs are in this round's participants
+                        for (const participantId of participant.participantIds) {
+                            if (round.participants[participantId]) {
+                                participatedInRound = true;
+                                const participantResult = round.participants[participantId];
+                                if (participantResult.passFail) {
+                                    if (participantResult.passFail === 'Pass') {
+                                        result = 'P';
+                                        cssClass = 'result-pass';
+                                    } else if (participantResult.passFail === 'Fail') {
+                                        result = 'F';
+                                        cssClass = 'result-fail';
+                                    }
+                                }
+                                break; // Use first found result
                             }
-                        } else {
-                            cell.textContent = '-';
-                            cell.classList.add('result-absent');
                         }
                     } else {
-                        // Show placeholder for unscored rounds
-                        const isParticipantInRound = round.participants && 
-                            round.participants.some(p => p.id === participant.id);
-                        
-                        if (isParticipantInRound) {
-                            cell.textContent = '•'; // Bullet point to show they're scheduled
-                            cell.classList.add('result-absent');
-                            cell.style.fontSize = '1.5rem';
-                            cell.title = 'Scheduled to run - not yet scored';
-                        } else {
-                            cell.textContent = '-';
-                            cell.classList.add('result-absent');
+                        // Check if participant is scheduled for this unscored round
+                        if (round.participants && Array.isArray(round.participants)) {
+                            for (const participantId of participant.participantIds) {
+                                if (round.participants.some(p => p.id === participantId)) {
+                                    participatedInRound = true;
+                                    result = '•';
+                                    cssClass = 'result-absent';
+                                    cell.style.fontSize = '1.5rem';
+                                    cell.title = 'Scheduled to run - not yet scored';
+                                    break;
+                                }
+                            }
                         }
                     }
                     
+                    cell.textContent = result;
+                    cell.classList.add(cssClass);
                     row.appendChild(cell);
                 });
 
@@ -1130,23 +1173,34 @@
                     
                     summaryData.rounds.forEach(round => {
                         let result = '-';
+                        
                         if (round.hasScores) {
-                            const participantResult = round.participants[participant.id];
-                            if (participantResult && participantResult.passFail) {
-                                const passFail = participantResult.passFail;
-                                if (passFail === 'Pass') {
-                                    result = 'P';
-                                } else if (passFail === 'Fail') {
-                                    result = 'F';
+                            // Check if any of the participant's IDs have results in this round
+                            for (const participantId of participant.participantIds) {
+                                if (round.participants[participantId]) {
+                                    const participantResult = round.participants[participantId];
+                                    if (participantResult.passFail) {
+                                        if (participantResult.passFail === 'Pass') {
+                                            result = 'P';
+                                        } else if (participantResult.passFail === 'Fail') {
+                                            result = 'F';
+                                        }
+                                    }
+                                    break;
                                 }
                             }
                         } else {
-                            const isParticipantInRound = round.participants && 
-                                round.participants.some(p => p.id === participant.id);
-                            if (isParticipantInRound) {
-                                result = '•';
+                            // Check if participant is scheduled for this unscored round
+                            if (round.participants && Array.isArray(round.participants)) {
+                                for (const participantId of participant.participantIds) {
+                                    if (round.participants.some(p => p.id === participantId)) {
+                                        result = '•';
+                                        break;
+                                    }
+                                }
                             }
                         }
+                        
                         row += `,"${result}"`;
                     });
                     
@@ -1245,22 +1299,31 @@
                                         let cssClass = 'result-absent';
                                         
                                         if (round.hasScores) {
-                                            const participantResult = round.participants[participant.id];
-                                            if (participantResult && participantResult.passFail) {
-                                                const passFail = participantResult.passFail;
-                                                if (passFail === 'Pass') {
-                                                    result = 'P';
-                                                    cssClass = 'result-pass';
-                                                } else if (passFail === 'Fail') {
-                                                    result = 'F';
-                                                    cssClass = 'result-fail';
+                                            // Check if any of the participant's IDs have results in this round
+                                            for (const participantId of participant.participantIds) {
+                                                if (round.participants[participantId]) {
+                                                    const participantResult = round.participants[participantId];
+                                                    if (participantResult.passFail) {
+                                                        if (participantResult.passFail === 'Pass') {
+                                                            result = 'P';
+                                                            cssClass = 'result-pass';
+                                                        } else if (participantResult.passFail === 'Fail') {
+                                                            result = 'F';
+                                                            cssClass = 'result-fail';
+                                                        }
+                                                    }
+                                                    break;
                                                 }
                                             }
                                         } else {
-                                            const isParticipantInRound = round.participants && 
-                                                round.participants.some(p => p.id === participant.id);
-                                            if (isParticipantInRound) {
-                                                result = '•';
+                                            // Check if participant is scheduled for this unscored round
+                                            if (round.participants && Array.isArray(round.participants)) {
+                                                for (const participantId of participant.participantIds) {
+                                                    if (round.participants.some(p => p.id === participantId)) {
+                                                        result = '•';
+                                                        break;
+                                                    }
+                                                }
                                             }
                                         }
                                         
