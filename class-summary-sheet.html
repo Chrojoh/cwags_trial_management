@@ -161,15 +161,39 @@
             z-index: 10;
         }
 
-        .participant-name {
+        .participant-cwags {
             text-align: left !important;
             font-weight: 600;
             background: #f0f8ff;
-            min-width: 200px;
-            max-width: 200px;
-            font-size: 0.9rem;
+            min-width: 120px;
+            max-width: 120px;
+            font-size: 0.85rem;
             position: sticky;
             left: 0;
+            z-index: 5;
+        }
+
+        .participant-dog {
+            text-align: left !important;
+            font-weight: 600;
+            background: #f0f8ff;
+            min-width: 100px;
+            max-width: 100px;
+            font-size: 0.9rem;
+            position: sticky;
+            left: 120px;
+            z-index: 5;
+        }
+
+        .participant-handler {
+            text-align: left !important;
+            font-weight: 600;
+            background: #f0f8ff;
+            min-width: 140px;
+            max-width: 140px;
+            font-size: 0.9rem;
+            position: sticky;
+            left: 220px;
             z-index: 5;
         }
 
@@ -777,7 +801,9 @@
                             if (!allParticipants.has(participantId)) {
                                 allParticipants.set(participantId, {
                                     id: participantId,
-                                    name: `Participant ${participantId.slice(-4)}`
+                                    dogName: 'Unknown',
+                                    handlerName: 'Unknown Handler',
+                                    cwagsNumber: 'TBD'
                                 });
                             }
                         });
@@ -788,7 +814,9 @@
                                 if (!allParticipants.has(participant.id)) {
                                     allParticipants.set(participant.id, {
                                         id: participant.id,
-                                        name: `${participant.handlerName} - ${participant.dogCallName}`
+                                        dogName: participant.dogCallName || 'Unknown',
+                                        handlerName: participant.handlerName || 'Unknown Handler',
+                                        cwagsNumber: participant.cwagsNumber || 'TBD'
                                     });
                                 }
                             });
@@ -807,15 +835,16 @@
                         entryMap[doc.id] = doc.data();
                     });
 
-                    // Update participant names for scored rounds
+                    // Update participant data for scored rounds
                     allParticipants.forEach((participant, participantId) => {
-                        // Skip if already has a proper name (from running order)
-                        if (!participant.name.includes(' - ') || participant.name.startsWith('Participant ')) {
+                        // Skip if already has proper data (from running order)
+                        if (!participant.dogName || participant.dogName === 'Unknown' || participant.cwagsNumber === 'TBD') {
                             const [docId] = participantId.split('_');
                             const entry = entryMap[docId];
                             if (entry) {
-                                const handlerFirstName = entry.handlerName ? entry.handlerName.split(' ')[0] : 'Unknown';
-                                participant.name = `${handlerFirstName} - ${entry.dogCallName || 'Unknown'}`;
+                                participant.dogName = entry.dogCallName || 'Unknown';
+                                participant.handlerName = entry.handlerName || 'Unknown Handler';
+                                participant.cwagsNumber = entry.cwagsNumber || 'TBD';
                             }
                         }
                     });
@@ -854,7 +883,9 @@
             const dateRow = document.createElement('tr');
             const roundRow = document.createElement('tr');
 
-            judgeRow.appendChild(createHeaderCell('Participant', 'participant-name', 3));
+            judgeRow.appendChild(createHeaderCell('C-WAGS Number', 'participant-cwags', 3));
+            judgeRow.appendChild(createHeaderCell('Dog Name', 'participant-dog', 3));
+            judgeRow.appendChild(createHeaderCell('Handler Name', 'participant-handler', 3));
             
             summaryData.rounds.forEach((round, index) => {
                 const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
@@ -887,10 +918,23 @@
             summaryData.participants.forEach(participant => {
                 const row = document.createElement('tr');
                 
-                const nameCell = document.createElement('td');
-                nameCell.className = 'participant-name';
-                nameCell.textContent = participant.name;
-                row.appendChild(nameCell);
+                // C-WAGS Number cell
+                const cwagsCell = document.createElement('td');
+                cwagsCell.className = 'participant-cwags';
+                cwagsCell.textContent = participant.cwagsNumber || 'TBD';
+                row.appendChild(cwagsCell);
+
+                // Dog Name cell
+                const dogCell = document.createElement('td');
+                dogCell.className = 'participant-dog';
+                dogCell.textContent = participant.dogName || 'Unknown';
+                row.appendChild(dogCell);
+
+                // Handler Name cell
+                const handlerCell = document.createElement('td');
+                handlerCell.className = 'participant-handler';
+                handlerCell.textContent = participant.handlerName || 'Unknown Handler';
+                row.appendChild(handlerCell);
 
                 summaryData.rounds.forEach(round => {
                     const cell = document.createElement('td');
@@ -1029,7 +1073,7 @@
                 csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
                 csvContent += `\n`;
                 
-                let headerRow = '"Participant"';
+                let headerRow = '"C-WAGS Number","Dog Name","Handler Name"';
                 summaryData.rounds.forEach((round, index) => {
                     const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
                     const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
@@ -1049,17 +1093,25 @@
                 csvContent += headerRow + '\n';
                 
                 summaryData.participants.forEach(participant => {
-                    let row = `"${participant.name}"`;
+                    let row = `"${participant.cwagsNumber || 'TBD'}","${participant.dogName || 'Unknown'}","${participant.handlerName || 'Unknown Handler'}"`;
                     
                     summaryData.rounds.forEach(round => {
-                        const participantResult = round.participants[participant.id];
                         let result = '-';
-                        if (participantResult && participantResult.passFail) {
-                            const passFail = participantResult.passFail;
-                            if (passFail === 'Pass') {
-                                result = 'P';
-                            } else if (passFail === 'Fail') {
-                                result = 'F';
+                        if (round.hasScores) {
+                            const participantResult = round.participants[participant.id];
+                            if (participantResult && participantResult.passFail) {
+                                const passFail = participantResult.passFail;
+                                if (passFail === 'Pass') {
+                                    result = 'P';
+                                } else if (passFail === 'Fail') {
+                                    result = 'F';
+                                }
+                            }
+                        } else {
+                            const isParticipantInRound = round.participants && 
+                                round.participants.some(p => p.id === participant.id);
+                            if (isParticipantInRound) {
+                                result = '•';
                             }
                         }
                         row += `,"${result}"`;
@@ -1126,7 +1178,9 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th rowspan="3" class="participant-name">Participant</th>
+                                    <th rowspan="3" class="participant-cwags">C-WAGS Number</th>
+                                    <th rowspan="3" class="participant-dog">Dog Name</th>
+                                    <th rowspan="3" class="participant-handler">Handler Name</th>
                                     ${summaryData.rounds.map(round => `<th>${round.judgeName || 'Judge TBD'}</th>`).join('')}
                                 </tr>
                                 <tr>
@@ -1154,25 +1208,38 @@
                             <tbody>
                                 ${summaryData.participants.map(participant => {
                                     const resultCells = summaryData.rounds.map(round => {
-                                        const participantResult = round.participants[participant.id];
                                         let result = '-';
                                         let cssClass = 'result-absent';
                                         
-                                        if (participantResult && participantResult.passFail) {
-                                            const passFail = participantResult.passFail;
-                                            if (passFail === 'Pass') {
-                                                result = 'P';
-                                                cssClass = 'result-pass';
-                                            } else if (passFail === 'Fail') {
-                                                result = 'F';
-                                                cssClass = 'result-fail';
+                                        if (round.hasScores) {
+                                            const participantResult = round.participants[participant.id];
+                                            if (participantResult && participantResult.passFail) {
+                                                const passFail = participantResult.passFail;
+                                                if (passFail === 'Pass') {
+                                                    result = 'P';
+                                                    cssClass = 'result-pass';
+                                                } else if (passFail === 'Fail') {
+                                                    result = 'F';
+                                                    cssClass = 'result-fail';
+                                                }
+                                            }
+                                        } else {
+                                            const isParticipantInRound = round.participants && 
+                                                round.participants.some(p => p.id === participant.id);
+                                            if (isParticipantInRound) {
+                                                result = '•';
                                             }
                                         }
                                         
                                         return `<td class="${cssClass}">${result}</td>`;
                                     }).join('');
                                     
-                                    return `<tr><td class="participant-name">${participant.name}</td>${resultCells}</tr>`;
+                                    return `<tr>
+                                        <td class="participant-cwags">${participant.cwagsNumber || 'TBD'}</td>
+                                        <td class="participant-dog">${participant.dogName || 'Unknown'}</td>
+                                        <td class="participant-handler">${participant.handlerName || 'Unknown Handler'}</td>
+                                        ${resultCells}
+                                    </tr>`;
                                 }).join('')}
                             </tbody>
                         </table>
