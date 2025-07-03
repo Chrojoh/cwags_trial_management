@@ -60,7 +60,7 @@
             font-size: 1rem;
         }
 
-        /* NEW: Tabbed interface for days */
+        /* Tabbed interface for days */
         .round-selector {
             margin-bottom: 2rem;
         }
@@ -521,7 +521,7 @@
                 <!-- Control Buttons -->
                 <div class="control-buttons">
                     <button class="btn btn-success" onclick="saveScores()">💾 Save Scores</button>
-                    <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled PDF</button>
+                    <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled CSV</button>
                     <button class="btn btn-secondary" onclick="clearAllScores()">🗑️ Clear All Scores</button>
                 </div>
 
@@ -562,59 +562,113 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
-        let activeDay = 0; // Track active day tab
+        let activeDay = 0;
 
-        // C-WAGS class order mapping for logical trial flow
+        // C-WAGS class order mapping - Correct order from user
         const CWAGS_CLASS_ORDER = {
-            // Container classes - typically run first as they're quickest/easiest setup
-            'CLN': 1,    // Container Level Novice
-            'CLA': 2,    // Container Level Advanced  
-            'CLE': 3,    // Container Level Elite
+            'PATROL 1': 1,
+            'PATROL1': 1,
+            'P1': 1,
             
-            // Interior classes - indoor/building searches
-            'ILN': 4,    // Interior Level Novice
-            'ILA': 5,    // Interior Level Advanced
-            'ILE': 6,    // Interior Level Elite
+            'DETECTIVE 2': 2,
+            'DETECTIVE2': 2,
+            'DET2': 2,
+            'D2': 2,
             
-            // Exterior classes - outdoor searches
-            'ELN': 7,    // Exterior Level Novice
-            'ELA': 8,    // Exterior Level Advanced
-            'ELE': 9,    // Exterior Level Elite
+            'INVESTIGATOR 3': 3,
+            'INVESTIGATOR3': 3,
+            'INV3': 3,
+            'I3': 3,
             
-            // Vehicle classes - car/truck searches
-            'VLN': 10,   // Vehicle Level Novice
-            'VLA': 11,   // Vehicle Level Advanced
-            'VLE': 12,   // Vehicle Level Elite
+            'SUPER SLEUTH 4': 4,
+            'SUPER SLEUTH4': 4,
+            'SUPERSLEUTH4': 4,
+            'SS4': 4,
+            'S4': 4,
             
-            // Buried classes - ground searches (often last due to setup)
-            'BLN': 13,   // Buried Level Novice
-            'BLA': 14,   // Buried Level Advanced
-            'BLE': 15,   // Buried Level Elite
+            'PRIVATE INV': 5,
+            'PRIVATE INVESTIGATOR': 5,
+            'PRIVATEINV': 5,
+            'PRIV INV': 5,
+            'PI': 5,
             
-            // Handler classes - focus on handler skills
-            'HLN': 16,   // Handler Level Novice
-            'HLA        };
-
-        // Get the time of day for a round to help with chronological sorting
-        function getRoundTime(round) {
-            // If round has a specific time, use it
-            if (round.time) return round.time;
+            'DET DIVERSIONS': 6,
+            'DETECTIVE DIVERSIONS': 6,
+            'DETDIVERSIONS': 6,
+            'DD': 6,
             
-            // Otherwise, estimate based on class and round number
-            // Most trials run in this general order throughout the day
-            const baseTime = 8; // 8 AM start
-            const classOrder = getCWAGSClassOrder(round.className);
-            const roundOffset = (round.roundNumber - 1) * 1.5; // 1.5 hours between rounds
-            const classOffset = (classOrder - 1) * 0.5; // 30 min between class types
+            'RANGER 1': 7,
+            'RANGER1': 7,
+            'R1': 7,
             
-            return baseTime + classOffset + roundOffset;
-        }': 17,   // Handler Level Advanced
-            'HLN': 18,   // Handler Level Novice
-            'DET': 19,   // Detective
-            'SWN': 20,   // Scent Work Novice
-            'SWA': 21,   // Scent Work Advanced
-            'SWE': 22    // Scent Work Elite
+            'RANGER 2': 8,
+            'RANGER2': 8,
+            'R2': 8,
+            
+            'RANGER 3': 9,
+            'RANGER3': 9,
+            'R3': 9,
+            
+            'RANGER 4': 10,
+            'RANGER4': 10,
+            'R4': 10,
+            
+            'RANGER 5': 11,
+            'RANGER5': 11,
+            'R5': 11,
+            
+            'DASHER 3': 12,
+            'DASHER3': 12,
+            'DASH3': 12,
+            'DA3': 12,
+            
+            'DASHER 4': 13,
+            'DASHER4': 13,
+            'DASH4': 13,
+            'DA4': 13,
+            
+            'DASHER 5': 14,
+            'DASHER5': 14,
+            'DASH5': 14,
+            'DA5': 14,
+            
+            'DASHER 6': 15,
+            'DASHER6': 15,
+            'DASH6': 15,
+            'DA6': 15
         };
+
+        // Get C-WAGS class order with better matching
+        function getCWAGSClassOrder(className) {
+            if (!className) return 999;
+            
+            // Clean and normalize the class name
+            const cleanClassName = className.toUpperCase()
+                .replace(/[^A-Z0-9\s]/g, '') // Remove special characters
+                .replace(/\s+/g, ' ')        // Normalize spaces
+                .trim();
+            
+            // Try exact match first
+            if (CWAGS_CLASS_ORDER[cleanClassName]) {
+                return CWAGS_CLASS_ORDER[cleanClassName];
+            }
+            
+            // Try without spaces
+            const noSpaceClassName = cleanClassName.replace(/\s/g, '');
+            if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
+                return CWAGS_CLASS_ORDER[noSpaceClassName];
+            }
+            
+            // Try to find partial matches
+            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
+                    return order;
+                }
+            }
+            
+            // Default order for unrecognized classes
+            return 999;
+        }
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -658,25 +712,6 @@
                 return '';
             }
             return formatLocalDate(date);
-        }
-
-        function getCWAGSClassOrder(className) {
-            if (!className) return 999;
-            
-            // Try exact match first
-            const exactMatch = CWAGS_CLASS_ORDER[className.toUpperCase()];
-            if (exactMatch) return exactMatch;
-            
-            // Try to extract class code from longer strings
-            const upperClassName = className.toUpperCase();
-            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
-                if (upperClassName.includes(code)) {
-                    return order;
-                }
-            }
-            
-            // Default order for unrecognized classes
-            return 999;
         }
 
         // Initialize the application
@@ -798,17 +833,18 @@
                     const round = cls?.rounds[roundIndex];
 
                     if (day && cls && round && runningOrderData.roundOrders[roundKey].length > 0) {
+                        const className = cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`;
                         allRounds.push({
                             key: roundKey,
                             dayIndex,
                             classIndex,
                             roundIndex,
-                            className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                            className: className,
                             judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
                             roundNumber: roundIndex + 1,
                             date: day.date,
                             entryIds: runningOrderData.roundOrders[roundKey],
-                            cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
+                            cwagsSortOrder: getCWAGSClassOrder(className)
                         });
                     }
                 });
@@ -830,7 +866,7 @@
             }
         }
 
-        // NEW: Render round selector with tabbed interface
+        // Render round selector with tabbed interface
         function renderRoundSelector() {
             const dayTabs = document.getElementById('dayTabs');
             const dayContents = document.getElementById('dayContents');
