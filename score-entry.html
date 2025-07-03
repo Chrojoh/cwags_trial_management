@@ -653,29 +653,25 @@ const CWAGS_CLASS_ORDER = [
             }
         }
 
-        // Render round selector cards
-        function renderRoundSelector() {
-            const roundSelector = document.getElementById('roundSelector');
-            roundSelector.innerHTML = '';
-
-            allRounds.forEach((round, index) => {
-                const card = document.createElement('div');
-                card.className = 'round-card';
-                card.onclick = () => selectRound(round);
-                
-                const dateStr = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
-                
-                card.innerHTML = `
-                    <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
-                    <div class="judge-info">Judge: ${round.judgeName}</div>
-                    <div class="judge-info">${dateStr} • ${round.entryIds.length} entries</div>
-                `;
-                
-                roundSelector.appendChild(card);
-            });
-
-            roundSelector.style.display = 'flex';
-        }
+        // Sort rounds: Date first → Class order → Round number
+const sortedRounds = allRounds.sort((a, b) => {
+    // Date first
+    const dateA = new Date(a.date || '1900-01-01');
+    const dateB = new Date(b.date || '1900-01-01');
+    if (dateA.getTime() !== dateB.getTime()) {
+        return dateA - dateB;
+    }
+    
+    // Then class order
+    const classIndexA = CWAGS_CLASS_ORDER.indexOf(a.className);
+    const classIndexB = CWAGS_CLASS_ORDER.indexOf(b.className);
+    if (classIndexA !== classIndexB) {
+        return (classIndexA === -1 ? 999 : classIndexA) - (classIndexB === -1 ? 999 : classIndexB);
+    }
+    
+    // Finally round number
+    return a.roundNumber - b.roundNumber;
+});
 
         // Select a round for scoring
         async function selectRound(round) {
