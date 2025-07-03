@@ -60,42 +60,124 @@
             font-size: 1rem;
         }
 
+        /* NEW: Tabbed interface for days */
         .round-selector {
-            display: flex;
-            gap: 1rem;
             margin-bottom: 2rem;
-            flex-wrap: wrap;
+        }
+
+        .day-tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+        }
+
+        .day-tab {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-bottom: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            border-radius: 8px 8px 0 0;
+            margin-right: 0.25rem;
+        }
+
+        .day-tab:hover {
+            background: #e9ecef;
+        }
+
+        .day-tab.active {
+            background: white;
+            border-color: #667eea;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            z-index: 1;
+            position: relative;
+        }
+
+        .day-tab-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.25rem;
+        }
+
+        .day-tab.active .day-tab-title {
+            color: #667eea;
+        }
+
+        .day-tab-date {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+
+        .day-tab.active .day-tab-date {
+            color: #495057;
+        }
+
+        .day-content {
+            display: none;
+            padding: 1rem 0;
+        }
+
+        .day-content.active {
+            display: block;
+        }
+
+        .day-rounds {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
         }
 
         .round-card {
-            background: #f8f9fa;
+            background: white;
             border: 2px solid #dee2e6;
             border-radius: 8px;
             padding: 1rem;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-width: 200px;
+            position: relative;
         }
 
         .round-card:hover {
             border-color: #667eea;
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
 
         .round-card.active {
             background: #667eea;
             color: white;
             border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .round-info {
             font-weight: 600;
             margin-bottom: 0.5rem;
+            font-size: 0.95rem;
         }
 
         .judge-info {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             opacity: 0.8;
+            margin-bottom: 0.25rem;
+        }
+
+        .round-card.active .judge-info {
+            opacity: 0.9;
+        }
+
+        .no-rounds-message {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 2rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 2px dashed #dee2e6;
         }
 
         .score-sheet {
@@ -306,6 +388,26 @@
         }
 
         @media (max-width: 768px) {
+            .day-tabs {
+                flex-direction: column;
+            }
+            
+            .day-tab {
+                margin-right: 0;
+                margin-bottom: 0.25rem;
+                border-radius: 8px;
+                border: 2px solid #e9ecef;
+            }
+            
+            .day-tab.active {
+                border: 2px solid #667eea;
+                margin-bottom: 0.25rem;
+            }
+            
+            .day-rounds {
+                grid-template-columns: 1fr;
+            }
+            
             .scoring-table {
                 font-size: 0.8rem;
             }
@@ -316,6 +418,11 @@
 
             .control-buttons {
                 flex-direction: column;
+            }
+
+            .sheet-info {
+                flex-direction: column;
+                gap: 0.5rem;
             }
         }
     </style>
@@ -346,9 +453,17 @@
                 </select>
             </div>
 
-            <!-- Round Selector -->
+            <!-- Round Selector with Tabs -->
             <div class="round-selector" id="roundSelector" style="display: none;">
-                <!-- Round cards will be generated here -->
+                <!-- Day Tabs -->
+                <div class="day-tabs" id="dayTabs">
+                    <!-- Day tabs will be generated here -->
+                </div>
+                
+                <!-- Day Content Containers -->
+                <div id="dayContents">
+                    <!-- Day content sections will be generated here -->
+                </div>
             </div>
 
             <!-- Score Sheet -->
@@ -447,6 +562,59 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
+        let activeDay = 0; // Track active day tab
+
+        // C-WAGS class order mapping for logical trial flow
+        const CWAGS_CLASS_ORDER = {
+            // Container classes - typically run first as they're quickest/easiest setup
+            'CLN': 1,    // Container Level Novice
+            'CLA': 2,    // Container Level Advanced  
+            'CLE': 3,    // Container Level Elite
+            
+            // Interior classes - indoor/building searches
+            'ILN': 4,    // Interior Level Novice
+            'ILA': 5,    // Interior Level Advanced
+            'ILE': 6,    // Interior Level Elite
+            
+            // Exterior classes - outdoor searches
+            'ELN': 7,    // Exterior Level Novice
+            'ELA': 8,    // Exterior Level Advanced
+            'ELE': 9,    // Exterior Level Elite
+            
+            // Vehicle classes - car/truck searches
+            'VLN': 10,   // Vehicle Level Novice
+            'VLA': 11,   // Vehicle Level Advanced
+            'VLE': 12,   // Vehicle Level Elite
+            
+            // Buried classes - ground searches (often last due to setup)
+            'BLN': 13,   // Buried Level Novice
+            'BLA': 14,   // Buried Level Advanced
+            'BLE': 15,   // Buried Level Elite
+            
+            // Handler classes - focus on handler skills
+            'HLN': 16,   // Handler Level Novice
+            'HLA        };
+
+        // Get the time of day for a round to help with chronological sorting
+        function getRoundTime(round) {
+            // If round has a specific time, use it
+            if (round.time) return round.time;
+            
+            // Otherwise, estimate based on class and round number
+            // Most trials run in this general order throughout the day
+            const baseTime = 8; // 8 AM start
+            const classOrder = getCWAGSClassOrder(round.className);
+            const roundOffset = (round.roundNumber - 1) * 1.5; // 1.5 hours between rounds
+            const classOffset = (classOrder - 1) * 0.5; // 30 min between class types
+            
+            return baseTime + classOffset + roundOffset;
+        }': 17,   // Handler Level Advanced
+            'HLN': 18,   // Handler Level Novice
+            'DET': 19,   // Detective
+            'SWN': 20,   // Scent Work Novice
+            'SWA': 21,   // Scent Work Advanced
+            'SWE': 22    // Scent Work Elite
+        };
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -490,6 +658,25 @@
                 return '';
             }
             return formatLocalDate(date);
+        }
+
+        function getCWAGSClassOrder(className) {
+            if (!className) return 999;
+            
+            // Try exact match first
+            const exactMatch = CWAGS_CLASS_ORDER[className.toUpperCase()];
+            if (exactMatch) return exactMatch;
+            
+            // Try to extract class code from longer strings
+            const upperClassName = className.toUpperCase();
+            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                if (upperClassName.includes(code)) {
+                    return order;
+                }
+            }
+            
+            // Default order for unrecognized classes
+            return 999;
         }
 
         // Initialize the application
@@ -620,7 +807,8 @@
                             judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
                             roundNumber: roundIndex + 1,
                             date: day.date,
-                            entryIds: runningOrderData.roundOrders[roundKey]
+                            entryIds: runningOrderData.roundOrders[roundKey],
+                            cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
                         });
                     }
                 });
@@ -642,28 +830,118 @@
             }
         }
 
-        // Render round selector cards
+        // NEW: Render round selector with tabbed interface
         function renderRoundSelector() {
-            const roundSelector = document.getElementById('roundSelector');
-            roundSelector.innerHTML = '';
+            const dayTabs = document.getElementById('dayTabs');
+            const dayContents = document.getElementById('dayContents');
+            dayTabs.innerHTML = '';
+            dayContents.innerHTML = '';
 
-            allRounds.forEach((round, index) => {
-                const card = document.createElement('div');
-                card.className = 'round-card';
-                card.onclick = () => selectRound(round);
-                
-                const dateStr = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
-                
-                card.innerHTML = `
-                    <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
-                    <div class="judge-info">Judge: ${round.judgeName}</div>
-                    <div class="judge-info">${dateStr} • ${round.entryIds.length} entries</div>
-                `;
-                
-                roundSelector.appendChild(card);
+            // Group rounds by day
+            const roundsByDay = {};
+            allRounds.forEach(round => {
+                if (!roundsByDay[round.dayIndex]) {
+                    roundsByDay[round.dayIndex] = [];
+                }
+                roundsByDay[round.dayIndex].push(round);
             });
 
-            roundSelector.style.display = 'flex';
+            // Sort rounds within each day by C-WAGS class order, then by round number
+            Object.keys(roundsByDay).forEach(dayIndex => {
+                roundsByDay[dayIndex].sort((a, b) => {
+                    // First sort by C-WAGS class order (Patrol 1, Detective 2, etc.)
+                    if (a.cwagsSortOrder !== b.cwagsSortOrder) {
+                        return a.cwagsSortOrder - b.cwagsSortOrder;
+                    }
+                    // Then by round number (Round 1, Round 2, etc. for same class)
+                    return a.roundNumber - b.roundNumber;
+                });
+            });
+
+            // Create tabs and content for each day
+            const sortedDayIndices = Object.keys(roundsByDay).sort((a, b) => Number(a) - Number(b));
+            
+            sortedDayIndices.forEach((dayIndex, tabIndex) => {
+                const dayRounds = roundsByDay[dayIndex];
+                const day = currentTrial.days[dayIndex];
+                const dayNumber = Number(dayIndex) + 1;
+                
+                // Create tab
+                const tab = document.createElement('div');
+                tab.className = `day-tab ${tabIndex === 0 ? 'active' : ''}`;
+                tab.onclick = () => switchDay(Number(dayIndex));
+                
+                tab.innerHTML = `
+                    <div class="day-tab-title">Day ${dayNumber}</div>
+                    <div class="day-tab-date">${day.date ? createLocalDate(day.date).toLocaleDateString() : 'Date TBD'}</div>
+                `;
+                
+                dayTabs.appendChild(tab);
+                
+                // Create content
+                const content = document.createElement('div');
+                content.className = `day-content ${tabIndex === 0 ? 'active' : ''}`;
+                content.id = `day-content-${dayIndex}`;
+                
+                const roundsContainer = document.createElement('div');
+                roundsContainer.className = 'day-rounds';
+                
+                if (dayRounds.length === 0) {
+                    const noRoundsMsg = document.createElement('div');
+                    noRoundsMsg.className = 'no-rounds-message';
+                    noRoundsMsg.textContent = 'No rounds scheduled for this day';
+                    roundsContainer.appendChild(noRoundsMsg);
+                } else {
+                    dayRounds.forEach(round => {
+                        const card = document.createElement('div');
+                        card.className = 'round-card';
+                        card.onclick = () => selectRound(round);
+                        
+                        card.innerHTML = `
+                            <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
+                            <div class="judge-info">Judge: ${round.judgeName}</div>
+                            <div class="judge-info">${round.entryIds.length} entries</div>
+                        `;
+                        
+                        roundsContainer.appendChild(card);
+                    });
+                }
+                
+                content.appendChild(roundsContainer);
+                dayContents.appendChild(content);
+            });
+
+            // Set first day as active
+            if (sortedDayIndices.length > 0) {
+                activeDay = Number(sortedDayIndices[0]);
+            }
+
+            document.getElementById('roundSelector').style.display = 'block';
+        }
+
+        // Switch between day tabs
+        function switchDay(dayIndex) {
+            // Update active day
+            activeDay = dayIndex;
+            
+            // Update tab states
+            document.querySelectorAll('.day-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.day-content').forEach(content => content.classList.remove('active'));
+            
+            // Find and activate the correct tab and content
+            const tabs = document.querySelectorAll('.day-tab');
+            const contents = document.querySelectorAll('.day-content');
+            
+            // Find the tab index for this day
+            const dayIndices = Array.from(contents).map(content => 
+                Number(content.id.split('-')[2])
+            );
+            const tabIndex = dayIndices.indexOf(dayIndex);
+            
+            if (tabIndex !== -1) {
+                tabs[tabIndex].classList.add('active');
+                contents[tabIndex].classList.add('active');
+            }
         }
 
         // Select a round for scoring
@@ -901,7 +1179,7 @@
             }
         }
 
-        // Export filled score sheet as PDF
+        // Export filled score sheet as CSV
         async function exportFilledScoreSheet() {
             if (!currentRound) {
                 showStatus('No round selected', 'error');
@@ -909,38 +1187,90 @@
             }
 
             try {
-                showStatus('Generating filled score sheet...', 'info');
+                showStatus('Generating filled score sheet CSV...', 'info');
 
-                // This would integrate with your existing PDF generation
-                // For now, let's create a simple export
-                const scoresData = {
-                    trial: currentTrial.clubName,
-                    class: currentRound.className,
-                    judge: currentRound.judgeName,
-                    date: currentRound.date,
-                    round: currentRound.roundNumber,
-                    scentLocations: {
-                        scent1: currentScores.scent1Location || '',
-                        scent2: currentScores.scent2Location || '',
-                        scent3: currentScores.scent3Location || '',
-                        scent4: currentScores.scent4Location || ''
-                    },
-                    participants: currentScores.participants || {}
-                };
+                // Create CSV content
+                let csvContent = '';
+                
+                // Header information
+                csvContent += `"Scent Detective Master Score Sheet"\n`;
+                csvContent += `"Trial","${currentTrial.clubName}"\n`;
+                csvContent += `"Class","${currentRound.className}"\n`;
+                csvContent += `"Judge","${currentRound.judgeName}"\n`;
+                csvContent += `"Date","${currentRound.date ? createLocalDate(currentRound.date).toLocaleDateString() : 'Date TBD'}"\n`;
+                csvContent += `"Round","${currentRound.roundNumber}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Scent locations
+                csvContent += `"Scent Locations"\n`;
+                csvContent += `"Scent 1","${currentScores.scent1Location || ''}"\n`;
+                csvContent += `"Scent 2","${currentScores.scent2Location || ''}"\n`;
+                csvContent += `"Scent 3","${currentScores.scent3Location || ''}"\n`;
+                csvContent += `"Scent 4","${currentScores.scent4Location || ''}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Table headers
+                csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
+                
+                // Get participants from current round
+                const participants = [];
+                
+                // Load entries for this round to get participant names
+                try {
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', currentTrial.id)
+                        .get();
 
-                // Create downloadable JSON for now (could be enhanced to PDF)
-                const dataStr = JSON.stringify(scoresData, null, 2);
-                const dataBlob = new Blob([dataStr], {type: 'application/json'});
-                const url = URL.createObjectURL(dataBlob);
+                    const entryMap = {};
+                    entriesSnapshot.forEach(doc => {
+                        entryMap[doc.id] = doc.data();
+                    });
+
+                    // Build participant list in running order
+                    currentRound.entryIds.forEach(entryId => {
+                        const [docId] = entryId.split('_');
+                        const entry = entryMap[docId];
+                        if (entry) {
+                            participants.push({
+                                id: entryId,
+                                handlerName: entry.handlerName.split(' ')[0],
+                                dogCallName: entry.dogCallName
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error loading participants:', error);
+                }
+                
+                // Add participant rows with scores
+                participants.forEach(participant => {
+                    const scores = currentScores.participants?.[participant.id] || {};
+                    
+                    const teamName = `${participant.handlerName} - ${participant.dogCallName}`;
+                    const scent1 = scores.scent1 || '';
+                    const scent2 = scores.scent2 || '';
+                    const scent3 = scores.scent3 || '';
+                    const scent4 = scores.scent4 || '';
+                    const fault1 = scores.fault1 || '';
+                    const fault2 = scores.fault2 || '';
+                    const time = scores.time || '';
+                    const passFail = scores.passFail || '';
+                    
+                    csvContent += `"${teamName}","${scent1}","${scent2}","${scent3}","${scent4}","${fault1}","${fault2}","${time}","${passFail}"\n`;
+                });
+                
+                // Create and download CSV file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `${currentRound.className}_Round${currentRound.roundNumber}_Scores.json`;
+                link.download = `${currentRound.className}_Round${currentRound.roundNumber}_Scores.csv`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
 
-                showStatus('Score data exported successfully!', 'success');
+                showStatus('Score sheet CSV exported successfully!', 'success');
             } catch (error) {
                 console.error('Error exporting scores:', error);
                 showStatus('Error exporting scores: ' + error.message, 'error');
