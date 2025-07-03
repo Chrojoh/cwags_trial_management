@@ -901,7 +901,7 @@
             }
         }
 
-        // Export filled score sheet as PDF
+        // Export filled score sheet as CSV
         async function exportFilledScoreSheet() {
             if (!currentRound) {
                 showStatus('No round selected', 'error');
@@ -909,38 +909,90 @@
             }
 
             try {
-                showStatus('Generating filled score sheet...', 'info');
+                showStatus('Generating filled score sheet CSV...', 'info');
 
-                // This would integrate with your existing PDF generation
-                // For now, let's create a simple export
-                const scoresData = {
-                    trial: currentTrial.clubName,
-                    class: currentRound.className,
-                    judge: currentRound.judgeName,
-                    date: currentRound.date,
-                    round: currentRound.roundNumber,
-                    scentLocations: {
-                        scent1: currentScores.scent1Location || '',
-                        scent2: currentScores.scent2Location || '',
-                        scent3: currentScores.scent3Location || '',
-                        scent4: currentScores.scent4Location || ''
-                    },
-                    participants: currentScores.participants || {}
-                };
+                // Create CSV content
+                let csvContent = '';
+                
+                // Header information
+                csvContent += `"Scent Detective Master Score Sheet"\n`;
+                csvContent += `"Trial","${currentTrial.clubName}"\n`;
+                csvContent += `"Class","${currentRound.className}"\n`;
+                csvContent += `"Judge","${currentRound.judgeName}"\n`;
+                csvContent += `"Date","${currentRound.date ? createLocalDate(currentRound.date).toLocaleDateString() : 'Date TBD'}"\n`;
+                csvContent += `"Round","${currentRound.roundNumber}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Scent locations
+                csvContent += `"Scent Locations"\n`;
+                csvContent += `"Scent 1","${currentScores.scent1Location || ''}"\n`;
+                csvContent += `"Scent 2","${currentScores.scent2Location || ''}"\n`;
+                csvContent += `"Scent 3","${currentScores.scent3Location || ''}"\n`;
+                csvContent += `"Scent 4","${currentScores.scent4Location || ''}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Table headers
+                csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
+                
+                // Get participants from current round
+                const participants = [];
+                
+                // Load entries for this round to get participant names
+                try {
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', currentTrial.id)
+                        .get();
 
-                // Create downloadable JSON for now (could be enhanced to PDF)
-                const dataStr = JSON.stringify(scoresData, null, 2);
-                const dataBlob = new Blob([dataStr], {type: 'application/json'});
-                const url = URL.createObjectURL(dataBlob);
+                    const entryMap = {};
+                    entriesSnapshot.forEach(doc => {
+                        entryMap[doc.id] = doc.data();
+                    });
+
+                    // Build participant list in running order
+                    currentRound.entryIds.forEach(entryId => {
+                        const [docId] = entryId.split('_');
+                        const entry = entryMap[docId];
+                        if (entry) {
+                            participants.push({
+                                id: entryId,
+                                handlerName: entry.handlerName.split(' ')[0],
+                                dogCallName: entry.dogCallName
+                            });
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error loading participants:', error);
+                }
+                
+                // Add participant rows with scores
+                participants.forEach(participant => {
+                    const scores = currentScores.participants?.[participant.id] || {};
+                    
+                    const teamName = `${participant.handlerName} - ${participant.dogCallName}`;
+                    const scent1 = scores.scent1 || '';
+                    const scent2 = scores.scent2 || '';
+                    const scent3 = scores.scent3 || '';
+                    const scent4 = scores.scent4 || '';
+                    const fault1 = scores.fault1 || '';
+                    const fault2 = scores.fault2 || '';
+                    const time = scores.time || '';
+                    const passFail = scores.passFail || '';
+                    
+                    csvContent += `"${teamName}","${scent1}","${scent2}","${scent3}","${scent4}","${fault1}","${fault2}","${time}","${passFail}"\n`;
+                });
+                
+                // Create and download CSV file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `${currentRound.className}_Round${currentRound.roundNumber}_Scores.json`;
+                link.download = `${currentRound.className}_Round${currentRound.roundNumber}_Scores.csv`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
 
-                showStatus('Score data exported successfully!', 'success');
+                showStatus('Score sheet CSV exported successfully!', 'success');
             } catch (error) {
                 console.error('Error exporting scores:', error);
                 showStatus('Error exporting scores: ' + error.message, 'error');
