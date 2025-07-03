@@ -1150,47 +1150,50 @@
             statusDiv.style.display = 'none';
         }
 
-        // MAIN APPLICATION FUNCTIONS
-
-        // Initialize the application
-        async function init() {
-            console.log("🚀 Initializing entry form application...");
-            
-            try {
-                // Check URL parameters for direct trial link
-                const urlParams = new URLSearchParams(window.location.search);
-                const trialId = urlParams.get('trial');
-
-              if (trialId) {
-    // Load specific trial for public entry
-    console.log("🔗 Loading specific trial for public entry:", trialId);
-    await loadSpecificTrial(trialId);
+       // MAIN APPLICATION FUNCTIONS
+// Initialize the application
+async function init() {
+    console.log("🚀 Initializing entry form application...");
     
-    // Check if we're editing an existing entry
-    const entryId = urlParams.get('entry');
-    if (entryId) {
-        console.log("📝 Loading existing entry for editing:", entryId);
-        await loadExistingEntryForEditing(entryId);
-    }
-} else {
-                    // Normal secretary view - need authentication
-                    console.log("👨‍💼 Setting up secretary view");
-                    isSecretary = true;
-                    await setupSecretaryView();
-                }
-
-                // Load registration data
-                await loadRegistrationData();
-
-                // Setup form event listeners
-                setupFormEventListeners();
-                
-            } catch (error) {
-                console.error("❌ Error initializing application:", error);
-                showError("Failed to initialize entry form: " + error.message);
+    try {
+        // Check URL parameters for direct trial link
+        const urlParams = new URLSearchParams(window.location.search);
+        const trialId = urlParams.get('trial');
+        
+        if (trialId) {
+            // Load specific trial for public entry
+            console.log("🔗 Loading specific trial for public entry:", trialId);
+            
+            // Hide secretary-only elements for public users
+            hideElement('backToDashboard');        // ADD THIS LINE!
+            hideElement('trialSelectionSection');  // ADD THIS LINE!
+            hideElement('shareableLinkSection');   // ADD THIS LINE!
+            
+            await loadSpecificTrial(trialId);
+            
+            // Check if we're editing an existing entry
+            const entryId = urlParams.get('entry');
+            if (entryId) {
+                console.log("📝 Loading existing entry for editing:", entryId);
+                await loadExistingEntryForEditing(entryId);
             }
+        } else {
+            // Normal secretary view - need authentication
+            console.log("👨‍💼 Setting up secretary view");
+            isSecretary = true;
+            await setupSecretaryView();
         }
-
+        
+        // Load registration data
+        await loadRegistrationData();
+        // Setup form event listeners
+        setupFormEventListeners();
+        
+    } catch (error) {
+        console.error("❌ Error initializing application:", error);
+        showError("Failed to initialize entry form: " + error.message);
+    }
+}
         // Load registration data from Firebase registry
         async function loadRegistrationData() {
             try {
