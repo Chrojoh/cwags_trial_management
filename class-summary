@@ -883,4 +883,175 @@
                         r.judgeName === round.judgeName && 
                         getDateFromRound(r) === getDateFromRound(round)
                     ).length;
-                    const roundSuffix = sameJudgeDate >
+                    const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                    
+                    headerRow += `,"${round.judgeName || 'Judge TBD'} - ${formattedDate}${roundSuffix}"`;
+                });
+                csvContent += headerRow + '\n';
+                
+                // Data rows
+                summaryData.participants.forEach(participant => {
+                    let row = `"${participant.name}"`;
+                    
+                    summaryData.rounds.forEach(round => {
+                        const participantResult = round.participants[participant.id];
+                        let result = '-';
+                        if (participantResult && participantResult.passFail) {
+                            const passFail = participantResult.passFail;
+                            if (passFail === 'Pass') {
+                                result = 'P';
+                            } else if (passFail === 'Fail') {
+                                result = 'F';
+                            }
+                        }
+                        row += `,"${result}"`;
+                    });
+                    
+                    csvContent += row + '\n';
+                });
+                
+                // Create and download CSV file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                showStatus('Summary CSV exported successfully!', 'success');
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                showStatus('Error exporting CSV: ' + error.message, 'error');
+            }
+        }
+
+        // Export summary as PDF (simplified version)
+        function exportSummaryPDF() {
+            if (!summaryData) {
+                showStatus('No summary data to export', 'error');
+                return;
+            }
+
+            try {
+                // Create a new window with the table for printing
+                const printWindow = window.open('', '_blank');
+                
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>Class Summary: ${summaryData.className}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            .header { text-align: center; margin-bottom: 30px; }
+                            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                            .info { font-size: 14px; color: #666; margin-bottom: 5px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+                            th { background-color: #f5f5f5; font-weight: bold; }
+                            .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
+                            .result-pass { color: #28a745; font-weight: bold; }
+                            .result-fail { color: #dc3545; font-weight: bold; }
+                            .result-absent { color: #6c757d; }
+                            @media print { body { margin: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <div class="title">Class Summary: ${summaryData.className}</div>
+                            <div class="info">Trial: ${summaryData.trialName}</div>
+                            <div class="info">Generated: ${new Date().toLocaleDateString()}</div>
+                            <div class="info">Total Participants: ${summaryData.totalParticipants} | Total Rounds: ${summaryData.totalRounds}</div>
+                        </div>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th rowspan="3" class="participant-name">Participant</th>
+                                    ${summaryData.rounds.map((round, index) => {
+                                        return `<th>${round.judgeName || 'Judge TBD'}</th>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    ${summaryData.rounds.map(round => {
+                                        const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                                        const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                                            ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                                            : 'Date TBD';
+                                        const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                                        return `<th>${formattedDate}</th>`;
+                                    }).join('')}
+                                </tr>
+                                <tr>
+                                    ${summaryData.rounds.map((round, index) => {
+                                        const sameJudgeDate = summaryData.rounds.filter((r, i) => 
+                                            i <= index && 
+                                            r.judgeName === round.judgeName && 
+                                            getDateFromRound(r) === getDateFromRound(round)
+                                        ).length;
+                                        const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                                        return `<th>${round.className || 'Class'}${roundSuffix}</th>`;
+                                    }).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${summaryData.participants.map(participant => {
+                                    const resultCells = summaryData.rounds.map(round => {
+                                        const participantResult = round.participants[participant.id];
+                                        let result = '-';
+                                        let cssClass = 'result-absent';
+                                        
+                                        if (participantResult && participantResult.passFail) {
+                                            const passFail = participantResult.passFail;
+                                            if (passFail === 'Pass') {
+                                                result = 'P';
+                                                cssClass = 'result-pass';
+                                            } else if (passFail === 'Fail') {
+                                                result = 'F';
+                                                cssClass = 'result-fail';
+                                            }
+                                        }
+                                        
+                                        return `<td class="${cssClass}">${result}</td>`;
+                                    }).join('');
+                                    
+                                    return `<tr><td class="participant-name">${participant.name}</td>${resultCells}</tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 30px; font-size: 12px; color: #666;">
+                            <p><strong>Legend:</strong> P = Pass, F = Fail, - = Did not run</p>
+                        </div>
+                    </body>
+                    </html>
+                `;
+                
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                
+                // Trigger print dialog
+                printWindow.onload = function() {
+                    printWindow.print();
+                };
+
+                showStatus('PDF export opened in new window', 'success');
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                showStatus('Error exporting PDF: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing class summary system...');
+            init();
+        });
+
+        console.log('Class Summary Sheet script loaded successfully');
+    </script>
+</body>
+</html>
