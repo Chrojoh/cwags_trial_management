@@ -60,47 +60,75 @@
             font-size: 1rem;
         }
 
-        /* NEW: Day-based round selector layout */
+        /* NEW: Tabbed interface for days */
         .round-selector {
             margin-bottom: 2rem;
         }
 
-        .days-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
+        .day-tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
         }
 
-        .day-column {
+        .day-tab {
             background: #f8f9fa;
-            border-radius: 12px;
-            padding: 1.5rem;
             border: 2px solid #e9ecef;
+            border-bottom: none;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            border-radius: 8px 8px 0 0;
+            margin-right: 0.25rem;
         }
 
-        .day-header {
-            text-align: center;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #dee2e6;
+        .day-tab:hover {
+            background: #e9ecef;
         }
 
-        .day-title {
-            font-size: 1.2rem;
-            font-weight: bold;
+        .day-tab.active {
+            background: white;
+            border-color: #667eea;
+            border-bottom: 2px solid white;
+            margin-bottom: -2px;
+            z-index: 1;
+            position: relative;
+        }
+
+        .day-tab-title {
+            font-weight: 600;
             color: #495057;
             margin-bottom: 0.25rem;
         }
 
-        .day-date {
-            font-size: 0.9rem;
+        .day-tab.active .day-tab-title {
+            color: #667eea;
+        }
+
+        .day-tab-date {
+            font-size: 0.85rem;
             color: #6c757d;
         }
 
+        .day-tab.active .day-tab-date {
+            color: #495057;
+        }
+
+        .day-content {
+            display: none;
+            padding: 1rem 0;
+        }
+
+        .day-content.active {
+            display: block;
+        }
+
         .day-rounds {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
         }
 
         .round-card {
@@ -360,7 +388,23 @@
         }
 
         @media (max-width: 768px) {
-            .days-container {
+            .day-tabs {
+                flex-direction: column;
+            }
+            
+            .day-tab {
+                margin-right: 0;
+                margin-bottom: 0.25rem;
+                border-radius: 8px;
+                border: 2px solid #e9ecef;
+            }
+            
+            .day-tab.active {
+                border: 2px solid #667eea;
+                margin-bottom: 0.25rem;
+            }
+            
+            .day-rounds {
                 grid-template-columns: 1fr;
             }
             
@@ -409,10 +453,16 @@
                 </select>
             </div>
 
-            <!-- Round Selector -->
+            <!-- Round Selector with Tabs -->
             <div class="round-selector" id="roundSelector" style="display: none;">
-                <div class="days-container" id="daysContainer">
-                    <!-- Day columns will be generated here -->
+                <!-- Day Tabs -->
+                <div class="day-tabs" id="dayTabs">
+                    <!-- Day tabs will be generated here -->
+                </div>
+                
+                <!-- Day Content Containers -->
+                <div id="dayContents">
+                    <!-- Day content sections will be generated here -->
                 </div>
             </div>
 
@@ -512,6 +562,7 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
+        let activeDay = 0; // Track active day tab
 
         // C-WAGS class order mapping
         const CWAGS_CLASS_ORDER = {
@@ -753,10 +804,12 @@
             }
         }
 
-        // NEW: Render round selector organized by days
+        // NEW: Render round selector with tabbed interface
         function renderRoundSelector() {
-            const daysContainer = document.getElementById('daysContainer');
-            daysContainer.innerHTML = '';
+            const dayTabs = document.getElementById('dayTabs');
+            const dayContents = document.getElementById('dayContents');
+            dayTabs.innerHTML = '';
+            dayContents.innerHTML = '';
 
             // Group rounds by day
             const roundsByDay = {};
@@ -779,40 +832,39 @@
                 });
             });
 
-            // Create day columns
+            // Create tabs and content for each day
             const sortedDayIndices = Object.keys(roundsByDay).sort((a, b) => Number(a) - Number(b));
             
-            sortedDayIndices.forEach(dayIndex => {
+            sortedDayIndices.forEach((dayIndex, tabIndex) => {
                 const dayRounds = roundsByDay[dayIndex];
                 const day = currentTrial.days[dayIndex];
+                const dayNumber = Number(dayIndex) + 1;
                 
-                const dayColumn = document.createElement('div');
-                dayColumn.className = 'day-column';
+                // Create tab
+                const tab = document.createElement('div');
+                tab.className = `day-tab ${tabIndex === 0 ? 'active' : ''}`;
+                tab.onclick = () => switchDay(Number(dayIndex));
                 
-                // Day header
-                const dayHeader = document.createElement('div');
-                dayHeader.className = 'day-header';
+                tab.innerHTML = `
+                    <div class="day-tab-title">Day ${dayNumber}</div>
+                    <div class="day-tab-date">${day.date ? createLocalDate(day.date).toLocaleDateString() : 'Date TBD'}</div>
+                `;
                 
-                const dayTitle = document.createElement('div');
-                dayTitle.className = 'day-title';
-                dayTitle.textContent = `Day ${Number(dayIndex) + 1}`;
+                dayTabs.appendChild(tab);
                 
-                const dayDate = document.createElement('div');
-                dayDate.className = 'day-date';
-                dayDate.textContent = day.date ? createLocalDate(day.date).toLocaleDateString() : 'Date TBD';
+                // Create content
+                const content = document.createElement('div');
+                content.className = `day-content ${tabIndex === 0 ? 'active' : ''}`;
+                content.id = `day-content-${dayIndex}`;
                 
-                dayHeader.appendChild(dayTitle);
-                dayHeader.appendChild(dayDate);
-                
-                // Day rounds container
-                const dayRoundsContainer = document.createElement('div');
-                dayRoundsContainer.className = 'day-rounds';
+                const roundsContainer = document.createElement('div');
+                roundsContainer.className = 'day-rounds';
                 
                 if (dayRounds.length === 0) {
                     const noRoundsMsg = document.createElement('div');
                     noRoundsMsg.className = 'no-rounds-message';
-                    noRoundsMsg.textContent = 'No rounds scheduled';
-                    dayRoundsContainer.appendChild(noRoundsMsg);
+                    noRoundsMsg.textContent = 'No rounds scheduled for this day';
+                    roundsContainer.appendChild(noRoundsMsg);
                 } else {
                     dayRounds.forEach(round => {
                         const card = document.createElement('div');
@@ -825,16 +877,45 @@
                             <div class="judge-info">${round.entryIds.length} entries</div>
                         `;
                         
-                        dayRoundsContainer.appendChild(card);
+                        roundsContainer.appendChild(card);
                     });
                 }
                 
-                dayColumn.appendChild(dayHeader);
-                dayColumn.appendChild(dayRoundsContainer);
-                daysContainer.appendChild(dayColumn);
+                content.appendChild(roundsContainer);
+                dayContents.appendChild(content);
             });
 
+            // Set first day as active
+            if (sortedDayIndices.length > 0) {
+                activeDay = Number(sortedDayIndices[0]);
+            }
+
             document.getElementById('roundSelector').style.display = 'block';
+        }
+
+        // Switch between day tabs
+        function switchDay(dayIndex) {
+            // Update active day
+            activeDay = dayIndex;
+            
+            // Update tab states
+            document.querySelectorAll('.day-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.day-content').forEach(content => content.classList.remove('active'));
+            
+            // Find and activate the correct tab and content
+            const tabs = document.querySelectorAll('.day-tab');
+            const contents = document.querySelectorAll('.day-content');
+            
+            // Find the tab index for this day
+            const dayIndices = Array.from(contents).map(content => 
+                Number(content.id.split('-')[2])
+            );
+            const tabIndex = dayIndices.indexOf(dayIndex);
+            
+            if (tabIndex !== -1) {
+                tabs[tabIndex].classList.add('active');
+                contents[tabIndex].classList.add('active');
+            }
         }
 
         // Select a round for scoring
