@@ -564,91 +564,101 @@
             }
         }
 
-        // Load rounds for selected trial
-        async function loadTrialRounds() {
-            const trialId = document.getElementById('trialSelect').value;
-            
-            if (!trialId) {
-                document.getElementById('roundSelector').style.display = 'none';
-                document.getElementById('scoreSheet').style.display = 'none';
-                document.getElementById('noDataMessage').style.display = 'none';
-                return;
-            }
+// Load rounds for selected trial
+async function loadTrialRounds() {
+    const trialId = document.getElementById('trialSelect').value;
+    
+    if (!trialId) {
+        document.getElementById('roundSelector').style.display = 'none';
+        document.getElementById('scoreSheet').style.display = 'none';
+        document.getElementById('noDataMessage').style.display = 'none';
+        return;
+    }
 
-            try {
-                showStatus('Loading trial rounds...', 'info');
+    try {
+        showStatus('Loading trial rounds...', 'info');
 
-                // Load trial data
-                const trialDoc = await db.collection('trials').doc(trialId).get();
-                if (!trialDoc.exists) {
-                    throw new Error('Trial not found');
-                }
+        // Load trial data
+        const trialDoc = await db.collection('trials').doc(trialId).get();
+        if (!trialDoc.exists) {
+            throw new Error('Trial not found');
+        }
 
-                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+        currentTrial = { id: trialDoc.id, ...trialDoc.data() };
 
-                // Fix date handling for trial days
-                if (currentTrial.days && Array.isArray(currentTrial.days)) {
-                    currentTrial.days = currentTrial.days.map(day => ({
-                        ...day,
-                        date: day.date ? getDateFromFirebase(day.date) : null
-                    }));
-                }
+        // Fix date handling for trial days
+        if (currentTrial.days && Array.isArray(currentTrial.days)) {
+            currentTrial.days = currentTrial.days.map(day => ({
+                ...day,
+                date: day.date ? getDateFromFirebase(day.date) : null
+            }));
+        }
 
-                // Load running order
-                const orderDoc = await db.collection('running_orders').doc(trialId).get();
-                if (!orderDoc.exists) {
-                    throw new Error('No running order found for this trial');
-                }
+        // Load running order
+        const orderDoc = await db.collection('running_orders').doc(trialId).get();
+        if (!orderDoc.exists) {
+            throw new Error('No running order found for this trial');
+        }
 
-                const runningOrderData = orderDoc.data();
-                allRounds = [];
+        const runningOrderData = orderDoc.data();
+        allRounds = [];
 
-                // Process rounds
-                Object.keys(runningOrderData.roundOrders || {}).forEach(roundKey => {
-                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                    const day = currentTrial.days[dayIndex];
-                    const cls = day?.classes[classIndex];
-                    const round = cls?.rounds[roundIndex];
+        // Process rounds
+        Object.keys(runningOrderData.roundOrders || {}).forEach(roundKey => {
+            const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+            const day = currentTrial.days[dayIndex];
+            const cls = day?.classes[classIndex];
+            const round = cls?.rounds[roundIndex];
 
-                    if (day && cls && round && runningOrderData.roundOrders[roundKey].length > 0) {
-                        allRounds.push({
-                            key: roundKey,
-                            dayIndex,
-                            classIndex,
-                            roundIndex,
-                            className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                            judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                            roundNumber: roundIndex + 1,
-                            date: day.date,
-                            entryIds: runningOrderData.roundOrders[roundKey]
-                        });
-                    }
+            if (day && cls && round && runningOrderData.roundOrders[roundKey].length > 0) {
+                allRounds.push({
+                    key: roundKey,
+                    dayIndex,
+                    classIndex,
+                    roundIndex,
+                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                    roundNumber: roundIndex + 1,
+                    date: day.date,
+                    entryIds: runningOrderData.roundOrders[roundKey]
                 });
+            }
+        });
 
-                if (allRounds.length === 0) {
-                    document.getElementById('noDataMessage').style.display = 'block';
-                    document.getElementById('roundSelector').style.display = 'none';
-                    showStatus('No rounds with entries found', 'error');
-                    return;
-                }
+        if (allRounds.length === 0) {
+            document.getElementById('noDataMessage').style.display = 'block';
+            document.getElementById('roundSelector').style.display = 'none';
+            showStatus('No rounds with entries found', 'error');
+            return;
+        }
 
-               // Render round selector cards
+        renderRoundSelector();
+        showStatus(`Found ${allRounds.length} rounds`, 'success');
+
+    } catch (error) {
+        console.error('Error loading trial rounds:', error);
+        showStatus('Error loading rounds: ' + error.message, 'error');
+        document.getElementById('noDataMessage').style.display = 'block';
+    }
+}
+
+// Render round selector cards
 function renderRoundSelector() {
     const roundSelector = document.getElementById('roundSelector');
     roundSelector.innerHTML = '';
 
-   // Simple version - just sort by date and round
-const sortedRounds = allRounds.sort((a, b) => {
-    // 1. Sort by date first
-    const dateA = new Date(a.date || '1900-01-01');
-    const dateB = new Date(b.date || '1900-01-01');
-    if (dateA.getTime() !== dateB.getTime()) {
-        return dateA - dateB;
-    }
-    
-    // 2. Then by round number
-    return a.roundNumber - b.roundNumber;
-});
+    // Simple version - just sort by date and round
+    const sortedRounds = allRounds.sort((a, b) => {
+        // 1. Sort by date first
+        const dateA = new Date(a.date || '1900-01-01');
+        const dateB = new Date(b.date || '1900-01-01');
+        if (dateA.getTime() !== dateB.getTime()) {
+            return dateA - dateB;
+        }
+        
+        // 2. Then by round number
+        return a.roundNumber - b.roundNumber;
+    });
 
     sortedRounds.forEach((round, index) => {
         const card = document.createElement('div');
