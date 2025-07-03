@@ -816,35 +816,41 @@
                     }));
                 }
 
-                // Load running order
+                // Load FINALIZED running order data (same as PDF generation uses)
                 const orderDoc = await db.collection('running_orders').doc(trialId).get();
                 if (!orderDoc.exists) {
                     throw new Error('No running order found for this trial');
                 }
 
                 const runningOrderData = orderDoc.data();
+                
+                // Check if we have the finalized running order structure
+                if (!runningOrderData.finalizedRunningOrders || Object.keys(runningOrderData.finalizedRunningOrders).length === 0) {
+                    throw new Error('No finalized running orders found. Please generate running orders first.');
+                }
+
                 allRounds = [];
 
-                // Process rounds
-                Object.keys(runningOrderData.roundOrders || {}).forEach(roundKey => {
+                // Process rounds from FINALIZED running orders (same as PDF generation)
+                Object.entries(runningOrderData.finalizedRunningOrders).forEach(([roundKey, roundData]) => {
                     const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
                     const day = currentTrial.days[dayIndex];
                     const cls = day?.classes[classIndex];
                     const round = cls?.rounds[roundIndex];
 
-                    if (day && cls && round && runningOrderData.roundOrders[roundKey].length > 0) {
-                        const className = cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`;
+                    if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
                         allRounds.push({
                             key: roundKey,
                             dayIndex,
                             classIndex,
                             roundIndex,
-                            className: className,
-                            judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                            className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                            judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
                             roundNumber: roundIndex + 1,
                             date: day.date,
-                            entryIds: runningOrderData.roundOrders[roundKey],
-                            cwagsSortOrder: getCWAGSClassOrder(className)
+                            participants: roundData.participants, // Use finalized participant list
+                            entryCount: roundData.participants.length,
+                            cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
                         });
                     }
                 });
@@ -852,7 +858,7 @@
                 if (allRounds.length === 0) {
                     document.getElementById('noDataMessage').style.display = 'block';
                     document.getElementById('roundSelector').style.display = 'none';
-                    showStatus('No rounds with entries found', 'error');
+                    showStatus('No finalized rounds found. Please generate running orders first.', 'error');
                     return;
                 }
 
@@ -936,7 +942,7 @@
                         card.innerHTML = `
                             <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
                             <div class="judge-info">Judge: ${round.judgeName}</div>
-                            <div class="judge-info">${round.entryIds.length} entries</div>
+                            <div class="judge-info">${round.entryCount} entries</div>
                         `;
                         
                         roundsContainer.appendChild(card);
@@ -991,29 +997,12 @@
 
                 currentRound = round;
 
-                // Load entries for this round
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', currentTrial.id)
-                    .get();
-
-                const entryMap = {};
-                entriesSnapshot.forEach(doc => {
-                    entryMap[doc.id] = doc.data();
-                });
-
-                // Build participant list in running order
-                const participants = [];
-                round.entryIds.forEach(entryId => {
-                    const [docId] = entryId.split('_');
-                    const entry = entryMap[docId];
-                    if (entry) {
-                        participants.push({
-                            id: entryId,
-                            handlerName: entry.handlerName.split(' ')[0],
-                            dogCallName: entry.dogCallName
-                        });
-                    }
-                });
+                // Use the finalized participants list directly (no need to rebuild from entries)
+                const participants = round.participants.map(participant => ({
+                    id: participant.id,
+                    handlerName: participant.handlerName,
+                    dogCallName: participant.dogCallName
+                }));
 
                 // Load existing scores if any
                 try {
@@ -1248,35 +1237,8 @@
                 // Table headers
                 csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
                 
-                // Get participants from current round
-                const participants = [];
-                
-                // Load entries for this round to get participant names
-                try {
-                    const entriesSnapshot = await db.collection('entries')
-                        .where('trialId', '==', currentTrial.id)
-                        .get();
-
-                    const entryMap = {};
-                    entriesSnapshot.forEach(doc => {
-                        entryMap[doc.id] = doc.data();
-                    });
-
-                    // Build participant list in running order
-                    currentRound.entryIds.forEach(entryId => {
-                        const [docId] = entryId.split('_');
-                        const entry = entryMap[docId];
-                        if (entry) {
-                            participants.push({
-                                id: entryId,
-                                handlerName: entry.handlerName.split(' ')[0],
-                                dogCallName: entry.dogCallName
-                            });
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error loading participants:', error);
-                }
+                // Get participants from current round (use finalized participant list)
+                const participants = currentRound.participants || [];
                 
                 // Add participant rows with scores
                 participants.forEach(participant => {
