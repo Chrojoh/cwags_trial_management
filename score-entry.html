@@ -564,25 +564,59 @@
         let currentScores = {};
         let activeDay = 0; // Track active day tab
 
-        // C-WAGS class order mapping
+        // C-WAGS class order mapping for logical trial flow
         const CWAGS_CLASS_ORDER = {
-            'CLE': 1,    // Container Level Elite
+            // Container classes - typically run first as they're quickest/easiest setup
+            'CLN': 1,    // Container Level Novice
             'CLA': 2,    // Container Level Advanced  
-            'CLN': 3,    // Container Level Novice
-            'ILE': 4,    // Interior Level Elite
+            'CLE': 3,    // Container Level Elite
+            
+            // Interior classes - indoor/building searches
+            'ILN': 4,    // Interior Level Novice
             'ILA': 5,    // Interior Level Advanced
-            'ILN': 6,    // Interior Level Novice
-            'ELE': 7,    // Exterior Level Elite
+            'ILE': 6,    // Interior Level Elite
+            
+            // Exterior classes - outdoor searches
+            'ELN': 7,    // Exterior Level Novice
             'ELA': 8,    // Exterior Level Advanced
-            'ELN': 9,    // Exterior Level Novice
-            'VLE': 10,   // Vehicle Level Elite
+            'ELE': 9,    // Exterior Level Elite
+            
+            // Vehicle classes - car/truck searches
+            'VLN': 10,   // Vehicle Level Novice
             'VLA': 11,   // Vehicle Level Advanced
-            'VLN': 12,   // Vehicle Level Novice
-            'BLE': 13,   // Buried Level Elite
+            'VLE': 12,   // Vehicle Level Elite
+            
+            // Buried classes - ground searches (often last due to setup)
+            'BLN': 13,   // Buried Level Novice
             'BLA': 14,   // Buried Level Advanced
-            'BLN': 15,   // Buried Level Novice
-            'HLE': 16,   // Handler Level Elite
+            'BLE': 15,   // Buried Level Elite
+            
+            // Handler classes - focus on handler skills
+            'HLN': 16,   // Handler Level Novice
             'HLA': 17,   // Handler Level Advanced
+            'HLE': 18,   // Handler Level Elite
+            
+            // Multi-level classes
+            'DET': 19,   // Detective (multiple elements)
+            'SWN': 20,   // Scent Work Novice
+            'SWA': 21,   // Scent Work Advanced
+            'SWE': 22    // Scent Work Elite
+        };
+
+        // Get the time of day for a round to help with chronological sorting
+        function getRoundTime(round) {
+            // If round has a specific time, use it
+            if (round.time) return round.time;
+            
+            // Otherwise, estimate based on class and round number
+            // Most trials run in this general order throughout the day
+            const baseTime = 8; // 8 AM start
+            const classOrder = getCWAGSClassOrder(round.className);
+            const roundOffset = (round.roundNumber - 1) * 1.5; // 1.5 hours between rounds
+            const classOffset = (classOrder - 1) * 0.5; // 30 min between class types
+            
+            return baseTime + classOffset + roundOffset;
+        }': 17,   // Handler Level Advanced
             'HLN': 18,   // Handler Level Novice
             'DET': 19,   // Detective
             'SWN': 20,   // Scent Work Novice
@@ -823,11 +857,11 @@
             // Sort rounds within each day by C-WAGS class order, then by round number
             Object.keys(roundsByDay).forEach(dayIndex => {
                 roundsByDay[dayIndex].sort((a, b) => {
-                    // First sort by C-WAGS class order
+                    // First sort by C-WAGS class order (Patrol 1, Detective 2, etc.)
                     if (a.cwagsSortOrder !== b.cwagsSortOrder) {
                         return a.cwagsSortOrder - b.cwagsSortOrder;
                     }
-                    // Then by round number
+                    // Then by round number (Round 1, Round 2, etc. for same class)
                     return a.roundNumber - b.roundNumber;
                 });
             });
