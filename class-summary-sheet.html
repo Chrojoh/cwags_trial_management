@@ -388,11 +388,112 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // C-WAGS class order mapping
+        const CWAGS_CLASS_ORDER = {
+            'PATROL 1': 1,
+            'PATROL1': 1,
+            'P1': 1,
+            
+            'DETECTIVE 2': 2,
+            'DETECTIVE2': 2,
+            'DET2': 2,
+            'D2': 2,
+            
+            'INVESTIGATOR 3': 3,
+            'INVESTIGATOR3': 3,
+            'INV3': 3,
+            'I3': 3,
+            
+            'SUPER SLEUTH 4': 4,
+            'SUPER SLEUTH4': 4,
+            'SUPERSLEUTH4': 4,
+            'SS4': 4,
+            'S4': 4,
+            
+            'PRIVATE INV': 5,
+            'PRIVATE INVESTIGATOR': 5,
+            'PRIVATEINV': 5,
+            'PRIV INV': 5,
+            'PI': 5,
+            
+            'DET DIVERSIONS': 6,
+            'DETECTIVE DIVERSIONS': 6,
+            'DETDIVERSIONS': 6,
+            'DD': 6,
+            
+            'RANGER 1': 7,
+            'RANGER1': 7,
+            'R1': 7,
+            
+            'RANGER 2': 8,
+            'RANGER2': 8,
+            'R2': 8,
+            
+            'RANGER 3': 9,
+            'RANGER3': 9,
+            'R3': 9,
+            
+            'RANGER 4': 10,
+            'RANGER4': 10,
+            'R4': 10,
+            
+            'RANGER 5': 11,
+            'RANGER5': 11,
+            'R5': 11,
+            
+            'DASHER 3': 12,
+            'DASHER3': 12,
+            'DASH3': 12,
+            'DA3': 12,
+            
+            'DASHER 4': 13,
+            'DASHER4': 13,
+            'DASH4': 13,
+            'DA4': 13,
+            
+            'DASHER 5': 14,
+            'DASHER5': 14,
+            'DASH5': 14,
+            'DA5': 14,
+            
+            'DASHER 6': 15,
+            'DASHER6': 15,
+            'DASH6': 15,
+            'DA6': 15
+        };
+
         // Global variables
         let currentUser = null;
         let currentTrial = null;
         let currentClass = null;
         let summaryData = null;
+
+        // Get C-WAGS class order
+        function getCWAGSClassOrder(className) {
+            if (!className) return 999;
+            
+            const cleanClassName = className.toUpperCase()
+                .replace(/[^A-Z0-9\s]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            
+            if (CWAGS_CLASS_ORDER[cleanClassName]) {
+                return CWAGS_CLASS_ORDER[cleanClassName];
+            }
+            
+            const noSpaceClassName = cleanClassName.replace(/\s/g, '');
+            if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
+                return CWAGS_CLASS_ORDER[noSpaceClassName];
+            }
+            
+            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
+                    return order;
+                }
+            }
+            
+            return 999;
+        }
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -524,7 +625,6 @@
             try {
                 showStatus('Loading trial classes...', 'info');
 
-                // Load trial data
                 const trialDoc = await db.collection('trials').doc(trialId).get();
                 if (!trialDoc.exists) {
                     throw new Error('Trial not found');
@@ -532,7 +632,6 @@
 
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
 
-                // Extract unique class names from all days
                 const classNames = new Set();
                 
                 if (currentTrial.days && Array.isArray(currentTrial.days)) {
@@ -548,11 +647,9 @@
                     });
                 }
 
-                // Populate class dropdown
                 classSelect.innerHTML = '<option value="">Select a class...</option>';
                 
                 if (classNames.size > 0) {
-                    // Sort classes by C-WAGS order instead of alphabetically
                     const sortedClasses = Array.from(classNames).sort((a, b) => {
                         const orderA = getCWAGSClassOrder(a);
                         const orderB = getCWAGSClassOrder(b);
@@ -591,7 +688,6 @@
                 showStatus('Generating class summary...', 'info');
                 currentClass = className;
 
-                // Step 1: Identify all rounds for this class
                 const rounds = [];
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
@@ -618,30 +714,25 @@
                     return;
                 }
 
-                // Step 2: Sort rounds by date and round number
                 rounds.sort((a, b) => {
                     const aKey = a.roundKey || '';
                     const bKey = b.roundKey || '';
                     return aKey.localeCompare(bKey);
                 });
 
-                // Step 3: Collect all unique participants
                 const allParticipants = new Map();
                 
                 rounds.forEach(round => {
                     Object.keys(round.participants).forEach(participantId => {
                         if (!allParticipants.has(participantId)) {
-                            // Try to get participant name from first occurrence
-                            const entryId = participantId;
                             allParticipants.set(participantId, {
                                 id: participantId,
-                                name: `Participant ${participantId.slice(-4)}` // Fallback
+                                name: `Participant ${participantId.slice(-4)}`
                             });
                         }
                     });
                 });
 
-                // Step 4: Get participant names from entries
                 if (allParticipants.size > 0) {
                     const entriesSnapshot = await db.collection('entries')
                         .where('trialId', '==', trialId)
@@ -652,7 +743,6 @@
                         entryMap[doc.id] = doc.data();
                     });
 
-                    // Update participant names
                     allParticipants.forEach((participant, participantId) => {
                         const [docId] = participantId.split('_');
                         const entry = entryMap[docId];
@@ -663,7 +753,6 @@
                     });
                 }
 
-                // Step 5: Build summary data
                 summaryData = {
                     trialName: currentTrial.clubName || 'Trial',
                     className: className,
@@ -686,26 +775,20 @@
         function renderSummary() {
             if (!summaryData) return;
 
-            // Update header
             document.getElementById('summaryTitle').textContent = `Class Summary: ${summaryData.className}`;
             document.getElementById('summaryInfo').textContent = 
                 `${summaryData.trialName} • ${summaryData.className} • ${summaryData.totalParticipants} Participants`;
 
-            // Build table headers
             const thead = document.getElementById('summaryTableHead');
             thead.innerHTML = '';
 
-            // Create header rows
             const judgeRow = document.createElement('tr');
             const dateRow = document.createElement('tr');
             const roundRow = document.createElement('tr');
 
-            // First column - participant names
             judgeRow.appendChild(createHeaderCell('Participant', 'participant-name', 3));
             
-            // Round columns
             summaryData.rounds.forEach((round, index) => {
-                // Get date from round key or other source
                 const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
                 const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
                     ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
@@ -713,7 +796,6 @@
 
                 const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
                 
-                // Count rounds for same judge on same date
                 const sameJudgeDate = summaryData.rounds.filter((r, i) => 
                     i <= index && 
                     r.judgeName === round.judgeName && 
@@ -731,20 +813,17 @@
             thead.appendChild(dateRow);
             thead.appendChild(roundRow);
 
-            // Build table body
             const tbody = document.getElementById('summaryTableBody');
             tbody.innerHTML = '';
 
             summaryData.participants.forEach(participant => {
                 const row = document.createElement('tr');
                 
-                // Participant name cell
                 const nameCell = document.createElement('td');
                 nameCell.className = 'participant-name';
                 nameCell.textContent = participant.name;
                 row.appendChild(nameCell);
 
-                // Result cells for each round
                 summaryData.rounds.forEach(round => {
                     const cell = document.createElement('td');
                     cell.className = 'result-cell';
@@ -773,10 +852,7 @@
                 tbody.appendChild(row);
             });
 
-            // Generate statistics
             generateStatistics();
-
-            // Show the summary
             document.getElementById('summaryContainer').style.display = 'block';
             document.getElementById('noDataMessage').style.display = 'none';
         }
@@ -800,36 +876,24 @@
             return dayDate;
         }
 
-        // Generate statistics
         function generateStatistics() {
             if (!summaryData) return;
 
             const statsSection = document.getElementById('statsSection');
             statsSection.innerHTML = '';
 
-            // Calculate stats
             let totalRuns = 0;
             let totalPasses = 0;
             let totalFails = 0;
-            let participantStats = {};
-
-            summaryData.participants.forEach(participant => {
-                participantStats[participant.id] = { runs: 0, passes: 0, fails: 0 };
-            });
 
             summaryData.rounds.forEach(round => {
                 Object.entries(round.participants).forEach(([participantId, result]) => {
                     if (result.passFail && result.passFail !== '-') {
                         totalRuns++;
-                        if (participantStats[participantId]) {
-                            participantStats[participantId].runs++;
-                            if (result.passFail === 'Pass') {
-                                totalPasses++;
-                                participantStats[participantId].passes++;
-                            } else if (result.passFail === 'Fail') {
-                                totalFails++;
-                                participantStats[participantId].fails++;
-                            }
+                        if (result.passFail === 'Pass') {
+                            totalPasses++;
+                        } else if (result.passFail === 'Fail') {
+                            totalFails++;
                         }
                     }
                 });
@@ -837,7 +901,6 @@
 
             const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
-            // Create stat cards
             const stats = [
                 { label: 'Total Participants', value: summaryData.totalParticipants },
                 { label: 'Total Rounds', value: summaryData.totalRounds },
@@ -868,14 +931,12 @@
             try {
                 let csvContent = '';
                 
-                // Header information
                 csvContent += `"Class Summary Report"\n`;
                 csvContent += `"Trial","${summaryData.trialName}"\n`;
                 csvContent += `"Class","${summaryData.className}"\n`;
                 csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
-                csvContent += `\n`; // Empty line
+                csvContent += `\n`;
                 
-                // Table headers
                 let headerRow = '"Participant"';
                 summaryData.rounds.forEach((round, index) => {
                     const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
@@ -895,7 +956,6 @@
                 });
                 csvContent += headerRow + '\n';
                 
-                // Data rows
                 summaryData.participants.forEach(participant => {
                     let row = `"${participant.name}"`;
                     
@@ -916,7 +976,6 @@
                     csvContent += row + '\n';
                 });
                 
-                // Create and download CSV file
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -934,7 +993,7 @@
             }
         }
 
-        // Export summary as PDF (simplified version)
+        // Export summary as PDF
         function exportSummaryPDF() {
             if (!summaryData) {
                 showStatus('No summary data to export', 'error');
@@ -942,7 +1001,6 @@
             }
 
             try {
-                // Create a new window with the table for printing
                 const printWindow = window.open('', '_blank');
                 
                 const htmlContent = `
@@ -977,9 +1035,7 @@
                             <thead>
                                 <tr>
                                     <th rowspan="3" class="participant-name">Participant</th>
-                                    ${summaryData.rounds.map((round, index) => {
-                                        return `<th>${round.judgeName || 'Judge TBD'}</th>`;
-                                    }).join('')}
+                                    ${summaryData.rounds.map(round => `<th>${round.judgeName || 'Judge TBD'}</th>`).join('')}
                                 </tr>
                                 <tr>
                                     ${summaryData.rounds.map(round => {
@@ -1039,7 +1095,6 @@
                 printWindow.document.write(htmlContent);
                 printWindow.document.close();
                 
-                // Trigger print dialog
                 printWindow.onload = function() {
                     printWindow.print();
                 };
