@@ -1086,129 +1086,148 @@
             const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
             const boldFont = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
 
-            // Header
-            page.drawText('Scent Detective Master Score Sheet', {
-                x: 50,
-                y: height - 50,
+            // Header - centered
+            const headerText = 'Scent Detective Master Score Sheet';
+            const headerWidth = headerText.length * 9; // Approximate width
+            page.drawText(headerText, {
+                x: (width - headerWidth) / 2,
+                y: height - 60,
                 size: 16,
                 font: boldFont,
             });
 
-            // Date
-            const dateStr = dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : 'Date: ____________';
+            // Date - top right
+            const dateStr = dayData.date ? createLocalDate(dayData.date).toLocaleDateString() : '____________';
             page.drawText(`Date: ${dateStr}`, {
-                x: 400,
-                y: height - 50,
+                x: width - 150,
+                y: height - 90,
                 size: 12,
                 font: font,
             });
 
-            // Class and Round info
+            // Class info - left side
             page.drawText(`CLASS: ${round.className}`, {
                 x: 50,
-                y: height - 80,
+                y: height - 110,
                 size: 12,
                 font: boldFont,
             });
 
-            // Round checkboxes
+            // Round checkboxes - positioned like original
             const rounds = [1, 2, 3, 4];
-            let startX = 300;
+            let roundX = 300;
+            page.drawText('Round', {
+                x: roundX - 50,
+                y: height - 108,
+                size: 12,
+                font: boldFont,
+            });
+
             rounds.forEach((roundNum, index) => {
                 const isCurrentRound = roundNum === round.roundNumber;
+                const boxX = roundX + (index * 40);
                 
                 // Draw checkbox
                 page.drawRectangle({
-                    x: startX + (index * 50),
-                    y: height - 85,
+                    x: boxX,
+                    y: height - 115,
                     width: 12,
                     height: 12,
                     borderColor: PDFLib.rgb(0, 0, 0),
                     borderWidth: 1,
                 });
 
-                // Mark current round
+                // Mark current round with X
                 if (isCurrentRound) {
                     page.drawText('X', {
-                        x: startX + (index * 50) + 3,
-                        y: height - 83,
+                        x: boxX + 2,
+                        y: height - 113,
                         size: 10,
                         font: boldFont,
                     });
                 }
 
+                // Round number
                 page.drawText(roundNum.toString(), {
-                    x: startX + (index * 50) + 16,
-                    y: height - 83,
+                    x: boxX + 16,
+                    y: height - 113,
                     size: 10,
                     font: font,
                 });
             });
 
-            // Scent locations header
-            const scentY = height - 120;
+            // Scent locations section
+            const scentY = height - 150;
+            const scentSpacing = 125;
             ['Scent 1', 'Scent 2', 'Scent 3', 'Scent 4'].forEach((scent, index) => {
+                const scentX = 50 + (index * scentSpacing);
                 page.drawText(scent, {
-                    x: 50 + (index * 130),
+                    x: scentX,
                     y: scentY,
                     size: 10,
                     font: boldFont,
                 });
                 page.drawText('Located in/on:', {
-                    x: 50 + (index * 130),
+                    x: scentX,
                     y: scentY - 15,
                     size: 8,
                     font: font,
                 });
                 // Draw line for location
                 page.drawLine({
-                    start: { x: 50 + (index * 130), y: scentY - 30 },
-                    end: { x: 170 + (index * 130), y: scentY - 30 },
+                    start: { x: scentX, y: scentY - 30 },
+                    end: { x: scentX + 110, y: scentY - 30 },
                     thickness: 1,
                 });
             });
 
-            // Faults section
+            // Faults section - wrapped properly
+            const faultsY = height - 200;
             page.drawText('Faults: Dropped Food; Dog stops working; Handler guiding dog; Incorrect find; Destructive behavior;', {
                 x: 50,
-                y: height - 170,
+                y: faultsY,
                 size: 8,
                 font: font,
             });
             page.drawText('Disturbing search area by dog or handler; Verbally naming item; Continue search after "alert";', {
                 x: 50,
-                y: height - 182,
+                y: faultsY - 12,
                 size: 8,
                 font: font,
             });
             page.drawText('SR crossing line less than half.', {
                 x: 50,
-                y: height - 194,
+                y: faultsY - 24,
                 size: 8,
                 font: font,
             });
 
-            // Table headers
-            const tableY = height - 220;
-            const colWidths = [120, 60, 60, 60, 60, 80, 80, 60, 50];
+            // Table - adjusted to fit page width better
+            const tableY = height - 250;
+            const tableWidth = width - 100; // Leave 50px margin on each side
+            const colWidths = [110, 50, 50, 50, 50, 60, 60, 50, 60]; // Adjusted column widths
             let currentX = 50;
 
             const headers = ['Team Dog - Handler', 'Scent 1', 'Scent 2', 'Scent 3', 'Scent 4', 'Fault', 'Fault', 'Time', 'Pass/Fail'];
             
+            // Draw table headers
             headers.forEach((header, index) => {
                 page.drawRectangle({
                     x: currentX,
-                    y: tableY - 20,
+                    y: tableY,
                     width: colWidths[index],
                     height: 20,
                     borderColor: PDFLib.rgb(0, 0, 0),
                     borderWidth: 1,
                 });
                 
+                // Center text in header cells
+                const textWidth = header.length * 4; // Approximate text width
+                const textX = currentX + (colWidths[index] - textWidth) / 2;
                 page.drawText(header, {
-                    x: currentX + 5,
-                    y: tableY - 15,
-                    size: 8,
+                    x: Math.max(currentX + 2, textX),
+                    y: tableY + 6,
+                    size: 7,
                     font: boldFont,
                 });
                 
@@ -1216,79 +1235,39 @@
             });
 
             // Entry rows
-            let rowY = tableY - 20;
+            let rowY = tableY;
             round.entries.forEach((entry, index) => {
                 rowY -= 25;
                 currentX = 50;
 
-                // Team name
-                page.drawRectangle({
-                    x: currentX,
-                    y: rowY,
-                    width: colWidths[0],
-                    height: 25,
-                    borderColor: PDFLib.rgb(0, 0, 0),
-                    borderWidth: 1,
-                });
-                
-                page.drawText(`${entry.handlerName} - ${entry.dogCallName}`, {
-                    x: currentX + 5,
-                    y: rowY + 8,
-                    size: 8,
-                    font: font,
-                });
-                currentX += colWidths[0];
-
-                // Scent columns (1-4)
-                for (let i = 1; i <= 4; i++) {
+                // Draw all cells for this row
+                colWidths.forEach((width, colIndex) => {
                     page.drawRectangle({
                         x: currentX,
                         y: rowY,
-                        width: colWidths[i],
+                        width: width,
                         height: 25,
                         borderColor: PDFLib.rgb(0, 0, 0),
                         borderWidth: 1,
                     });
-                    currentX += colWidths[i];
-                }
 
-                // Fault columns
-                for (let i = 5; i <= 6; i++) {
-                    page.drawRectangle({
-                        x: currentX,
-                        y: rowY,
-                        width: colWidths[i],
-                        height: 25,
-                        borderColor: PDFLib.rgb(0, 0, 0),
-                        borderWidth: 1,
-                    });
-                    currentX += colWidths[i];
-                }
-
-                // Time column
-                page.drawRectangle({
-                    x: currentX,
-                    y: rowY,
-                    width: colWidths[7],
-                    height: 25,
-                    borderColor: PDFLib.rgb(0, 0, 0),
-                    borderWidth: 1,
-                });
-                currentX += colWidths[7];
-
-                // Pass/Fail column
-                page.drawRectangle({
-                    x: currentX,
-                    y: rowY,
-                    width: colWidths[8],
-                    height: 25,
-                    borderColor: PDFLib.rgb(0, 0, 0),
-                    borderWidth: 1,
+                    // Fill in team name for first column
+                    if (colIndex === 0) {
+                        const teamText = `${entry.handlerName} - ${entry.dogCallName}`;
+                        page.drawText(teamText, {
+                            x: currentX + 3,
+                            y: rowY + 8,
+                            size: 8,
+                            font: font,
+                        });
+                    }
+                    
+                    currentX += width;
                 });
             });
 
-            // Judge signature line
-            const sigY = Math.max(rowY - 50, 100);
+            // Judge signature section
+            const sigY = Math.max(rowY - 60, 80);
             page.drawText(`Judge: ${round.judgeName}`, {
                 x: 50,
                 y: sigY,
@@ -1297,13 +1276,13 @@
             });
             
             page.drawText('Signature: ________________________________', {
-                x: 200,
+                x: 250,
                 y: sigY,
                 size: 10,
                 font: font,
             });
 
-            // Copyright
+            // Copyright at bottom
             page.drawText('Copyright © by Canine–Work And Games, LLC, 2024', {
                 x: 50,
                 y: 30,
