@@ -737,45 +737,50 @@
                 if (rounds.length === 0) {
                     showStatus('No scores found. Looking for running order data...', 'info');
                     
-                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
-                    if (orderDoc.exists()) {
-                        const runningOrderData = orderDoc.data();
-                        
-                        // Check for different possible field names
-                        let finalizedData = null;
-                        if (runningOrderData.finalizedRunningOrders) {
-                            finalizedData = runningOrderData.finalizedRunningOrders;
-                        } else if (runningOrderData.generatedSheets) {
-                            finalizedData = runningOrderData.generatedSheets;
-                        } else if (runningOrderData.roundOrders) {
-                            finalizedData = runningOrderData.roundOrders;
-                        }
+                    try {
+                        const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                        if (orderDoc.exists) {
+                            const runningOrderData = orderDoc.data();
+                            
+                            // Check for different possible field names
+                            let finalizedData = null;
+                            if (runningOrderData.finalizedRunningOrders) {
+                                finalizedData = runningOrderData.finalizedRunningOrders;
+                            } else if (runningOrderData.generatedSheets) {
+                                finalizedData = runningOrderData.generatedSheets;
+                            } else if (runningOrderData.roundOrders) {
+                                finalizedData = runningOrderData.roundOrders;
+                            }
 
-                        if (finalizedData) {
-                            // Find rounds for this class
-                            Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
-                                const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                                const day = currentTrial.days[dayIndex];
-                                const cls = day?.classes[classIndex];
-                                const round = cls?.rounds[roundIndex];
+                            if (finalizedData) {
+                                // Find rounds for this class
+                                Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                                    const day = currentTrial.days[dayIndex];
+                                    const cls = day?.classes[classIndex];
+                                    const round = cls?.rounds[roundIndex];
 
-                                if (day && cls && round) {
-                                    const roundClassName = roundData.className || cls.className || cls.class || cls.CLASS_NAME;
-                                    
-                                    // Check if this round matches our selected class
-                                    if (roundClassName && roundClassName.trim() === className.trim()) {
-                                        rounds.push({
-                                            roundKey: roundKey,
-                                            judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                                            roundNumber: roundIndex + 1,
-                                            className: roundClassName,
-                                            participants: roundData.participants || [],
-                                            hasScores: false
-                                        });
+                                    if (day && cls && round) {
+                                        const roundClassName = roundData.className || cls.className || cls.class || cls.CLASS_NAME;
+                                        
+                                        // Check if this round matches our selected class
+                                        if (roundClassName && roundClassName.trim() === className.trim()) {
+                                            rounds.push({
+                                                roundKey: roundKey,
+                                                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                                roundNumber: roundIndex + 1,
+                                                className: roundClassName,
+                                                participants: roundData.participants || [],
+                                                hasScores: false
+                                            });
+                                        }
                                     }
-                                }
-                            });
+                                });
+                            }
                         }
+                    } catch (orderError) {
+                        console.log('No running order found or error accessing it:', orderError);
+                        // Continue without running order data
                     }
                 }
 
