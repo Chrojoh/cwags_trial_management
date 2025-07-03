@@ -688,6 +688,7 @@
                 showStatus('Generating class summary...', 'info');
                 currentClass = className;
 
+                // First try to get scored rounds
                 const rounds = [];
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
@@ -703,12 +704,59 @@
                         roundNumber: scoreData.roundNumber,
                         lastUpdated: scoreData.lastUpdated,
                         participants: scoreData.participants || {},
+                        hasScores: true,
                         ...scoreData
                     });
                 });
 
+                // If no scored rounds, try to get from running orders (even without scores)
                 if (rounds.length === 0) {
-                    showStatus('No scored rounds found for this class', 'error');
+                    showStatus('No scores found. Looking for running order data...', 'info');
+                    
+                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                    if (orderDoc.exists()) {
+                        const runningOrderData = orderDoc.data();
+                        
+                        // Check for different possible field names
+                        let finalizedData = null;
+                        if (runningOrderData.finalizedRunningOrders) {
+                            finalizedData = runningOrderData.finalizedRunningOrders;
+                        } else if (runningOrderData.generatedSheets) {
+                            finalizedData = runningOrderData.generatedSheets;
+                        } else if (runningOrderData.roundOrders) {
+                            finalizedData = runningOrderData.roundOrders;
+                        }
+
+                        if (finalizedData) {
+                            // Find rounds for this class
+                            Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                                const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                                const day = currentTrial.days[dayIndex];
+                                const cls = day?.classes[classIndex];
+                                const round = cls?.rounds[roundIndex];
+
+                                if (day && cls && round) {
+                                    const roundClassName = roundData.className || cls.className || cls.class || cls.CLASS_NAME;
+                                    
+                                    // Check if this round matches our selected class
+                                    if (roundClassName && roundClassName.trim() === className.trim()) {
+                                        rounds.push({
+                                            roundKey: roundKey,
+                                            judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                            roundNumber: roundIndex + 1,
+                                            className: roundClassName,
+                                            participants: roundData.participants || [],
+                                            hasScores: false
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+
+                if (rounds.length === 0) {
+                    showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
                     document.getElementById('noDataMessage').style.display = 'block';
                     document.getElementById('summaryContainer').style.display = 'none';
                     return;
@@ -723,16 +771,32 @@
                 const allParticipants = new Map();
                 
                 rounds.forEach(round => {
-                    Object.keys(round.participants).forEach(participantId => {
-                        if (!allParticipants.has(participantId)) {
-                            allParticipants.set(participantId, {
-                                id: participantId,
-                                name: `Participant ${participantId.slice(-4)}`
+                    if (round.hasScores) {
+                        // Handle scored rounds
+                        Object.keys(round.participants).forEach(participantId => {
+                            if (!allParticipants.has(participantId)) {
+                                allParticipants.set(participantId, {
+                                    id: participantId,
+                                    name: `Participant ${participantId.slice(-4)}`
+                                });
+                            }
+                        });
+                    } else {
+                        // Handle unscored rounds - get participants from running order
+                        if (round.participants && Array.isArray(round.participants)) {
+                            round.participants.forEach(participant => {
+                                if (!allParticipants.has(participant.id)) {
+                                    allParticipants.set(participant.id, {
+                                        id: participant.id,
+                                        name: `${participant.handlerName} - ${participant.dogCallName}`
+                                    });
+                                }
                             });
                         }
-                    });
+                    }
                 });
 
+                // Get participant names from entries for scored rounds
                 if (allParticipants.size > 0) {
                     const entriesSnapshot = await db.collection('entries')
                         .where('trialId', '==', trialId)
@@ -743,12 +807,16 @@
                         entryMap[doc.id] = doc.data();
                     });
 
+                    // Update participant names for scored rounds
                     allParticipants.forEach((participant, participantId) => {
-                        const [docId] = participantId.split('_');
-                        const entry = entryMap[docId];
-                        if (entry) {
-                            const handlerFirstName = entry.handlerName ? entry.handlerName.split(' ')[0] : 'Unknown';
-                            participant.name = `${handlerFirstName} - ${entry.dogCallName || 'Unknown'}`;
+                        // Skip if already has a proper name (from running order)
+                        if (!participant.name.includes(' - ') || participant.name.startsWith('Participant ')) {
+                            const [docId] = participantId.split('_');
+                            const entry = entryMap[docId];
+                            if (entry) {
+                                const handlerFirstName = entry.handlerName ? entry.handlerName.split(' ')[0] : 'Unknown';
+                                participant.name = `${handlerFirstName} - ${entry.dogCallName || 'Unknown'}`;
+                            }
                         }
                     });
                 }
@@ -828,22 +896,39 @@
                     const cell = document.createElement('td');
                     cell.className = 'result-cell';
                     
-                    const participantResult = round.participants[participant.id];
-                    if (participantResult && participantResult.passFail) {
-                        const result = participantResult.passFail;
-                        if (result === 'Pass') {
-                            cell.textContent = 'P';
-                            cell.classList.add('result-pass');
-                        } else if (result === 'Fail') {
-                            cell.textContent = 'F';
-                            cell.classList.add('result-fail');
+                    if (round.hasScores) {
+                        // Show actual scores for scored rounds
+                        const participantResult = round.participants[participant.id];
+                        if (participantResult && participantResult.passFail) {
+                            const result = participantResult.passFail;
+                            if (result === 'Pass') {
+                                cell.textContent = 'P';
+                                cell.classList.add('result-pass');
+                            } else if (result === 'Fail') {
+                                cell.textContent = 'F';
+                                cell.classList.add('result-fail');
+                            } else {
+                                cell.textContent = '-';
+                                cell.classList.add('result-absent');
+                            }
                         } else {
                             cell.textContent = '-';
                             cell.classList.add('result-absent');
                         }
                     } else {
-                        cell.textContent = '-';
-                        cell.classList.add('result-absent');
+                        // Show placeholder for unscored rounds
+                        const isParticipantInRound = round.participants && 
+                            round.participants.some(p => p.id === participant.id);
+                        
+                        if (isParticipantInRound) {
+                            cell.textContent = '•'; // Bullet point to show they're scheduled
+                            cell.classList.add('result-absent');
+                            cell.style.fontSize = '1.5rem';
+                            cell.title = 'Scheduled to run - not yet scored';
+                        } else {
+                            cell.textContent = '-';
+                            cell.classList.add('result-absent');
+                        }
                     }
                     
                     row.appendChild(cell);
@@ -885,18 +970,24 @@
             let totalRuns = 0;
             let totalPasses = 0;
             let totalFails = 0;
+            let totalScheduled = 0;
 
             summaryData.rounds.forEach(round => {
-                Object.entries(round.participants).forEach(([participantId, result]) => {
-                    if (result.passFail && result.passFail !== '-') {
-                        totalRuns++;
-                        if (result.passFail === 'Pass') {
-                            totalPasses++;
-                        } else if (result.passFail === 'Fail') {
-                            totalFails++;
+                if (round.hasScores) {
+                    Object.entries(round.participants).forEach(([participantId, result]) => {
+                        if (result.passFail && result.passFail !== '-') {
+                            totalRuns++;
+                            if (result.passFail === 'Pass') {
+                                totalPasses++;
+                            } else if (result.passFail === 'Fail') {
+                                totalFails++;
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    // Count scheduled runs for unscored rounds
+                    totalScheduled += round.participants ? round.participants.length : 0;
+                }
             });
 
             const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
@@ -904,9 +995,10 @@
             const stats = [
                 { label: 'Total Participants', value: summaryData.totalParticipants },
                 { label: 'Total Rounds', value: summaryData.totalRounds },
-                { label: 'Total Runs', value: totalRuns },
-                { label: 'Total Passes', value: totalPasses },
-                { label: 'Total Fails', value: totalFails },
+                { label: 'Completed Runs', value: totalRuns },
+                { label: 'Scheduled Runs', value: totalScheduled },
+                { label: 'Passes', value: totalPasses },
+                { label: 'Fails', value: totalFails },
                 { label: 'Pass Rate', value: `${passRate}%` }
             ];
 
