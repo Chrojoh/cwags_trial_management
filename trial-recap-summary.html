@@ -855,12 +855,25 @@
             }
         }
 
-        // Populate recap summary
+        // Populate recap summary with better location handling
         function populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores) {
             // Trial info
             document.getElementById('trialTitle').textContent = `${currentTrial.clubName} Trial Recap`;
             document.getElementById('hostClub').textContent = currentTrial.clubName;
-            document.getElementById('trialLocation').textContent = currentTrial.location || 'Location TBD';
+            
+            // Better location handling - check multiple possible location fields
+            let location = 'Location TBD';
+            if (currentTrial.location && currentTrial.location.trim() !== '') {
+                location = currentTrial.location.trim();
+            } else if (currentTrial.venue && currentTrial.venue.trim() !== '') {
+                location = currentTrial.venue.trim();
+            } else if (currentTrial.address && currentTrial.address.trim() !== '') {
+                location = currentTrial.address.trim();
+            } else if (currentTrial.city && currentTrial.city.trim() !== '') {
+                location = currentTrial.city.trim();
+            }
+            
+            document.getElementById('trialLocation').textContent = location;
             document.getElementById('totalClasses').textContent = classData.length;
 
             // Trial dates
