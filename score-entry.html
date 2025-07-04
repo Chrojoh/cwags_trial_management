@@ -60,7 +60,11 @@
             font-size: 1rem;
         }
 
+
         /* Tabbed interface for days */
+
+        
+
         .round-selector {
             margin-bottom: 2rem;
         }
@@ -260,10 +264,13 @@
             text-align: left !important;
             font-weight: 600;
             background: #f0f8ff;
+
             width: 150px;
             min-width: 150px;
             max-width: 150px;
             font-size: 0.85rem;
+
+
         }
 
         .scent-cell {
@@ -278,8 +285,12 @@
         }
 
         .fault-cell {
+
             width: 150px;
             min-width: 150px;
+
+        
+
         }
 
         .fault-cell input {
@@ -287,7 +298,10 @@
             padding: 0.25rem;
             border: 1px solid #dee2e6;
             border-radius: 4px;
+
             font-size: 0.85rem;
+
+
         }
 
         .time-cell {
@@ -479,7 +493,10 @@
                     <div class="sheet-title">Scent Detective Master Score Sheet</div>
                     <div class="sheet-info">
                         <div><strong>Class:</strong> <span id="sheetClass">-</span></div>
+
                         <div><strong>Round:</strong> <span id="sheetRound">-</span></div>
+
+
                         <div><strong>Date:</strong> <span id="sheetDate">-</span></div>
                         <div><strong>Judge:</strong> <span id="sheetJudge">-</span></div>
                     </div>
@@ -514,8 +531,12 @@
                             <th>Scent 2</th>
                             <th>Scent 3</th>
                             <th>Scent 4</th>
+
                             <th>Fault Description</th>
                             <th>Fault Description</th>
+
+                            
+
                             <th>Time</th>
                             <th>Pass/Fail</th>
                         </tr>
@@ -528,7 +549,10 @@
                 <!-- Control Buttons -->
                 <div class="control-buttons">
                     <button class="btn btn-success" onclick="saveScores()">💾 Save Scores</button>
+
                     <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled CSV</button>
+        
+
                     <button class="btn btn-secondary" onclick="clearAllScores()">🗑️ Clear All Scores</button>
                 </div>
 
@@ -569,6 +593,7 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
+
         let activeDay = 0;
 
         // C-WAGS class order mapping - Correct order from user
@@ -677,6 +702,9 @@
             return 999;
         }
 
+
+ 
+
         // Utility functions
         function showStatus(message, type = 'info') {
             const statusDiv = document.getElementById('statusMessage');
@@ -720,6 +748,7 @@
             }
             return formatLocalDate(date);
         }
+
 
         // Initialize the application
         async function init() {
@@ -823,13 +852,18 @@
                     }));
                 }
 
+
                 // Load FINALIZED running order data (same as PDF generation uses)
+
+              
+
                 const orderDoc = await db.collection('running_orders').doc(trialId).get();
                 if (!orderDoc.exists) {
                     throw new Error('No running order found for this trial');
                 }
 
                 const runningOrderData = orderDoc.data();
+
                 
                 // Debug: Let's see what fields are actually available
                 console.log('Running order data structure:', Object.keys(runningOrderData));
@@ -912,10 +946,14 @@
                     allRounds = Object.values(uniqueRounds);
                 }
 
+
                 if (allRounds.length === 0) {
                     document.getElementById('noDataMessage').style.display = 'block';
                     document.getElementById('roundSelector').style.display = 'none';
+
                     showStatus('No finalized rounds found. Please generate running orders first.', 'error');
+
+                 
                     return;
                 }
 
@@ -929,7 +967,11 @@
             }
         }
 
+
         // Render round selector with tabbed interface
+
+      
+
         function renderRoundSelector() {
             const dayTabs = document.getElementById('dayTabs');
             const dayContents = document.getElementById('dayContents');
@@ -999,7 +1041,11 @@
                         card.innerHTML = `
                             <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
                             <div class="judge-info">Judge: ${round.judgeName}</div>
+
                             <div class="judge-info">${round.entryCount} entries</div>
+
+                          
+
                         `;
                         
                         roundsContainer.appendChild(card);
@@ -1054,6 +1100,7 @@
 
                 currentRound = round;
 
+
                 let participants = [];
 
                 // Handle different data structures
@@ -1089,6 +1136,9 @@
                     });
                 }
 
+            
+
+
                 // Load existing scores if any
                 try {
                     const scoresDoc = await db.collection('scores').doc(`${currentTrial.id}_${round.key}`).get();
@@ -1114,7 +1164,10 @@
         function renderScoreSheet(round, participants) {
             // Update header info
             document.getElementById('sheetClass').textContent = round.className;
+
             document.getElementById('sheetRound').textContent = `Round ${round.roundNumber}`;
+
+
             document.getElementById('sheetDate').textContent = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
             document.getElementById('sheetJudge').textContent = round.judgeName;
 
@@ -1165,12 +1218,19 @@
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault1 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault1', this.value)"
+
                                placeholder="Fault description">
+                          
+
                     </td>
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault2 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault2', this.value)"
+
                                placeholder="Fault description">
+
+                            
+
                     </td>
                     <td class="time-cell">
                         <input type="text" value="${participantScores.time || ''}" 
@@ -1324,6 +1384,7 @@
                 csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
                 
                 // Get participants from current round
+
                 let participants = [];
                 
                 if (currentRound.participants) {
@@ -1356,6 +1417,7 @@
                     } catch (error) {
                         console.error('Error loading participants:', error);
                     }
+
                 }
                 
                 // Add participant rows with scores
