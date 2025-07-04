@@ -618,17 +618,17 @@
       const subclassContainer = document.getElementById(`subclass-container-${dayIndex}-${classIndex}`);
       const subclassSelect = document.getElementById(`subclass_${dayIndex}_${classIndex}`);
       
-      if (className.toLowerCase().includes('games')) {
-        subclassSelect.innerHTML = `
-          <option value="">Select Games Sub Class</option>
-          <option value="games1">Games Sub Class 1</option>
-          <option value="games2">Games Sub Class 2</option>
-          <option value="games3">Games Sub Class 3</option>
-          <option value="games4">Games Sub Class 4</option>
-          <option value="games5">Games Sub Class 5</option>
-        `;
-        subclassContainer.classList.remove('hidden');
-      } else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
+     if (className.toLowerCase().includes('games')) {
+    subclassSelect.innerHTML = `
+        <option value="">Select Games Type</option>
+        <option value="GB">GB - Grab Bag</option>
+        <option value="C">C - Colors</option>
+        <option value="BJ">BJ - Black Jack</option>
+        <option value="P">P - Pairs</option>
+        <option value="T">T - Team</option>
+    `;
+    subclassContainer.classList.remove('hidden');
+} else if (className.toLowerCase().includes('obedience') || className.toLowerCase().includes('obed')) {
         subclassSelect.innerHTML = `
           <option value="">Select Obedience Sub Class</option>
           <option value="obed1">Obedience Sub Class 1</option>
