@@ -736,11 +736,24 @@
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
                 
                 // Load all scores for this trial (from League Class Summaries)
+                console.log('🔍 Looking for trial ID:', trialId);
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
                     .get();
 
+                console.log('📊 Found score documents:', scoresSnapshot.size);
+                
                 if (scoresSnapshot.empty) {
+                    console.log('❌ No scores found - checking if documents exist in scores collection...');
+                    
+                    // Let's see what's actually in the scores collection
+                    const allScoresSnapshot = await db.collection('scores').limit(5).get();
+                    console.log('📋 Sample scores documents:');
+                    allScoresSnapshot.forEach(doc => {
+                        console.log('Document ID:', doc.id);
+                        console.log('Document data:', doc.data());
+                    });
+                    
                     document.getElementById('loadingState').style.display = 'none';
                     document.getElementById('noDataState').style.display = 'block';
                     return;
