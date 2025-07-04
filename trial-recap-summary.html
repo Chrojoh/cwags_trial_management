@@ -716,24 +716,32 @@
 
         // Load trial recap data
         async function loadTrialRecap() {
+            console.log('🚀 loadTrialRecap() called');
+            
             const trialId = document.getElementById('trialSelect').value;
+            console.log('📋 Selected trial ID:', trialId);
+            
             if (!trialId) {
+                console.log('❌ No trial selected');
                 document.getElementById('recapContainer').style.display = 'none';
                 return;
             }
 
             try {
+                console.log('⏳ Starting trial recap load process...');
                 document.getElementById('loadingState').style.display = 'block';
                 document.getElementById('recapContainer').style.display = 'none';
                 document.getElementById('noDataState').style.display = 'none';
 
                 // Load trial data
+                console.log('📄 Loading trial document...');
                 const trialDoc = await db.collection('trials').doc(trialId).get();
                 if (!trialDoc.exists) {
                     throw new Error('Trial not found');
                 }
 
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+                console.log('✅ Trial loaded:', currentTrial.clubName);
                 
                 // Load all scores for this trial (from League Class Summaries)
                 console.log('🔍 Looking for trial ID:', trialId);
