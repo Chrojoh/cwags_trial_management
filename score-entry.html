@@ -880,6 +880,21 @@
                 } else if (runningOrderData.roundOrders) {
                     // Fall back to the old structure but process it differently
                     console.log('Using roundOrders as fallback');
+                    // Add this debug code after "Using roundOrders as fallback"
+console.log('🔍 DEBUG: roundOrders keys:', Object.keys(finalizedData));
+console.log('🔍 DEBUG: First few roundOrders entries:', 
+    Object.fromEntries(Object.entries(finalizedData).slice(0, 5)));
+
+// Debug the trial structure
+console.log('🔍 DEBUG: currentTrial.days structure:', currentTrial.days);
+if (currentTrial.days && currentTrial.days[0]) {
+    console.log('🔍 DEBUG: Day 0 classes:', currentTrial.days[0].classes);
+    if (currentTrial.days[0].classes && currentTrial.days[0].classes[0]) {
+        console.log('🔍 DEBUG: First class structure:', currentTrial.days[0].classes[0]);
+        console.log('🔍 DEBUG: First class properties:', Object.keys(currentTrial.days[0].classes[0]));
+    }
+}
+Step 2: Che
                     finalizedData = runningOrderData.roundOrders;
                 } else {
                     throw new Error('No running order data found. Please generate running orders first.');
