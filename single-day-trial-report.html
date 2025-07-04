@@ -973,12 +973,37 @@
                     return;
                 }
 
-                // Group by discipline and sort
+                // Group by discipline and sort properly
                 reportData = {
-                    scent: allRuns.filter(r => r.discipline === 'scent').sort((a, b) => a.classOrder - b.classOrder),
-                    games: allRuns.filter(r => r.discipline === 'games').sort((a, b) => a.classOrder - b.classOrder),
-                    obedience: allRuns.filter(r => r.discipline === 'obedience').sort((a, b) => a.classOrder - b.classOrder),
-                    ranger: allRuns.filter(r => r.discipline === 'ranger').sort((a, b) => a.classOrder - b.classOrder)
+                    scent: allRuns.filter(r => r.discipline === 'scent').sort((a, b) => {
+                        // Sort by class order, then round number, then C-WAGS number
+                        if (a.classOrder !== b.classOrder) return a.classOrder - b.classOrder;
+                        if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+                        const aCwags = a.cwagsNumber === 'TBD' ? 'ZZZ999' : a.cwagsNumber;
+                        const bCwags = b.cwagsNumber === 'TBD' ? 'ZZZ999' : b.cwagsNumber;
+                        return aCwags.localeCompare(bCwags);
+                    }),
+                    games: allRuns.filter(r => r.discipline === 'games').sort((a, b) => {
+                        if (a.classOrder !== b.classOrder) return a.classOrder - b.classOrder;
+                        if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+                        const aCwags = a.cwagsNumber === 'TBD' ? 'ZZZ999' : a.cwagsNumber;
+                        const bCwags = b.cwagsNumber === 'TBD' ? 'ZZZ999' : b.cwagsNumber;
+                        return aCwags.localeCompare(bCwags);
+                    }),
+                    obedience: allRuns.filter(r => r.discipline === 'obedience').sort((a, b) => {
+                        if (a.classOrder !== b.classOrder) return a.classOrder - b.classOrder;
+                        if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+                        const aCwags = a.cwagsNumber === 'TBD' ? 'ZZZ999' : a.cwagsNumber;
+                        const bCwags = b.cwagsNumber === 'TBD' ? 'ZZZ999' : b.cwagsNumber;
+                        return aCwags.localeCompare(bCwags);
+                    }),
+                    ranger: allRuns.filter(r => r.discipline === 'ranger').sort((a, b) => {
+                        if (a.classOrder !== b.classOrder) return a.classOrder - b.classOrder;
+                        if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
+                        const aCwags = a.cwagsNumber === 'TBD' ? 'ZZZ999' : a.cwagsNumber;
+                        const bCwags = b.cwagsNumber === 'TBD' ? 'ZZZ999' : b.cwagsNumber;
+                        return aCwags.localeCompare(bCwags);
+                    })
                 };
 
                 console.log('📊 Discipline breakdown:', {
