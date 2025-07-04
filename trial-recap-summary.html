@@ -461,9 +461,10 @@
 
             <!-- No Data State -->
             <div class="no-data" id="noDataState" style="display: none;">
-                <h3>📊 No Trial Data Available</h3>
-                <p>Please ensure you have completed trials with scored classes.</p>
-                <p>Go to Score Entry to add results, then return here for the recap.</p>
+                <h3>📊 No Trial Entries Available</h3>
+                <p>Please ensure you have trial entries created first.</p>
+                <p>Go to Entry Management to add participants, then return here for the recap.</p>
+                <button class="btn btn-primary" onclick="window.location.href='entry-management.html'">📝 Manage Entries</button>
             </div>
 
             <!-- Recap Container -->
@@ -734,47 +735,89 @@
 
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
                 
-                // Load all scores for this trial
+                // FIRST: Load entries data (always available)
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                // Process entries to get scheduled runs
+                classData = [];
+                const classEntriesMap = new Map();
+
+                if (!entriesSnapshot.empty) {
+                    entriesSnapshot.forEach(doc => {
+                        const entryData = doc.data();
+                        if (entryData.selectedClasses && Array.isArray(entryData.selectedClasses)) {
+                            entryData.selectedClasses.forEach(classEntry => {
+                                const key = `${classEntry.dayIndex}-${classEntry.className}`;
+                                if (!classEntriesMap.has(key)) {
+                                    classEntriesMap.set(key, {
+                                        dayIndex: classEntry.dayIndex,
+                                        className: classEntry.className,
+                                        entries: []
+                                    });
+                                }
+                                classEntriesMap.get(key).entries.push({
+                                    handlerName: entryData.handlerName,
+                                    dogCallName: entryData.dogCallName,
+                                    cwagsNumber: entryData.cwagsNumber,
+                                    entryType: classEntry.type
+                                });
+                            });
+                        }
+                    });
+                }
+
+                // SECOND: Try to load scores data (may not exist yet)
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
                     .get();
 
-                if (scoresSnapshot.empty) {
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('noDataState').style.display = 'block';
-                    return;
+                const scoresMap = new Map();
+                if (!scoresSnapshot.empty) {
+                    scoresSnapshot.forEach(doc => {
+                        const scoreData = doc.data();
+                        const key = `${scoreData.dayIndex || 0}-${scoreData.className}`;
+                        scoresMap.set(key, scoreData);
+                    });
                 }
 
-                // Process scores data
-                classData = [];
+                // Combine entries and scores data
                 let totalEntered = 0;
                 let totalActual = 0;
                 let totalQualifiers = 0;
+                let hasScores = false;
 
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    const participants = scoreData.participants || {};
-                    
-                    let classEntered = 0;
+                classEntriesMap.forEach((classInfo, key) => {
+                    const scoreData = scoresMap.get(key);
+                    const dayDate = currentTrial.days && currentTrial.days[classInfo.dayIndex] 
+                        ? currentTrial.days[classInfo.dayIndex].date 
+                        : null;
+
+                    let classEntered = classInfo.entries.length;
                     let classActual = 0;
                     let classQualifiers = 0;
 
-                    Object.values(participants).forEach(participant => {
-                        classEntered++;
-                        if (participant.result && participant.result !== 'abs' && participant.result !== 'Absent') {
-                            classActual++;
-                            if (participant.result === 'Pass' || participant.result === 'Q') {
-                                classQualifiers++;
+                    // If scores exist, calculate actual results
+                    if (scoreData && scoreData.participants) {
+                        hasScores = true;
+                        Object.values(scoreData.participants).forEach(participant => {
+                            if (participant.result && participant.result !== 'abs' && participant.result !== 'Absent') {
+                                classActual++;
+                                if (participant.result === 'Pass' || participant.result === 'Q') {
+                                    classQualifiers++;
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
 
                     classData.push({
-                        date: scoreData.dayDate || 'Date TBD',
-                        className: scoreData.className,
+                        date: dayDate || 'Date TBD',
+                        className: classInfo.className,
                         entered: classEntered,
-                        actual: classActual,
-                        qualifiers: classQualifiers
+                        actual: scoreData ? classActual : null, // null means no scores yet
+                        qualifiers: scoreData ? classQualifiers : null,
+                        hasScores: !!scoreData
                     });
 
                     totalEntered += classEntered;
@@ -782,17 +825,38 @@
                     totalQualifiers += classQualifiers;
                 });
 
-                // Sort classes by date
-                classData.sort((a, b) => new Date(a.date) - new Date(b.date));
+                // If no entries found, show no data
+                if (classData.length === 0) {
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('noDataState').style.display = 'block';
+                    return;
+                }
+
+                // Sort classes by date and class name
+                classData.sort((a, b) => {
+                    const dateA = new Date(a.date === 'Date TBD' ? '1970-01-01' : a.date);
+                    const dateB = new Date(b.date === 'Date TBD' ? '1970-01-01' : b.date);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateA - dateB;
+                    }
+                    return a.className.localeCompare(b.className);
+                });
 
                 // Update UI
-                populateRecapSummary(totalEntered, totalActual, totalQualifiers);
+                populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores);
                 populateClassesTable();
+                
+                // Load existing recap data if available
+                await loadExistingRecap();
                 
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('recapContainer').style.display = 'block';
                 
-                showStatus('Trial recap loaded successfully!', 'success');
+                if (hasScores) {
+                    showStatus('Trial recap loaded with score results!', 'success');
+                } else {
+                    showStatus('Trial recap loaded with scheduled entries. Enter scores to see complete results.', 'info');
+                }
 
             } catch (error) {
                 console.error('Error loading trial recap:', error);
@@ -802,7 +866,7 @@
         }
 
         // Populate recap summary
-        function populateRecapSummary(totalEntered, totalActual, totalQualifiers) {
+        function populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores) {
             // Trial info
             document.getElementById('trialTitle').textContent = `${currentTrial.clubName} Trial Recap`;
             document.getElementById('hostClub').textContent = currentTrial.clubName;
@@ -829,16 +893,24 @@
 
             // Statistics
             document.getElementById('totalEntered').textContent = totalEntered;
-            document.getElementById('totalActual').textContent = totalActual;
-            document.getElementById('totalQualifiers').textContent = totalQualifiers;
             
-            const qualifyingRate = totalActual > 0 ? Math.round((totalQualifiers / totalActual) * 100) : 0;
-            document.getElementById('qualifyingRate').textContent = `${qualifyingRate}%`;
+            if (hasScores) {
+                document.getElementById('totalActual').textContent = totalActual;
+                document.getElementById('totalQualifiers').textContent = totalQualifiers;
+                
+                const qualifyingRate = totalActual > 0 ? Math.round((totalQualifiers / totalActual) * 100) : 0;
+                document.getElementById('qualifyingRate').textContent = `${qualifyingRate}%`;
+            } else {
+                // Show placeholder for data not yet available
+                document.getElementById('totalActual').textContent = 'Pending*';
+                document.getElementById('totalQualifiers').textContent = 'Pending*';
+                document.getElementById('qualifyingRate').textContent = 'Pending*';
+            }
 
-            // Payment calculation
+            // Payment calculation (always based on entered runs)
             const payment = totalEntered * 1.50;
             document.getElementById('paymentRuns').textContent = totalEntered;
-            document.getElementById('totalPayment').textContent = `$${payment.toFixed(2)}`;
+            document.getElementById('totalPayment').textContent = `${payment.toFixed(2)}`;
         }
 
         // Populate classes table
@@ -849,16 +921,35 @@
             classData.forEach((classInfo, index) => {
                 const row = document.createElement('div');
                 row.className = 'table-row';
+                
+                // Show actual and qualifiers if scores exist, otherwise show "Pending"
+                const actualDisplay = classInfo.actual !== null ? classInfo.actual : 'Pending*';
+                const qualifiersDisplay = classInfo.qualifiers !== null ? classInfo.qualifiers : 'Pending*';
+                
                 row.innerHTML = `
                     <div>${index + 1}</div>
                     <div>${formatLocalDate(createLocalDate(classInfo.date))}</div>
                     <div><strong>${classInfo.className}</strong></div>
                     <div>${classInfo.entered}</div>
-                    <div>${classInfo.actual}</div>
-                    <div>${classInfo.qualifiers}</div>
+                    <div>${actualDisplay}</div>
+                    <div>${qualifiersDisplay}</div>
                 `;
                 tbody.appendChild(row);
             });
+            
+            // Add footnote if any data is pending
+            const hasPending = classData.some(c => c.actual === null);
+            if (hasPending) {
+                const footnoteRow = document.createElement('div');
+                footnoteRow.style.padding = '1rem';
+                footnoteRow.style.fontStyle = 'italic';
+                footnoteRow.style.color = '#6c757d';
+                footnoteRow.style.borderTop = '2px solid #dee2e6';
+                footnoteRow.innerHTML = `
+                    <small>* Pending data will be populated once scores are entered in the Score Entry system.</small>
+                `;
+                tbody.appendChild(footnoteRow);
+            }
         }
 
         // Save recap as draft
