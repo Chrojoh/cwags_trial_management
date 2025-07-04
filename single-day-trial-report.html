@@ -748,62 +748,180 @@
                 showStatus('Generating reports...', 'info');
                 currentDay = parseInt(dayIndex);
 
-                // Load all scores for this trial
+                console.log('🔍 Looking for data for trial:', trialId, 'day:', currentDay);
+
+                // ENHANCED DATA LOADING - Look in multiple places
+                const allRuns = [];
+
+                // Method 1: Look for individual round scores (preferred for scent work)
+                console.log('📊 Method 1: Looking for individual round scores...');
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
                     .get();
 
-                const allScores = [];
+                let foundIndividualScores = false;
                 scoresSnapshot.forEach(doc => {
                     const scoreData = doc.data();
-                    const [dayIdx] = scoreData.roundKey ? scoreData.roundKey.split('-').map(Number) : [0];
+                    console.log('🔍 Found score document:', doc.id, scoreData);
                     
-                    if (dayIdx === currentDay) {
-                        allScores.push(scoreData);
+                    // Check if this score belongs to our selected day
+                    if (scoreData.roundKey) {
+                        const [dayIdx] = scoreData.roundKey.split('-').map(Number);
+                        
+                        if (dayIdx === currentDay && scoreData.participants) {
+                            foundIndividualScores = true;
+                            console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
+                            
+                            Object.entries(scoreData.participants).forEach(([participantId, result]) => {
+                                if (result.passFail) {
+                                    const discipline = getDisciplineForClass(scoreData.className);
+                                    const dayDate = currentTrial.days[currentDay].date || '';
+                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                    
+                                    allRuns.push({
+                                        discipline: discipline,
+                                        cwagsNumber: result.cwagsNumber || 'TBD',
+                                        dogName: result.dogName || result.dogCallName || 'Unknown',
+                                        handlerName: result.handlerName || 'Unknown',
+                                        date: formattedDate,
+                                        className: scoreData.className,
+                                        roundNumber: scoreData.roundNumber || 1,
+                                        result: formatResult(result.passFail, discipline),
+                                        judgeName: scoreData.judgeName || 'TBD',
+                                        comments: result.comments || '',
+                                        classOrder: getClassOrder(scoreData.className, discipline)
+                                    });
+                                }
+                            });
+                        }
                     }
                 });
 
-                // Get entries data
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', trialId)
-                    .get();
-
-                const entryMap = {};
-                entriesSnapshot.forEach(doc => {
-                    entryMap[doc.id] = doc.data();
-                });
-
-                // Process scores into individual run entries
-                const allRuns = [];
-                
-                allScores.forEach(roundScore => {
-                    if (roundScore.participants) {
-                        Object.entries(roundScore.participants).forEach(([participantId, result]) => {
-                            const [docId] = participantId.split('_');
-                            const entry = entryMap[docId];
+                // Method 2: Look in running order data if no individual scores found
+                if (!foundIndividualScores) {
+                    console.log('📋 Method 2: Looking for running order data...');
+                    
+                    try {
+                        const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                        if (orderDoc.exists) {
+                            const runningOrderData = orderDoc.data();
+                            console.log('🔍 Found running order data:', Object.keys(runningOrderData));
                             
-                            if (entry && result.passFail) {
-                                const discipline = getDisciplineForClass(roundScore.className);
-                                const dayDate = currentTrial.days[currentDay].date || '';
-                                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                            // Get entries data for participant details
+                            const entriesSnapshot = await db.collection('entries')
+                                .where('trialId', '==', trialId)
+                                .get();
+
+                            const entryMap = {};
+                            entriesSnapshot.forEach(doc => {
+                                entryMap[doc.id] = doc.data();
+                            });
+
+                            // Check for different possible field names from running order system
+                            let finalizedData = null;
+                            if (runningOrderData.finalizedRunningOrders) {
+                                finalizedData = runningOrderData.finalizedRunningOrders;
+                            } else if (runningOrderData.generatedSheets) {
+                                finalizedData = runningOrderData.generatedSheets;
+                            } else if (runningOrderData.roundOrders) {
+                                finalizedData = runningOrderData.roundOrders;
+                            }
+
+                            if (finalizedData) {
+                                console.log('📋 Processing running order data:', Object.keys(finalizedData));
                                 
-                                allRuns.push({
-                                    discipline: discipline,
-                                    cwagsNumber: entry.cwagsNumber || 'TBD',
-                                    dogName: entry.dogCallName || 'Unknown',
-                                    handlerName: entry.handlerName || 'Unknown',
-                                    date: formattedDate,
-                                    className: roundScore.className,
-                                    roundNumber: roundScore.roundNumber || 1,
-                                    result: formatResult(result.passFail, discipline),
-                                    judgeName: roundScore.judgeName || 'TBD',
-                                    comments: '',
-                                    classOrder: getClassOrder(roundScore.className, discipline)
+                                // Process running order data to create placeholder entries
+                                Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
+                                    const [dayIndexFromKey, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                                    
+                                    if (dayIndexFromKey === currentDay && entryIds && entryIds.length > 0) {
+                                        const day = currentTrial.days[dayIndexFromKey];
+                                        const cls = day?.classes[classIndex];
+                                        const round = cls?.rounds[roundIndex];
+
+                                        if (day && cls && round) {
+                                            const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
+                                            const discipline = getDisciplineForClass(roundClassName);
+                                            const dayDate = currentTrial.days[currentDay].date || '';
+                                            const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                            
+                                            entryIds.forEach(entryId => {
+                                                const [docId] = entryId.split('_');
+                                                const entry = entryMap[docId];
+                                                
+                                                if (entry) {
+                                                    allRuns.push({
+                                                        discipline: discipline,
+                                                        cwagsNumber: entry.cwagsNumber || 'TBD',
+                                                        dogName: entry.dogCallName || 'Unknown',
+                                                        handlerName: entry.handlerName || 'Unknown',
+                                                        date: formattedDate,
+                                                        className: roundClassName,
+                                                        roundNumber: (roundIndex + 1),
+                                                        result: 'Scheduled', // Placeholder for unscored runs
+                                                        judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'TBD',
+                                                        comments: 'Not yet scored',
+                                                        classOrder: getClassOrder(roundClassName, discipline)
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    } catch (orderError) {
+                        console.log('⚠️ No running order found:', orderError);
+                    }
+                }
+
+                // Method 3: Look for entries data even without scores/running orders
+                if (allRuns.length === 0) {
+                    console.log('📝 Method 3: Looking for basic entry data...');
+                    
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    if (!entriesSnapshot.empty) {
+                        console.log('📝 Found', entriesSnapshot.size, 'entries for trial');
+                        
+                        entriesSnapshot.forEach(doc => {
+                            const entry = doc.data();
+                            
+                            if (entry.selectedEntries && Array.isArray(entry.selectedEntries)) {
+                                entry.selectedEntries.forEach(selectedEntry => {
+                                    const discipline = getDisciplineForClass(selectedEntry.className);
+                                    const dayDate = currentTrial.days[currentDay]?.date || '';
+                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                    
+                                    allRuns.push({
+                                        discipline: discipline,
+                                        cwagsNumber: entry.cwagsNumber || 'TBD',
+                                        dogName: entry.dogCallName || 'Unknown',
+                                        handlerName: entry.handlerName || 'Unknown',
+                                        date: formattedDate,
+                                        className: selectedEntry.className,
+                                        roundNumber: selectedEntry.roundNumber || 1,
+                                        result: 'Entry Only', // Just showing the entry exists
+                                        judgeName: 'TBD',
+                                        comments: 'Entry submitted - no scores yet',
+                                        classOrder: getClassOrder(selectedEntry.className, discipline)
+                                    });
                                 });
                             }
                         });
                     }
-                });
+                }
+
+                console.log('📊 Total runs found:', allRuns.length);
+
+                if (allRuns.length === 0) {
+                    showStatus('No data found for this trial and day. Please ensure entries exist and running orders have been generated.', 'error');
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('disciplineTabs').style.display = 'none';
+                    return;
+                }
 
                 // Group by discipline and sort
                 reportData = {
@@ -813,8 +931,16 @@
                     ranger: allRuns.filter(r => r.discipline === 'ranger').sort((a, b) => a.classOrder - b.classOrder)
                 };
 
+                console.log('📊 Discipline breakdown:', {
+                    scent: reportData.scent.length,
+                    games: reportData.games.length,
+                    obedience: reportData.obedience.length,
+                    ranger: reportData.ranger.length
+                });
+
                 renderReports();
                 document.getElementById('disciplineTabs').style.display = 'flex';
+                document.getElementById('noDataMessage').style.display = 'none';
                 showStatus('Reports generated successfully!', 'success');
 
             } catch (error) {
@@ -891,15 +1017,15 @@
             
             // Generate statistics
             const totalRuns = runs.length;
-            const passes = runs.filter(r => r.result === 'Pass' || (r.result !== 'Fail' && r.result !== 'abs')).length;
-            const fails = runs.filter(r => r.result === 'Fail').length;
-            const absent = runs.filter(r => r.result === 'abs').length;
-            const passRate = totalRuns > 0 ? ((passes / totalRuns) * 100).toFixed(1) : '0';
+            const passes = runs.filter(r => r.result === 'Pass' || r.result === 'P').length;
+            const fails = runs.filter(r => r.result === 'Fail' || r.result === 'F').length;
+            const scheduled = runs.filter(r => r.result === 'Scheduled' || r.result === 'Entry Only').length;
+            const passRate = (totalRuns - scheduled) > 0 ? (((passes / (totalRuns - scheduled)) * 100).toFixed(1)) : '0';
             
             stats.innerHTML = `
                 <div class="stat-card">
                     <div class="stat-value">${totalRuns}</div>
-                    <div class="stat-label">Total Runs</div>
+                    <div class="stat-label">Total Entries</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${passes}</div>
@@ -910,8 +1036,8 @@
                     <div class="stat-label">Fails</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${absent}</div>
-                    <div class="stat-label">Absent</div>
+                    <div class="stat-value">${scheduled}</div>
+                    <div class="stat-label">Not Scored</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${passRate}%</div>
@@ -937,9 +1063,10 @@
                 const row = document.createElement('tr');
                 
                 let resultClass = 'result-absent';
-                if (run.result === 'Pass') resultClass = 'result-pass';
-                else if (run.result === 'Fail') resultClass = 'result-fail';
+                if (run.result === 'Pass' || run.result === 'P') resultClass = 'result-pass';
+                else if (run.result === 'Fail' || run.result === 'F') resultClass = 'result-fail';
                 else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
+                else if (run.result === 'Scheduled' || run.result === 'Entry Only') resultClass = 'result-absent';
                 
                 row.innerHTML = `
                     <td>${run.cwagsNumber}</td>
@@ -1088,8 +1215,8 @@
                             <tbody>
                                 ${runs.map(run => {
                                     let resultClass = '';
-                                    if (run.result === 'Pass') resultClass = 'result-pass';
-                                    else if (run.result === 'Fail') resultClass = 'result-fail';
+                                    if (run.result === 'Pass' || run.result === 'P') resultClass = 'result-pass';
+                                    else if (run.result === 'Fail' || run.result === 'F') resultClass = 'result-fail';
                                     else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
                                     
                                     return `<tr>
