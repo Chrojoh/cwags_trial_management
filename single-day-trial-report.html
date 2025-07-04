@@ -848,7 +848,27 @@
                                 
                                 // Process running order data to create placeholder entries
                                 Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
-                                    const [dayIndexFromKey, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                                    console.log('🔍 Raw round key:', roundKey);
+                                    
+                                    // Handle different round key formats
+                                    let dayIndexFromKey, classIndex, roundIndex;
+                                    
+                                    if (roundKey.includes('--')) {
+                                        // Format: "0--1-0" (day--class-round)
+                                        const parts = roundKey.split('--');
+                                        dayIndexFromKey = parseInt(parts[0]);
+                                        const classRound = parts[1].split('-');
+                                        classIndex = parseInt(classRound[0]);
+                                        roundIndex = parseInt(classRound[1]);
+                                    } else {
+                                        // Format: "0-1-0" (day-class-round)
+                                        const parts = roundKey.split('-');
+                                        dayIndexFromKey = parseInt(parts[0]);
+                                        classIndex = parseInt(parts[1]);
+                                        roundIndex = parseInt(parts[2]);
+                                    }
+                                    
+                                    console.log('🔍 Parsed indices:', { dayIndexFromKey, classIndex, roundIndex });
                                     
                                     if (dayIndexFromKey === currentDay && entryIds && entryIds.length > 0) {
                                         const day = currentTrial.days[dayIndexFromKey];
