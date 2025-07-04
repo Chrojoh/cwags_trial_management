@@ -926,60 +926,109 @@
                             });
                         }
                     });
-                } else {
-                    // Fall back to processing roundOrders but group by unique rounds
-                    const uniqueRounds = {};
-                    
-                    Object.keys(finalizedData).forEach(roundKey => {
-                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                        const day = currentTrial.days[dayIndex];
-                        const cls = day?.classes[classIndex];
-                        const round = cls?.rounds[roundIndex];
+               // REPLACE the roundOrders fallback section (around line 900) with this fixed version:
 
-                        if (day && cls && round && finalizedData[roundKey].length > 0) {
-                            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
-                            
-                            if (!uniqueRounds[uniqueKey]) {
-                                uniqueRounds[uniqueKey] = {
-                                    key: uniqueKey,
-                                    dayIndex,
-                                    classIndex,
-                                    roundIndex,
-                                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                                    roundNumber: roundIndex + 1,
-                                    date: day.date,
-                                    entryIds: finalizedData[roundKey],
-                                    entryCount: finalizedData[roundKey].length,
-                                    cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
-                                };
-                            }
-                        }
-                    });
-                    
-                    allRounds = Object.values(uniqueRounds);
-                }
-
-
-                if (allRounds.length === 0) {
-                    document.getElementById('noDataMessage').style.display = 'block';
-                    document.getElementById('roundSelector').style.display = 'none';
-
-                    showStatus('No finalized rounds found. Please generate running orders first.', 'error');
-
-                 
-                    return;
-                }
-
-                renderRoundSelector();
-                showStatus(`Found ${allRounds.length} rounds`, 'success');
-
-            } catch (error) {
-                console.error('Error loading trial rounds:', error);
-                showStatus('Error loading rounds: ' + error.message, 'error');
-                document.getElementById('noDataMessage').style.display = 'block';
+} else {
+    // Fall back to processing roundOrders but handle malformed keys
+    console.log('Using roundOrders as fallback');
+    finalizedData = runningOrderData.roundOrders;
+    
+    // Debug code
+    console.log('🔍 DEBUG: roundOrders keys:', Object.keys(finalizedData));
+    console.log('🔍 DEBUG: First few roundOrders entries:', 
+        Object.fromEntries(Object.entries(finalizedData).slice(0, 5)));
+    
+    console.log('🔍 DEBUG: currentTrial.days structure:', currentTrial.days);
+    if (currentTrial.days && currentTrial.days[0]) {
+        console.log('🔍 DEBUG: Day 0 classes:', currentTrial.days[0].classes);
+        if (currentTrial.days[0].classes && currentTrial.days[0].classes[0]) {
+            console.log('🔍 DEBUG: First class structure:', currentTrial.days[0].classes[0]);
+            console.log('🔍 DEBUG: First class properties:', Object.keys(currentTrial.days[0].classes[0]));
+        }
+    }
+    
+    const uniqueRounds = {};
+    
+    Object.keys(finalizedData).forEach(roundKey => {
+        console.log(`🔍 DEBUG: Processing malformed roundKey: ${roundKey}`);
+        
+        // Fix malformed round keys (handle double dashes)
+        let fixedRoundKey = roundKey;
+        if (roundKey.includes('--')) {
+            // Convert "0--1-0" to "0-1-0" by removing double dashes
+            fixedRoundKey = roundKey.replace(/--/g, '-');
+            console.log(`🔍 DEBUG: Fixed roundKey from ${roundKey} to ${fixedRoundKey}`);
+        }
+        
+        // Parse the fixed round key
+        const parts = fixedRoundKey.split('-').map(Number);
+        let [dayIndex, classIndex, roundIndex] = parts;
+        
+        // Handle case where classIndex might be NaN due to malformed key
+        if (isNaN(classIndex)) {
+            console.log(`🔍 DEBUG: ClassIndex is NaN, using fallback logic`);
+            // Try to extract from the original malformed key
+            const originalParts = roundKey.split('-');
+            console.log(`🔍 DEBUG: Original parts:`, originalParts);
+            
+            // For keys like "0--1-0", we want to extract the actual class index
+            if (originalParts.length >= 4) {
+                dayIndex = parseInt(originalParts[0]) || 0;
+                classIndex = parseInt(originalParts[2]) || 0; // Skip the empty part
+                roundIndex = parseInt(originalParts[3]) || 0;
+            } else {
+                dayIndex = 0;
+                classIndex = 0;
+                roundIndex = 0;
             }
         }
+        
+        console.log(`🔍 DEBUG: Parsed - Day: ${dayIndex}, Class: ${classIndex}, Round: ${roundIndex}`);
+        
+        const day = currentTrial.days[dayIndex];
+        const cls = day?.classes[classIndex];
+        const round = cls?.rounds[roundIndex];
+
+        console.log(`🔍 DEBUG: Found day:`, !!day, 'class:', !!cls, 'round:', !!round);
+        
+        if (day && finalizedData[roundKey].length > 0) {
+            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+            
+            // Get class name from multiple possible sources
+            let className = 'Unknown Class';
+            if (cls) {
+                className = cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`;
+            }
+            
+            // Get judge name from multiple possible sources  
+            let judgeName = 'Judge TBD';
+            if (round) {
+                judgeName = round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD';
+            }
+            
+            console.log(`🔍 DEBUG: Final className: ${className}, judgeName: ${judgeName}`);
+            
+            if (!uniqueRounds[uniqueKey]) {
+                uniqueRounds[uniqueKey] = {
+                    key: uniqueKey,
+                    dayIndex,
+                    classIndex,
+                    roundIndex,
+                    className: className,
+                    judgeName: judgeName,
+                    roundNumber: roundIndex + 1,
+                    date: day.date,
+                    entryIds: finalizedData[roundKey],
+                    entryCount: finalizedData[roundKey].length,
+                    cwagsSortOrder: getCWAGSClassOrder(className)
+                };
+            }
+        }
+    });
+    
+    allRounds = Object.values(uniqueRounds);
+    console.log('🔍 DEBUG: Final allRounds:', allRounds);
+}
 
 
         // Render round selector with tabbed interface
