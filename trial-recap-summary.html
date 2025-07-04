@@ -735,102 +735,58 @@
 
                 currentTrial = { id: trialDoc.id, ...trialDoc.data() };
                 
-                // FIRST: Load entries data (always available)
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', trialId)
-                    .get();
-
-                // Process entries to get scheduled runs
-                classData = [];
-                const classEntriesMap = new Map();
-
-                if (!entriesSnapshot.empty) {
-                    entriesSnapshot.forEach(doc => {
-                        const entryData = doc.data();
-                        if (entryData.selectedClasses && Array.isArray(entryData.selectedClasses)) {
-                            entryData.selectedClasses.forEach(classEntry => {
-                                const key = `${classEntry.dayIndex}-${classEntry.className}`;
-                                if (!classEntriesMap.has(key)) {
-                                    classEntriesMap.set(key, {
-                                        dayIndex: classEntry.dayIndex,
-                                        className: classEntry.className,
-                                        entries: []
-                                    });
-                                }
-                                classEntriesMap.get(key).entries.push({
-                                    handlerName: entryData.handlerName,
-                                    dogCallName: entryData.dogCallName,
-                                    cwagsNumber: entryData.cwagsNumber,
-                                    entryType: classEntry.type
-                                });
-                            });
-                        }
-                    });
-                }
-
-                // SECOND: Try to load scores data (may not exist yet)
+                // Load all scores for this trial (from League Class Summaries)
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
                     .get();
 
-                const scoresMap = new Map();
-                if (!scoresSnapshot.empty) {
-                    scoresSnapshot.forEach(doc => {
-                        const scoreData = doc.data();
-                        const key = `${scoreData.dayIndex || 0}-${scoreData.className}`;
-                        scoresMap.set(key, scoreData);
-                    });
+                if (scoresSnapshot.empty) {
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('noDataState').style.display = 'block';
+                    return;
                 }
 
-                // Combine entries and scores data
+                // Process scores data from League Class Summaries
+                classData = [];
                 let totalEntered = 0;
                 let totalActual = 0;
                 let totalQualifiers = 0;
-                let hasScores = false;
 
-                classEntriesMap.forEach((classInfo, key) => {
-                    const scoreData = scoresMap.get(key);
-                    const dayDate = currentTrial.days && currentTrial.days[classInfo.dayIndex] 
-                        ? currentTrial.days[classInfo.dayIndex].date 
-                        : null;
-
-                    let classEntered = classInfo.entries.length;
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const participants = scoreData.participants || {};
+                    
+                    let classEntered = 0;
                     let classActual = 0;
                     let classQualifiers = 0;
 
-                    // If scores exist, calculate actual results
-                    if (scoreData && scoreData.participants) {
-                        hasScores = true;
-                        Object.values(scoreData.participants).forEach(participant => {
-                            if (participant.result && participant.result !== 'abs' && participant.result !== 'Absent') {
-                                classActual++;
-                                if (participant.result === 'Pass' || participant.result === 'Q') {
-                                    classQualifiers++;
-                                }
+                    // Count all participants (entered)
+                    Object.values(participants).forEach(participant => {
+                        classEntered++;
+                        
+                        // Count actual runs (not absent)
+                        if (participant.result && participant.result !== 'abs' && participant.result !== 'Absent') {
+                            classActual++;
+                            
+                            // Count qualifiers (Pass/Q results)
+                            if (participant.result === 'Pass' || participant.result === 'Q') {
+                                classQualifiers++;
                             }
-                        });
-                    }
+                        }
+                    });
 
                     classData.push({
-                        date: dayDate || 'Date TBD',
-                        className: classInfo.className,
+                        date: scoreData.dayDate || scoreData.date || 'Date TBD',
+                        className: scoreData.className,
                         entered: classEntered,
-                        actual: scoreData ? classActual : null, // null means no scores yet
-                        qualifiers: scoreData ? classQualifiers : null,
-                        hasScores: !!scoreData
+                        actual: classActual,
+                        qualifiers: classQualifiers
                     });
 
                     totalEntered += classEntered;
                     totalActual += classActual;
                     totalQualifiers += classQualifiers;
                 });
-
-                // If no entries found, show no data
-                if (classData.length === 0) {
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('noDataState').style.display = 'block';
-                    return;
-                }
 
                 // Sort classes by date and class name
                 classData.sort((a, b) => {
@@ -842,8 +798,8 @@
                     return a.className.localeCompare(b.className);
                 });
 
-                // Update UI
-                populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores);
+                // Update UI with actual data
+                populateRecapSummary(totalEntered, totalActual, totalQualifiers, true);
                 populateClassesTable();
                 
                 // Load existing recap data if available
@@ -852,11 +808,7 @@
                 document.getElementById('loadingState').style.display = 'none';
                 document.getElementById('recapContainer').style.display = 'block';
                 
-                if (hasScores) {
-                    showStatus('Trial recap loaded with score results!', 'success');
-                } else {
-                    showStatus('Trial recap loaded with scheduled entries. Enter scores to see complete results.', 'info');
-                }
+                showStatus('Trial recap loaded successfully from class summaries!', 'success');
 
             } catch (error) {
                 console.error('Error loading trial recap:', error);
