@@ -780,9 +780,20 @@
                     const scoreData = doc.data();
                     console.log('🔍 Found score document:', doc.id, scoreData);
                     
-                    // Check if this score belongs to our selected day
-                    if (scoreData.roundKey) {
-                        const [dayIdx] = scoreData.roundKey.split('-').map(Number);
+                   // Check if this score belongs to our selected day
+if (scoreData.roundKey) {
+    // Fix malformed round keys like "0--1-0"
+    let fixedRoundKey = scoreData.roundKey.replace(/--/g, '-');
+    const parts = fixedRoundKey.split('-');
+    let dayIdx = parseInt(parts[0]) || 0;
+    let classIdx = parseInt(parts[1]) || 0;
+    let roundIdx = parseInt(parts[2]) || 0;
+    
+    // Handle malformed keys like "0--1-0"
+    if (parts.length > 3 && parts[1] === '') {
+        classIdx = parseInt(parts[2]) || 0;
+        roundIdx = parseInt(parts[3]) || 0;
+    }
                         
                         if (dayIdx === currentDay && scoreData.participants) {
                             foundIndividualScores = true;
