@@ -878,24 +878,24 @@
                     finalizedData = runningOrderData.generatedSheets;
                     console.log('Using generatedSheets');
                } else if (runningOrderData.roundOrders) {
-    // Fall back to the old structure but process it differently
-    console.log('Using roundOrders as fallback');
-    finalizedData = runningOrderData.roundOrders;
+                // Fall back to the old structure but process it differently
+                console.log('Using roundOrders as fallback');
+                finalizedData = runningOrderData.roundOrders;
     
-    // Debug code
-    console.log('🔍 DEBUG: roundOrders keys:', Object.keys(finalizedData));
-    console.log('🔍 DEBUG: First few roundOrders entries:', 
-        Object.fromEntries(Object.entries(finalizedData).slice(0, 5)));
+            // Debug code
+                console.log('🔍 DEBUG: roundOrders keys:', Object.keys(finalizedData));
+                console.log('🔍 DEBUG: First few roundOrders entries:', 
+                Object.fromEntries(Object.entries(finalizedData).slice(0, 5)));
     
-    console.log('🔍 DEBUG: currentTrial.days structure:', currentTrial.days);
-    if (currentTrial.days && currentTrial.days[0]) {
-        console.log('🔍 DEBUG: Day 0 classes:', currentTrial.days[0].classes);
-        if (currentTrial.days[0].classes && currentTrial.days[0].classes[0]) {
-            console.log('🔍 DEBUG: First class structure:', currentTrial.days[0].classes[0]);
-            console.log('🔍 DEBUG: First class properties:', Object.keys(currentTrial.days[0].classes[0]));
+                console.log('🔍 DEBUG: currentTrial.days structure:', currentTrial.days);
+                if (currentTrial.days && currentTrial.days[0]) {
+                console.log('🔍 DEBUG: Day 0 classes:', currentTrial.days[0].classes);
+                if (currentTrial.days[0].classes && currentTrial.days[0].classes[0]) {
+                console.log('🔍 DEBUG: First class structure:', currentTrial.days[0].classes[0]);
+                console.log('🔍 DEBUG: First class properties:', Object.keys(currentTrial.days[0].classes[0]));
+            }
         }
-    }
-} else {
+                } else {
                     throw new Error('No running order data found. Please generate running orders first.');
                 }
 
