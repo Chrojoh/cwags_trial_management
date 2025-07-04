@@ -928,27 +928,57 @@
                     });
                // REPLACE the roundOrders fallback section (around line 900) with this fixed version:
 
+} else if (runningOrderData.roundOrders) {
+    // Fall back to the old structure but process it differently
+    console.log('Using roundOrders as fallback');
+    finalizedData = runningOrderData.roundOrders;
+} else {
+    throw new Error('No running order data found. Please generate running orders first.');
+}
+
+allRounds = [];
+
+// Process rounds from the available data structure
+if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders) {
+    // Process from organized sheet data
+    Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+        const day = currentTrial.days[dayIndex];
+        const cls = day?.classes[classIndex];
+        const round = cls?.rounds[roundIndex];
+
+        if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
+            allRounds.push({
+                key: roundKey,
+                dayIndex,
+                classIndex,
+                roundIndex,
+                className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                roundNumber: roundIndex + 1,
+                date: day.date,
+                participants: roundData.participants,
+                entryCount: roundData.participants.length,
+                cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
+            });
+        }
+    });
 } else {
     // Fall back to processing roundOrders but group by unique rounds
     const uniqueRounds = {};
     
     Object.keys(finalizedData).forEach(roundKey => {
-        console.log(`🔍 DEBUG: Processing roundKey: ${roundKey}`);
-        
-        // Fix malformed round keys first
-        let fixedRoundKey = roundKey.replace(/--/g, '-'); // Replace double dashes
+        // Fix malformed round keys
+        let fixedRoundKey = roundKey.replace(/--/g, '-');
         const parts = fixedRoundKey.split('-');
         let dayIndex = parseInt(parts[0]) || 0;
         let classIndex = parseInt(parts[1]) || 0; 
         let roundIndex = parseInt(parts[2]) || 0;
 
-        // Handle malformed keys like "0--1-0" 
         if (parts.length > 3 && parts[1] === '') {
             classIndex = parseInt(parts[2]) || 0;
             roundIndex = parseInt(parts[3]) || 0;
         }
-        
-        console.log(`🔍 DEBUG: Parsed - Day: ${dayIndex}, Class: ${classIndex}, Round: ${roundIndex}`);
         
         const day = currentTrial.days[dayIndex];
         const cls = day?.classes[classIndex];
