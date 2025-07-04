@@ -60,11 +60,6 @@
             font-size: 1rem;
         }
 
-
-        /* Tabbed interface for days */
-
-        
-
         .round-selector {
             margin-bottom: 2rem;
         }
@@ -264,13 +259,10 @@
             text-align: left !important;
             font-weight: 600;
             background: #f0f8ff;
-
             width: 150px;
             min-width: 150px;
             max-width: 150px;
             font-size: 0.85rem;
-
-
         }
 
         .scent-cell {
@@ -285,12 +277,8 @@
         }
 
         .fault-cell {
-
             width: 150px;
             min-width: 150px;
-
-        
-
         }
 
         .fault-cell input {
@@ -298,10 +286,7 @@
             padding: 0.25rem;
             border: 1px solid #dee2e6;
             border-radius: 4px;
-
             font-size: 0.85rem;
-
-
         }
 
         .time-cell {
@@ -493,10 +478,7 @@
                     <div class="sheet-title">Scent Detective Master Score Sheet</div>
                     <div class="sheet-info">
                         <div><strong>Class:</strong> <span id="sheetClass">-</span></div>
-
                         <div><strong>Round:</strong> <span id="sheetRound">-</span></div>
-
-
                         <div><strong>Date:</strong> <span id="sheetDate">-</span></div>
                         <div><strong>Judge:</strong> <span id="sheetJudge">-</span></div>
                     </div>
@@ -531,12 +513,8 @@
                             <th>Scent 2</th>
                             <th>Scent 3</th>
                             <th>Scent 4</th>
-
                             <th>Fault Description</th>
                             <th>Fault Description</th>
-
-                            
-
                             <th>Time</th>
                             <th>Pass/Fail</th>
                         </tr>
@@ -549,10 +527,7 @@
                 <!-- Control Buttons -->
                 <div class="control-buttons">
                     <button class="btn btn-success" onclick="saveScores()">💾 Save Scores</button>
-
                     <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled CSV</button>
-        
-
                     <button class="btn btn-secondary" onclick="clearAllScores()">🗑️ Clear All Scores</button>
                 </div>
 
@@ -593,117 +568,53 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
-
         let activeDay = 0;
 
-        // C-WAGS class order mapping - Correct order from user
+        // C-WAGS class order mapping
         const CWAGS_CLASS_ORDER = {
-            'PATROL 1': 1,
-            'PATROL1': 1,
-            'P1': 1,
-            
-            'DETECTIVE 2': 2,
-            'DETECTIVE2': 2,
-            'DET2': 2,
-            'D2': 2,
-            
-            'INVESTIGATOR 3': 3,
-            'INVESTIGATOR3': 3,
-            'INV3': 3,
-            'I3': 3,
-            
-            'SUPER SLEUTH 4': 4,
-            'SUPER SLEUTH4': 4,
-            'SUPERSLEUTH4': 4,
-            'SS4': 4,
-            'S4': 4,
-            
-            'PRIVATE INV': 5,
-            'PRIVATE INVESTIGATOR': 5,
-            'PRIVATEINV': 5,
-            'PRIV INV': 5,
-            'PI': 5,
-            
-            'DET DIVERSIONS': 6,
-            'DETECTIVE DIVERSIONS': 6,
-            'DETDIVERSIONS': 6,
-            'DD': 6,
-            
-            'RANGER 1': 7,
-            'RANGER1': 7,
-            'R1': 7,
-            
-            'RANGER 2': 8,
-            'RANGER2': 8,
-            'R2': 8,
-            
-            'RANGER 3': 9,
-            'RANGER3': 9,
-            'R3': 9,
-            
-            'RANGER 4': 10,
-            'RANGER4': 10,
-            'R4': 10,
-            
-            'RANGER 5': 11,
-            'RANGER5': 11,
-            'R5': 11,
-            
-            'DASHER 3': 12,
-            'DASHER3': 12,
-            'DASH3': 12,
-            'DA3': 12,
-            
-            'DASHER 4': 13,
-            'DASHER4': 13,
-            'DASH4': 13,
-            'DA4': 13,
-            
-            'DASHER 5': 14,
-            'DASHER5': 14,
-            'DASH5': 14,
-            'DA5': 14,
-            
-            'DASHER 6': 15,
-            'DASHER6': 15,
-            'DASH6': 15,
-            'DA6': 15
+            'PATROL 1': 1, 'PATROL1': 1, 'P1': 1,
+            'DETECTIVE 2': 2, 'DETECTIVE2': 2, 'DET2': 2, 'D2': 2,
+            'INVESTIGATOR 3': 3, 'INVESTIGATOR3': 3, 'INV3': 3, 'I3': 3,
+            'SUPER SLEUTH 4': 4, 'SUPER SLEUTH4': 4, 'SUPERSLEUTH4': 4, 'SS4': 4, 'S4': 4,
+            'PRIVATE INV': 5, 'PRIVATE INVESTIGATOR': 5, 'PRIVATEINV': 5, 'PRIV INV': 5, 'PI': 5,
+            'DET DIVERSIONS': 6, 'DETECTIVE DIVERSIONS': 6, 'DETDIVERSIONS': 6, 'DD': 6,
+            'RANGER 1': 7, 'RANGER1': 7, 'R1': 7,
+            'RANGER 2': 8, 'RANGER2': 8, 'R2': 8,
+            'RANGER 3': 9, 'RANGER3': 9, 'R3': 9,
+            'RANGER 4': 10, 'RANGER4': 10, 'R4': 10,
+            'RANGER 5': 11, 'RANGER5': 11, 'R5': 11,
+            'DASHER 3': 12, 'DASHER3': 12, 'DASH3': 12, 'DA3': 12,
+            'DASHER 4': 13, 'DASHER4': 13, 'DASH4': 13, 'DA4': 13,
+            'DASHER 5': 14, 'DASHER5': 14, 'DASH5': 14, 'DA5': 14,
+            'DASHER 6': 15, 'DASHER6': 15, 'DASH6': 15, 'DA6': 15
         };
 
         // Get C-WAGS class order with better matching
         function getCWAGSClassOrder(className) {
             if (!className) return 999;
             
-            // Clean and normalize the class name
             const cleanClassName = className.toUpperCase()
-                .replace(/[^A-Z0-9\s]/g, '') // Remove special characters
-                .replace(/\s+/g, ' ')        // Normalize spaces
+                .replace(/[^A-Z0-9\s]/g, '')
+                .replace(/\s+/g, ' ')
                 .trim();
             
-            // Try exact match first
             if (CWAGS_CLASS_ORDER[cleanClassName]) {
                 return CWAGS_CLASS_ORDER[cleanClassName];
             }
             
-            // Try without spaces
             const noSpaceClassName = cleanClassName.replace(/\s/g, '');
             if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
                 return CWAGS_CLASS_ORDER[noSpaceClassName];
             }
             
-            // Try to find partial matches
             for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
                 if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
                     return order;
                 }
             }
             
-            // Default order for unrecognized classes
             return 999;
         }
-
-
- 
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -748,7 +659,6 @@
             }
             return formatLocalDate(date);
         }
-
 
         // Initialize the application
         async function init() {
@@ -852,11 +762,7 @@
                     }));
                 }
 
-
-                // Load FINALIZED running order data (same as PDF generation uses)
-
-              
-
+                // Load running order data
                 const orderDoc = await db.collection('running_orders').doc(trialId).get();
                 if (!orderDoc.exists) {
                     throw new Error('No running order found for this trial');
@@ -864,8 +770,6 @@
 
                 const runningOrderData = orderDoc.data();
 
-                
-                // Debug: Let's see what fields are actually available
                 console.log('Running order data structure:', Object.keys(runningOrderData));
                 console.log('Full running order data:', runningOrderData);
                 
@@ -877,24 +781,9 @@
                 } else if (runningOrderData.generatedSheets) {
                     finalizedData = runningOrderData.generatedSheets;
                     console.log('Using generatedSheets');
-               } else if (runningOrderData.roundOrders) {
-                // Fall back to the old structure but process it differently
-                console.log('Using roundOrders as fallback');
-                finalizedData = runningOrderData.roundOrders;
-    
-            // Debug code
-                console.log('🔍 DEBUG: roundOrders keys:', Object.keys(finalizedData));
-                console.log('🔍 DEBUG: First few roundOrders entries:', 
-                Object.fromEntries(Object.entries(finalizedData).slice(0, 5)));
-    
-                console.log('🔍 DEBUG: currentTrial.days structure:', currentTrial.days);
-                if (currentTrial.days && currentTrial.days[0]) {
-                console.log('🔍 DEBUG: Day 0 classes:', currentTrial.days[0].classes);
-                if (currentTrial.days[0].classes && currentTrial.days[0].classes[0]) {
-                console.log('🔍 DEBUG: First class structure:', currentTrial.days[0].classes[0]);
-                console.log('🔍 DEBUG: First class properties:', Object.keys(currentTrial.days[0].classes[0]));
-            }
-        }
+                } else if (runningOrderData.roundOrders) {
+                    console.log('Using roundOrders as fallback');
+                    finalizedData = runningOrderData.roundOrders;
                 } else {
                     throw new Error('No running order data found. Please generate running orders first.');
                 }
@@ -926,92 +815,77 @@
                             });
                         }
                     });
-               // REPLACE the roundOrders fallback section (around line 900) with this fixed version:
+                } else {
+                    // Fall back to processing roundOrders but group by unique rounds
+                    const uniqueRounds = {};
+                    
+                    Object.keys(finalizedData).forEach(roundKey => {
+                        console.log(`🔍 DEBUG: Processing roundKey: ${roundKey}`);
+                        
+                        // Fix malformed round keys
+                        let fixedRoundKey = roundKey.replace(/--/g, '-');
+                        const parts = fixedRoundKey.split('-');
+                        let dayIndex = parseInt(parts[0]) || 0;
+                        let classIndex = parseInt(parts[1]) || 0; 
+                        let roundIndex = parseInt(parts[2]) || 0;
 
-} else if (runningOrderData.roundOrders) {
-    // Fall back to the old structure but process it differently
-    console.log('Using roundOrders as fallback');
-    finalizedData = runningOrderData.roundOrders;
-} else {
-    throw new Error('No running order data found. Please generate running orders first.');
-}
+                        if (parts.length > 3 && parts[1] === '') {
+                            classIndex = parseInt(parts[2]) || 0;
+                            roundIndex = parseInt(parts[3]) || 0;
+                        }
+                        
+                        console.log(`🔍 DEBUG: Parsed - Day: ${dayIndex}, Class: ${classIndex}, Round: ${roundIndex}`);
+                        
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
 
-allRounds = [];
+                        console.log(`🔍 DEBUG: Found day:`, !!day, 'class:', !!cls, 'round:', !!round);
+                        if (cls) console.log(`🔍 DEBUG: Class name: ${cls.className || cls.class || cls.CLASS_NAME}`);
+                        if (round) console.log(`🔍 DEBUG: Judge name: ${round.judgeName || round.judge || round.JUDGE_NAME}`);
 
-// Process rounds from the available data structure
-if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders) {
-    // Process from organized sheet data
-    Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
-        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-        const day = currentTrial.days[dayIndex];
-        const cls = day?.classes[classIndex];
-        const round = cls?.rounds[roundIndex];
+                        if (day && cls && round && finalizedData[roundKey].length > 0) {
+                            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                            
+                            if (!uniqueRounds[uniqueKey]) {
+                                uniqueRounds[uniqueKey] = {
+                                    key: uniqueKey,
+                                    dayIndex,
+                                    classIndex,
+                                    roundIndex,
+                                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                    roundNumber: roundIndex + 1,
+                                    date: day.date,
+                                    entryIds: finalizedData[roundKey],
+                                    entryCount: finalizedData[roundKey].length,
+                                    cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
+                                };
+                            }
+                        }
+                    });
+                    
+                    allRounds = Object.values(uniqueRounds);
+                }
 
-        if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
-            allRounds.push({
-                key: roundKey,
-                dayIndex,
-                classIndex,
-                roundIndex,
-                className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                roundNumber: roundIndex + 1,
-                date: day.date,
-                participants: roundData.participants,
-                entryCount: roundData.participants.length,
-                cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
-            });
-        }
-    });
-} else {
-    // Fall back to processing roundOrders but group by unique rounds
-    const uniqueRounds = {};
-    
-    Object.keys(finalizedData).forEach(roundKey => {
-        // Fix malformed round keys
-        let fixedRoundKey = roundKey.replace(/--/g, '-');
-        const parts = fixedRoundKey.split('-');
-        let dayIndex = parseInt(parts[0]) || 0;
-        let classIndex = parseInt(parts[1]) || 0; 
-        let roundIndex = parseInt(parts[2]) || 0;
+                if (allRounds.length === 0) {
+                    document.getElementById('noDataMessage').style.display = 'block';
+                    document.getElementById('roundSelector').style.display = 'none';
+                    showStatus('No finalized rounds found. Please generate running orders first.', 'error');
+                    return;
+                }
 
-        if (parts.length > 3 && parts[1] === '') {
-            classIndex = parseInt(parts[2]) || 0;
-            roundIndex = parseInt(parts[3]) || 0;
-        }
-        
-        const day = currentTrial.days[dayIndex];
-        const cls = day?.classes[classIndex];
-        const round = cls?.rounds[roundIndex];
+                renderRoundSelector();
+                showStatus(`Found ${allRounds.length} rounds`, 'success');
 
-        if (day && cls && round && finalizedData[roundKey].length > 0) {
-            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
-            
-            if (!uniqueRounds[uniqueKey]) {
-                uniqueRounds[uniqueKey] = {
-                    key: uniqueKey,
-                    dayIndex,
-                    classIndex,
-                    roundIndex,
-                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                    roundNumber: roundIndex + 1,
-                    date: day.date,
-                    entryIds: finalizedData[roundKey],
-                    entryCount: finalizedData[roundKey].length,
-                    cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
-                };
+            } catch (error) {
+                console.error('Error loading trial rounds:', error);
+                showStatus('Error loading rounds: ' + error.message, 'error');
+                document.getElementById('noDataMessage').style.display = 'block';
             }
         }
-    });
-    
-    allRounds = Object.values(uniqueRounds);
-}
 
         // Render round selector with tabbed interface
-
-      
-
         function renderRoundSelector() {
             const dayTabs = document.getElementById('dayTabs');
             const dayContents = document.getElementById('dayContents');
@@ -1030,11 +904,9 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             // Sort rounds within each day by C-WAGS class order, then by round number
             Object.keys(roundsByDay).forEach(dayIndex => {
                 roundsByDay[dayIndex].sort((a, b) => {
-                    // First sort by C-WAGS class order (Patrol 1, Detective 2, etc.)
                     if (a.cwagsSortOrder !== b.cwagsSortOrder) {
                         return a.cwagsSortOrder - b.cwagsSortOrder;
                     }
-                    // Then by round number (Round 1, Round 2, etc. for same class)
                     return a.roundNumber - b.roundNumber;
                 });
             });
@@ -1081,11 +953,7 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                         card.innerHTML = `
                             <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
                             <div class="judge-info">Judge: ${round.judgeName}</div>
-
                             <div class="judge-info">${round.entryCount} entries</div>
-
-                          
-
                         `;
                         
                         roundsContainer.appendChild(card);
@@ -1106,18 +974,14 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
 
         // Switch between day tabs
         function switchDay(dayIndex) {
-            // Update active day
             activeDay = dayIndex;
             
-            // Update tab states
             document.querySelectorAll('.day-tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.day-content').forEach(content => content.classList.remove('active'));
             
-            // Find and activate the correct tab and content
             const tabs = document.querySelectorAll('.day-tab');
             const contents = document.querySelectorAll('.day-content');
             
-            // Find the tab index for this day
             const dayIndices = Array.from(contents).map(content => 
                 Number(content.id.split('-')[2])
             );
@@ -1134,25 +998,19 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             try {
                 showStatus('Loading round data...', 'info');
 
-                // Update active card
                 document.querySelectorAll('.round-card').forEach(card => card.classList.remove('active'));
                 event.target.closest('.round-card').classList.add('active');
 
                 currentRound = round;
-
-
                 let participants = [];
 
-                // Handle different data structures
                 if (round.participants) {
-                    // Use finalized participants list directly
                     participants = round.participants.map(participant => ({
                         id: participant.id,
                         handlerName: participant.handlerName,
                         dogCallName: participant.dogCallName
                     }));
                 } else if (round.entryIds) {
-                    // Fall back to building from entryIds
                     const entriesSnapshot = await db.collection('entries')
                         .where('trialId', '==', currentTrial.id)
                         .get();
@@ -1162,7 +1020,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                         entryMap[doc.id] = doc.data();
                     });
 
-                    // Build participant list in running order
                     round.entryIds.forEach(entryId => {
                         const [docId] = entryId.split('_');
                         const entry = entryMap[docId];
@@ -1175,9 +1032,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                         }
                     });
                 }
-
-            
-
 
                 // Load existing scores if any
                 try {
@@ -1202,22 +1056,16 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
 
         // Render the score sheet
         function renderScoreSheet(round, participants) {
-            // Update header info
             document.getElementById('sheetClass').textContent = round.className;
-
             document.getElementById('sheetRound').textContent = `Round ${round.roundNumber}`;
-
-
             document.getElementById('sheetDate').textContent = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
             document.getElementById('sheetJudge').textContent = round.judgeName;
 
-            // Load scent locations
             document.getElementById('scent1Location').value = currentScores.scent1Location || '';
             document.getElementById('scent2Location').value = currentScores.scent2Location || '';
             document.getElementById('scent3Location').value = currentScores.scent3Location || '';
             document.getElementById('scent4Location').value = currentScores.scent4Location || '';
 
-            // Generate scoring table
             const tbody = document.getElementById('scoringTableBody');
             tbody.innerHTML = '';
 
@@ -1258,19 +1106,12 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault1 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault1', this.value)"
-
                                placeholder="Fault description">
-                          
-
                     </td>
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault2 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault2', this.value)"
-
                                placeholder="Fault description">
-
-                            
-
                     </td>
                     <td class="time-cell">
                         <input type="text" value="${participantScores.time || ''}" 
@@ -1304,7 +1145,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             
             currentScores.participants[participantId][field] = value;
 
-            // Auto-calculate pass/fail for scent fields
             if (field.startsWith('scent')) {
                 autoCalculatePassFail(participantId);
             }
@@ -1319,7 +1159,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             const foundScents = scents.filter(s => s === '✓').length;
             const hasFaults = scores.fault1 || scores.fault2;
 
-            // Auto-suggest Pass/Fail (user can still override)
             let suggestion = '';
             if (foundScents >= 3 && !hasFaults) {
                 suggestion = 'Pass';
@@ -1329,7 +1168,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
 
             if (suggestion && !scores.passFail) {
                 scores.passFail = suggestion;
-                // Update the dropdown
                 const passfailSelect = document.querySelector(`select[onchange*="${participantId}"][onchange*="passFail"]`);
                 if (passfailSelect) {
                     passfailSelect.value = suggestion;
@@ -1364,13 +1202,11 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             try {
                 showStatus('Saving scores...', 'info');
 
-                // Update scent locations from inputs
                 currentScores.scent1Location = document.getElementById('scent1Location').value;
                 currentScores.scent2Location = document.getElementById('scent2Location').value;
                 currentScores.scent3Location = document.getElementById('scent3Location').value;
                 currentScores.scent4Location = document.getElementById('scent4Location').value;
 
-                // Add metadata
                 currentScores.trialId = currentTrial.id;
                 currentScores.trialName = currentTrial.clubName;
                 currentScores.roundKey = currentRound.key;
@@ -1400,38 +1236,30 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             try {
                 showStatus('Generating filled score sheet CSV...', 'info');
 
-                // Create CSV content
                 let csvContent = '';
                 
-                // Header information
                 csvContent += `"Scent Detective Master Score Sheet"\n`;
                 csvContent += `"Trial","${currentTrial.clubName}"\n`;
                 csvContent += `"Class","${currentRound.className}"\n`;
                 csvContent += `"Judge","${currentRound.judgeName}"\n`;
                 csvContent += `"Date","${currentRound.date ? createLocalDate(currentRound.date).toLocaleDateString() : 'Date TBD'}"\n`;
                 csvContent += `"Round","${currentRound.roundNumber}"\n`;
-                csvContent += `\n`; // Empty line
+                csvContent += `\n`;
                 
-                // Scent locations
                 csvContent += `"Scent Locations"\n`;
                 csvContent += `"Scent 1","${currentScores.scent1Location || ''}"\n`;
                 csvContent += `"Scent 2","${currentScores.scent2Location || ''}"\n`;
                 csvContent += `"Scent 3","${currentScores.scent3Location || ''}"\n`;
                 csvContent += `"Scent 4","${currentScores.scent4Location || ''}"\n`;
-                csvContent += `\n`; // Empty line
+                csvContent += `\n`;
                 
-                // Table headers
                 csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
                 
-                // Get participants from current round
-
                 let participants = [];
                 
                 if (currentRound.participants) {
-                    // Use finalized participant list
                     participants = currentRound.participants;
                 } else if (currentRound.entryIds) {
-                    // Fall back to loading from entries
                     try {
                         const entriesSnapshot = await db.collection('entries')
                             .where('trialId', '==', currentTrial.id)
@@ -1442,7 +1270,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                             entryMap[doc.id] = doc.data();
                         });
 
-                        // Build participant list in running order
                         currentRound.entryIds.forEach(entryId => {
                             const [docId] = entryId.split('_');
                             const entry = entryMap[docId];
@@ -1457,10 +1284,8 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                     } catch (error) {
                         console.error('Error loading participants:', error);
                     }
-
                 }
                 
-                // Add participant rows with scores
                 participants.forEach(participant => {
                     const scores = currentScores.participants?.[participant.id] || {};
                     
@@ -1477,7 +1302,6 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
                     csvContent += `"${teamName}","${scent1}","${scent2}","${scent3}","${scent4}","${fault1}","${fault2}","${time}","${passFail}"\n`;
                 });
                 
-                // Create and download CSV file
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
@@ -1505,12 +1329,10 @@ if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders)
             if (confirm('Are you sure you want to clear all scores for this round? This cannot be undone.')) {
                 currentScores = {};
                 
-                // Clear all inputs
                 document.querySelectorAll('#scoringTable select, #scoringTable input').forEach(input => {
                     input.value = '';
                 });
                 
-                // Clear scent locations
                 ['scent1Location', 'scent2Location', 'scent3Location', 'scent4Location'].forEach(id => {
                     document.getElementById(id).value = '';
                 });
