@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Single-Day Trial Report</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+            margin-bottom: 1rem;
+        }
+
+        .control-group {
+            flex: 1;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-block;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .discipline-tabs {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .discipline-tab {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .discipline-tab:hover {
+            border-color: #667eea;
+            color: #667eea;
+        }
+
+        .discipline-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .report-container {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+            display: none;
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 1rem;
+        }
+
+        .report-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .report-info {
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .report-table-container {
+            overflow-x: auto;
+            margin-bottom: 2rem;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1000px;
+        }
+
+        .report-table th,
+        .report-table td {
+            border: 1px solid #dee2e6;
+            padding: 0.5rem;
+            text-align: left;
+            vertical-align: middle;
+            font-size: 0.85rem;
+        }
+
+        .report-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-align: center;
+        }
+
+        .cwags-col { width: 100px; }
+        .dog-col { width: 80px; }
+        .handler-col { width: 120px; }
+        .date-col { width: 80px; }
+        .class-col { width: 120px; }
+        .round-col { width: 50px; }
+        .result-col { width: 60px; }
+        .judge-col { width: 100px; }
+        .comments-col { width: 150px; }
+
+        .result-pass { color: #28a745; font-weight: bold; }
+        .result-fail { color: #dc3545; font-weight: bold; }
+        .result-games { color: #17a2b8; font-weight: bold; }
+        .result-absent { color: #6c757d; font-style: italic; }
+
+        .status-message {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #0056b3;
+            border: 1px solid #99d3ff;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 3rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+        }
+
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .control-row {
+                flex-direction: column;
+            }
+            
+            .discipline-tabs {
+                flex-direction: column;
+            }
+            
+            .discipline-tab {
+                min-width: auto;
+            }
+            
+            .export-buttons {
+                flex-direction: column;
+            }
+            
+            .report-table {
+                font-size: 0.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div>
+                <h1>📊 Single-Day Trial Report</h1>
+                <p>Generate detailed trial reports by discipline with individual run entries</p>
+            </div>
+            <div>
+                <a href="trial-secretary-dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="trialSelect">Select Trial:</label>
+                    <select id="trialSelect" onchange="loadTrialData()">
+                        <option value="">Loading trials...</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="daySelect">Select Day:</label>
+                    <select id="daySelect" onchange="generateReports()">
+                        <option value="">Select a trial first</option>
+                    </select>
+                </div>
+                <button class="btn" onclick="generateReports()">📋 Generate Reports</button>
+            </div>
+        </div>
+
+        <!-- Discipline Tabs -->
+        <div class="discipline-tabs" id="disciplineTabs" style="display: none;">
+            <div class="discipline-tab active" onclick="showDiscipline('scent')">Scent (Detective)</div>
+            <div class="discipline-tab" onclick="showDiscipline('games')">Games</div>
+            <div class="discipline-tab" onclick="showDiscipline('obedience')">Rally Obedience</div>
+            <div class="discipline-tab" onclick="showDiscipline('ranger')">Ranger/Dasher</div>
+        </div>
+
+        <!-- Report Containers -->
+        <div class="report-container active" id="scentReport">
+            <div class="report-header">
+                <div class="report-title">Scent (Detective) Disciplines Report</div>
+                <div class="report-info" id="scentReportInfo">Trial • Date • Entries</div>
+            </div>
+            
+            <div class="stats-section" id="scentStats"></div>
+            
+            <div class="report-table-container">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th class="cwags-col">C-WAGS #</th>
+                            <th class="dog-col">Call Name</th>
+                            <th class="handler-col">Handler</th>
+                            <th class="date-col">Date</th>
+                            <th class="class-col">Class</th>
+                            <th class="round-col">Round</th>
+                            <th class="result-col">Result</th>
+                            <th class="judge-col">Judge</th>
+                            <th class="comments-col">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scentTableBody">
+                        <!-- Scent entries will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportDisciplineCSV('scent')">📄 Export Scent CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('scent')">📑 Export Scent PDF</button>
+            </div>
+        </div>
+
+        <div class="report-container" id="gamesReport">
+            <div class="report-header">
+                <div class="report-title">Games Disciplines Report</div>
+                <div class="report-info" id="gamesReportInfo">Trial • Date • Entries</div>
+            </div>
+            
+            <div class="stats-section" id="gamesStats"></div>
+            
+            <div class="report-table-container">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th class="cwags-col">C-WAGS #</th>
+                            <th class="dog-col">Call Name</th>
+                            <th class="handler-col">Handler</th>
+                            <th class="date-col">Date</th>
+                            <th class="class-col">Class</th>
+                            <th class="round-col">Round</th>
+                            <th class="result-col">Result</th>
+                            <th class="judge-col">Judge</th>
+                            <th class="comments-col">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gamesTableBody">
+                        <!-- Games entries will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportDisciplineCSV('games')">📄 Export Games CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('games')">📑 Export Games PDF</button>
+            </div>
+        </div>
+
+        <div class="report-container" id="obedienceReport">
+            <div class="report-header">
+                <div class="report-title">Rally Obedience Disciplines Report</div>
+                <div class="report-info" id="obedienceReportInfo">Trial • Date • Entries</div>
+            </div>
+            
+            <div class="stats-section" id="obedienceStats"></div>
+            
+            <div class="report-table-container">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th class="cwags-col">C-WAGS #</th>
+                            <th class="dog-col">Call Name</th>
+                            <th class="handler-col">Handler</th>
+                            <th class="date-col">Date</th>
+                            <th class="class-col">Class</th>
+                            <th class="round-col">Round</th>
+                            <th class="result-col">Result</th>
+                            <th class="judge-col">Judge</th>
+                            <th class="comments-col">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="obedienceTableBody">
+                        <!-- Obedience entries will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportDisciplineCSV('obedience')">📄 Export Obedience CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('obedience')">📑 Export Obedience PDF</button>
+            </div>
+        </div>
+
+        <div class="report-container" id="rangerReport">
+            <div class="report-header">
+                <div class="report-title">Ranger/Dasher Disciplines Report</div>
+                <div class="report-info" id="rangerReportInfo">Trial • Date • Entries</div>
+            </div>
+            
+            <div class="stats-section" id="rangerStats"></div>
+            
+            <div class="report-table-container">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th class="cwags-col">C-WAGS #</th>
+                            <th class="dog-col">Call Name</th>
+                            <th class="handler-col">Handler</th>
+                            <th class="date-col">Date</th>
+                            <th class="class-col">Class</th>
+                            <th class="round-col">Round</th>
+                            <th class="result-col">Result</th>
+                            <th class="judge-col">Judge</th>
+                            <th class="comments-col">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rangerTableBody">
+                        <!-- Ranger/Dasher entries will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="export-buttons">
+                <button class="btn btn-success" onclick="exportDisciplineCSV('ranger')">📄 Export Ranger CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('ranger')">📑 Export Ranger PDF</button>
+            </div>
+        </div>
+
+        <!-- No Data Message -->
+        <div class="no-data" id="noDataMessage" style="display: none;">
+            <h3>📋 No Trial Data Available</h3>
+            <p>Please select a trial and day to generate reports.</p>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
+            authDomain: "dog-trialing-system.firebaseapp.com",
+            projectId: "dog-trialing-system",
+            storageBucket: "dog-trialing-system.firebasestorage.app",
+            messagingSenderId: "490812593982",
+            appId: "1:490812593982:web:344776707566f8d9027e6f",
+            measurementId: "G-EMLX58Y278"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Discipline classifications
+        const DISCIPLINE_MAPPING = {
+            scent: ['PATROL 1', 'DETECTIVE 2', 'INVESTIGATOR 3', 'SUPER SLEUTH 4', 'PRIVATE INV', 'DET DIVERSIONS'],
+            games: ['GAMES 1', 'GAMES 2', 'GAMES 3', 'GAMES 4'],
+            obedience: ['OBEDIENCE 1', 'OBEDIENCE 2', 'OBEDIENCE 3', 'OBEDIENCE 4', 'OBEDIENCE 5'],
+            ranger: ['RANGER 1', 'RANGER 2', 'RANGER 3', 'RANGER 4', 'RANGER 5', 'DASHER 3', 'DASHER 4', 'DASHER 5', 'DASHER 6']
+        };
+
+        // Games result codes
+        const GAMES_RESULTS = {
+            'GB': 'Grab Bag',
+            'C': 'Colors', 
+            'BJ': 'Black Jack',
+            'P': 'Pairs',
+            'T': 'Team',
+            'Fail': 'Fail',
+            'abs': 'Absent'
+        };
+
+        // Global variables
+        let currentUser = null;
+        let currentTrial = null;
+        let currentDay = null;
+        let reportData = {};
+        let activeDiscipline = 'scent';
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.textContent = message;
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function createLocalDate(dateStr) {
+            if (!dateStr) return null;
+            if (typeof dateStr === 'string') {
+                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+                return new Date(dateWithTime);
+            }
+            return new Date(dateStr);
+        }
+
+        function formatLocalDate(date) {
+            if (!date || !(date instanceof Date)) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            let date;
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
+            } else {
+                return '';
+            }
+            return formatLocalDate(date);
+        }
+
+        function getDisciplineForClass(className) {
+            const upperClassName = className.toUpperCase();
+            
+            for (const [discipline, classes] of Object.entries(DISCIPLINE_MAPPING)) {
+                if (classes.some(cls => upperClassName.includes(cls) || cls.includes(upperClassName))) {
+                    return discipline;
+                }
+            }
+            
+            // Additional fuzzy matching
+            if (upperClassName.includes('PATROL') || upperClassName.includes('DETECTIVE') || 
+                upperClassName.includes('INVESTIGATOR') || upperClassName.includes('SLEUTH') || 
+                upperClassName.includes('PRIVATE') || upperClassName.includes('SCENT')) {
+                return 'scent';
+            }
+            if (upperClassName.includes('GAME')) {
+                return 'games';
+            }
+            if (upperClassName.includes('OBEDIENCE') || upperClassName.includes('RALLY')) {
+                return 'obedience';
+            }
+            if (upperClassName.includes('RANGER') || upperClassName.includes('DASHER')) {
+                return 'ranger';
+            }
+            
+            return 'scent'; // Default to scent
+        }
+
+        // Initialize the application
+        async function init() {
+            try {
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
+                        if (user) {
+                            try {
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
+                            }
+                        } else {
+                            window.location.href = 'index.html';
+                        }
+                    });
+                });
+
+                await loadTrials();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                showStatus('Error initializing application: ' + error.message, 'error');
+            }
+        }
+
+        // Load trials for the dropdown
+        async function loadTrials() {
+            try {
+                showStatus('Loading your trials...', 'info');
+
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
+                    .get();
+
+                const trialSelect = document.getElementById('trialSelect');
+                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+
+                if (!trialsSnapshot.empty) {
+                    const trials = [];
+                    trialsSnapshot.forEach(doc => {
+                        trials.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    trials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+
+                    trials.forEach(trial => {
+                        const option = document.createElement('option');
+                        option.value = trial.id;
+                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        trialSelect.appendChild(option);
+                    });
+
+                    showStatus(`Found ${trials.length} trials`, 'success');
+                } else {
+                    showStatus('No trials found', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, 'error');
+            }
+        }
+
+        // Load trial data and populate day selector
+        async function loadTrialData() {
+            const trialId = document.getElementById('trialSelect').value;
+            const daySelect = document.getElementById('daySelect');
+            
+            if (!trialId) {
+                daySelect.innerHTML = '<option value="">Select a trial first</option>';
+                return;
+            }
+
+            try {
+                showStatus('Loading trial data...', 'info');
+
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+
+                // Fix date handling for trial days
+                if (currentTrial.days && Array.isArray(currentTrial.days)) {
+                    currentTrial.days = currentTrial.days.map(day => ({
+                        ...day,
+                        date: day.date ? getDateFromFirebase(day.date) : null
+                    }));
+                }
+
+                // Populate day dropdown
+                daySelect.innerHTML = '<option value="">Select a day...</option>';
+                
+                if (currentTrial.days && currentTrial.days.length > 0) {
+                    currentTrial.days.forEach((day, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        const dayDate = day.date ? new Date(day.date + 'T12:00:00').toLocaleDateString() : `Day ${index + 1}`;
+                        option.textContent = dayDate;
+                        daySelect.appendChild(option);
+                    });
+                    
+                    showStatus(`Found ${currentTrial.days.length} days`, 'success');
+                } else {
+                    showStatus('No days found in this trial', 'error');
+                }
+
+            } catch (error) {
+                console.error('Error loading trial data:', error);
+                showStatus('Error loading trial data: ' + error.message, 'error');
+            }
+        }
+
+        // Generate reports for selected trial and day
+        async function generateReports() {
+            const trialId = document.getElementById('trialSelect').value;
+            const dayIndex = document.getElementById('daySelect').value;
+            
+            if (!trialId || dayIndex === '') {
+                showStatus('Please select both trial and day', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Generating reports...', 'info');
+                currentDay = parseInt(dayIndex);
+
+                // Load all scores for this trial
+                const scoresSnapshot = await db.collection('scores')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                const allScores = [];
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const [dayIdx] = scoreData.roundKey ? scoreData.roundKey.split('-').map(Number) : [0];
+                    
+                    if (dayIdx === currentDay) {
+                        allScores.push(scoreData);
+                    }
+                });
+
+                // Get entries data
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                const entryMap = {};
+                entriesSnapshot.forEach(doc => {
+                    entryMap[doc.id] = doc.data();
+                });
+
+                // Process scores into individual run entries
+                const allRuns = [];
+                
+                allScores.forEach(roundScore => {
+                    if (roundScore.participants) {
+                        Object.entries(roundScore.participants).forEach(([participantId, result]) => {
+                            const [docId] = participantId.split('_');
+                            const entry = entryMap[docId];
+                            
+                            if (entry && result.passFail) {
+                                const discipline = getDisciplineForClass(roundScore.className);
+                                const dayDate = currentTrial.days[currentDay].date || '';
+                                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                
+                                allRuns.push({
+                                    discipline: discipline,
+                                    cwagsNumber: entry.cwagsNumber || 'TBD',
+                                    dogName: entry.dogCallName || 'Unknown',
+                                    handlerName: entry.handlerName || 'Unknown',
+                                    date: formattedDate,
+                                    className: roundScore.className,
+                                    roundNumber: roundScore.roundNumber || 1,
+                                    result: formatResult(result.passFail, discipline),
+                                    judgeName: roundScore.judgeName || 'TBD',
+                                    comments: '',
+                                    classOrder: getClassOrder(roundScore.className, discipline)
+                                });
+                            }
+                        });
+                    }
+                });
+
+                // Group by discipline and sort
+                reportData = {
+                    scent: allRuns.filter(r => r.discipline === 'scent').sort((a, b) => a.classOrder - b.classOrder),
+                    games: allRuns.filter(r => r.discipline === 'games').sort((a, b) => a.classOrder - b.classOrder),
+                    obedience: allRuns.filter(r => r.discipline === 'obedience').sort((a, b) => a.classOrder - b.classOrder),
+                    ranger: allRuns.filter(r => r.discipline === 'ranger').sort((a, b) => a.classOrder - b.classOrder)
+                };
+
+                renderReports();
+                document.getElementById('disciplineTabs').style.display = 'flex';
+                showStatus('Reports generated successfully!', 'success');
+
+            } catch (error) {
+                console.error('Error generating reports:', error);
+                showStatus('Error generating reports: ' + error.message, 'error');
+            }
+        }
+
+        // Format result based on discipline
+        function formatResult(passFail, discipline) {
+            if (discipline === 'games') {
+                // For games, we'd need additional logic to determine specific game type
+                // For now, return generic pass/fail
+                return passFail === 'Pass' ? 'P' : 'Fail';
+            }
+            return passFail === 'Pass' ? 'Pass' : 'Fail';
+        }
+
+        // Get class order for sorting
+        function getClassOrder(className, discipline) {
+            const upperClassName = className.toUpperCase();
+            
+            if (discipline === 'scent') {
+                if (upperClassName.includes('PATROL 1')) return 1;
+                if (upperClassName.includes('DETECTIVE 2')) return 2;
+                if (upperClassName.includes('INVESTIGATOR 3')) return 3;
+                if (upperClassName.includes('SUPER SLEUTH 4')) return 4;
+                if (upperClassName.includes('PRIVATE')) return 5;
+                if (upperClassName.includes('DET DIVERSIONS')) return 6;
+            } else if (discipline === 'games') {
+                if (upperClassName.includes('GAMES 1')) return 1;
+                if (upperClassName.includes('GAMES 2')) return 2;
+                if (upperClassName.includes('GAMES 3')) return 3;
+                if (upperClassName.includes('GAMES 4')) return 4;
+            } else if (discipline === 'obedience') {
+                if (upperClassName.includes('OBEDIENCE 1')) return 1;
+                if (upperClassName.includes('OBEDIENCE 2')) return 2;
+                if (upperClassName.includes('OBEDIENCE 3')) return 3;
+                if (upperClassName.includes('OBEDIENCE 4')) return 4;
+                if (upperClassName.includes('OBEDIENCE 5')) return 5;
+            } else if (discipline === 'ranger') {
+                if (upperClassName.includes('RANGER 1')) return 1;
+                if (upperClassName.includes('RANGER 2')) return 2;
+                if (upperClassName.includes('RANGER 3')) return 3;
+                if (upperClassName.includes('RANGER 4')) return 4;
+                if (upperClassName.includes('RANGER 5')) return 5;
+                if (upperClassName.includes('DASHER 3')) return 6;
+                if (upperClassName.includes('DASHER 4')) return 7;
+                if (upperClassName.includes('DASHER 5')) return 8;
+                if (upperClassName.includes('DASHER 6')) return 9;
+            }
+            
+            return 999; // Default for unrecognized classes
+        }
+
+        // Render all reports
+        function renderReports() {
+            ['scent', 'games', 'obedience', 'ranger'].forEach(discipline => {
+                renderDisciplineReport(discipline);
+            });
+        }
+
+        // Render specific discipline report
+        function renderDisciplineReport(discipline) {
+            const runs = reportData[discipline] || [];
+            const tbody = document.getElementById(`${discipline}TableBody`);
+            const info = document.getElementById(`${discipline}ReportInfo`);
+            const stats = document.getElementById(`${discipline}Stats`);
+            
+            // Update info
+            const dayDate = currentTrial.days[currentDay].date ? 
+                new Date(currentTrial.days[currentDay].date + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+            info.textContent = `${currentTrial.clubName} • ${dayDate} • ${runs.length} entries`;
+            
+            // Generate statistics
+            const totalRuns = runs.length;
+            const passes = runs.filter(r => r.result === 'Pass' || (r.result !== 'Fail' && r.result !== 'abs')).length;
+            const fails = runs.filter(r => r.result === 'Fail').length;
+            const absent = runs.filter(r => r.result === 'abs').length;
+            const passRate = totalRuns > 0 ? ((passes / totalRuns) * 100).toFixed(1) : '0';
+            
+            stats.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalRuns}</div>
+                    <div class="stat-label">Total Runs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${passes}</div>
+                    <div class="stat-label">Passes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${fails}</div>
+                    <div class="stat-label">Fails</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${absent}</div>
+                    <div class="stat-label">Absent</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${passRate}%</div>
+                    <div class="stat-label">Pass Rate</div>
+                </div>
+            `;
+            
+            // Generate table rows
+            tbody.innerHTML = '';
+            
+            if (runs.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: #6c757d; font-style: italic; padding: 2rem;">
+                            No ${discipline} entries found for this day
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            runs.forEach(run => {
+                const row = document.createElement('tr');
+                
+                let resultClass = 'result-absent';
+                if (run.result === 'Pass') resultClass = 'result-pass';
+                else if (run.result === 'Fail') resultClass = 'result-fail';
+                else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
+                
+                row.innerHTML = `
+                    <td>${run.cwagsNumber}</td>
+                    <td>${run.dogName}</td>
+                    <td>${run.handlerName}</td>
+                    <td>${run.date}</td>
+                    <td>${run.className}</td>
+                    <td>${run.roundNumber}</td>
+                    <td class="${resultClass}">${run.result}</td>
+                    <td>${run.judgeName}</td>
+                    <td contenteditable="true" style="background: #f8f9fa;">${run.comments}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Show specific discipline tab
+        function showDiscipline(discipline) {
+            // Update tab states
+            document.querySelectorAll('.discipline-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.report-container').forEach(container => container.style.display = 'none');
+            
+            // Activate selected discipline
+            event.target.classList.add('active');
+            document.getElementById(`${discipline}Report`).style.display = 'block';
+            activeDiscipline = discipline;
+        }
+
+        // Export discipline as CSV
+        function exportDisciplineCSV(discipline) {
+            const runs = reportData[discipline] || [];
+            
+            if (runs.length === 0) {
+                showStatus(`No ${discipline} data to export`, 'error');
+                return;
+            }
+
+            try {
+                let csvContent = '';
+                
+                // Header
+                const disciplineNames = {
+                    scent: 'Scent (Detective)',
+                    games: 'Games',
+                    obedience: 'Rally Obedience',
+                    ranger: 'Ranger/Dasher'
+                };
+                
+                csvContent += `"${disciplineNames[discipline]} Disciplines Report"\n`;
+                csvContent += `"Trial","${currentTrial.clubName}"\n`;
+                const dayDate = currentTrial.days[currentDay].date ? 
+                    new Date(currentTrial.days[currentDay].date + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                csvContent += `"Date","${dayDate}"\n`;
+                csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
+                csvContent += `\n`; // Empty line
+                
+                // Table headers
+                csvContent += '"C-WAGS #","Call Name","Handler","Date","Class","Round","Result","Judge","Comments"\n';
+                
+                // Data rows
+                runs.forEach(run => {
+                    csvContent += `"${run.cwagsNumber}","${run.dogName}","${run.handlerName}","${run.date}","${run.className}","${run.roundNumber}","${run.result}","${run.judgeName}","${run.comments}"\n`;
+                });
+                
+                // Download
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${disciplineNames[discipline].replace(/[^a-zA-Z0-9]/g, '_')}_Report.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                showStatus(`${disciplineNames[discipline]} CSV exported successfully!`, 'success');
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                showStatus('Error exporting CSV: ' + error.message, 'error');
+            }
+        }
+
+        // Export discipline as PDF
+        function exportDisciplinePDF(discipline) {
+            const runs = reportData[discipline] || [];
+            
+            if (runs.length === 0) {
+                showStatus(`No ${discipline} data to export`, 'error');
+                return;
+            }
+
+            try {
+                const disciplineNames = {
+                    scent: 'Scent (Detective)',
+                    games: 'Games',
+                    obedience: 'Rally Obedience',
+                    ranger: 'Ranger/Dasher'
+                };
+                
+                const printWindow = window.open('', '_blank');
+                const dayDate = currentTrial.days[currentDay].date ? 
+                    new Date(currentTrial.days[currentDay].date + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>${disciplineNames[discipline]} Report</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+                            .header { text-align: center; margin-bottom: 20px; }
+                            .title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+                            .info { font-size: 12px; color: #666; margin-bottom: 5px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 10px; }
+                            th { background-color: #f5f5f5; font-weight: bold; }
+                            .result-pass { color: #28a745; font-weight: bold; }
+                            .result-fail { color: #dc3545; font-weight: bold; }
+                            .result-games { color: #17a2b8; font-weight: bold; }
+                            @media print { body { margin: 0; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <div class="title">${disciplineNames[discipline]} Disciplines Report</div>
+                            <div class="info">Trial: ${currentTrial.clubName}</div>
+                            <div class="info">Date: ${dayDate}</div>
+                            <div class="info">Generated: ${new Date().toLocaleDateString()}</div>
+                        </div>
+                        
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>C-WAGS #</th>
+                                    <th>Call Name</th>
+                                    <th>Handler</th>
+                                    <th>Date</th>
+                                    <th>Class</th>
+                                    <th>Round</th>
+                                    <th>Result</th>
+                                    <th>Judge</th>
+                                    <th>Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${runs.map(run => {
+                                    let resultClass = '';
+                                    if (run.result === 'Pass') resultClass = 'result-pass';
+                                    else if (run.result === 'Fail') resultClass = 'result-fail';
+                                    else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
+                                    
+                                    return `<tr>
+                                        <td>${run.cwagsNumber}</td>
+                                        <td>${run.dogName}</td>
+                                        <td>${run.handlerName}</td>
+                                        <td>${run.date}</td>
+                                        <td>${run.className}</td>
+                                        <td>${run.roundNumber}</td>
+                                        <td class="${resultClass}">${run.result}</td>
+                                        <td>${run.judgeName}</td>
+                                        <td>${run.comments}</td>
+                                    </tr>`;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </body>
+                    </html>
+                `;
+                
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                
+                printWindow.onload = function() {
+                    printWindow.print();
+                };
+
+                showStatus(`${disciplineNames[discipline]} PDF export opened`, 'success');
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                showStatus('Error exporting PDF: ' + error.message, 'error');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing single-day trial report system...');
+            init();
+        });
+
+        console.log('Single-Day Trial Report script loaded successfully');
+    </script>
+</body>
+</html>

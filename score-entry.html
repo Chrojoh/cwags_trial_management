@@ -60,7 +60,11 @@
             font-size: 1rem;
         }
 
-        /* NEW: Tabbed interface for days */
+
+        /* Tabbed interface for days */
+
+        
+
         .round-selector {
             margin-bottom: 2rem;
         }
@@ -260,6 +264,13 @@
             text-align: left !important;
             font-weight: 600;
             background: #f0f8ff;
+
+            width: 150px;
+            min-width: 150px;
+            max-width: 150px;
+            font-size: 0.85rem;
+
+
         }
 
         .scent-cell {
@@ -274,7 +285,12 @@
         }
 
         .fault-cell {
-            width: 80px;
+
+            width: 150px;
+            min-width: 150px;
+
+        
+
         }
 
         .fault-cell input {
@@ -282,6 +298,10 @@
             padding: 0.25rem;
             border: 1px solid #dee2e6;
             border-radius: 4px;
+
+            font-size: 0.85rem;
+
+
         }
 
         .time-cell {
@@ -473,6 +493,10 @@
                     <div class="sheet-title">Scent Detective Master Score Sheet</div>
                     <div class="sheet-info">
                         <div><strong>Class:</strong> <span id="sheetClass">-</span></div>
+
+                        <div><strong>Round:</strong> <span id="sheetRound">-</span></div>
+
+
                         <div><strong>Date:</strong> <span id="sheetDate">-</span></div>
                         <div><strong>Judge:</strong> <span id="sheetJudge">-</span></div>
                     </div>
@@ -507,8 +531,12 @@
                             <th>Scent 2</th>
                             <th>Scent 3</th>
                             <th>Scent 4</th>
-                            <th>Fault</th>
-                            <th>Fault</th>
+
+                            <th>Fault Description</th>
+                            <th>Fault Description</th>
+
+                            
+
                             <th>Time</th>
                             <th>Pass/Fail</th>
                         </tr>
@@ -521,7 +549,10 @@
                 <!-- Control Buttons -->
                 <div class="control-buttons">
                     <button class="btn btn-success" onclick="saveScores()">💾 Save Scores</button>
-                    <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled PDF</button>
+
+                    <button class="btn btn-warning" onclick="exportFilledScoreSheet()">📄 Export Filled CSV</button>
+        
+
                     <button class="btn btn-secondary" onclick="clearAllScores()">🗑️ Clear All Scores</button>
                 </div>
 
@@ -562,59 +593,117 @@
         let currentRound = null;
         let allRounds = [];
         let currentScores = {};
-        let activeDay = 0; // Track active day tab
 
-        // C-WAGS class order mapping for logical trial flow
+        let activeDay = 0;
+
+        // C-WAGS class order mapping - Correct order from user
         const CWAGS_CLASS_ORDER = {
-            // Container classes - typically run first as they're quickest/easiest setup
-            'CLN': 1,    // Container Level Novice
-            'CLA': 2,    // Container Level Advanced  
-            'CLE': 3,    // Container Level Elite
+            'PATROL 1': 1,
+            'PATROL1': 1,
+            'P1': 1,
             
-            // Interior classes - indoor/building searches
-            'ILN': 4,    // Interior Level Novice
-            'ILA': 5,    // Interior Level Advanced
-            'ILE': 6,    // Interior Level Elite
+            'DETECTIVE 2': 2,
+            'DETECTIVE2': 2,
+            'DET2': 2,
+            'D2': 2,
             
-            // Exterior classes - outdoor searches
-            'ELN': 7,    // Exterior Level Novice
-            'ELA': 8,    // Exterior Level Advanced
-            'ELE': 9,    // Exterior Level Elite
+            'INVESTIGATOR 3': 3,
+            'INVESTIGATOR3': 3,
+            'INV3': 3,
+            'I3': 3,
             
-            // Vehicle classes - car/truck searches
-            'VLN': 10,   // Vehicle Level Novice
-            'VLA': 11,   // Vehicle Level Advanced
-            'VLE': 12,   // Vehicle Level Elite
+            'SUPER SLEUTH 4': 4,
+            'SUPER SLEUTH4': 4,
+            'SUPERSLEUTH4': 4,
+            'SS4': 4,
+            'S4': 4,
             
-            // Buried classes - ground searches (often last due to setup)
-            'BLN': 13,   // Buried Level Novice
-            'BLA': 14,   // Buried Level Advanced
-            'BLE': 15,   // Buried Level Elite
+            'PRIVATE INV': 5,
+            'PRIVATE INVESTIGATOR': 5,
+            'PRIVATEINV': 5,
+            'PRIV INV': 5,
+            'PI': 5,
             
-            // Handler classes - focus on handler skills
-            'HLN': 16,   // Handler Level Novice
-            'HLA        };
-
-        // Get the time of day for a round to help with chronological sorting
-        function getRoundTime(round) {
-            // If round has a specific time, use it
-            if (round.time) return round.time;
+            'DET DIVERSIONS': 6,
+            'DETECTIVE DIVERSIONS': 6,
+            'DETDIVERSIONS': 6,
+            'DD': 6,
             
-            // Otherwise, estimate based on class and round number
-            // Most trials run in this general order throughout the day
-            const baseTime = 8; // 8 AM start
-            const classOrder = getCWAGSClassOrder(round.className);
-            const roundOffset = (round.roundNumber - 1) * 1.5; // 1.5 hours between rounds
-            const classOffset = (classOrder - 1) * 0.5; // 30 min between class types
+            'RANGER 1': 7,
+            'RANGER1': 7,
+            'R1': 7,
             
-            return baseTime + classOffset + roundOffset;
-        }': 17,   // Handler Level Advanced
-            'HLN': 18,   // Handler Level Novice
-            'DET': 19,   // Detective
-            'SWN': 20,   // Scent Work Novice
-            'SWA': 21,   // Scent Work Advanced
-            'SWE': 22    // Scent Work Elite
+            'RANGER 2': 8,
+            'RANGER2': 8,
+            'R2': 8,
+            
+            'RANGER 3': 9,
+            'RANGER3': 9,
+            'R3': 9,
+            
+            'RANGER 4': 10,
+            'RANGER4': 10,
+            'R4': 10,
+            
+            'RANGER 5': 11,
+            'RANGER5': 11,
+            'R5': 11,
+            
+            'DASHER 3': 12,
+            'DASHER3': 12,
+            'DASH3': 12,
+            'DA3': 12,
+            
+            'DASHER 4': 13,
+            'DASHER4': 13,
+            'DASH4': 13,
+            'DA4': 13,
+            
+            'DASHER 5': 14,
+            'DASHER5': 14,
+            'DASH5': 14,
+            'DA5': 14,
+            
+            'DASHER 6': 15,
+            'DASHER6': 15,
+            'DASH6': 15,
+            'DA6': 15
         };
+
+        // Get C-WAGS class order with better matching
+        function getCWAGSClassOrder(className) {
+            if (!className) return 999;
+            
+            // Clean and normalize the class name
+            const cleanClassName = className.toUpperCase()
+                .replace(/[^A-Z0-9\s]/g, '') // Remove special characters
+                .replace(/\s+/g, ' ')        // Normalize spaces
+                .trim();
+            
+            // Try exact match first
+            if (CWAGS_CLASS_ORDER[cleanClassName]) {
+                return CWAGS_CLASS_ORDER[cleanClassName];
+            }
+            
+            // Try without spaces
+            const noSpaceClassName = cleanClassName.replace(/\s/g, '');
+            if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
+                return CWAGS_CLASS_ORDER[noSpaceClassName];
+            }
+            
+            // Try to find partial matches
+            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
+                    return order;
+                }
+            }
+            
+            // Default order for unrecognized classes
+            return 999;
+        }
+
+
+ 
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -660,24 +749,6 @@
             return formatLocalDate(date);
         }
 
-        function getCWAGSClassOrder(className) {
-            if (!className) return 999;
-            
-            // Try exact match first
-            const exactMatch = CWAGS_CLASS_ORDER[className.toUpperCase()];
-            if (exactMatch) return exactMatch;
-            
-            // Try to extract class code from longer strings
-            const upperClassName = className.toUpperCase();
-            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
-                if (upperClassName.includes(code)) {
-                    return order;
-                }
-            }
-            
-            // Default order for unrecognized classes
-            return 999;
-        }
 
         // Initialize the application
         async function init() {
@@ -781,42 +852,108 @@
                     }));
                 }
 
-                // Load running order
+
+                // Load FINALIZED running order data (same as PDF generation uses)
+
+              
+
                 const orderDoc = await db.collection('running_orders').doc(trialId).get();
                 if (!orderDoc.exists) {
                     throw new Error('No running order found for this trial');
                 }
 
                 const runningOrderData = orderDoc.data();
+
+                
+                // Debug: Let's see what fields are actually available
+                console.log('Running order data structure:', Object.keys(runningOrderData));
+                console.log('Full running order data:', runningOrderData);
+                
+                // Check for different possible field names your system might use
+                let finalizedData = null;
+                if (runningOrderData.finalizedRunningOrders) {
+                    finalizedData = runningOrderData.finalizedRunningOrders;
+                    console.log('Using finalizedRunningOrders');
+                } else if (runningOrderData.generatedSheets) {
+                    finalizedData = runningOrderData.generatedSheets;
+                    console.log('Using generatedSheets');
+                } else if (runningOrderData.roundOrders) {
+                    // Fall back to the old structure but process it differently
+                    console.log('Using roundOrders as fallback');
+                    finalizedData = runningOrderData.roundOrders;
+                } else {
+                    throw new Error('No running order data found. Please generate running orders first.');
+                }
+
                 allRounds = [];
 
-                // Process rounds
-                Object.keys(runningOrderData.roundOrders || {}).forEach(roundKey => {
-                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                    const day = currentTrial.days[dayIndex];
-                    const cls = day?.classes[classIndex];
-                    const round = cls?.rounds[roundIndex];
+                // Process rounds from the available data structure
+                if (runningOrderData.generatedSheets || runningOrderData.finalizedRunningOrders) {
+                    // Process from organized sheet data
+                    Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
 
-                    if (day && cls && round && runningOrderData.roundOrders[roundKey].length > 0) {
-                        allRounds.push({
-                            key: roundKey,
-                            dayIndex,
-                            classIndex,
-                            roundIndex,
-                            className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
-                            judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                            roundNumber: roundIndex + 1,
-                            date: day.date,
-                            entryIds: runningOrderData.roundOrders[roundKey],
-                            cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
-                        });
-                    }
-                });
+                        if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
+                            allRounds.push({
+                                key: roundKey,
+                                dayIndex,
+                                classIndex,
+                                roundIndex,
+                                className: roundData.className || cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                                judgeName: roundData.judgeName || round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                roundNumber: roundIndex + 1,
+                                date: day.date,
+                                participants: roundData.participants,
+                                entryCount: roundData.participants.length,
+                                cwagsSortOrder: getCWAGSClassOrder(roundData.className || cls.className || cls.class || cls.CLASS_NAME)
+                            });
+                        }
+                    });
+                } else {
+                    // Fall back to processing roundOrders but group by unique rounds
+                    const uniqueRounds = {};
+                    
+                    Object.keys(finalizedData).forEach(roundKey => {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
+
+                        if (day && cls && round && finalizedData[roundKey].length > 0) {
+                            const uniqueKey = `${dayIndex}-${classIndex}-${roundIndex}`;
+                            
+                            if (!uniqueRounds[uniqueKey]) {
+                                uniqueRounds[uniqueKey] = {
+                                    key: uniqueKey,
+                                    dayIndex,
+                                    classIndex,
+                                    roundIndex,
+                                    className: cls.className || cls.class || cls.CLASS_NAME || `Class ${classIndex + 1}`,
+                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                    roundNumber: roundIndex + 1,
+                                    date: day.date,
+                                    entryIds: finalizedData[roundKey],
+                                    entryCount: finalizedData[roundKey].length,
+                                    cwagsSortOrder: getCWAGSClassOrder(cls.className || cls.class || cls.CLASS_NAME)
+                                };
+                            }
+                        }
+                    });
+                    
+                    allRounds = Object.values(uniqueRounds);
+                }
+
 
                 if (allRounds.length === 0) {
                     document.getElementById('noDataMessage').style.display = 'block';
                     document.getElementById('roundSelector').style.display = 'none';
-                    showStatus('No rounds with entries found', 'error');
+
+                    showStatus('No finalized rounds found. Please generate running orders first.', 'error');
+
+                 
                     return;
                 }
 
@@ -830,7 +967,11 @@
             }
         }
 
-        // NEW: Render round selector with tabbed interface
+
+        // Render round selector with tabbed interface
+
+      
+
         function renderRoundSelector() {
             const dayTabs = document.getElementById('dayTabs');
             const dayContents = document.getElementById('dayContents');
@@ -900,7 +1041,11 @@
                         card.innerHTML = `
                             <div class="round-info">${round.className} - Round ${round.roundNumber}</div>
                             <div class="judge-info">Judge: ${round.judgeName}</div>
-                            <div class="judge-info">${round.entryIds.length} entries</div>
+
+                            <div class="judge-info">${round.entryCount} entries</div>
+
+                          
+
                         `;
                         
                         roundsContainer.appendChild(card);
@@ -955,29 +1100,44 @@
 
                 currentRound = round;
 
-                // Load entries for this round
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', currentTrial.id)
-                    .get();
 
-                const entryMap = {};
-                entriesSnapshot.forEach(doc => {
-                    entryMap[doc.id] = doc.data();
-                });
+                let participants = [];
 
-                // Build participant list in running order
-                const participants = [];
-                round.entryIds.forEach(entryId => {
-                    const [docId] = entryId.split('_');
-                    const entry = entryMap[docId];
-                    if (entry) {
-                        participants.push({
-                            id: entryId,
-                            handlerName: entry.handlerName.split(' ')[0],
-                            dogCallName: entry.dogCallName
-                        });
-                    }
-                });
+                // Handle different data structures
+                if (round.participants) {
+                    // Use finalized participants list directly
+                    participants = round.participants.map(participant => ({
+                        id: participant.id,
+                        handlerName: participant.handlerName,
+                        dogCallName: participant.dogCallName
+                    }));
+                } else if (round.entryIds) {
+                    // Fall back to building from entryIds
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', currentTrial.id)
+                        .get();
+
+                    const entryMap = {};
+                    entriesSnapshot.forEach(doc => {
+                        entryMap[doc.id] = doc.data();
+                    });
+
+                    // Build participant list in running order
+                    round.entryIds.forEach(entryId => {
+                        const [docId] = entryId.split('_');
+                        const entry = entryMap[docId];
+                        if (entry) {
+                            participants.push({
+                                id: entryId,
+                                handlerName: entry.handlerName.split(' ')[0],
+                                dogCallName: entry.dogCallName
+                            });
+                        }
+                    });
+                }
+
+            
+
 
                 // Load existing scores if any
                 try {
@@ -1004,6 +1164,10 @@
         function renderScoreSheet(round, participants) {
             // Update header info
             document.getElementById('sheetClass').textContent = round.className;
+
+            document.getElementById('sheetRound').textContent = `Round ${round.roundNumber}`;
+
+
             document.getElementById('sheetDate').textContent = round.date ? createLocalDate(round.date).toLocaleDateString() : 'Date TBD';
             document.getElementById('sheetJudge').textContent = round.judgeName;
 
@@ -1054,12 +1218,19 @@
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault1 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault1', this.value)"
-                               placeholder="Fault">
+
+                               placeholder="Fault description">
+                          
+
                     </td>
                     <td class="fault-cell">
                         <input type="text" value="${participantScores.fault2 || ''}" 
                                onchange="updateScore('${participant.id}', 'fault2', this.value)"
-                               placeholder="Fault">
+
+                               placeholder="Fault description">
+
+                            
+
                     </td>
                     <td class="time-cell">
                         <input type="text" value="${participantScores.time || ''}" 
@@ -1213,33 +1384,40 @@
                 csvContent += `"Team Dog - Handler","Scent 1","Scent 2","Scent 3","Scent 4","Fault","Fault","Time","Pass/Fail"\n`;
                 
                 // Get participants from current round
-                const participants = [];
+
+                let participants = [];
                 
-                // Load entries for this round to get participant names
-                try {
-                    const entriesSnapshot = await db.collection('entries')
-                        .where('trialId', '==', currentTrial.id)
-                        .get();
+                if (currentRound.participants) {
+                    // Use finalized participant list
+                    participants = currentRound.participants;
+                } else if (currentRound.entryIds) {
+                    // Fall back to loading from entries
+                    try {
+                        const entriesSnapshot = await db.collection('entries')
+                            .where('trialId', '==', currentTrial.id)
+                            .get();
 
-                    const entryMap = {};
-                    entriesSnapshot.forEach(doc => {
-                        entryMap[doc.id] = doc.data();
-                    });
+                        const entryMap = {};
+                        entriesSnapshot.forEach(doc => {
+                            entryMap[doc.id] = doc.data();
+                        });
 
-                    // Build participant list in running order
-                    currentRound.entryIds.forEach(entryId => {
-                        const [docId] = entryId.split('_');
-                        const entry = entryMap[docId];
-                        if (entry) {
-                            participants.push({
-                                id: entryId,
-                                handlerName: entry.handlerName.split(' ')[0],
-                                dogCallName: entry.dogCallName
-                            });
-                        }
-                    });
-                } catch (error) {
-                    console.error('Error loading participants:', error);
+                        // Build participant list in running order
+                        currentRound.entryIds.forEach(entryId => {
+                            const [docId] = entryId.split('_');
+                            const entry = entryMap[docId];
+                            if (entry) {
+                                participants.push({
+                                    id: entryId,
+                                    handlerName: entry.handlerName.split(' ')[0],
+                                    dogCallName: entry.dogCallName
+                                });
+                            }
+                        });
+                    } catch (error) {
+                        console.error('Error loading participants:', error);
+                    }
+
                 }
                 
                 // Add participant rows with scores

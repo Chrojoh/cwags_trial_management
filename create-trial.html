@@ -154,7 +154,7 @@
   </form>
 
   <script>
-    // Firebase Configuration
+     // Firebase Configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
       authDomain: "dog-trialing-system.firebaseapp.com",
@@ -255,7 +255,8 @@
                 if (dogIndex >= 0 && row[dogIndex]) dogs.add(String(row[dogIndex]).trim());
               });
               
-              globalClasses = Array.from(classes).sort();
+             // Sort classes in C-WAGS order instead of alphabetically
+              globalClasses = Array.from(classes);
               globalJudges = Array.from(judges).sort();
               globalCwagsNumbers = Array.from(cwags).sort();
               globalDogNames = Array.from(dogs).sort();
