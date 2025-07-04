@@ -461,10 +461,10 @@
 
             <!-- No Data State -->
             <div class="no-data" id="noDataState" style="display: none;">
-                <h3>📊 No Trial Entries Available</h3>
-                <p>Please ensure you have trial entries created first.</p>
-                <p>Go to Entry Management to add participants, then return here for the recap.</p>
-                <button class="btn btn-primary" onclick="window.location.href='entry-management.html'">📝 Manage Entries</button>
+                <h3>📊 No Trial Scores Available</h3>
+                <p>Please ensure you have scores entered for this trial first.</p>
+                <p>Go to Score Entry to add results, then return here for the recap.</p>
+                <button class="btn btn-primary" onclick="window.location.href='score-entry.html'">🎯 Enter Scores</button>
             </div>
 
             <!-- Recap Container -->
@@ -760,27 +760,44 @@
                     let classActual = 0;
                     let classQualifiers = 0;
 
-                    // Count all participants (entered)
+                    // Count all participants (these are scheduled participants from Class Summary)
                     Object.values(participants).forEach(participant => {
                         classEntered++;
                         
-                        // Count actual runs (not absent)
-                        if (participant.result && participant.result !== 'abs' && participant.result !== 'Absent') {
+                        // Count actual runs (not absent) - only if scores have been entered
+                        if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
                             classActual++;
                             
                             // Count qualifiers (Pass/Q results)
                             if (participant.result === 'Pass' || participant.result === 'Q') {
                                 classQualifiers++;
                             }
+                        } else if (!participant.result || participant.result === '') {
+                            // If no result yet, count as "pending actual run"
+                            // For payment purposes, they're still entered
                         }
                     });
 
+                    // Determine the trial date for this class
+                    let classDate = 'Date TBD';
+                    if (scoreData.dayDate) {
+                        classDate = scoreData.dayDate;
+                    } else if (scoreData.date) {
+                        classDate = scoreData.date;
+                    } else if (currentTrial.days && scoreData.dayIndex !== undefined) {
+                        const dayData = currentTrial.days[scoreData.dayIndex];
+                        if (dayData && dayData.date) {
+                            classDate = dayData.date;
+                        }
+                    }
+
                     classData.push({
-                        date: scoreData.dayDate || scoreData.date || 'Date TBD',
+                        date: classDate,
                         className: scoreData.className,
                         entered: classEntered,
                         actual: classActual,
-                        qualifiers: classQualifiers
+                        qualifiers: classQualifiers,
+                        hasScores: classActual > 0 || Object.values(participants).some(p => p.result && p.result !== '')
                     });
 
                     totalEntered += classEntered;
@@ -874,34 +891,16 @@
                 const row = document.createElement('div');
                 row.className = 'table-row';
                 
-                // Show actual and qualifiers if scores exist, otherwise show "Pending"
-                const actualDisplay = classInfo.actual !== null ? classInfo.actual : 'Pending*';
-                const qualifiersDisplay = classInfo.qualifiers !== null ? classInfo.qualifiers : 'Pending*';
-                
                 row.innerHTML = `
                     <div>${index + 1}</div>
                     <div>${formatLocalDate(createLocalDate(classInfo.date))}</div>
                     <div><strong>${classInfo.className}</strong></div>
                     <div>${classInfo.entered}</div>
-                    <div>${actualDisplay}</div>
-                    <div>${qualifiersDisplay}</div>
+                    <div>${classInfo.actual}</div>
+                    <div>${classInfo.qualifiers}</div>
                 `;
                 tbody.appendChild(row);
             });
-            
-            // Add footnote if any data is pending
-            const hasPending = classData.some(c => c.actual === null);
-            if (hasPending) {
-                const footnoteRow = document.createElement('div');
-                footnoteRow.style.padding = '1rem';
-                footnoteRow.style.fontStyle = 'italic';
-                footnoteRow.style.color = '#6c757d';
-                footnoteRow.style.borderTop = '2px solid #dee2e6';
-                footnoteRow.innerHTML = `
-                    <small>* Pending data will be populated once scores are entered in the Score Entry system.</small>
-                `;
-                tbody.appendChild(footnoteRow);
-            }
         }
 
         // Save recap as draft
