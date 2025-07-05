@@ -594,46 +594,68 @@
             }
         }
 
-        // Load trials for the dropdown
-        async function loadTrials() {
-            try {
-                showStatus('Loading your trials...', 'info');
+       // Load trials for the dropdown
+async function loadTrials() {
+    try {
+        showStatus('Loading your trials...', 'info');
 
-                const trialsSnapshot = await db.collection("trials")
-                    .where("createdBy", "==", currentUser.uid)
-                    .get();
+        const trialsSnapshot = await db.collection("trials")
+            .where("createdBy", "==", currentUser.uid)
+            .get();
 
-                const trialSelect = document.getElementById('trialSelect');
-                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+        const trialSelect = document.getElementById('trialSelect');
+        trialSelect.innerHTML = '<option value="">Select a trial...</option>';
 
-                if (!trialsSnapshot.empty) {
-                    const trials = [];
-                    trialsSnapshot.forEach(doc => {
-                        trials.push({ id: doc.id, ...doc.data() });
-                    });
+        if (!trialsSnapshot.empty) {
+            const trials = [];
+            trialsSnapshot.forEach(doc => {
+                trials.push({ id: doc.id, ...doc.data() });
+            });
 
-                    trials.sort((a, b) => {
-                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                        return bTime - aTime;
-                    });
+            trials.sort((a, b) => {
+                const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                return bTime - aTime;
+            });
 
-                    trials.forEach(trial => {
-                        const option = document.createElement('option');
-                        option.value = trial.id;
-                        option.textContent = trial.clubName || 'Unnamed Trial';
-                        trialSelect.appendChild(option);
-                    });
-
-                    showStatus(`Found ${trials.length} trials`, 'success');
-                } else {
-                    showStatus('No trials found', 'error');
+            trials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                // Start with club name
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available using timezone-safe formatting
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => {
+                            const localDate = createLocalDate(day.date);
+                            return localDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                            });
+                        })
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
+                    }
                 }
-            } catch (error) {
-                console.error('Error loading trials:', error);
-                showStatus('Error loading trials: ' + error.message, 'error');
-            }
+                
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
+
+            showStatus(`Found ${trials.length} trials`, 'success');
+        } else {
+            showStatus('No trials found', 'error');
         }
+    } catch (error) {
+        console.error('Error loading trials:', error);
+        showStatus('Error loading trials: ' + error.message, 'error');
+    }
+}
 
         // Load classes for selected trial
         async function loadTrialClasses() {
