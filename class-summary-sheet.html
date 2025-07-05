@@ -1198,8 +1198,66 @@ async function loadTrials() {
                                     entryMap[doc.id] = doc.data();
                                 });
 
-                                // Process running order data to create rounds
-                                Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
+                              // Process running order data to create rounds
+Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+    const day = currentTrial.days[dayIndex];
+    const cls = day?.classes[classIndex];
+    const round = cls?.rounds[roundIndex];
+
+    if (day && cls && round) {
+        const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
+        
+        // Check if this round matches our selected class
+        if (roundClassName && roundClassName.trim() === className.trim()) {
+            
+            // Handle different data structures
+            let entryIds = [];
+            if (Array.isArray(roundData)) {
+                // Direct array of entry IDs
+                entryIds = roundData;
+            } else if (roundData.entries) {
+                // Object with entries array
+                entryIds = roundData.entries.map(entry => entry.entryId || entry.id);
+            } else if (roundData.participants) {
+                // Object with participants array
+                entryIds = roundData.participants.map(p => p.entryId || p.id);
+            } else {
+                // Fallback - treat as array of IDs
+                entryIds = Object.values(roundData).filter(item => typeof item === 'string');
+            }
+            
+            if (entryIds && entryIds.length > 0) {
+                // Build participants list from entryIds
+                const participants = [];
+                entryIds.forEach(entryId => {
+                    const [docId] = entryId.split('_');
+                    const entry = entryMap[docId];
+                    if (entry) {
+                        participants.push({
+                            id: entryId,
+                            handlerName: entry.handlerName || 'Unknown Handler',
+                            dogCallName: entry.dogCallName || 'Unknown',
+                            cwagsNumber: entry.cwagsNumber || 'TBD'
+                        });
+                    }
+                });
+
+                if (participants.length > 0) {
+                    console.log(`✅ Added round: ${roundClassName} Round ${roundIndex + 1} with ${participants.length} participants`);
+                    rounds.push({
+                        roundKey: roundKey,
+                        judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                        roundNumber: roundIndex + 1,
+                        className: roundClassName,
+                        participants: participants,
+                        hasScores: false
+                    });
+                }
+            }
+        }
+    }
+});
                                     const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
                                     const day = currentTrial.days[dayIndex];
                                     const cls = day?.classes[classIndex];
