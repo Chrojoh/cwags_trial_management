@@ -1257,7 +1257,7 @@ Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
             }
         }
     }
-});
+}); // <-- Make sure this closing bracket and parenthesis are here
                                     const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
                                     const day = currentTrial.days[dayIndex];
                                     const cls = day?.classes[classIndex];
