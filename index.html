@@ -417,15 +417,17 @@
         <div class="admin-panel" id="adminPanel">
             <h4>👑 Administrator Dashboard</h4>
             
-            <!-- Password Reset Section -->
             <div class="password-reset">
-                <h5>🔑 Password Reset</h5>
-                <input type="text" id="resetUsername" placeholder="Username">
-                <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
-                <small style="color: #666; display: block; margin-top: 0.5rem;">
-                    Note: New password will be displayed here
-                </small>
-            </div>
+    <h5>🔑 Password Reset</h5>
+    <input type="text" 
+           id="resetUsername" 
+           autocomplete="username"
+           placeholder="Username">
+    <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
+    <small style="color: #666; display: block; margin-top: 0.5rem;">
+        Note: New password will be displayed here
+    </small>
+</div>
             
             <!-- System Overview Section -->
             <div class="admin-section">
