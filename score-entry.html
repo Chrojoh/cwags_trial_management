@@ -1561,7 +1561,7 @@ function getRoundKeyIndices(roundKey) {
             }
         }
 
-      function autoCalculatePassFail(participantId) {
+     function autoCalculatePassFail(participantId) {
     const scores = currentScores.participants[participantId];
     if (!scores) return;
 
@@ -1576,8 +1576,8 @@ function getRoundKeyIndices(roundKey) {
         suggestion = 'Fail';
     }
 
-    // Only auto-update if Pass/Fail is currently blank
-    if (suggestion && (!scores.passFail || scores.passFail === '')) {
+    // UPDATED: Always auto-update (allow overriding existing values)
+    if (suggestion) {
         scores.passFail = suggestion;
         const passfailSelect = document.querySelector(`select[onchange*="${participantId}"][onchange*="passFail"]`);
         if (passfailSelect) {
@@ -1585,7 +1585,6 @@ function getRoundKeyIndices(roundKey) {
         }
     }
 }
-
         // Update scent location
         function updateScentLocation(scentNumber, value) {
             currentScores[`scent${scentNumber}Location`] = value;
