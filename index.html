@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -178,6 +178,39 @@
             background: #5a6268;
         }
 
+        .btn-primary {
+            background: #007bff;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
         .toggle-auth {
             text-align: center;
             color: #666;
@@ -199,6 +232,8 @@
             padding: 1rem;
             background: #f8f9fa;
             border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
         .admin-panel.active {
@@ -207,58 +242,43 @@
 
         .password-reset {
             margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            background: #fff3cd;
         }
 
         .excel-upload {
-            margin-top: 1rem;
+            margin: 1rem 0;
             padding: 1rem;
-            border: 2px dashed #ccc;
+            border: 1px solid #28a745;
             border-radius: 8px;
-            text-align: center;
+            background: #d4edda;
         }
 
         .file-input {
             margin: 0.5rem 0;
         }
-           .admin-section, .admin-actions {
-        margin: 1rem 0;
-        padding: 1rem;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        background: #f8f9fa;
-    }
 
-    .admin-section h5, .admin-actions h5 {
-        margin-bottom: 1rem;
-        color: #0066cc;
-        font-weight: 600;
-    }
+        .admin-section, .admin-actions {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
 
-    .admin-section .btn, .admin-actions .btn {
-        margin: 0.25rem;
-        min-width: 140px;
-    }
+        .admin-section h5, .admin-actions h5 {
+            margin-bottom: 1rem;
+            color: #0066cc;
+            font-weight: 600;
+        }
 
-    .admin-panel {
-        max-width: 600px;
-        margin: 0 auto;
-    }
+        .admin-section .btn, .admin-actions .btn {
+            margin: 0.25rem;
+            min-width: 140px;
+        }
 
-    .password-reset {
-        margin-bottom: 1rem;
-        padding: 1rem;
-        border: 1px solid #ffc107;
-        border-radius: 8px;
-        background: #fff3cd;
-}
-
-.excel-upload {
-    margin: 1rem 0;
-    padding: 1rem;
-    border: 1px solid #28a745;
-    border-radius: 8px;
-    background: #d4edda;
-}
         .back-btn {
             background: #6c757d;
             color: white;
@@ -388,44 +408,40 @@
         <div class="admin-panel" id="adminPanel">
             <h4>👑 Administrator Dashboard</h4>
             
+            <!-- Password Reset Section -->
             <div class="password-reset">
-                <h5>Password Reset</h5>
+                <h5>🔑 Password Reset</h5>
                 <input type="text" id="resetUsername" placeholder="Username">
-                <button class="btn btn-secondary" onclick="resetUserPassword()">Reset Password</button>
+                <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
                 <small style="color: #666; display: block; margin-top: 0.5rem;">
                     Note: New password will be displayed here
                 </small>
             </div>
-
-           <div class="admin-panel" id="adminPanel">
-    <h4>👑 Administrator Dashboard</h4>
-    
-   
-    
-    <!-- NEW: System Overview Section -->
-    <div class="admin-section">
-        <h5>📊 System Overview</h5>
-        <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials</button>
-        <button class="btn btn-info" onclick="viewAllUsersEnhanced()">View All Users</button>
-        <button class="btn btn-success" onclick="viewSystemStatistics()">System Statistics</button>
-    </div>
-    
-    <!-- System Data Management Section -->
-    <div class="excel-upload">
-        <h5>📊 System Data Management</h5>
-        <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
-        <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
-            Import System Data
-        </button>
-        <button class="btn btn-secondary" onclick="exportData()">Export All Data</button>
-    </div>
-    
-    <!-- Admin Actions -->
-    <div class="admin-actions">
-        <h5>⚙️ Admin Actions</h5>
-        <button class="btn btn-secondary" onclick="logout()">Logout</button>
-    </div>
-</div>
+            
+            <!-- System Overview Section -->
+            <div class="admin-section">
+                <h5>📊 System Overview</h5>
+                <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials</button>
+                <button class="btn btn-info" onclick="viewAllUsersEnhanced()">View All Users</button>
+                <button class="btn btn-success" onclick="viewSystemStatistics()">System Statistics</button>
+            </div>
+            
+            <!-- System Data Management Section -->
+            <div class="excel-upload">
+                <h5>📊 System Data Management</h5>
+                <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
+                <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
+                    Import System Data
+                </button>
+                <button class="btn btn-secondary" onclick="exportData()">Export All Data</button>
+            </div>
+            
+            <!-- Admin Actions -->
+            <div class="admin-actions">
+                <h5>⚙️ Admin Actions</h5>
+                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -573,6 +589,7 @@ This allows full access for testing. Later you can secure it properly!`;
             }
             return true;
         }
+
         async function checkUsernameExists(username) {
             const usersSnapshot = await db.collection('users').where('username', '==', username).get();
             return !usersSnapshot.empty;
@@ -587,6 +604,7 @@ This allows full access for testing. Later you can secure it properly!`;
             }
             return null;
         }
+
         async function processExcelData(data) {
             const workbook = XLSX.read(data, {type: 'array', cellDates: true});
             const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
@@ -864,210 +882,217 @@ This allows full access for testing. Later you can secure it properly!`;
         }
 
         // Enhanced admin functions for viewing trials and users
-async function viewAllTrials() {
-    try {
-        console.log('Fetching all trials...');
-        showStatus('Loading all trials from all secretaries...');
-        
-        // Get all trials (no user filter for admin)
-        const trialsSnapshot = await db.collection('trials').get();
-        
-        if (trialsSnapshot.empty) {
-            showStatus('No trials found in the system');
-            return;
-        }
-        
-        const trials = [];
-        trialsSnapshot.forEach(doc => {
-            trials.push({ id: doc.id, ...doc.data() });
-        });
-        
-        // Sort by creation date (newest first)
-        trials.sort((a, b) => {
-            const aTime = a.createdAt ? a.createdAt.seconds : 0;
-            const bTime = b.createdAt ? b.createdAt.seconds : 0;
-            return bTime - aTime;
-        });
-        
-        // Get creator information for each trial
-        const creatorIds = [...new Set(trials.map(t => t.createdBy).filter(Boolean))];
-        const creators = {};
-        
-        if (creatorIds.length > 0) {
-            const usersSnapshot = await db.collection('users').get();
-            usersSnapshot.forEach(doc => {
-                if (creatorIds.includes(doc.id)) {
-                    creators[doc.id] = doc.data();
+        async function viewAllTrials() {
+            try {
+                console.log('Fetching all trials...');
+                showStatus('Loading all trials from all secretaries...');
+                
+                // Get all trials (no user filter for admin)
+                const trialsSnapshot = await db.collection('trials').get();
+                
+                if (trialsSnapshot.empty) {
+                    showStatus('No trials found in the system');
+                    return;
                 }
-            });
-        }
-        
-        // Create detailed trial list
-        let trialList = `📊 ALL TRIALS IN SYSTEM (${trials.length} total)\n`;
-        trialList += '='.repeat(60) + '\n\n';
-        
-        trials.forEach((trial, index) => {
-            const creator = creators[trial.createdBy];
-            const creatorName = creator ? 
-                `${creator.firstName} ${creator.lastName} (${creator.username})` : 
-                'Unknown User';
-            
-            const createdDate = trial.createdAt ? 
-                new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
-                'Unknown Date';
-            
-            const firstDayDate = trial.days && trial.days[0] && trial.days[0].date ?
-                trial.days[0].date : 
-                'Date TBD';
-            
-            let totalClasses = 0;
-            let totalRounds = 0;
-            if (trial.days) {
-                trial.days.forEach(day => {
-                    if (day.classes) {
-                        totalClasses += day.classes.length;
-                        day.classes.forEach(cls => {
-                            if (cls.rounds) {
-                                totalRounds += cls.rounds.length;
+                
+                const trials = [];
+                trialsSnapshot.forEach(doc => {
+                    trials.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort by creation date (newest first)
+                trials.sort((a, b) => {
+                    const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                    const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                    return bTime - aTime;
+                });
+                
+                // Get creator information for each trial
+                const creatorIds = [...new Set(trials.map(t => t.createdBy).filter(Boolean))];
+                const creators = {};
+                
+                if (creatorIds.length > 0) {
+                    const usersSnapshot = await db.collection('users').get();
+                    usersSnapshot.forEach(doc => {
+                        if (creatorIds.includes(doc.id)) {
+                            creators[doc.id] = doc.data();
+                        }
+                    });
+                }
+                
+                // Create detailed trial list
+                let trialList = `📊 ALL TRIALS IN SYSTEM (${trials.length} total)\n`;
+                trialList += '='.repeat(60) + '\n\n';
+                
+                trials.forEach((trial, index) => {
+                    const creator = creators[trial.createdBy];
+                    const creatorName = creator ? 
+                        `${creator.firstName} ${creator.lastName} (${creator.username})` : 
+                        'Unknown User';
+                    
+                    const createdDate = trial.createdAt ? 
+                        new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
+                        'Unknown Date';
+                    
+                    const firstDayDate = trial.days && trial.days[0] && trial.days[0].date ?
+                        trial.days[0].date : 
+                        'Date TBD';
+                    
+                    let totalClasses = 0;
+                    let totalRounds = 0;
+                    if (trial.days) {
+                        trial.days.forEach(day => {
+                            if (day.classes) {
+                                totalClasses += day.classes.length;
+                                day.classes.forEach(cls => {
+                                    if (cls.rounds) {
+                                        totalRounds += cls.rounds.length;
+                                    }
+                                });
                             }
                         });
                     }
+                    
+                    trialList += `${index + 1}. ${trial.clubName}\n`;
+                    trialList += `   Trial ID: ${trial.id}\n`;
+                    trialList += `   Created by: ${creatorName}\n`;
+                    trialList += `   Created: ${createdDate}\n`;
+                    trialList += `   Trial Date: ${firstDayDate}\n`;
+                    trialList += `   Days: ${trial.days?.length || 0}\n`;
+                    trialList += `   Classes: ${totalClasses}\n`;
+                    trialList += `   Rounds: ${totalRounds}\n`;
+                    trialList += `   Location: ${trial.location || 'TBD'}\n\n`;
                 });
+                
+                alert(trialList);
+                showStatus(`Loaded ${trials.length} trials from ${creatorIds.length} different secretaries`);
+                
+            } catch (error) {
+                console.error('Error fetching all trials:', error);
+                showStatus('Error loading trials: ' + error.message, true);
             }
-            
-            trialList += `${index + 1}. ${trial.clubName}\n`;
-            trialList += `   Trial ID: ${trial.id}\n`;
-            trialList += `   Created by: ${creatorName}\n`;
-            trialList += `   Created: ${createdDate}\n`;
-            trialList += `   Trial Date: ${firstDayDate}\n`;
-            trialList += `   Days: ${trial.days?.length || 0}\n`;
-            trialList += `   Classes: ${totalClasses}\n`;
-            trialList += `   Rounds: ${totalRounds}\n`;
-            trialList += `   Location: ${trial.location || 'TBD'}\n\n`;
-        });
-        
-        alert(trialList);
-        showStatus(`Loaded ${trials.length} trials from ${creatorIds.length} different secretaries`);
-        
-    } catch (error) {
-        console.error('Error fetching all trials:', error);
-        showStatus('Error loading trials: ' + error.message, true);
-    }
-}
+        }
 
-async function viewAllUsersEnhanced() {
-    try {
-        console.log('Fetching all users with trial statistics...');
-        showStatus('Loading users and trial statistics...');
-        
-        // Get all users
-        const usersSnapshot = await db.collection('users').get();
-        const users = [];
-        usersSnapshot.forEach(doc => {
-            users.push({ id: doc.id, ...doc.data() });
-        });
-        
-        // Get all trials to count by creator
-        const trialsSnapshot = await db.collection('trials').get();
-        const trialCounts = {};
-        trialsSnapshot.forEach(doc => {
-            const trial = doc.data();
-            const creatorId = trial.createdBy;
-            if (creatorId) {
-                trialCounts[creatorId] = (trialCounts[creatorId] || 0) + 1;
+        async function viewAllUsersEnhanced() {
+            try {
+                console.log('Fetching all users with trial statistics...');
+                showStatus('Loading users and trial statistics...');
+                
+                // Get all users
+                const usersSnapshot = await db.collection('users').get();
+                const users = [];
+                usersSnapshot.forEach(doc => {
+                    users.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Get all trials to count by creator
+                const trialsSnapshot = await db.collection('trials').get();
+                const trialCounts = {};
+                trialsSnapshot.forEach(doc => {
+                    const trial = doc.data();
+                    const creatorId = trial.createdBy;
+                    if (creatorId) {
+                        trialCounts[creatorId] = (trialCounts[creatorId] || 0) + 1;
+                    }
+                });
+                
+                // Create enhanced user list
+                let userList = `👥 ALL SYSTEM USERS (${users.length} total)\n`;
+                userList += '='.repeat(50) + '\n\n';
+                
+                users.forEach((user, index) => {
+                    const trialCount = trialCounts[user.id] || 0;
+                    const createdDate = user.createdAt ? 
+                        new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 
+                        'Unknown';
+                    
+                    userList += `${index + 1}. ${user.firstName} ${user.lastName}\n`;
+                    userList += `   Username: ${user.username}\n`;
+                    userList += `   Role: ${user.role}\n`;
+                    userList += `   Club: ${user.clubName || 'N/A'}\n`;
+                    userList += `   Email: ${user.email || 'Not provided'}\n`;
+                    userList += `   Trials Created: ${trialCount}\n`;
+                    userList += `   Joined: ${createdDate}\n`;
+                    userList += `   Status: ${user.isActive ? 'Active' : 'Inactive'}\n\n`;
+                });
+                
+                alert(userList);
+                showStatus(`Loaded ${users.length} users. Total trials in system: ${trialsSnapshot.size}`);
+                
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                showStatus('Error loading users: ' + error.message, true);
             }
-        });
-        
-        // Create enhanced user list
-        let userList = `👥 ALL SYSTEM USERS (${users.length} total)\n`;
-        userList += '='.repeat(50) + '\n\n';
-        
-        users.forEach((user, index) => {
-            const trialCount = trialCounts[user.id] || 0;
-            const createdDate = user.createdAt ? 
-                new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 
-                'Unknown';
-            
-            userList += `${index + 1}. ${user.firstName} ${user.lastName}\n`;
-            userList += `   Username: ${user.username}\n`;
-            userList += `   Role: ${user.role}\n`;
-            userList += `   Club: ${user.clubName || 'N/A'}\n`;
-            userList += `   Email: ${user.email || 'Not provided'}\n`;
-            userList += `   Trials Created: ${trialCount}\n`;
-            userList += `   Joined: ${createdDate}\n`;
-            userList += `   Status: ${user.isActive ? 'Active' : 'Inactive'}\n\n`;
-        });
-        
-        alert(userList);
-        showStatus(`Loaded ${users.length} users. Total trials in system: ${trialsSnapshot.size}`);
-        
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        showStatus('Error loading users: ' + error.message, true);
-    }
-}
+        }
 
-async function viewSystemStatistics() {
-    try {
-        showStatus('Generating system statistics...');
-        
-        const [usersSnapshot, trialsSnapshot, entriesSnapshot, scoresSnapshot] = await Promise.all([
-            db.collection('users').get(),
-            db.collection('trials').get(),
-            db.collection('entries').get(),
-            db.collection('scores').get()
-        ]);
-        
-        const stats = {
-            totalUsers: usersSnapshot.size,
-            totalTrials: trialsSnapshot.size,
-            totalEntries: entriesSnapshot.size,
-            totalScores: scoresSnapshot.size,
-            usersByRole: {},
-            trialsByMonth: {},
-            mostActiveSecretaries: {}
-        };
-        
-        // Analyze users by role
-        usersSnapshot.forEach(doc => {
-            const user = doc.data();
-            stats.usersByRole[user.role] = (stats.usersByRole[user.role] || 0) + 1;
-        });
-        
-        // Analyze trials by month
-        trialsSnapshot.forEach(doc => {
-            const trial = doc.data();
-            if (trial.createdAt) {
-                const date = new Date(trial.createdAt.seconds * 1000);
-                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                stats.trialsByMonth[monthKey] = (stats.trialsByMonth[monthKey] || 0) + 1;
+        async function viewSystemStatistics() {
+            try {
+                showStatus('Generating system statistics...');
+                
+                const [usersSnapshot, trialsSnapshot, entriesSnapshot, scoresSnapshot] = await Promise.all([
+                    db.collection('users').get(),
+                    db.collection('trials').get(),
+                    db.collection('entries').get(),
+                    db.collection('scores').get()
+                ]);
+                
+                const stats = {
+                    totalUsers: usersSnapshot.size,
+                    totalTrials: trialsSnapshot.size,
+                    totalEntries: entriesSnapshot.size,
+                    totalScores: scoresSnapshot.size,
+                    usersByRole: {},
+                    trialsByMonth: {},
+                    mostActiveSecretaries: {}
+                };
+                
+                // Analyze users by role
+                usersSnapshot.forEach(doc => {
+                    const user = doc.data();
+                    stats.usersByRole[user.role] = (stats.usersByRole[user.role] || 0) + 1;
+                });
+                
+                // Analyze trials by month
+                trialsSnapshot.forEach(doc => {
+                    const trial = doc.data();
+                    if (trial.createdAt) {
+                        const date = new Date(trial.createdAt.seconds * 1000);
+                        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        stats.trialsByMonth[monthKey] = (stats.trialsByMonth[monthKey] || 0) + 1;
+                    }
+                });
+                
+                let statsText = `📈 SYSTEM STATISTICS\n`;
+                statsText += '='.repeat(40) + '\n\n';
+                statsText += `Total Users: ${stats.totalUsers}\n`;
+                statsText += `Total Trials: ${stats.totalTrials}\n`;
+                statsText += `Total Entries: ${stats.totalEntries}\n`;
+                statsText += `Total Scores: ${stats.totalScores}\n\n`;
+                
+                statsText += `Users by Role:\n`;
+                Object.entries(stats.usersByRole).forEach(([role, count]) => {
+                    statsText += `  ${role}: ${count}\n`;
+                });
+                
+                statsText += `\nTrials by Month:\n`;
+                Object.entries(stats.trialsByMonth)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .forEach(([month, count]) => {
+                        statsText += `  ${month}: ${count}\n`;
+                    });
+                
+                alert(statsText);
+                showStatus('System statistics generated successfully');
+                
+            } catch (error) {
+                console.error('Error generating statistics:', error);
+                showStatus('Error generating statistics: ' + error.message, true);
             }
-        });
-        
-        let statsText = `📈 SYSTEM STATISTICS\n`;
-        statsText += '='.repeat(40) + '\n\n';
-        statsText += `Total Users: ${stats.totalUsers}\n`;
-        statsText += `Total Trials: ${stats.totalTrials}\n`;
-        statsText += `Total Entries: ${stats.totalEntries}\n`;
-        statsText += `Total Scores: ${stats.totalScores}\n\n`;
-        
-        statsText += `Users by Role:\n`;
-        Object.entries(stats.usersByRole).forEach(([role, count]) => {
-            statsText += `  ${role}: ${count}\n`;
-        });
-        
-        statsText += `\nTrials by Month:\n`;
-        Object.entries(stats.trialsByMonth)
-            .sort(([a], [b]) => b.localeCompare(a))
-            .forEach(([month, count]) => {
-                statsText += `  ${month}: ${count}\n`;
-            });
-        
-        alert(statsText);
-        showStatus('System statistics generated successfully');
-        
-    } catch (error) {
-        console.error('Error generating statistics:', error
+        }
+
+        // Keep the existing viewAllUsers for backward compatibility
+        async function viewAllUsers() {
+            await viewAllUsersEnhanced();
         }
 
         async function exportData() {
