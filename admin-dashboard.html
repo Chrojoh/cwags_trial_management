@@ -438,7 +438,10 @@
                     if (userDoc.exists) {
                         currentUser = { uid: user.uid, ...userDoc.data() };
                         console.log('Admin dashboard: User profile loaded:', currentUser);
-                        
+                           function updateUserInfo() {
+            document.getElementById('userInfo').textContent = 
+                `${currentUser.firstName || ''} ${currentUser.lastName || ''} • Administrator`;
+        }
                         // Check if user is admin
                         if (currentUser.role !== 'administrator') {
                             console.warn('Admin dashboard: Access denied for role:', currentUser.role);
@@ -466,10 +469,7 @@
             }
         });
 
-        function updateUserInfo() {
-            document.getElementById('userInfo').textContent = 
-                `${currentUser.firstName || ''} ${currentUser.lastName || ''} • Administrator`;
-        }
+     
 
         async function loadAllData() {
             try {
