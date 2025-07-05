@@ -1515,29 +1515,30 @@ function getRoundKeyIndices(roundKey) {
                             <option value="X" ${participantScores.scent4 === 'X' ? 'selected' : ''}>X</option>
                         </select>
                     </td>
-                    <td class="fault-cell">
-                        <input type="text" value="${participantScores.fault1 || ''}" 
-                               onchange="updateScore('${participant.id}', 'fault1', this.value)"
-                               placeholder="Fault description">
-                    </td>
-                    <td class="fault-cell">
-                        <input type="text" value="${participantScores.fault2 || ''}" 
-                               onchange="updateScore('${participant.id}', 'fault2', this.value)"
-                               placeholder="Fault description">
-                    </td>
-                    <td class="time-cell">
-                        <input type="text" value="${participantScores.time || ''}" 
-                               onchange="updateScore('${participant.id}', 'time', this.value)"
-                               placeholder="0:00">
-                    </td>
-                    <td class="passfail-cell">
-                        <select onchange="updateScore('${participant.id}', 'passFail', this.value)">
-                            <option value="">-</option>
-                            <option value="Pass" ${participantScores.passFail === 'Pass' ? 'selected' : ''}>Pass</option>
-                            <option value="Fail" ${participantScores.passFail === 'Fail' ? 'selected' : ''}>Fail</option>
-                        </select>
-                    </td>
-                `;
+                   const faultAndPassFailCells = `
+<td class="fault-cell">
+    <input type="text" value="${participantScores.fault1 || ''}" 
+           onchange="updateScore('${participant.id}', 'fault1', this.value)"
+           placeholder="">
+</td>
+<td class="fault-cell">
+    <input type="text" value="${participantScores.fault2 || ''}" 
+           onchange="updateScore('${participant.id}', 'fault2', this.value)"
+           placeholder="">
+</td>
+<td class="time-cell">
+    <input type="text" value="${participantScores.time || ''}" 
+           onchange="updateScore('${participant.id}', 'time', this.value)"
+           placeholder="0:00">
+</td>
+<td class="passfail-cell">
+    <select onchange="updateScore('${participant.id}', 'passFail', this.value)">
+        <option value="" ${!participantScores.passFail || participantScores.passFail === '' ? 'selected' : ''}>-</option>
+        <option value="Pass" ${participantScores.passFail === 'Pass' ? 'selected' : ''}>Pass</option>
+        <option value="Fail" ${participantScores.passFail === 'Fail' ? 'selected' : ''}>Fail</option>
+    </select>
+</td>
+`;
                 
                 tbody.appendChild(row);
             });
