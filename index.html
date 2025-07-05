@@ -938,16 +938,10 @@ This allows full access for testing. Later you can secure it properly!`;
                         role: selectedRole 
                     };
                     
-                    if (selectedRole === 'administrator') {
-                        setTimeout(() => {
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('adminPanel').classList.add('active');
-                        }, 1500);
-                    } else {
-                        setTimeout(() => {
-                            redirectToDashboard(selectedRole);
-                        }, 1500);
-                    }
+     // All roles now redirect to their respective dashboards
+setTimeout(() => {
+    redirectToDashboard(userData.role);
+}, 1500);
                 }
             } catch (error) {
                 console.error('Authentication error:', error);
