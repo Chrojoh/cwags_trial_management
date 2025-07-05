@@ -609,33 +609,56 @@ function showStatus(message, isError = false) {
     }
 }
 
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-            const authBtn = document.getElementById('authBtn');
-            const authToggleText = document.getElementById('authToggleText');
-            const additionalFields = ['firstNameGroup', 'lastNameGroup', 'emailGroup'];
+       // Safe toggleAuthMode function
+function toggleAuthMode() {
+    isLoginMode = !isLoginMode;
+    const authBtn = document.getElementById('authBtn');
+    const authToggleText = document.getElementById('authToggleText');
+    const additionalFields = ['firstNameGroup', 'lastNameGroup', 'emailGroup'];
+    
+    if (authBtn && authToggleText) {
+        if (isLoginMode) {
+            authBtn.textContent = 'Log In';
+            authToggleText.textContent = "Don't have an account?";
             
-            if (isLoginMode) {
-                authBtn.textContent = 'Log In';
-                authToggleText.textContent = "Don't have an account?";
-                document.querySelector('.toggle-auth a').textContent = 'Sign Up';
-                additionalFields.forEach(id => {
-                    document.getElementById(id).style.display = 'none';
-                });
-            } else {
-                authBtn.textContent = 'Sign Up';
-                authToggleText.textContent = 'Already have an account?';
-                document.querySelector('.toggle-auth a').textContent = 'Log In';
-                additionalFields.forEach(id => {
-                    document.getElementById(id).style.display = 'block';
-                });
-                
-                // Show club name for trial secretary
-                if (selectedRole === 'trial_secretary') {
-                    document.getElementById('clubNameGroup').style.display = 'block';
+            const toggleLink = document.querySelector('.toggle-auth a');
+            if (toggleLink) {
+                toggleLink.textContent = 'Sign Up';
+            }
+            
+            additionalFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = 'none';
+                }
+            });
+        } else {
+            authBtn.textContent = 'Sign Up';
+            authToggleText.textContent = 'Already have an account?';
+            
+            const toggleLink = document.querySelector('.toggle-auth a');
+            if (toggleLink) {
+                toggleLink.textContent = 'Log In';
+            }
+            
+            additionalFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = 'block';
+                }
+            });
+            
+            // Show club name for trial secretary
+            if (selectedRole === 'trial_secretary') {
+                const clubNameGroup = document.getElementById('clubNameGroup');
+                if (clubNameGroup) {
+                    clubNameGroup.style.display = 'block';
                 }
             }
         }
+    }
+}
+
 
         // Helper function to generate temporary email for Firebase Auth
         function generateTempEmail(username) {
