@@ -948,11 +948,10 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         });
 
-       // Redirect to appropriate dashboard
-// Redirect to appropriate dashboard - FIXED VERSION
-function redirectToDashboard(role) {
-    switch(role) {
-        case 'administrator':
+      // Redirect to appropriate dashboard - FIXED VERSION
+        function redirectToDashboard(role) {
+            switch(role) {
+            case 'administrator':
             showStatus('Redirecting to Admin Dashboard...');
             setTimeout(() => {
                 window.location.href = 'admin-dashboard.html';
