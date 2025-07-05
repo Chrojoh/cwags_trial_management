@@ -428,32 +428,39 @@
         let allUsers = [];
         let currentTab = 'trials';
 
-        // Authentication check
+        // Authentication check with better error handling
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 try {
+                    console.log('Admin dashboard: User authenticated:', user.email);
                     const userDoc = await db.collection('users').doc(user.uid).get();
                     if (userDoc.exists) {
                         currentUser = { uid: user.uid, ...userDoc.data() };
+                        console.log('Admin dashboard: User profile loaded:', currentUser);
                         
                         // Check if user is admin
                         if (currentUser.role !== 'administrator') {
+                            console.warn('Admin dashboard: Access denied for role:', currentUser.role);
                             showStatus('Access denied. Administrator role required.', 'error');
-                            setTimeout(() => window.location.href = 'index.html', 2000);
+                            setTimeout(() => window.location.href = 'index.html', 3000);
                             return;
                         }
 
+                        console.log('Admin dashboard: Admin access granted');
                         updateUserInfo();
                         await loadAllData();
                     } else {
-                        throw new Error('User profile not found');
+                        console.error('Admin dashboard: User profile not found');
+                        showStatus('User profile not found. Please contact administrator.', 'error');
+                        setTimeout(() => window.location.href = 'index.html', 3000);
                     }
                 } catch (error) {
-                    console.error('Error loading user profile:', error);
+                    console.error('Admin dashboard: Error loading user profile:', error);
                     showStatus('Error loading profile: ' + error.message, 'error');
-                    setTimeout(() => window.location.href = 'index.html', 2000);
+                    setTimeout(() => window.location.href = 'index.html', 3000);
                 }
             } else {
+                console.log('Admin dashboard: No authenticated user, redirecting to login');
                 window.location.href = 'index.html';
             }
         });
