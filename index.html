@@ -848,15 +848,14 @@ This allows full access for testing. Later you can secure it properly!`;
                     showStatus(`Welcome back, ${userData.firstName || userData.username}!`);
                     
                     if (userData.role === 'administrator') {
-                        setTimeout(() => {
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('adminPanel').classList.add('active');
-                        }, 1500);
-                    } else {
-                        setTimeout(() => {
-                            redirectToDashboard(userData.role);
-                        }, 1500);
-                    }
+    setTimeout(() => {
+        redirectToDashboard(userData.role);  // <-- Changed this line
+    }, 1500);
+} else {
+    setTimeout(() => {
+        redirectToDashboard(userData.role);
+    }, 1500);
+}
                 } else {
                     // Registration logic with username
                     const email = document.getElementById('email').value;
