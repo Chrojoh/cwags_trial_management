@@ -1258,31 +1258,7 @@ Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
         }
     }
 }); // <-- Make sure this closing bracket and parenthesis are here
-                                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                                    const day = currentTrial.days[dayIndex];
-                                    const cls = day?.classes[classIndex];
-                                    const round = cls?.rounds[roundIndex];
-
-                                    if (day && cls && round && entryIds && entryIds.length > 0) {
-                                        const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
-                                        
-                                        // Check if this round matches our selected class
-                                        if (roundClassName && roundClassName.trim() === className.trim()) {
-                                            // Build participants list from entryIds
-                                            const participants = [];
-                                            entryIds.forEach(entryId => {
-                                                const [docId] = entryId.split('_');
-                                                const entry = entryMap[docId];
-                                                if (entry) {
-                                                    participants.push({
-                                                        id: entryId,
-                                                        handlerName: entry.handlerName || 'Unknown Handler',
-                                                        dogCallName: entry.dogCallName || 'Unknown',
-                                                        cwagsNumber: entry.cwagsNumber || 'TBD'
-                                                    });
-                                                }
-                                            });
-
+                                  
                                             if (participants.length > 0) {
                                                 rounds.push({
                                                     roundKey: roundKey,
