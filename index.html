@@ -517,17 +517,27 @@
         let isLoginMode = true;
         let currentUser = null;
 
-        // Show status messages
-        function showStatus(message, isError = false) {
-            const statusDiv = document.getElementById('statusMessage');
-            statusDiv.textContent = message;
-            statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
-            statusDiv.style.display = 'block';
-            
-            setTimeout(() => {
+        // Show status messages - FIXED VERSION with null check
+function showStatus(message, isError = false) {
+    const statusDiv = document.getElementById('statusMessage');
+    
+    // Add null check to prevent the error
+    if (statusDiv) {
+        statusDiv.textContent = message;
+        statusDiv.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+        statusDiv.style.display = 'block';
+        
+        setTimeout(() => {
+            // Check again in case element was removed during timeout
+            if (statusDiv && statusDiv.parentNode) {
                 statusDiv.style.display = 'none';
-            }, 5000);
-        }
+            }
+        }, 5000);
+    } else {
+        // Fallback if statusMessage element doesn't exist
+        console.log(`[${isError ? 'ERROR' : 'SUCCESS'}] ${message}`);
+    }
+}
 
         // Role selection
         function selectRole(role) {
