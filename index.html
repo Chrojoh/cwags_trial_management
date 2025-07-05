@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dog Trialing System - Login</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>">
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -366,7 +366,7 @@
                 
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" required>
+                    <input type="password" id="password" required autocomplete="current-password">
                 </div>
 
                 <!-- Additional fields for trial secretary registration -->
@@ -435,10 +435,10 @@
                 </div>
                 
                 <div class="overview-tabs">
-                    <button class="tab-btn active" onclick="switchOverviewTab('all')">All Trials</button>
-                    <button class="tab-btn" onclick="switchOverviewTab('active')">Active Trials</button>
-                    <button class="tab-btn" onclick="switchOverviewTab('completed')">Completed Trials</button>
-                    <button class="tab-btn" onclick="switchOverviewTab('by-secretary')">By Secretary</button>
+                    <button class="tab-btn active" onclick="switchOverviewTab(event, 'all')">All Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'active')">Active Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'completed')">Completed Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'by-secretary')">By Secretary</button>
                 </div>
                 
                 <div class="overview-content">
@@ -939,7 +939,7 @@ This allows full access for testing. Later you can secure it properly!`;
                 await loadOverviewData();
                 
                 // Switch to default tab
-                switchOverviewTab('all');
+                switchOverviewTab(null, 'all');
                 
                 showStatus('Trial overview dashboard loaded successfully');
             } catch (error) {
@@ -1005,12 +1005,21 @@ This allows full access for testing. Later you can secure it properly!`;
             document.getElementById('totalEntriesCount').textContent = totalEntries;
         }
 
-        function switchOverviewTab(tabType) {
+        function switchOverviewTab(event, tabType) {
             currentOverviewTab = tabType;
             
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If no event (programmatic call), find and activate the correct button
+                const buttons = document.querySelectorAll('.tab-btn');
+                const tabIndex = ['all', 'active', 'completed', 'by-secretary'].indexOf(tabType);
+                if (tabIndex >= 0 && buttons[tabIndex]) {
+                    buttons[tabIndex].classList.add('active');
+                }
+            }
             
             // Filter and display trials based on tab
             let filteredTrials = [];
