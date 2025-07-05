@@ -359,18 +359,40 @@
                 </small>
             </div>
 
-            <div class="excel-upload">
-                <h5>📊 System Data Management</h5>
-                <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
-                <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
-                    Import System Data
-                </button>
-            </div>
-
-            <button class="btn" onclick="viewAllUsers()">View All Users</button>
-            <button class="btn" onclick="exportData()">Export All Data</button>
-            <button class="btn btn-secondary" onclick="logout()">Logout</button>
-        </div>
+           <div class="admin-panel" id="adminPanel">
+    <h4>👑 Administrator Dashboard</h4>
+    
+    <!-- Password Reset Section -->
+    <div class="password-reset">
+        <h5>🔑 Password Reset</h5>
+        <input type="text" id="resetUsername" placeholder="Username">
+        <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
+    </div>
+    
+    <!-- NEW: System Overview Section -->
+    <div class="admin-section">
+        <h5>📊 System Overview</h5>
+        <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials</button>
+        <button class="btn btn-info" onclick="viewAllUsersEnhanced()">View All Users</button>
+        <button class="btn btn-success" onclick="viewSystemStatistics()">System Statistics</button>
+    </div>
+    
+    <!-- System Data Management Section -->
+    <div class="excel-upload">
+        <h5>📊 System Data Management</h5>
+        <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
+        <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
+            Import System Data
+        </button>
+        <button class="btn btn-secondary" onclick="exportData()">Export All Data</button>
+    </div>
+    
+    <!-- Admin Actions -->
+    <div class="admin-actions">
+        <h5>⚙️ Admin Actions</h5>
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+    </div>
+</div>
     </div>
 
     <script>
