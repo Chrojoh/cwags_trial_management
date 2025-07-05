@@ -808,37 +808,211 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         }
 
-        async function viewAllUsers() {
-            try {
-                console.log('Fetching all users...');
-                showStatus('Loading users...');
-                
-                const usersSnapshot = await db.collection('users').get();
-                const users = [];
-                
-                usersSnapshot.forEach(doc => {
-                    users.push({ id: doc.id, ...doc.data() });
-                });
-                
-                console.log('All users:', users);
-                
-                // Create a simple display of users
-                let userList = 'System Users:\n\n';
-                users.forEach(user => {
-                    userList += `${user.firstName} ${user.lastName}\n`;
-                    userList += `Username: ${user.username}\n`;
-                    userList += `Role: ${user.role}\n`;
-                    userList += `Club: ${user.clubName || 'N/A'}\n`;
-                    userList += `Email: ${user.email || 'Not provided'}\n\n`;
-                });
-                
-                showStatus('User list generated');
-                alert(userList);
-            } catch (error) {
-                console.error('Error fetching users:', error);
-                showStatus('Error fetching users: ' + error.message, true);
-            }
+        // Enhanced admin functions for viewing trials and users
+async function viewAllTrials() {
+    try {
+        console.log('Fetching all trials...');
+        showStatus('Loading all trials from all secretaries...');
+        
+        // Get all trials (no user filter for admin)
+        const trialsSnapshot = await db.collection('trials').get();
+        
+        if (trialsSnapshot.empty) {
+            showStatus('No trials found in the system');
+            return;
         }
+        
+        const trials = [];
+        trialsSnapshot.forEach(doc => {
+            trials.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort by creation date (newest first)
+        trials.sort((a, b) => {
+            const aTime = a.createdAt ? a.createdAt.seconds : 0;
+            const bTime = b.createdAt ? b.createdAt.seconds : 0;
+            return bTime - aTime;
+        });
+        
+        // Get creator information for each trial
+        const creatorIds = [...new Set(trials.map(t => t.createdBy).filter(Boolean))];
+        const creators = {};
+        
+        if (creatorIds.length > 0) {
+            const usersSnapshot = await db.collection('users').get();
+            usersSnapshot.forEach(doc => {
+                if (creatorIds.includes(doc.id)) {
+                    creators[doc.id] = doc.data();
+                }
+            });
+        }
+        
+        // Create detailed trial list
+        let trialList = `📊 ALL TRIALS IN SYSTEM (${trials.length} total)\n`;
+        trialList += '='.repeat(60) + '\n\n';
+        
+        trials.forEach((trial, index) => {
+            const creator = creators[trial.createdBy];
+            const creatorName = creator ? 
+                `${creator.firstName} ${creator.lastName} (${creator.username})` : 
+                'Unknown User';
+            
+            const createdDate = trial.createdAt ? 
+                new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
+                'Unknown Date';
+            
+            const firstDayDate = trial.days && trial.days[0] && trial.days[0].date ?
+                trial.days[0].date : 
+                'Date TBD';
+            
+            let totalClasses = 0;
+            let totalRounds = 0;
+            if (trial.days) {
+                trial.days.forEach(day => {
+                    if (day.classes) {
+                        totalClasses += day.classes.length;
+                        day.classes.forEach(cls => {
+                            if (cls.rounds) {
+                                totalRounds += cls.rounds.length;
+                            }
+                        });
+                    }
+                });
+            }
+            
+            trialList += `${index + 1}. ${trial.clubName}\n`;
+            trialList += `   Trial ID: ${trial.id}\n`;
+            trialList += `   Created by: ${creatorName}\n`;
+            trialList += `   Created: ${createdDate}\n`;
+            trialList += `   Trial Date: ${firstDayDate}\n`;
+            trialList += `   Days: ${trial.days?.length || 0}\n`;
+            trialList += `   Classes: ${totalClasses}\n`;
+            trialList += `   Rounds: ${totalRounds}\n`;
+            trialList += `   Location: ${trial.location || 'TBD'}\n\n`;
+        });
+        
+        alert(trialList);
+        showStatus(`Loaded ${trials.length} trials from ${creatorIds.length} different secretaries`);
+        
+    } catch (error) {
+        console.error('Error fetching all trials:', error);
+        showStatus('Error loading trials: ' + error.message, true);
+    }
+}
+
+async function viewAllUsersEnhanced() {
+    try {
+        console.log('Fetching all users with trial statistics...');
+        showStatus('Loading users and trial statistics...');
+        
+        // Get all users
+        const usersSnapshot = await db.collection('users').get();
+        const users = [];
+        usersSnapshot.forEach(doc => {
+            users.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Get all trials to count by creator
+        const trialsSnapshot = await db.collection('trials').get();
+        const trialCounts = {};
+        trialsSnapshot.forEach(doc => {
+            const trial = doc.data();
+            const creatorId = trial.createdBy;
+            if (creatorId) {
+                trialCounts[creatorId] = (trialCounts[creatorId] || 0) + 1;
+            }
+        });
+        
+        // Create enhanced user list
+        let userList = `👥 ALL SYSTEM USERS (${users.length} total)\n`;
+        userList += '='.repeat(50) + '\n\n';
+        
+        users.forEach((user, index) => {
+            const trialCount = trialCounts[user.id] || 0;
+            const createdDate = user.createdAt ? 
+                new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 
+                'Unknown';
+            
+            userList += `${index + 1}. ${user.firstName} ${user.lastName}\n`;
+            userList += `   Username: ${user.username}\n`;
+            userList += `   Role: ${user.role}\n`;
+            userList += `   Club: ${user.clubName || 'N/A'}\n`;
+            userList += `   Email: ${user.email || 'Not provided'}\n`;
+            userList += `   Trials Created: ${trialCount}\n`;
+            userList += `   Joined: ${createdDate}\n`;
+            userList += `   Status: ${user.isActive ? 'Active' : 'Inactive'}\n\n`;
+        });
+        
+        alert(userList);
+        showStatus(`Loaded ${users.length} users. Total trials in system: ${trialsSnapshot.size}`);
+        
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        showStatus('Error loading users: ' + error.message, true);
+    }
+}
+
+async function viewSystemStatistics() {
+    try {
+        showStatus('Generating system statistics...');
+        
+        const [usersSnapshot, trialsSnapshot, entriesSnapshot, scoresSnapshot] = await Promise.all([
+            db.collection('users').get(),
+            db.collection('trials').get(),
+            db.collection('entries').get(),
+            db.collection('scores').get()
+        ]);
+        
+        const stats = {
+            totalUsers: usersSnapshot.size,
+            totalTrials: trialsSnapshot.size,
+            totalEntries: entriesSnapshot.size,
+            totalScores: scoresSnapshot.size,
+            usersByRole: {},
+            trialsByMonth: {},
+            mostActiveSecretaries: {}
+        };
+        
+        // Analyze users by role
+        usersSnapshot.forEach(doc => {
+            const user = doc.data();
+            stats.usersByRole[user.role] = (stats.usersByRole[user.role] || 0) + 1;
+        });
+        
+        // Analyze trials by month
+        trialsSnapshot.forEach(doc => {
+            const trial = doc.data();
+            if (trial.createdAt) {
+                const date = new Date(trial.createdAt.seconds * 1000);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                stats.trialsByMonth[monthKey] = (stats.trialsByMonth[monthKey] || 0) + 1;
+            }
+        });
+        
+        let statsText = `📈 SYSTEM STATISTICS\n`;
+        statsText += '='.repeat(40) + '\n\n';
+        statsText += `Total Users: ${stats.totalUsers}\n`;
+        statsText += `Total Trials: ${stats.totalTrials}\n`;
+        statsText += `Total Entries: ${stats.totalEntries}\n`;
+        statsText += `Total Scores: ${stats.totalScores}\n\n`;
+        
+        statsText += `Users by Role:\n`;
+        Object.entries(stats.usersByRole).forEach(([role, count]) => {
+            statsText += `  ${role}: ${count}\n`;
+        });
+        
+        statsText += `\nTrials by Month:\n`;
+        Object.entries(stats.trialsByMonth)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .forEach(([month, count]) => {
+                statsText += `  ${month}: ${count}\n`;
+            });
+        
+        alert(statsText);
+        showStatus('System statistics generated successfully');
+        
+    } catch (error) {
+        console.error('Error generating statistics:', error
 
         async function exportData() {
             try {
