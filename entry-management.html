@@ -484,68 +484,68 @@ const CWAGS_CLASS_ORDER = [
             }
         }
 
-        // Load all trials and entries
-        async function loadTrialsAndEntries() {
-            try {
-                showStatus('Loading trials and entries...', 'info');
+       // Load trials for the dropdown
+async function loadTrials() {
+    try {
+        showStatus('Loading your trials...', 'info');
 
-                // Load trials
-                const trialsSnapshot = await db.collection('trials')
-                    .where('createdBy', '==', currentUser.uid)
-                    .get();
+        const trialsSnapshot = await db.collection("trials")
+            .where("createdBy", "==", currentUser.uid)
+            .get();
 
-                allTrials = [];
-                if (!trialsSnapshot.empty) {
-                    trialsSnapshot.forEach(doc => {
-                        allTrials.push({ id: doc.id, ...doc.data() });
-                    });
+        const trialSelect = document.getElementById('trialSelect');
+        trialSelect.innerHTML = '<option value="">Select a trial...</option>';
 
-                    // Sort by creation date
-                    allTrials.sort((a, b) => {
-                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                        return bTime - aTime;
-                    });
-                }
+        if (!trialsSnapshot.empty) {
+            const trials = [];
+            trialsSnapshot.forEach(doc => {
+                trials.push({ id: doc.id, ...doc.data() });
+            });
 
-                // Load all entries for these trials
-                allEntries = [];
-                if (allTrials.length > 0) {
-                    const trialIds = allTrials.map(t => t.id);
-                    
-                    // Load entries in batches (Firestore 'in' limit is 10)
-                    for (let i = 0; i < trialIds.length; i += 10) {
-                        const batch = trialIds.slice(i, i + 10);
-                        const entriesSnapshot = await db.collection('entries')
-                            .where('trialId', 'in', batch)
-                            .get();
-                        
-                        entriesSnapshot.forEach(doc => {
-                            allEntries.push({ id: doc.id, ...doc.data() });
-                        });
+            trials.sort((a, b) => {
+                const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                return bTime - aTime;
+            });
+
+            trials.forEach(trial => {
+                const option = document.createElement('option');
+                option.value = trial.id;
+                
+                // Start with club name
+                let trialLabel = trial.clubName || 'Unnamed Trial';
+                
+                // Add dates if available using timezone-safe formatting
+                if (trial.days && trial.days.length > 0) {
+                    const dates = trial.days
+                        .filter(day => day.date)
+                        .map(day => {
+                            const localDate = createLocalDate(day.date);
+                            return localDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                            });
+                        })
+                        .join(', ');
+                    if (dates) {
+                        trialLabel += ` (${dates})`;
                     }
                 }
-
-                document.getElementById('loadingState').style.display = 'none';
                 
-                if (allTrials.length === 0) {
-                    document.getElementById('trialsContent').innerHTML = 
-                        '<div class="no-entries">No trials found. Create a trial first to manage entries.</div>';
-                    showStatus('No trials found', 'info');
-                } else {
-                    renderTrialTabs();
-                    renderTrialContent();
-                    showStatus(`Loaded ${allTrials.length} trials with ${allEntries.length} total entries`, 'success');
-                }
+                option.textContent = trialLabel;
+                trialSelect.appendChild(option);
+            });
 
-            } catch (error) {
-                console.error('Error loading data:', error);
-                showStatus('Error loading data: ' + error.message, 'error');
-                document.getElementById('loadingState').innerHTML = 
-                    '<div class="no-entries">Error loading data. Please refresh the page.</div>';
-            }
+            showStatus(`Found ${trials.length} trials`, 'success');
+        } else {
+            showStatus('No trials found', 'error');
         }
-
+    } catch (error) {
+        console.error('Error loading trials:', error);
+        showStatus('Error loading trials: ' + error.message, 'error');
+    }
+}
         // Render trial tabs
         function renderTrialTabs() {
             const tabsContainer = document.getElementById('trialTabsContainer');
