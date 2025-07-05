@@ -1583,6 +1583,80 @@ This allows full access for testing. Later you can secure it properly!`;
                 ]
             }
         };
+
+        // Admin login functions - ADD THESE AT THE END OF YOUR SCRIPT
+function showAdminLogin() {
+    document.getElementById('roleSelection').style.display = 'none';
+    document.getElementById('adminLoginForm').style.display = 'block';
+}
+
+function hideAdminLogin() {
+    document.getElementById('adminLoginForm').style.display = 'none';
+    document.getElementById('roleSelection').style.display = 'block';
+    
+    // Clear admin form
+    document.getElementById('adminAuthForm').reset();
+    document.getElementById('statusMessage').style.display = 'none';
+}
+
+// Admin authentication form handler
+document.getElementById('adminAuthForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!checkFirebaseConnection()) return;
+    
+    const username = document.getElementById('adminUsername').value.toLowerCase().trim();
+    const password = document.getElementById('adminPassword').value;
+    
+    if (!username || !password) {
+        showStatus('Please enter both username and password', true);
+        return;
+    }
+    
+    try {
+        console.log('Attempting admin login for username:', username);
+        showStatus('Verifying administrator credentials...');
+        
+        // Find user by username
+        const userData = await findUserByUsername(username);
+        if (!userData) {
+            throw new Error('Administrator not found. Please check your credentials.');
+        }
+        
+        // Verify user is actually an admin
+        if (userData.role !== 'administrator') {
+            throw new Error('Access denied. Administrator privileges required.');
+        }
+        
+        // Use the temporary email for Firebase auth
+        const tempEmail = generateTempEmail(username);
+        const userCredential = await auth.signInWithEmailAndPassword(tempEmail, password);
+        const user = userCredential.user;
+        
+        currentUser = { ...user, ...userData };
+        
+        console.log('Admin login successful:', userData);
+        showStatus(`Welcome, Administrator ${userData.firstName || userData.username}!`);
+        
+        // Redirect to admin dashboard
+        setTimeout(() => {
+            window.location.href = 'admin-dashboard.html';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Admin authentication error:', error);
+        if (error.code === 'auth/user-not-found') {
+            showStatus('Administrator not found. Please check your credentials.', true);
+        } else if (error.code === 'auth/wrong-password') {
+            showStatus('Incorrect password. Please try again.', true);
+        } else if (error.code === 'auth/invalid-email') {
+            showStatus('Invalid credentials format. Please try again.', true);
+        } else {
+            showStatus('Error: ' + error.message, true);
+        }
+    }
+});
+        
     </script>
 </body>
 </html>
