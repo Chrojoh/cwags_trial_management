@@ -330,24 +330,56 @@
             <a href="#" onclick="showPermissionsHelp()" style="color: #721c24; text-decoration: underline;">Click here for instructions</a>
         </div>
 
-        <!-- Role Selection -->
-        <div class="role-selection" id="roleSelection">
-            <h3>Select Your Role</h3>
-            <div class="role-buttons">
-                <div class="role-btn" onclick="selectRole('administrator')">
-                    <h4>🔑 Administrator</h4>
-                    <p>Full system access & user management</p>
-                </div>
-                <div class="role-btn" onclick="selectRole('trial_secretary')">
-                    <h4>📋 Trial Secretary</h4>
-                    <p>Create & manage trials for your club</p>
-                </div>
-                <div class="role-btn" onclick="selectRole('participant')">
-                    <h4>🏆 Participant</h4>
-                    <p>View trials & track your progress</p>
-                </div>
-            </div>
+       <!-- Role Selection -->
+<div class="role-selection" id="roleSelection">
+    <h3>Select Your Role</h3>
+    <div class="role-buttons">
+        <div class="role-btn" onclick="selectRole('trial_secretary')">
+            <h4>📋 Trial Secretary</h4>
+            <p>Create & manage trials for your club</p>
         </div>
+        <div class="role-btn" onclick="selectRole('participant')">
+            <h4>🏆 Participant</h4>
+            <p>View trials & track your progress</p>
+        </div>
+    </div>
+    
+    <!-- Admin login access (separate from registration) -->
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e0e0e0; text-align: center;">
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+            System Administrator? 
+        </p>
+        <button class="btn" onclick="showAdminLogin()" style="background: #dc3545;">
+            🔑 Administrator Login
+        </button>
+    </div>
+</div>
+
+<!-- Separate Admin Login Form -->
+<div class="admin-login-form" id="adminLoginForm" style="display: none;">
+    <button class="back-btn" onclick="hideAdminLogin()">← Back to Role Selection</button>
+    
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h3 style="color: #dc3545;">🔑 Administrator Access</h3>
+        <p style="color: #666; font-size: 0.9rem;">
+            Administrator credentials are required
+        </p>
+    </div>
+    
+    <form id="adminAuthForm">
+        <div class="form-group">
+            <label for="adminUsername">Administrator Username</label>
+            <input type="text" id="adminUsername" required autocomplete="username" placeholder="Enter admin username">
+        </div>
+        
+        <div class="form-group">
+            <label for="adminPassword">Administrator Password</label>
+            <input type="password" id="adminPassword" required autocomplete="current-password" placeholder="Enter admin password">
+        </div>
+
+        <button type="submit" class="btn" style="background: #dc3545;">Administrator Login</button>
+    </form>
+</div>
 
         Login Form with proper autocomplete attributes -->
 <div class="login-form" id="loginForm">
