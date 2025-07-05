@@ -866,27 +866,31 @@ This allows full access for testing. Later you can secure it properly!`;
         });
 
         // Redirect to appropriate dashboard
-        function redirectToDashboard(role) {
-            switch(role) {
-                case 'administrator':
-                    // Stay on current page with admin panel
-                    break;
-                case 'trial_secretary':
-                    showStatus('Redirecting to Trial Secretary Dashboard...');
-                    setTimeout(() => {
-                        window.location.href = 'trial-secretary-dashboard.html';
-                    }, 1500);
-                    break;
-                case 'participant':
-                    showStatus('Redirecting to Participant Dashboard...');
-                    setTimeout(() => {
-                        window.location.href = 'participant-dashboard.html';
-                    }, 1500);
-                    break;
-                default:
-                    showStatus('Unknown role', true);
-            }
-        }
+       // Redirect to appropriate dashboard
+function redirectToDashboard(role) {
+    switch(role) {
+        case 'administrator':
+            showStatus('Redirecting to Admin Dashboard...');
+            setTimeout(() => {
+                window.location.href = 'trial-admin-dashboard.html';
+            }, 1500);
+            break;
+        case 'trial_secretary':
+            showStatus('Redirecting to Trial Secretary Dashboard...');
+            setTimeout(() => {
+                window.location.href = 'trial-secretary-dashboard.html';
+            }, 1500);
+            break;
+        case 'participant':
+            showStatus('Redirecting to Participant Dashboard...');
+            setTimeout(() => {
+                window.location.href = 'participant-dashboard.html';
+            }, 1500);
+            break;
+        default:
+            showStatus('Unknown role', true);
+    }
+}
 
         // Admin functions
         async function resetUserPassword() {
