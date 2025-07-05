@@ -1562,30 +1562,30 @@ function getRoundKeyIndices(roundKey) {
             }
         }
 
-        // Auto-calculate pass/fail based on scent results
-        function autoCalculatePassFail(participantId) {
-            const scores = currentScores.participants[participantId];
-            if (!scores) return;
+       function autoCalculatePassFail(participantId) {
+    const scores = currentScores.participants[participantId];
+    if (!scores) return;
 
-            const scents = [scores.scent1, scores.scent2, scores.scent3, scores.scent4];
-            const foundScents = scents.filter(s => s === '✓').length;
-            const hasFaults = scores.fault1 || scores.fault2;
+    const scents = [scores.scent1, scores.scent2, scores.scent3, scores.scent4];
+    const foundScents = scents.filter(s => s === '✓').length;
+    
+    // NEW LOGIC: Pass = all 4 scents found, ignore faults (judge decides)
+    let suggestion = '';
+    if (foundScents === 4) {
+        suggestion = 'Pass';
+    } else if (foundScents < 4) {
+        suggestion = 'Fail';
+    }
 
-            let suggestion = '';
-            if (foundScents >= 3 && !hasFaults) {
-                suggestion = 'Pass';
-            } else if (foundScents < 3 || hasFaults) {
-                suggestion = 'Fail';
-            }
-
-            if (suggestion && !scores.passFail) {
-                scores.passFail = suggestion;
-                const passfailSelect = document.querySelector(`select[onchange*="${participantId}"][onchange*="passFail"]`);
-                if (passfailSelect) {
-                    passfailSelect.value = suggestion;
-                }
-            }
+    // Only auto-update if Pass/Fail is currently blank
+    if (suggestion && (!scores.passFail || scores.passFail === '')) {
+        scores.passFail = suggestion;
+        const passfailSelect = document.querySelector(`select[onchange*="${participantId}"][onchange*="passFail"]`);
+        if (passfailSelect) {
+            passfailSelect.value = suggestion;
         }
+    }
+}
 
         // Update scent location
         function updateScentLocation(scentNumber, value) {
