@@ -574,17 +574,40 @@ function showStatus(message, isError = false) {
             }, 300);
         }
 
-        function goBack() {
-            document.getElementById('loginForm').classList.remove('active');
-            document.getElementById('roleSelection').style.display = 'block';
-            document.getElementById('adminPanel').classList.remove('active');
-            selectedRole = null;
-            
-            // Reset form
-            document.getElementById('authForm').reset();
-            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
-            document.getElementById('statusMessage').style.display = 'none';
-        }
+       function goBack() {
+    // Hide login form and show role selection
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.classList.remove('active');
+    }
+    
+    const roleSelection = document.getElementById('roleSelection');
+    if (roleSelection) {
+        roleSelection.style.display = 'block';
+    }
+    
+    const adminPanel = document.getElementById('adminPanel');
+    if (adminPanel) {
+        adminPanel.classList.remove('active');
+    }
+    
+    selectedRole = null;
+    
+    // Reset form
+    const authForm = document.getElementById('authForm');
+    if (authForm) {
+        authForm.reset();
+    }
+    
+    // Remove selected class from role buttons
+    document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+    
+    // Hide status message with null check
+    const statusMessage = document.getElementById('statusMessage');
+    if (statusMessage) {
+        statusMessage.style.display = 'none';
+    }
+}
 
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
