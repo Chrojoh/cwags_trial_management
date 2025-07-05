@@ -571,7 +571,6 @@ function showStatus(message, isError = false) {
     }
 }
 
-       // Safe selectRole function
 function selectRole(role) {
     selectedRole = role;
     
@@ -579,33 +578,24 @@ function selectRole(role) {
     document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
     event.currentTarget.classList.add('selected');
     
-    // Show login form after short delay
+    // SECURITY: Block admin registration for public users
+    if (role === 'administrator') {
+        showStatus('Administrator access is restricted. Please contact system administrator.', true);
+        
+        // Reset selection
+        selectedRole = null;
+        document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+        return;
+    }
+    
+    // Show login form after short delay for non-admin roles
     setTimeout(() => {
-        const roleSelection = document.getElementById('roleSelection');
-        const loginForm = document.getElementById('loginForm');
-        
-        if (roleSelection) {
-            roleSelection.style.display = 'none';
-        }
-        
-        if (loginForm) {
-            loginForm.classList.add('active');
-        }
+        document.getElementById('roleSelection').style.display = 'none';
+        document.getElementById('loginForm').classList.add('active');
         
         // Show additional fields for registration
         if (role === 'trial_secretary') {
-            const clubNameGroup = document.getElementById('clubNameGroup');
-            if (clubNameGroup) {
-                clubNameGroup.style.display = 'block';
-            }
-        }
-        
-        // Show admin features
-        if (role === 'administrator') {
-            const excelUpload = document.getElementById('excelUpload');
-            if (excelUpload) {
-                excelUpload.style.display = 'block';
-            }
+            document.getElementById('clubNameGroup').style.display = 'block';
         }
         
         // Ensure we start in login mode when role is selected
@@ -615,10 +605,7 @@ function selectRole(role) {
         
         // Show email field for registration only
         if (!isLoginMode) {
-            const emailGroup = document.getElementById('emailGroup');
-            if (emailGroup) {
-                emailGroup.style.display = 'block';
-            }
+            document.getElementById('emailGroup').style.display = 'block';
         }
     }, 300);
 }
