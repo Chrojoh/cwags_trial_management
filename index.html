@@ -421,9 +421,50 @@
             <!-- System Overview Section -->
             <div class="admin-section">
                 <h5>📊 System Overview</h5>
-                <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials</button>
+                <button class="btn btn-primary" onclick="showTrialOverviewDashboard()">Trial Overview Dashboard</button>
+                <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials (List)</button>
                 <button class="btn btn-info" onclick="viewAllUsersEnhanced()">View All Users</button>
                 <button class="btn btn-success" onclick="viewSystemStatistics()">System Statistics</button>
+            </div>
+            
+            <!-- Trial Overview Dashboard -->
+            <div class="trial-overview-dashboard" id="trialOverviewDashboard" style="display: none;">
+                <div class="dashboard-header">
+                    <h5>🏆 Trial Overview Dashboard - All Secretaries</h5>
+                    <button class="btn btn-secondary btn-sm" onclick="hideTrialOverview()">← Back to Admin Panel</button>
+                </div>
+                
+                <div class="overview-tabs">
+                    <button class="tab-btn active" onclick="switchOverviewTab('all')">All Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab('active')">Active Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab('completed')">Completed Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab('by-secretary')">By Secretary</button>
+                </div>
+                
+                <div class="overview-content">
+                    <div class="overview-stats">
+                        <div class="stat-card">
+                            <h6>Total Trials</h6>
+                            <span id="totalTrialsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Active Secretaries</h6>
+                            <span id="activeSecretariesCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Total Classes</h6>
+                            <span id="totalClassesCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Total Entries</h6>
+                            <span id="totalEntriesCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="trials-grid" id="trialsGrid">
+                        <!-- Trial cards will be dynamically populated here -->
+                    </div>
+                </div>
             </div>
             
             <!-- System Data Management Section -->
@@ -881,7 +922,249 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         }
 
-        // Enhanced admin functions for viewing trials and users
+        // Trial Overview Dashboard Functions
+        let currentOverviewTab = 'all';
+        let allTrialsData = [];
+        let allUsersData = {};
+
+        async function showTrialOverviewDashboard() {
+            try {
+                showStatus('Loading trial overview dashboard...');
+                
+                // Hide admin panel and show overview dashboard
+                document.getElementById('adminPanel').style.display = 'none';
+                document.getElementById('trialOverviewDashboard').style.display = 'block';
+                
+                // Load all data
+                await loadOverviewData();
+                
+                // Switch to default tab
+                switchOverviewTab('all');
+                
+                showStatus('Trial overview dashboard loaded successfully');
+            } catch (error) {
+                console.error('Error loading trial overview:', error);
+                showStatus('Error loading trial overview: ' + error.message, true);
+            }
+        }
+
+        function hideTrialOverview() {
+            document.getElementById('trialOverviewDashboard').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+        }
+
+        async function loadOverviewData() {
+            try {
+                // Load trials
+                const trialsSnapshot = await db.collection('trials').get();
+                allTrialsData = [];
+                trialsSnapshot.forEach(doc => {
+                    allTrialsData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Load users
+                const usersSnapshot = await db.collection('users').get();
+                allUsersData = {};
+                usersSnapshot.forEach(doc => {
+                    allUsersData[doc.id] = doc.data();
+                });
+
+                // Update stats
+                updateOverviewStats();
+            } catch (error) {
+                console.error('Error loading overview data:', error);
+                throw error;
+            }
+        }
+
+        function updateOverviewStats() {
+            const totalTrials = allTrialsData.length;
+            const activeSecretaries = new Set(allTrialsData.map(t => t.createdBy).filter(Boolean)).size;
+            
+            let totalClasses = 0;
+            let totalEntries = 0;
+            
+            allTrialsData.forEach(trial => {
+                if (trial.days) {
+                    trial.days.forEach(day => {
+                        if (day.classes) {
+                            totalClasses += day.classes.length;
+                            day.classes.forEach(cls => {
+                                if (cls.entries) {
+                                    totalEntries += cls.entries.length;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            document.getElementById('totalTrialsCount').textContent = totalTrials;
+            document.getElementById('activeSecretariesCount').textContent = activeSecretaries;
+            document.getElementById('totalClassesCount').textContent = totalClasses;
+            document.getElementById('totalEntriesCount').textContent = totalEntries;
+        }
+
+        function switchOverviewTab(tabType) {
+            currentOverviewTab = tabType;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Filter and display trials based on tab
+            let filteredTrials = [];
+            
+            switch(tabType) {
+                case 'all':
+                    filteredTrials = allTrialsData;
+                    break;
+                case 'active':
+                    filteredTrials = allTrialsData.filter(trial => {
+                        if (!trial.days || trial.days.length === 0) return false;
+                        const firstDay = trial.days[0];
+                        if (!firstDay.date) return true; // No date set, consider active
+                        const trialDate = new Date(firstDay.date);
+                        const today = new Date();
+                        return trialDate >= today;
+                    });
+                    break;
+                case 'completed':
+                    filteredTrials = allTrialsData.filter(trial => {
+                        if (!trial.days || trial.days.length === 0) return false;
+                        const lastDay = trial.days[trial.days.length - 1];
+                        if (!lastDay.date) return false;
+                        const trialDate = new Date(lastDay.date);
+                        const today = new Date();
+                        return trialDate < today;
+                    });
+                    break;
+                case 'by-secretary':
+                    displayTrialsBySecretary();
+                    return;
+            }
+            
+            displayTrialsGrid(filteredTrials);
+        }
+
+        function displayTrialsGrid(trials) {
+            const grid = document.getElementById('trialsGrid');
+            
+            if (trials.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No trials found for this category.</div>';
+                return;
+            }
+            
+            // Sort trials by creation date (newest first)
+            trials.sort((a, b) => {
+                const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                return bTime - aTime;
+            });
+            
+            grid.innerHTML = trials.map(trial => createTrialCard(trial)).join('');
+        }
+
+        function createTrialCard(trial) {
+            const creator = allUsersData[trial.createdBy] || {};
+            const creatorName = creator.firstName && creator.lastName ? 
+                `${creator.firstName} ${creator.lastName}` : 
+                creator.username || 'Unknown User';
+            
+            const createdDate = trial.createdAt ? 
+                new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
+                'Unknown Date';
+            
+            const trialDate = trial.days && trial.days[0] && trial.days[0].date ?
+                trial.days[0].date : 
+                'Date TBD';
+            
+            let totalClasses = 0;
+            let totalEntries = 0;
+            let totalRounds = 0;
+            
+            if (trial.days) {
+                trial.days.forEach(day => {
+                    if (day.classes) {
+                        totalClasses += day.classes.length;
+                        day.classes.forEach(cls => {
+                            if (cls.entries) {
+                                totalEntries += cls.entries.length;
+                            }
+                            if (cls.rounds) {
+                                totalRounds += cls.rounds.length;
+                            }
+                        });
+                    }
+                });
+            }
+            
+            return `
+                <div class="trial-card">
+                    <h6>${trial.clubName || 'Unnamed Trial'}</h6>
+                    <div class="trial-meta">
+                        <div><strong>Secretary:</strong> ${creatorName}</div>
+                        <div><strong>Created:</strong> ${createdDate}</div>
+                        <div><strong>Trial Date:</strong> ${trialDate}</div>
+                        <div><strong>Location:</strong> ${trial.location || 'TBD'}</div>
+                    </div>
+                    <div class="trial-stats">
+                        <span>Days: ${trial.days?.length || 0}</span>
+                        <span>Classes: ${totalClasses}</span>
+                        <span>Entries: ${totalEntries}</span>
+                        <span>Rounds: ${totalRounds}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayTrialsBySecretary() {
+            const grid = document.getElementById('trialsGrid');
+            
+            // Group trials by secretary
+            const trialsBySecretary = {};
+            allTrialsData.forEach(trial => {
+                const creatorId = trial.createdBy || 'unknown';
+                if (!trialsBySecretary[creatorId]) {
+                    trialsBySecretary[creatorId] = [];
+                }
+                trialsBySecretary[creatorId].push(trial);
+            });
+            
+            // Create secretary sections
+            let html = '';
+            Object.entries(trialsBySecretary).forEach(([creatorId, trials]) => {
+                const creator = allUsersData[creatorId] || {};
+                const secretaryName = creator.firstName && creator.lastName ? 
+                    `${creator.firstName} ${creator.lastName} (${creator.username})` : 
+                    creator.username || 'Unknown Secretary';
+                
+                const clubName = creator.clubName ? ` - ${creator.clubName}` : '';
+                
+                html += `
+                    <div class="secretary-section">
+                        <h6>📋 ${secretaryName}${clubName}</h6>
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
+                            ${trials.length} trial${trials.length !== 1 ? 's' : ''}
+                        </div>
+                        <div style="display: grid; gap: 0.5rem;">
+                            ${trials.map(trial => `
+                                <div style="background: white; padding: 0.75rem; border-radius: 5px; border: 1px solid #dee2e6;">
+                                    <strong>${trial.clubName || 'Unnamed Trial'}</strong><br>
+                                    <small style="color: #666;">
+                                        Date: ${trial.days && trial.days[0] && trial.days[0].date ? trial.days[0].date : 'TBD'} | 
+                                        Days: ${trial.days?.length || 0} | 
+                                        Location: ${trial.location || 'TBD'}
+                                    </small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            grid.innerHTML = html;
+        }
         async function viewAllTrials() {
             try {
                 console.log('Fetching all trials...');
