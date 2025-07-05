@@ -539,41 +539,57 @@ function showStatus(message, isError = false) {
     }
 }
 
-        // Role selection
-        function selectRole(role) {
-            selectedRole = role;
-            
-            // Update visual selection
-            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
-            
-            // Show login form after short delay
-            setTimeout(() => {
-                document.getElementById('roleSelection').style.display = 'none';
-                document.getElementById('loginForm').classList.add('active');
-                
-                // Show additional fields for registration
-                if (role === 'trial_secretary') {
-                    document.getElementById('clubNameGroup').style.display = 'block';
-                }
-                
-                // Show admin features
-                if (role === 'administrator') {
-                    document.getElementById('excelUpload').style.display = 'block';
-                }
-                
-                // Ensure we start in login mode when role is selected
-                if (!isLoginMode) {
-                    toggleAuthMode(); // Switch to login mode
-                }
-                
-                // Show email field for registration only
-                if (!isLoginMode) {
-                    document.getElementById('emailGroup').style.display = 'block';
-                }
-            }, 300);
+       // Safe selectRole function
+function selectRole(role) {
+    selectedRole = role;
+    
+    // Update visual selection
+    document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    
+    // Show login form after short delay
+    setTimeout(() => {
+        const roleSelection = document.getElementById('roleSelection');
+        const loginForm = document.getElementById('loginForm');
+        
+        if (roleSelection) {
+            roleSelection.style.display = 'none';
         }
-
+        
+        if (loginForm) {
+            loginForm.classList.add('active');
+        }
+        
+        // Show additional fields for registration
+        if (role === 'trial_secretary') {
+            const clubNameGroup = document.getElementById('clubNameGroup');
+            if (clubNameGroup) {
+                clubNameGroup.style.display = 'block';
+            }
+        }
+        
+        // Show admin features
+        if (role === 'administrator') {
+            const excelUpload = document.getElementById('excelUpload');
+            if (excelUpload) {
+                excelUpload.style.display = 'block';
+            }
+        }
+        
+        // Ensure we start in login mode when role is selected
+        if (!isLoginMode) {
+            toggleAuthMode(); // Switch to login mode
+        }
+        
+        // Show email field for registration only
+        if (!isLoginMode) {
+            const emailGroup = document.getElementById('emailGroup');
+            if (emailGroup) {
+                emailGroup.style.display = 'block';
+            }
+        }
+    }, 300);
+}
        function goBack() {
     // Hide login form and show role selection
     const loginForm = document.getElementById('loginForm');
