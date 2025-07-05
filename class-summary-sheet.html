@@ -587,6 +587,65 @@ function processRoundKey(roundKey) {
     return result;
 }
 
+// Add this script to create-trial.html, trial-entry-form.html, etc.
+// Place it after Firebase initialization but before other scripts
+
+// Check if this is an admin session and update navigation
+document.addEventListener('DOMContentLoaded', async function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAdminSession = urlParams.get('admin') === 'true';
+    
+    if (isAdminSession) {
+        console.log('Admin session detected - updating navigation');
+        updateNavigationForAdmin();
+    } else {
+        // Double-check by verifying user role
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        if (userData.role === 'administrator') {
+                            console.log('Admin user detected - updating navigation');
+                            updateNavigationForAdmin();
+                        }
+                    }
+                } catch (error) {
+                    console.log('Error checking user role:', error);
+                }
+            }
+        });
+    }
+});
+
+function updateNavigationForAdmin() {
+    // Update back buttons
+    const backButtons = document.querySelectorAll('.back-button, .back-btn');
+    
+    backButtons.forEach(button => {
+        // Update button text
+        if (button.textContent.includes('Secretary') || button.textContent.includes('Dashboard')) {
+            button.innerHTML = '← Back to Admin Dashboard';
+        }
+        
+        // Update click handlers
+        button.onclick = () => window.location.href = 'admin-dashboard.html';
+        
+        // Update href for links
+        if (button.href && button.href.includes('trial-secretary-dashboard')) {
+            button.href = 'admin-dashboard.html';
+        }
+        
+        // Update any hardcoded onclick attributes
+        if (button.getAttribute('onclick')) {
+            button.setAttribute('onclick', "window.location.href='admin-dashboard.html'");
+        }
+    });
+    
+    console.log('✅ Navigation updated for admin user');
+}
+        
 // ========================================
 // DATA MIGRATION FUNCTIONS
 // ========================================
