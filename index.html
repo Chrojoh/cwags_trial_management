@@ -349,61 +349,70 @@
             </div>
         </div>
 
-        <!-- Login Form -->
-        <div class="login-form" id="loginForm">
-            <button class="back-btn" onclick="goBack()">← Back to Role Selection</button>
-            
-            <form id="authForm">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" required placeholder="Enter your username">
-                </div>
-                
-                <div class="form-group" id="emailGroup" style="display: none;">
-                    <label for="email">Email Address (for password recovery)</label>
-                    <input type="email" id="email" placeholder="your.email@example.com">
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" required autocomplete="current-password">
-                </div>
-
-                <!-- Additional fields for trial secretary registration -->
-                <div class="form-group" id="clubNameGroup" style="display: none;">
-                    <label for="clubName">Club Name</label>
-                    <input type="text" id="clubName" placeholder="Your club or organization">
-                </div>
-
-                <div class="form-group" id="firstNameGroup" style="display: none;">
-                    <label for="firstName">First Name</label>
-                    <input type="text" id="firstName">
-                </div>
-
-                <div class="form-group" id="lastNameGroup" style="display: none;">
-                    <label for="lastName">Last Name</label>
-                    <input type="text" id="lastName">
-                </div>
-
-                <button type="submit" class="btn" id="authBtn">Log In</button>
-            </form>
-
-            <div class="toggle-auth">
-                <span id="authToggleText">Don't have an account?</span>
-                <a href="#" onclick="toggleAuthMode(); return false;">Sign Up</a>
-            </div>
-
-            <!-- Excel Data Upload -->
-            <div class="excel-upload" id="excelUpload" style="display: none;">
-                <h4>📊 Import Trial Data</h4>
-                <p>Upload Excel file with trial results</p>
-                <input type="file" accept=".xlsx,.xls" class="file-input" id="excelFile" onchange="handleExcelUpload(event)">
-                <button class="btn btn-secondary" onclick="document.getElementById('excelFile').click()">
-                    Choose Excel File
-                </button>
-            </div>
+        Login Form with proper autocomplete attributes -->
+<div class="login-form" id="loginForm">
+    <button class="back-btn" onclick="goBack()">← Back to Role Selection</button>
+    
+    <form id="authForm">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" 
+                   id="username" 
+                   required 
+                   autocomplete="username"
+                   placeholder="Enter your username">
+        </div>
+        
+        <div class="form-group" id="emailGroup" style="display: none;">
+            <label for="email">Email Address (for password recovery)</label>
+            <input type="email" 
+                   id="email" 
+                   autocomplete="email"
+                   placeholder="your.email@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" 
+                   id="password" 
+                   required 
+                   autocomplete="current-password"
+                   placeholder="Enter your password">
         </div>
 
+        <!-- Additional fields for trial secretary registration -->
+        <div class="form-group" id="clubNameGroup" style="display: none;">
+            <label for="clubName">Club Name</label>
+            <input type="text" 
+                   id="clubName" 
+                   autocomplete="organization"
+                   placeholder="Your club or organization">
+        </div>
+
+        <div class="form-group" id="firstNameGroup" style="display: none;">
+            <label for="firstName">First Name</label>
+            <input type="text" 
+                   id="firstName" 
+                   autocomplete="given-name"
+                   placeholder="Your first name">
+        </div>
+
+        <div class="form-group" id="lastNameGroup" style="display: none;">
+            <label for="lastName">Last Name</label>
+            <input type="text" 
+                   id="lastName" 
+                   autocomplete="family-name"
+                   placeholder="Your last name">
+        </div>
+
+        <button type="submit" class="btn" id="authBtn">Log In</button>
+    </form>
+
+    <div class="toggle-auth">
+        <span id="authToggleText">Don't have an account?</span>
+        <a href="#" onclick="toggleAuthMode(); return false;">Sign Up</a>
+    </div>
+</div>
         <!-- Admin Panel -->
         <div class="admin-panel" id="adminPanel">
             <h4>👑 Administrator Dashboard</h4>
@@ -865,7 +874,6 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         });
 
-        // Redirect to appropriate dashboard
        // Redirect to appropriate dashboard
 function redirectToDashboard(role) {
     switch(role) {
