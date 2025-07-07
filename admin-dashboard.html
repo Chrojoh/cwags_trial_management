@@ -1741,14 +1741,12 @@
             const trialInfo = trialData.trialInfo;
             const classes = trialData.classes;
 
-            let html = `
-                <div style="margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
-                    <h3>${trialInfo.clubName}</h3>
-                    <p><strong>Type:</strong> ${trialInfo.trialType || 'Unknown'}</p>
-                    <p><strong>Location:</strong> ${trialInfo.location || 'Not specified'}</p>
-                    <p><strong>Classes:</strong> ${Object.keys(classes).length}</p>
-                </div>
-            `;
+            let html = '<div style="margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">';
+            html += '<h3>' + trialInfo.clubName + '</h3>';
+            html += '<p><strong>Type:</strong> ' + (trialInfo.trialType || 'Unknown') + '</p>';
+            html += '<p><strong>Location:</strong> ' + (trialInfo.location || 'Not specified') + '</p>';
+            html += '<p><strong>Classes:</strong> ' + Object.keys(classes).length + '</p>';
+            html += '</div>';
 
             if (Object.keys(classes).length === 0) {
                 html += '<p>No class data available for this trial.</p>';
@@ -1756,77 +1754,77 @@
                 Object.keys(classes).forEach(className => {
                     const classData = classes[className];
                     
-                    html += `
-                        <div style="margin-bottom: 3rem; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
-                            <div style="background: #007bff; color: white; padding: 1rem;">
-                                <h4 style="margin: 0; color: white;">${className}</h4>
-                                <div style="margin-top: 0.5rem; font-size: 0.9rem;">
-                                    <span style="margin-right: 1rem;"><strong>Judge:</strong> ${classData.judgeName}</span>
-                                    <span style="margin-right: 1rem;"><strong>Date:</strong> ${classData.dayDate}</span>
-                                    <span><strong>Round:</strong> ${classData.roundNumber}</span>
-                                </div>
-                            </div>
-                            
-                            <div style="padding: 1rem;">
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                                    <div class="stat-card">
-                                        <div class="stat-value">${classData.totalEntries}</div>
-                                        <div class="stat-label">Total Entries</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-value">${classData.qualifyingEntries}</div>
-                                        <div class="stat-label">Qualifying</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-value">${classData.nonQualifyingEntries}</div>
-                                        <div class="stat-label">Non-Qualifying</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-value">${classData.qualifyingRate}%</div>
-                                        <div class="stat-label">Q Rate</div>
-                                    </div>
-                                    <div class="stat-card">
-                                        <div class="stat-value">${classData.averageScore}</div>
-                                        <div class="stat-label">Avg Score</div>
-                                    </div>
-                                </div>
+                    html += '<div style="margin-bottom: 3rem; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">';
+                    html += '<div style="background: #007bff; color: white; padding: 1rem;">';
+                    html += '<h4 style="margin: 0; color: white;">' + className + '</h4>';
+                    html += '<div style="margin-top: 0.5rem; font-size: 0.9rem;">';
+                    html += '<span style="margin-right: 1rem;"><strong>Judge:</strong> ' + classData.judgeName + '</span>';
+                    html += '<span style="margin-right: 1rem;"><strong>Date:</strong> ' + classData.dayDate + '</span>';
+                    html += '<span><strong>Round:</strong> ' + classData.roundNumber + '</span>';
+                    html += '</div>';
+                    html += '</div>';
+                    
+                    html += '<div style="padding: 1rem;">';
+                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">';
+                    
+                    html += '<div class="stat-card">';
+                    html += '<div class="stat-value">' + classData.totalEntries + '</div>';
+                    html += '<div class="stat-label">Total Entries</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="stat-card">';
+                    html += '<div class="stat-value">' + classData.qualifyingEntries + '</div>';
+                    html += '<div class="stat-label">Qualifying</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="stat-card">';
+                    html += '<div class="stat-value">' + classData.nonQualifyingEntries + '</div>';
+                    html += '<div class="stat-label">Non-Qualifying</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="stat-card">';
+                    html += '<div class="stat-value">' + classData.qualifyingRate + '%</div>';
+                    html += '<div class="stat-label">Q Rate</div>';
+                    html += '</div>';
+                    
+                    html += '<div class="stat-card">';
+                    html += '<div class="stat-value">' + classData.averageScore + '</div>';
+                    html += '<div class="stat-label">Avg Score</div>';
+                    html += '</div>';
+                    
+                    html += '</div>';
 
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Place</th>
-                                            <th>Registration</th>
-                                            <th>Dog Name</th>
-                                            <th>Handler</th>
-                                            <th>Result</th>
-                                            <th>Score</th>
-                                            <th>Time</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                    `;
+                    html += '<table class="data-table">';
+                    html += '<thead>';
+                    html += '<tr>';
+                    html += '<th>Place</th>';
+                    html += '<th>Registration</th>';
+                    html += '<th>Dog Name</th>';
+                    html += '<th>Handler</th>';
+                    html += '<th>Result</th>';
+                    html += '<th>Score</th>';
+                    html += '<th>Time</th>';
+                    html += '</tr>';
+                    html += '</thead>';
+                    html += '<tbody>';
 
                     classData.participants.forEach(participant => {
                         const resultClass = participant.qualified ? 'style="color: green; font-weight: bold;"' : 'style="color: red;"';
-                        html += `
-                            <tr>
-                                <td>${participant.placement || '-'}</td>
-                                <td>${participant.cwagsNumber || '-'}</td>
-                                <td>${participant.dogCallName || '-'}</td>
-                                <td>${participant.handlerName || '-'}</td>
-                                <td ${resultClass}>${participant.result || '-'}</td>
-                                <td>${participant.score || '-'}</td>
-                                <td>${participant.time || '-'}</td>
-                            </tr>
-                        `;
+                        html += '<tr>';
+                        html += '<td>' + (participant.placement || '-') + '</td>';
+                        html += '<td>' + (participant.cwagsNumber || '-') + '</td>';
+                        html += '<td>' + (participant.dogCallName || '-') + '</td>';
+                        html += '<td>' + (participant.handlerName || '-') + '</td>';
+                        html += '<td ' + resultClass + '>' + (participant.result || '-') + '</td>';
+                        html += '<td>' + (participant.score || '-') + '</td>';
+                        html += '<td>' + (participant.time || '-') + '</td>';
+                        html += '</tr>';
                     });
 
-                    html += `
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    `;
+                    html += '</tbody>';
+                    html += '</table>';
+                    html += '</div>';
+                    html += '</div>';
                 });
             }
 
