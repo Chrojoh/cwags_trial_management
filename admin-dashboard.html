@@ -376,7 +376,6 @@
         <button class="tab-btn" onclick="showTab('trials')" id="trialsTab">📋 All Trials</button>
         <button class="tab-btn" onclick="showTab('users')" id="usersTab">👥 Users</button>
         <button class="tab-btn" onclick="showTab('consolidation')" id="consolidationTab">🔄 Data Consolidation</button>
-        <button class="tab-btn" onclick="showTab('classSummary')" id="classSummaryTab">📋 Class Summary Sheets</button>
         <button class="tab-btn" onclick="showTab('statistics')" id="statisticsTab">📊 Statistics</button>
     </div>
 
@@ -526,43 +525,6 @@
             </div>
         </div>
 
-        <!-- Class Summary Sheets Tab -->
-        <div id="classSummaryTab-content" class="tab-content">
-            <div class="card">
-                <h2>📋 Class Summary Sheets</h2>
-                <p style="color: #666; margin-bottom: 1.5rem;">
-                    View the class summary sheets that are used in the consolidation calculations. 
-                    These sheets show the detailed breakdown of each class by trial.
-                </p>
-                
-                <div class="action-buttons" style="margin-bottom: 2rem;">
-                    <button class="btn btn-primary" onclick="loadClassSummaryData()">
-                        🔄 Load Class Summary Data
-                    </button>
-                    <button class="btn btn-success" onclick="exportClassSummaries()" id="exportSummariesBtn" disabled>
-                        📤 Export All Summaries
-                    </button>
-                </div>
-
-                <div id="classSummaryLoading" class="loading" style="display: none;">
-                    Loading class summary data...
-                </div>
-
-                <div id="classSummaryContent" style="display: none;">
-                    <!-- Trial Selection for Class Summaries -->
-                    <div class="option-group">
-                        <h3>Select Trial to View Class Summary</h3>
-                        <select id="summaryTrialSelect" onchange="displayClassSummary()" style="padding: 0.5rem; width: 100%; max-width: 400px; margin-bottom: 1rem;">
-                            <option value="">Select a trial...</option>
-                        </select>
-                    </div>
-
-                    <!-- Class Summary Display -->
-                    <div id="classSummaryDisplay"></div>
-                </div>
-            </div>
-        </div>
-
         <!-- Statistics Tab -->
         <div id="statisticsTab-content" class="tab-content">
             <div class="card">
@@ -573,33 +535,6 @@
     </div>
 
     <script>
-        // ========================================
-        // TROUBLESHOOTER - Check in console
-        // ========================================
-        console.log('🔧 Dashboard Troubleshooter Starting...');
-        
-        function troubleshoot() {
-            console.log('=== DASHBOARD TROUBLESHOOT ===');
-            console.log('1. Firebase Config:', typeof firebase !== 'undefined' ? '✅ Loaded' : '❌ Missing');
-            console.log('2. XLSX Library:', typeof XLSX !== 'undefined' ? '✅ Loaded' : '❌ Missing');
-            console.log('3. jsPDF Library:', typeof window.jspdf !== 'undefined' ? '✅ Loaded' : '❌ Missing');
-            console.log('4. Functions defined:');
-            console.log('   - showTab:', typeof showTab !== 'undefined' ? '✅' : '❌');
-            console.log('   - validateDataStructures:', typeof validateDataStructures !== 'undefined' ? '✅' : '❌');
-            console.log('   - loadOverviewData:', typeof loadOverviewData !== 'undefined' ? '✅' : '❌');
-            console.log('   - processConsolidation:', typeof processConsolidation !== 'undefined' ? '✅' : '❌');
-            console.log('5. Global Variables:');
-            console.log('   - currentUser:', typeof currentUser);
-            console.log('   - allTrials:', typeof allTrials, allTrials ? allTrials.length : 0);
-            console.log('   - allUsers:', typeof allUsers, allUsers ? allUsers.length : 0);
-            console.log('=== END TROUBLESHOOT ===');
-        }
-        
-        // Make troubleshoot available globally
-        window.troubleshoot = troubleshoot;
-        
-        console.log('🔧 Run troubleshoot() in console to check system status');
-
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
@@ -615,139 +550,12 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
-        // ========================================
-        // TIMEZONE-SAFE DATE UTILITIES (from project knowledge)
-        // ========================================
-
-        function createLocalDate(dateStr) {
-            if (!dateStr) return null;
-            if (typeof dateStr === 'string') {
-                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
-                return new Date(dateWithTime);
-            }
-            return new Date(dateStr);
-        }
-
-        function formatLocalDate(date) {
-            if (!date || !(date instanceof Date)) return '';
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
-        function getDateFromFirebase(firebaseDate) {
-            if (!firebaseDate) return '';
-            let date;
-            if (firebaseDate.toDate) {
-                date = firebaseDate.toDate();
-            } else if (firebaseDate instanceof Date) {
-                date = firebaseDate;
-            } else if (typeof firebaseDate === 'string') {
-                date = createLocalDate(firebaseDate);
-            } else {
-                return '';
-            }
-            return formatLocalDate(date);
-        }
-
-        function formatDateDisplay(dateInput, options = {}) {
-            let date;
-            
-            if (typeof dateInput === 'string') {
-                date = createLocalDate(dateInput);
-            } else if (dateInput instanceof Date) {
-                date = new Date(dateInput);
-            } else {
-                return 'Invalid Date';
-            }
-            
-            if (!date || isNaN(date.getTime())) return 'Invalid Date';
-            
-            const defaultOptions = {
-                weekday: 'short',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-            };
-            
-            const formatOptions = { ...defaultOptions, ...options };
-            return new Intl.DateTimeFormat('en-US', formatOptions).format(date);
-        }
-
-        function calculateTrialDuration(trial) {
-            if (!trial.days || trial.days.length === 0) {
-                return { days: 0, text: 'No dates set' };
-            }
-
-            const validDates = trial.days
-                .map(day => day.date ? getDateFromFirebase(day.date) : null)
-                .filter(date => date)
-                .map(dateStr => createLocalDate(dateStr))
-                .filter(date => date && !isNaN(date.getTime()));
-
-            if (validDates.length === 0) {
-                return { days: 0, text: 'No valid dates' };
-            }
-
-            if (validDates.length === 1) {
-                return { days: 1, text: '1 day' };
-            }
-
-            // Sort dates to find span
-            validDates.sort((a, b) => a - b);
-            const startDate = validDates[0];
-            const endDate = validDates[validDates.length - 1];
-            
-            const diffTime = Math.abs(endDate - startDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end day
-            
-            return { 
-                days: diffDays, 
-                text: diffDays === 1 ? '1 day' : `${diffDays} days`,
-                startDate: formatDateDisplay(startDate, { weekday: 'short', month: 'short', day: 'numeric' }),
-                endDate: diffDays > 1 ? formatDateDisplay(endDate, { weekday: 'short', month: 'short', day: 'numeric' }) : null
-            };
-        }
-
-        // Authentication check
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                try {
-                    const userDoc = await db.collection('users').doc(user.uid).get();
-                    if (userDoc.exists) {
-                        currentUser = { uid: user.uid, ...userDoc.data() };
-                        
-                        if (currentUser.role !== 'administrator') {
-                            showStatus('Access denied. Administrator role required.', 'error');
-                            setTimeout(() => window.location.href = 'index.html', 3000);
-                            return;
-                        }
-
-                        updateUserInfo();
-                        await loadOverviewData();
-                    }
-                } catch (error) {
-                    showStatus('Error loading user profile: ' + error.message, 'error');
-                }
-            } else {
-                window.location.href = 'index.html';
-            }
-        });
-
-        function updateUserInfo() {
-            document.getElementById('userInfo').textContent = 
-                `${currentUser.firstName || ''} ${currentUser.lastName || ''} • Administrator`;
-        }
-
         // Global variables
         let currentUser = null;
         let allTrials = [];
         let allUsers = [];
         let selectedTrials = [];
         let consolidatedData = [];
-        let classSummaryData = {};
         let currentTab = 'overview';
 
         // Authentication check
@@ -807,20 +615,10 @@
                     }
                 });
                 
-                // Store data globally and fix dates using proper utilities
+                // Store data globally
                 allTrials = [];
                 trialsSnapshot.forEach(doc => {
-                    const rawTrialData = doc.data();
-                    
-                    // Fix date handling for trial days using timezone-safe utilities
-                    if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
-                        rawTrialData.days = rawTrialData.days.map(day => ({
-                            ...day,
-                            date: day.date ? getDateFromFirebase(day.date) : null
-                        }));
-                    }
-                    
-                    allTrials.push({ id: doc.id, ...rawTrialData });
+                    allTrials.push({ id: doc.id, ...doc.data() });
                 });
                 
                 allUsers = [];
@@ -867,8 +665,6 @@
                 renderStatisticsTab();
             } else if (tabName === 'consolidation') {
                 loadConsolidationTrials();
-            } else if (tabName === 'classSummary') {
-                // Class summary tab will load on demand when user clicks load button
             }
         }
 
@@ -1029,25 +825,36 @@
                 `${creator.firstName} ${creator.lastName}` : 
                 creator.username || creator.email || 'Unknown User';
             
-            // Handle creation date using proper utilities
+            // Handle creation date
             let createdDate = 'Unknown Date';
             if (trial.createdAt) {
                 if (trial.createdAt.seconds) {
-                    createdDate = formatDateDisplay(new Date(trial.createdAt.seconds * 1000));
+                    createdDate = new Date(trial.createdAt.seconds * 1000).toLocaleDateString();
                 } else if (trial.createdAt.toDate) {
-                    createdDate = formatDateDisplay(trial.createdAt.toDate());
+                    createdDate = trial.createdAt.toDate().toLocaleDateString();
                 }
             }
             
-            // Calculate trial duration and format dates properly
-            const duration = calculateTrialDuration(trial);
-            let trialDateDisplay = 'No date set';
-            
-            if (duration.days > 0) {
-                if (duration.days === 1) {
-                    trialDateDisplay = duration.startDate;
-                } else {
-                    trialDateDisplay = `${duration.startDate} - ${duration.endDate}`;
+            // Handle trial date
+            let trialDate = 'No date set';
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    trialDate = dateData.toDate().toLocaleDateString();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    const parsedDate = new Date(dateData);
+                    if (!isNaN(parsedDate.getTime())) {
+                        trialDate = parsedDate.toLocaleDateString();
+                    }
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    trialDate = dateData.toLocaleDateString();
                 }
             }
 
@@ -1055,8 +862,7 @@
                 <div class="trial-card">
                     <h3>${trial.clubName || 'Unnamed Trial'}</h3>
                     <div class="trial-details">
-                        <div><strong>📅 Trial Date:</strong> ${trialDateDisplay}</div>
-                        <div><strong>⏱️ Duration:</strong> ${duration.text}</div>
+                        <div><strong>📅 Trial Date:</strong> ${trialDate}</div>
                         <div><strong>🎯 Type:</strong> ${trial.trialType || 'Unknown'}</div>
                         <div><strong>👤 Secretary:</strong> ${creatorName}</div>
                         <div><strong>📍 Location:</strong> ${trial.location || 'Not specified'}</div>
@@ -1296,15 +1102,27 @@
         }
 
         function createConsolidationTrialCard(trial) {
-            // Calculate trial duration and format dates properly using timezone-safe utilities
-            const duration = calculateTrialDuration(trial);
-            let trialDateDisplay = 'No date set';
+            // Handle different date formats from Firestore
+            let trialDate = 'No date set';
             
-            if (duration.days > 0) {
-                if (duration.days === 1) {
-                    trialDateDisplay = duration.startDate;
-                } else {
-                    trialDateDisplay = `${duration.startDate} - ${duration.endDate}`;
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    trialDate = dateData.toDate().toLocaleDateString();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    const parsedDate = new Date(dateData);
+                    if (!isNaN(parsedDate.getTime())) {
+                        trialDate = parsedDate.toLocaleDateString();
+                    }
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    trialDate = dateData.toLocaleDateString();
                 }
             }
 
@@ -1312,8 +1130,7 @@
                 <div class="trial-card" data-trial-id="${trial.id}" onclick="toggleTrialSelection('${trial.id}')">
                     <h3>${trial.clubName || 'Unknown Club'}</h3>
                     <div class="trial-details">
-                        <div><strong>📅 Date:</strong> ${trialDateDisplay}</div>
-                        <div><strong>⏱️ Duration:</strong> ${duration.text}</div>
+                        <div><strong>📅 Date:</strong> ${trialDate}</div>
                         <div><strong>📍 Location:</strong> ${trial.location || 'TBD'}</div>
                         <div><strong>🎯 Type:</strong> ${trial.trialType || 'Various'}</div>
                     </div>
@@ -1363,32 +1180,11 @@
                 return;
             }
 
+            document.getElementById('consolidationCard').style.display = 'block';
             showStatus(`Loading data from ${selectedTrials.length} selected trials...`, 'info');
             
-            try {
-                // Actually load and validate the trial data
-                let totalRecords = 0;
-                for (const trialId of selectedTrials) {
-                    const trial = allTrials.find(t => t.id === trialId);
-                    if (trial) {
-                        // Quick count of entries for this trial
-                        const entriesSnapshot = await db.collection('entries')
-                            .where('trialId', '==', trialId)
-                            .get();
-                        totalRecords += entriesSnapshot.size;
-                    }
-                }
-                
-                document.getElementById('consolidationCard').style.display = 'block';
-                document.getElementById('processBtn').disabled = false;
-                document.getElementById('previewBtn').disabled = false;
-                
-                showStatus(`✅ Successfully loaded ${selectedTrials.length} trials with ${totalRecords} entries ready for consolidation`, 'success');
-                
-            } catch (error) {
-                showStatus('Error loading trial data: ' + error.message, 'error');
-                console.error('Error loading trial data:', error);
-            }
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('previewBtn').disabled = false;
         }
 
         async function processConsolidation() {
@@ -1442,11 +1238,11 @@
                                 const record = {
                                     registration: entry.cwagsNumber,
                                     callName: entry.dogCallName,
+                                    handlerName: entry.handlerName,
                                     date: selectedEntry.dayDate || getTrialDate(trial),
                                     level: selectedEntry.className,
                                     results: scoreData ? scoreData.result : 'Scheduled',
                                     judge: scoreData ? scoreData.judgeName : selectedEntry.judgeName || 'TBD',
-                                    points: 0, // Will be set to 1 after filtering
                                     trialId: trialId,
                                     clubName: trial.clubName,
                                     trialType: trial.trialType || 'unknown'
@@ -1467,36 +1263,31 @@
                     return dateA - dateB;
                 });
 
-                // Filter out unwanted results and assign points
-                consolidatedData = consolidatedData.filter(record => {
-                    const result = record.results.toUpperCase();
-                    const unwantedResults = ['X', 'NQ', 'NA', 'FAIL', 'F', '-', ''];
-                    
-                    // Remove unwanted results
-                    if (unwantedResults.includes(result) || result.trim() === '') {
-                        return false;
-                    }
-                    
-                    // Assign 1 point where registration (column A) is not null
-                    if (record.registration && record.registration.trim() !== '') {
-                        record.points = 1;
-                    }
-                    
-                    return true;
-                });
-
-                showStatus(`Successfully processed ${consolidatedData.length} valid records from ${selectedTrials.length} trials`, 'success');
+                showStatus(`Successfully processed ${consolidatedData.length} records from ${selectedTrials.length} trials`, 'success');
 
             } catch (error) {
                 showStatus('Error processing consolidation: ' + error.message, 'error');
                 console.error('Error processing consolidation:', error);
             }
         }
-        
+
         function getTrialDate(trial) {
             if (trial.days && trial.days[0] && trial.days[0].date) {
-                // Use the already processed date string from getDateFromFirebase
-                return createLocalDate(trial.days[0].date);
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    return new Date(dateData.seconds * 1000);
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    return dateData.toDate();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    return new Date(dateData);
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    return dateData;
+                }
             }
             return new Date();
         }
@@ -1516,11 +1307,11 @@
                         <tr>
                             <th>Registration</th>
                             <th>Call Name</th>
+                            <th>Handler</th>
                             <th>Date</th>
                             <th>Level</th>
                             <th>Results</th>
                             <th>Judge</th>
-                            <th>Points</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1537,11 +1328,11 @@
                     <tr>
                         <td>${record.registration}</td>
                         <td>${record.callName}</td>
+                        <td>${record.handlerName}</td>
                         <td>${dateStr}</td>
                         <td>${record.level}</td>
                         <td>${record.results}</td>
                         <td>${record.judge}</td>
-                        <td>${record.points}</td>
                     </tr>
                 `;
             });
@@ -1573,7 +1364,7 @@
                 
                 // Main consolidated data sheet
                 const wsData = [];
-                wsData.push(['Registration', 'Call Name', 'Date', 'Level', 'Results', 'Judge', 'Points']);
+                wsData.push(['Registration', 'Call Name', 'Handler Name', 'Date', 'Level', 'Results', 'Judge']);
                 
                 consolidatedData.forEach(record => {
                     const dateStr = record.date instanceof Date 
@@ -1583,11 +1374,11 @@
                     wsData.push([
                         record.registration,
                         record.callName,
+                        record.handlerName,
                         dateStr,
                         record.level,
                         record.results,
-                        record.judge,
-                        record.points
+                        record.judge
                     ]);
                 });
                 
@@ -1598,315 +1389,12 @@
                 XLSX.writeFile(wb, filename);
                 
                 showStatus('Excel export completed successfully', 'success');
-       } catch (error) {
-  console.error("An error occurred:", error);
-} finally {
-  console.log("Cleanup code here.");
-}
-
-        async function loadClassSummaryData() {
-            try {
-                document.getElementById('classSummaryLoading').style.display = 'block';
-                showStatus('Loading class summary data...', 'info');
-
-                classSummaryData = {};
-                
-                // Process all trials to generate class summaries
-                for (const trial of allTrials) {
-                    const trialSummary = await generateTrialClassSummary(trial);
-                    if (trialSummary && Object.keys(trialSummary).length > 0) {
-                        classSummaryData[trial.id] = {
-                            trialInfo: {
-                                clubName: trial.clubName,
-                                trialType: trial.trialType,
-                                dates: trial.days ? trial.days.map(day => day.date).filter(d => d) : [],
-                                location: trial.location
-                            },
-                            classes: trialSummary
-                        };
-                    }
-                }
-
-                // Populate trial selector
-                const summaryTrialSelect = document.getElementById('summaryTrialSelect');
-                summaryTrialSelect.innerHTML = '<option value="">Select a trial...</option>';
-                
-                Object.keys(classSummaryData).forEach(trialId => {
-                    const summary = classSummaryData[trialId];
-                    const option = document.createElement('option');
-                    option.value = trialId;
-                    option.textContent = `${summary.trialInfo.clubName} (${Object.keys(summary.classes).length} classes)`;
-                    summaryTrialSelect.appendChild(option);
-                });
-
-                document.getElementById('classSummaryLoading').style.display = 'none';
-                document.getElementById('classSummaryContent').style.display = 'block';
-                document.getElementById('exportSummariesBtn').disabled = false;
-
-                showStatus(`✅ Loaded class summaries for ${Object.keys(classSummaryData).length} trials`, 'success');
-
-            } catch (error) {
-                document.getElementById('classSummaryLoading').style.display = 'none';
-                showStatus('Error loading class summary data: ' + error.message, 'error');
-                console.error('Error loading class summary data:', error);
-            }
-        }
-
-        async function generateTrialClassSummary(trial) {
-            try {
-                const classSummary = {};
-
-                // Load entries for this trial
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', trial.id)
-                    .get();
-
-                // Load scores for this trial
-                const scoresSnapshot = await db.collection('scores')
-                    .where('trialId', '==', trial.id)
-                    .get();
-
-                // Process scores by class
-                const scoresByClass = {};
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    const className = scoreData.className;
-                    
-                    if (!scoresByClass[className]) {
-                        scoresByClass[className] = {
-                            judgeName: scoreData.judgeName,
-                            dayDate: scoreData.dayDate,
-                            roundNumber: scoreData.roundNumber,
-                            participants: []
-                        };
-                    }
-
-                    if (scoreData.participants) {
-                        Object.values(scoreData.participants).forEach(participant => {
-                            scoresByClass[className].participants.push({
-                                cwagsNumber: participant.cwagsNumber,
-                                dogCallName: participant.dogCallName,
-                                handlerName: participant.handlerName,
-                                result: participant.result,
-                                score: participant.score,
-                                time: participant.time,
-                                placement: participant.placement,
-                                qualified: participant.qualified
-                            });
-                        });
-                    }
-                });
-
-                // Generate summary for each class
-                Object.keys(scoresByClass).forEach(className => {
-                    const classData = scoresByClass[className];
-                    const participants = classData.participants;
-
-                    // Calculate statistics
-                    const totalEntries = participants.length;
-                    const qualifyingEntries = participants.filter(p => p.qualified || p.result === 'P' || p.result === 'Pass').length;
-                    const nonQualifyingEntries = participants.filter(p => !p.qualified && (p.result === 'NQ' || p.result === 'F' || p.result === 'Fail')).length;
-                    const avgScore = participants.length > 0 ? 
-                        participants.reduce((sum, p) => sum + (parseFloat(p.score) || 0), 0) / participants.length : 0;
-
-                    classSummary[className] = {
-                        judgeName: classData.judgeName || 'TBD',
-                        dayDate: classData.dayDate || 'TBD',
-                        roundNumber: classData.roundNumber || 1,
-                        totalEntries: totalEntries,
-                        qualifyingEntries: qualifyingEntries,
-                        nonQualifyingEntries: nonQualifyingEntries,
-                        qualifyingRate: totalEntries > 0 ? ((qualifyingEntries / totalEntries) * 100).toFixed(1) : 0,
-                        averageScore: avgScore.toFixed(1),
-                        participants: participants.sort((a, b) => (a.placement || 999) - (b.placement || 999))
-                    };
-                });
-
-                return classSummary;
-
-            } catch (error) {
-                console.error(`Error generating class summary for trial ${trial.id}:`, error);
-                return {};
-            }
-        }
-        }
-
-        function displayClassSummary() {
-            const selectedTrialId = document.getElementById('summaryTrialSelect').value;
-            const displayDiv = document.getElementById('classSummaryDisplay');
-
-            if (!selectedTrialId || !classSummaryData[selectedTrialId]) {
-                displayDiv.innerHTML = '';
-                return;
-            }
-
-            const trialData = classSummaryData[selectedTrialId];
-            const trialInfo = trialData.trialInfo;
-            const classes = trialData.classes;
-
-            let html = '<div style="margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">';
-            html += '<h3>' + trialInfo.clubName + '</h3>';
-            html += '<p><strong>Type:</strong> ' + (trialInfo.trialType || 'Unknown') + '</p>';
-            html += '<p><strong>Location:</strong> ' + (trialInfo.location || 'Not specified') + '</p>';
-            html += '<p><strong>Classes:</strong> ' + Object.keys(classes).length + '</p>';
-            html += '</div>';
-
-            if (Object.keys(classes).length === 0) {
-                html += '<p>No class data available for this trial.</p>';
-            } else {
-                Object.keys(classes).forEach(className => {
-                    const classData = classes[className];
-                    
-                    html += '<div style="margin-bottom: 3rem; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">';
-                    html += '<div style="background: #007bff; color: white; padding: 1rem;">';
-                    html += '<h4 style="margin: 0; color: white;">' + className + '</h4>';
-                    html += '<div style="margin-top: 0.5rem; font-size: 0.9rem;">';
-                    html += '<span style="margin-right: 1rem;"><strong>Judge:</strong> ' + classData.judgeName + '</span>';
-                    html += '<span style="margin-right: 1rem;"><strong>Date:</strong> ' + classData.dayDate + '</span>';
-                    html += '<span><strong>Round:</strong> ' + classData.roundNumber + '</span>';
-                    html += '</div>';
-                    html += '</div>';
-                    
-                    html += '<div style="padding: 1rem;">';
-                    html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">';
-                    
-                    html += '<div class="stat-card">';
-                    html += '<div class="stat-value">' + classData.totalEntries + '</div>';
-                    html += '<div class="stat-label">Total Entries</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="stat-card">';
-                    html += '<div class="stat-value">' + classData.qualifyingEntries + '</div>';
-                    html += '<div class="stat-label">Qualifying</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="stat-card">';
-                    html += '<div class="stat-value">' + classData.nonQualifyingEntries + '</div>';
-                    html += '<div class="stat-label">Non-Qualifying</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="stat-card">';
-                    html += '<div class="stat-value">' + classData.qualifyingRate + '%</div>';
-                    html += '<div class="stat-label">Q Rate</div>';
-                    html += '</div>';
-                    
-                    html += '<div class="stat-card">';
-                    html += '<div class="stat-value">' + classData.averageScore + '</div>';
-                    html += '<div class="stat-label">Avg Score</div>';
-                    html += '</div>';
-                    
-                    html += '</div>';
-
-                    html += '<table class="data-table">';
-                    html += '<thead>';
-                    html += '<tr>';
-                    html += '<th>Place</th>';
-                    html += '<th>Registration</th>';
-                    html += '<th>Dog Name</th>';
-                    html += '<th>Handler</th>';
-                    html += '<th>Result</th>';
-                    html += '<th>Score</th>';
-                    html += '<th>Time</th>';
-                    html += '</tr>';
-                    html += '</thead>';
-                    html += '<tbody>';
-
-                    classData.participants.forEach(participant => {
-                        const resultClass = participant.qualified ? 'style="color: green; font-weight: bold;"' : 'style="color: red;"';
-                        html += '<tr>';
-                        html += '<td>' + (participant.placement || '-') + '</td>';
-                        html += '<td>' + (participant.cwagsNumber || '-') + '</td>';
-                        html += '<td>' + (participant.dogCallName || '-') + '</td>';
-                        html += '<td>' + (participant.handlerName || '-') + '</td>';
-                        html += '<td ' + resultClass + '>' + (participant.result || '-') + '</td>';
-                        html += '<td>' + (participant.score || '-') + '</td>';
-                        html += '<td>' + (participant.time || '-') + '</td>';
-                        html += '</tr>';
-                    });
-
-                    html += '</tbody>';
-                    html += '</table>';
-                    html += '</div>';
-                    html += '</div>';
-                });
-            }
-
-            displayDiv.innerHTML = html;
-        }
-
-        async function exportClassSummaries() {
-            if (Object.keys(classSummaryData).length === 0) {
-                showStatus('No class summary data to export. Please load data first.', 'error');
-                return;
-            }
-
-            try {
-                showStatus('Generating class summaries export...', 'info');
-                
-                const wb = XLSX.utils.book_new();
-                
-                // Create a summary sheet for each trial
-                Object.keys(classSummaryData).forEach(trialId => {
-                    const trialData = classSummaryData[trialId];
-                    const trialInfo = trialData.trialInfo;
-                    const classes = trialData.classes;
-
-                    const wsData = [];
-                    
-                    // Trial header
-                    wsData.push([`${trialInfo.clubName} - Class Summary`]);
-                    wsData.push([`Type: ${trialInfo.trialType || 'Unknown'}`]);
-                    wsData.push([`Location: ${trialInfo.location || 'Not specified'}`]);
-                    wsData.push([]); // Empty row
-
-                    // Add each class
-                    Object.keys(classes).forEach(className => {
-                        const classData = classes[className];
-                        
-                        // Class header
-                        wsData.push([className]);
-                        wsData.push([`Judge: ${classData.judgeName}`, `Date: ${classData.dayDate}`, `Round: ${classData.roundNumber}`]);
-                        wsData.push([`Total: ${classData.totalEntries}`, `Qualifying: ${classData.qualifyingEntries}`, `Q Rate: ${classData.qualifyingRate}%`]);
-                        wsData.push([]); // Empty row
-
-                        // Participants table
-                        wsData.push(['Place', 'Registration', 'Dog Name', 'Handler', 'Result', 'Score', 'Time']);
-                        
-                        classData.participants.forEach(participant => {
-                            wsData.push([
-                                participant.placement || '-',
-                                participant.cwagsNumber || '-',
-                                participant.dogCallName || '-',
-                                participant.handlerName || '-',
-                                participant.result || '-',
-                                participant.score || '-',
-                                participant.time || '-'
-                            ]);
-                        });
-                        
-                        wsData.push([]); // Empty row between classes
-                    });
-
-                    const ws = XLSX.utils.aoa_to_sheet(wsData);
-                    const sheetName = trialInfo.clubName.substring(0, 31); // Excel sheet name limit
-                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
-                });
-                
-                const filename = `ClassSummarySheets_${new Date().toISOString().split('T')[0]}.xlsx`;
-                XLSX.writeFile(wb, filename);
-                
-                showStatus('Class summaries export completed successfully', 'success');
-            } catch (error) {
-                showStatus('Error exporting class summaries: ' + error.message, 'error');
-                console.error('Export error:', error);
-            }
-        }
- 
             } catch (error) {
                 showStatus('Error exporting data: ' + error.message, 'error');
                 console.error('Export error:', error);
             }
-        
+        }
+
         // Utility functions
         function showStatus(message, type = 'info') {
             const statusEl = document.getElementById('statusMessage');
@@ -1934,7 +1422,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             showTab('overview');
         });
-
     </script>
 </body>
 </html>
