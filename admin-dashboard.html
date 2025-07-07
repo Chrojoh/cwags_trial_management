@@ -1295,11 +1295,32 @@
                 return;
             }
 
-            document.getElementById('consolidationCard').style.display = 'block';
             showStatus(`Loading data from ${selectedTrials.length} selected trials...`, 'info');
             
-            document.getElementById('processBtn').disabled = false;
-            document.getElementById('previewBtn').disabled = false;
+            try {
+                // Actually load and validate the trial data
+                let totalRecords = 0;
+                for (const trialId of selectedTrials) {
+                    const trial = allTrials.find(t => t.id === trialId);
+                    if (trial) {
+                        // Quick count of entries for this trial
+                        const entriesSnapshot = await db.collection('entries')
+                            .where('trialId', '==', trialId)
+                            .get();
+                        totalRecords += entriesSnapshot.size;
+                    }
+                }
+                
+                document.getElementById('consolidationCard').style.display = 'block';
+                document.getElementById('processBtn').disabled = false;
+                document.getElementById('previewBtn').disabled = false;
+                
+                showStatus(`✅ Successfully loaded ${selectedTrials.length} trials with ${totalRecords} entries ready for consolidation`, 'success');
+                
+            } catch (error) {
+                showStatus('Error loading trial data: ' + error.message, 'error');
+                console.error('Error loading trial data:', error);
+            }
         }
 
         async function processConsolidation() {
@@ -1353,11 +1374,11 @@
                                 const record = {
                                     registration: entry.cwagsNumber,
                                     callName: entry.dogCallName,
-                                    handlerName: entry.handlerName,
                                     date: selectedEntry.dayDate || getTrialDate(trial),
                                     level: selectedEntry.className,
                                     results: scoreData ? scoreData.result : 'Scheduled',
                                     judge: scoreData ? scoreData.judgeName : selectedEntry.judgeName || 'TBD',
+                                    points: 0, // Will be set to 1 after filtering
                                     trialId: trialId,
                                     clubName: trial.clubName,
                                     trialType: trial.trialType || 'unknown'
@@ -1378,7 +1399,25 @@
                     return dateA - dateB;
                 });
 
-                showStatus(`Successfully processed ${consolidatedData.length} records from ${selectedTrials.length} trials`, 'success');
+                // Filter out unwanted results and assign points
+                consolidatedData = consolidatedData.filter(record => {
+                    const result = record.results.toUpperCase();
+                    const unwantedResults = ['X', 'NQ', 'NA', 'FAIL', 'F', '-', ''];
+                    
+                    // Remove unwanted results
+                    if (unwantedResults.includes(result) || result.trim() === '') {
+                        return false;
+                    }
+                    
+                    // Assign 1 point where registration (column A) is not null
+                    if (record.registration && record.registration.trim() !== '') {
+                        record.points = 1;
+                    }
+                    
+                    return true;
+                });
+
+                showStatus(`Successfully processed ${consolidatedData.length} valid records from ${selectedTrials.length} trials`, 'success');
 
             } catch (error) {
                 showStatus('Error processing consolidation: ' + error.message, 'error');
@@ -1409,11 +1448,11 @@
                         <tr>
                             <th>Registration</th>
                             <th>Call Name</th>
-                            <th>Handler</th>
                             <th>Date</th>
                             <th>Level</th>
                             <th>Results</th>
                             <th>Judge</th>
+                            <th>Points</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1430,11 +1469,11 @@
                     <tr>
                         <td>${record.registration}</td>
                         <td>${record.callName}</td>
-                        <td>${record.handlerName}</td>
                         <td>${dateStr}</td>
                         <td>${record.level}</td>
                         <td>${record.results}</td>
                         <td>${record.judge}</td>
+                        <td>${record.points}</td>
                     </tr>
                 `;
             });
@@ -1466,7 +1505,7 @@
                 
                 // Main consolidated data sheet
                 const wsData = [];
-                wsData.push(['Registration', 'Call Name', 'Handler Name', 'Date', 'Level', 'Results', 'Judge']);
+                wsData.push(['Registration', 'Call Name', 'Date', 'Level', 'Results', 'Judge', 'Points']);
                 
                 consolidatedData.forEach(record => {
                     const dateStr = record.date instanceof Date 
@@ -1476,11 +1515,11 @@
                     wsData.push([
                         record.registration,
                         record.callName,
-                        record.handlerName,
                         dateStr,
                         record.level,
                         record.results,
-                        record.judge
+                        record.judge,
+                        record.points
                     ]);
                 });
                 
