@@ -825,13 +825,38 @@
                 `${creator.firstName} ${creator.lastName}` : 
                 creator.username || creator.email || 'Unknown User';
             
-            const createdDate = trial.createdAt ? 
-                new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
-                'Unknown Date';
+            // Handle creation date
+            let createdDate = 'Unknown Date';
+            if (trial.createdAt) {
+                if (trial.createdAt.seconds) {
+                    createdDate = new Date(trial.createdAt.seconds * 1000).toLocaleDateString();
+                } else if (trial.createdAt.toDate) {
+                    createdDate = trial.createdAt.toDate().toLocaleDateString();
+                }
+            }
             
-            const trialDate = trial.days && trial.days[0] && trial.days[0].date ?
-                new Date(trial.days[0].date.seconds * 1000).toLocaleDateString() :
-                'No date set';
+            // Handle trial date
+            let trialDate = 'No date set';
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    trialDate = dateData.toDate().toLocaleDateString();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    const parsedDate = new Date(dateData);
+                    if (!isNaN(parsedDate.getTime())) {
+                        trialDate = parsedDate.toLocaleDateString();
+                    }
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    trialDate = dateData.toLocaleDateString();
+                }
+            }
 
             return `
                 <div class="trial-card">
@@ -1077,9 +1102,29 @@
         }
 
         function createConsolidationTrialCard(trial) {
-            const trialDate = trial.days && trial.days[0] && trial.days[0].date ?
-                new Date(trial.days[0].date.seconds * 1000).toLocaleDateString() :
-                'No date set';
+            // Handle different date formats from Firestore
+            let trialDate = 'No date set';
+            
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    trialDate = dateData.toDate().toLocaleDateString();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    const parsedDate = new Date(dateData);
+                    if (!isNaN(parsedDate.getTime())) {
+                        trialDate = parsedDate.toLocaleDateString();
+                    }
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    trialDate = dateData.toLocaleDateString();
+                }
+            }
 
             return `
                 <div class="trial-card" data-trial-id="${trial.id}" onclick="toggleTrialSelection('${trial.id}')">
@@ -1228,7 +1273,21 @@
 
         function getTrialDate(trial) {
             if (trial.days && trial.days[0] && trial.days[0].date) {
-                return new Date(trial.days[0].date.seconds * 1000);
+                const dateData = trial.days[0].date;
+                
+                if (dateData.seconds) {
+                    // Firestore Timestamp
+                    return new Date(dateData.seconds * 1000);
+                } else if (dateData.toDate) {
+                    // Firestore Timestamp object
+                    return dateData.toDate();
+                } else if (typeof dateData === 'string') {
+                    // String date
+                    return new Date(dateData);
+                } else if (dateData instanceof Date) {
+                    // JavaScript Date object
+                    return dateData;
+                }
             }
             return new Date();
         }
