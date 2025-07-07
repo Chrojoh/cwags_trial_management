@@ -1598,7 +1598,11 @@
                 XLSX.writeFile(wb, filename);
                 
                 showStatus('Excel export completed successfully', 'success');
-        }
+       } catch (error) {
+  console.error("An error occurred:", error);
+} finally {
+  console.log("Cleanup code here.");
+}
 
         async function loadClassSummaryData() {
             try {
