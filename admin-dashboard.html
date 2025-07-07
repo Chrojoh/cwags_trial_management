@@ -376,6 +376,7 @@
         <button class="tab-btn" onclick="showTab('trials')" id="trialsTab">📋 All Trials</button>
         <button class="tab-btn" onclick="showTab('users')" id="usersTab">👥 Users</button>
         <button class="tab-btn" onclick="showTab('consolidation')" id="consolidationTab">🔄 Data Consolidation</button>
+        <button class="tab-btn" onclick="showTab('classSummary')" id="classSummaryTab">📋 Class Summary Sheets</button>
         <button class="tab-btn" onclick="showTab('statistics')" id="statisticsTab">📊 Statistics</button>
     </div>
 
@@ -522,6 +523,43 @@
             <div class="card" id="previewCard" style="display: none;">
                 <h2>👁️ Data Preview</h2>
                 <div id="dataPreview"></div>
+            </div>
+        </div>
+
+        <!-- Class Summary Sheets Tab -->
+        <div id="classSummaryTab-content" class="tab-content">
+            <div class="card">
+                <h2>📋 Class Summary Sheets</h2>
+                <p style="color: #666; margin-bottom: 1.5rem;">
+                    View the class summary sheets that are used in the consolidation calculations. 
+                    These sheets show the detailed breakdown of each class by trial.
+                </p>
+                
+                <div class="action-buttons" style="margin-bottom: 2rem;">
+                    <button class="btn btn-primary" onclick="loadClassSummaryData()">
+                        🔄 Load Class Summary Data
+                    </button>
+                    <button class="btn btn-success" onclick="exportClassSummaries()" id="exportSummariesBtn" disabled>
+                        📤 Export All Summaries
+                    </button>
+                </div>
+
+                <div id="classSummaryLoading" class="loading" style="display: none;">
+                    Loading class summary data...
+                </div>
+
+                <div id="classSummaryContent" style="display: none;">
+                    <!-- Trial Selection for Class Summaries -->
+                    <div class="option-group">
+                        <h3>Select Trial to View Class Summary</h3>
+                        <select id="summaryTrialSelect" onchange="displayClassSummary()" style="padding: 0.5rem; width: 100%; max-width: 400px; margin-bottom: 1rem;">
+                            <option value="">Select a trial...</option>
+                        </select>
+                    </div>
+
+                    <!-- Class Summary Display -->
+                    <div id="classSummaryDisplay"></div>
+                </div>
             </div>
         </div>
 
@@ -682,6 +720,7 @@
         let allUsers = [];
         let selectedTrials = [];
         let consolidatedData = [];
+        let classSummaryData = {};
         let currentTab = 'overview';
 
         // Authentication check
@@ -801,6 +840,8 @@
                 renderStatisticsTab();
             } else if (tabName === 'consolidation') {
                 loadConsolidationTrials();
+            } else if (tabName === 'classSummary') {
+                // Class summary tab will load on demand when user clicks load button
             }
         }
 
@@ -1530,6 +1571,307 @@
                 XLSX.writeFile(wb, filename);
                 
                 showStatus('Excel export completed successfully', 'success');
+        }
+
+        // Class Summary Functions
+        async function loadClassSummaryData() {
+            try {
+                document.getElementById('classSummaryLoading').style.display = 'block';
+                showStatus('Loading class summary data...', 'info');
+
+                classSummaryData = {};
+                
+                // Process all trials to generate class summaries
+                for (const trial of allTrials) {
+                    const trialSummary = await generateTrialClassSummary(trial);
+                    if (trialSummary && Object.keys(trialSummary).length > 0) {
+                        classSummaryData[trial.id] = {
+                            trialInfo: {
+                                clubName: trial.clubName,
+                                trialType: trial.trialType,
+                                dates: trial.days ? trial.days.map(day => day.date).filter(d => d) : [],
+                                location: trial.location
+                            },
+                            classes: trialSummary
+                        };
+                    }
+                }
+
+                // Populate trial selector
+                const summaryTrialSelect = document.getElementById('summaryTrialSelect');
+                summaryTrialSelect.innerHTML = '<option value="">Select a trial...</option>';
+                
+                Object.keys(classSummaryData).forEach(trialId => {
+                    const summary = classSummaryData[trialId];
+                    const option = document.createElement('option');
+                    option.value = trialId;
+                    option.textContent = `${summary.trialInfo.clubName} (${Object.keys(summary.classes).length} classes)`;
+                    summaryTrialSelect.appendChild(option);
+                });
+
+                document.getElementById('classSummaryLoading').style.display = 'none';
+                document.getElementById('classSummaryContent').style.display = 'block';
+                document.getElementById('exportSummariesBtn').disabled = false;
+
+                showStatus(`✅ Loaded class summaries for ${Object.keys(classSummaryData).length} trials`, 'success');
+
+            } catch (error) {
+                document.getElementById('classSummaryLoading').style.display = 'none';
+                showStatus('Error loading class summary data: ' + error.message, 'error');
+                console.error('Error loading class summary data:', error);
+            }
+        }
+
+        async function generateTrialClassSummary(trial) {
+            try {
+                const classSummary = {};
+
+                // Load entries for this trial
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trial.id)
+                    .get();
+
+                // Load scores for this trial
+                const scoresSnapshot = await db.collection('scores')
+                    .where('trialId', '==', trial.id)
+                    .get();
+
+                // Process scores by class
+                const scoresByClass = {};
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const className = scoreData.className;
+                    
+                    if (!scoresByClass[className]) {
+                        scoresByClass[className] = {
+                            judgeName: scoreData.judgeName,
+                            dayDate: scoreData.dayDate,
+                            roundNumber: scoreData.roundNumber,
+                            participants: []
+                        };
+                    }
+
+                    if (scoreData.participants) {
+                        Object.values(scoreData.participants).forEach(participant => {
+                            scoresByClass[className].participants.push({
+                                cwagsNumber: participant.cwagsNumber,
+                                dogCallName: participant.dogCallName,
+                                handlerName: participant.handlerName,
+                                result: participant.result,
+                                score: participant.score,
+                                time: participant.time,
+                                placement: participant.placement,
+                                qualified: participant.qualified
+                            });
+                        });
+                    }
+                });
+
+                // Generate summary for each class
+                Object.keys(scoresByClass).forEach(className => {
+                    const classData = scoresByClass[className];
+                    const participants = classData.participants;
+
+                    // Calculate statistics
+                    const totalEntries = participants.length;
+                    const qualifyingEntries = participants.filter(p => p.qualified || p.result === 'P' || p.result === 'Pass').length;
+                    const nonQualifyingEntries = participants.filter(p => !p.qualified && (p.result === 'NQ' || p.result === 'F' || p.result === 'Fail')).length;
+                    const avgScore = participants.length > 0 ? 
+                        participants.reduce((sum, p) => sum + (parseFloat(p.score) || 0), 0) / participants.length : 0;
+
+                    classSummary[className] = {
+                        judgeName: classData.judgeName || 'TBD',
+                        dayDate: classData.dayDate || 'TBD',
+                        roundNumber: classData.roundNumber || 1,
+                        totalEntries: totalEntries,
+                        qualifyingEntries: qualifyingEntries,
+                        nonQualifyingEntries: nonQualifyingEntries,
+                        qualifyingRate: totalEntries > 0 ? ((qualifyingEntries / totalEntries) * 100).toFixed(1) : 0,
+                        averageScore: avgScore.toFixed(1),
+                        participants: participants.sort((a, b) => (a.placement || 999) - (b.placement || 999))
+                    };
+                });
+
+                return classSummary;
+
+            } catch (error) {
+                console.error(`Error generating class summary for trial ${trial.id}:`, error);
+                return {};
+            }
+        }
+
+        function displayClassSummary() {
+            const selectedTrialId = document.getElementById('summaryTrialSelect').value;
+            const displayDiv = document.getElementById('classSummaryDisplay');
+
+            if (!selectedTrialId || !classSummaryData[selectedTrialId]) {
+                displayDiv.innerHTML = '';
+                return;
+            }
+
+            const trialData = classSummaryData[selectedTrialId];
+            const trialInfo = trialData.trialInfo;
+            const classes = trialData.classes;
+
+            let html = `
+                <div style="margin-bottom: 2rem; padding: 1rem; background: #f8f9fa; border-radius: 8px;">
+                    <h3>${trialInfo.clubName}</h3>
+                    <p><strong>Type:</strong> ${trialInfo.trialType || 'Unknown'}</p>
+                    <p><strong>Location:</strong> ${trialInfo.location || 'Not specified'}</p>
+                    <p><strong>Classes:</strong> ${Object.keys(classes).length}</p>
+                </div>
+            `;
+
+            if (Object.keys(classes).length === 0) {
+                html += '<p>No class data available for this trial.</p>';
+            } else {
+                Object.keys(classes).forEach(className => {
+                    const classData = classes[className];
+                    
+                    html += `
+                        <div style="margin-bottom: 3rem; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
+                            <div style="background: #007bff; color: white; padding: 1rem;">
+                                <h4 style="margin: 0; color: white;">${className}</h4>
+                                <div style="margin-top: 0.5rem; font-size: 0.9rem;">
+                                    <span style="margin-right: 1rem;"><strong>Judge:</strong> ${classData.judgeName}</span>
+                                    <span style="margin-right: 1rem;"><strong>Date:</strong> ${classData.dayDate}</span>
+                                    <span><strong>Round:</strong> ${classData.roundNumber}</span>
+                                </div>
+                            </div>
+                            
+                            <div style="padding: 1rem;">
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                                    <div class="stat-card">
+                                        <div class="stat-value">${classData.totalEntries}</div>
+                                        <div class="stat-label">Total Entries</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">${classData.qualifyingEntries}</div>
+                                        <div class="stat-label">Qualifying</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">${classData.nonQualifyingEntries}</div>
+                                        <div class="stat-label">Non-Qualifying</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">${classData.qualifyingRate}%</div>
+                                        <div class="stat-label">Q Rate</div>
+                                    </div>
+                                    <div class="stat-card">
+                                        <div class="stat-value">${classData.averageScore}</div>
+                                        <div class="stat-label">Avg Score</div>
+                                    </div>
+                                </div>
+
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Place</th>
+                                            <th>Registration</th>
+                                            <th>Dog Name</th>
+                                            <th>Handler</th>
+                                            <th>Result</th>
+                                            <th>Score</th>
+                                            <th>Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+
+                    classData.participants.forEach(participant => {
+                        const resultClass = participant.qualified ? 'style="color: green; font-weight: bold;"' : 'style="color: red;"';
+                        html += `
+                            <tr>
+                                <td>${participant.placement || '-'}</td>
+                                <td>${participant.cwagsNumber || '-'}</td>
+                                <td>${participant.dogCallName || '-'}</td>
+                                <td>${participant.handlerName || '-'}</td>
+                                <td ${resultClass}>${participant.result || '-'}</td>
+                                <td>${participant.score || '-'}</td>
+                                <td>${participant.time || '-'}</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            displayDiv.innerHTML = html;
+        }
+
+        async function exportClassSummaries() {
+            if (Object.keys(classSummaryData).length === 0) {
+                showStatus('No class summary data to export. Please load data first.', 'error');
+                return;
+            }
+
+            try {
+                showStatus('Generating class summaries export...', 'info');
+                
+                const wb = XLSX.utils.book_new();
+                
+                // Create a summary sheet for each trial
+                Object.keys(classSummaryData).forEach(trialId => {
+                    const trialData = classSummaryData[trialId];
+                    const trialInfo = trialData.trialInfo;
+                    const classes = trialData.classes;
+
+                    const wsData = [];
+                    
+                    // Trial header
+                    wsData.push([`${trialInfo.clubName} - Class Summary`]);
+                    wsData.push([`Type: ${trialInfo.trialType || 'Unknown'}`]);
+                    wsData.push([`Location: ${trialInfo.location || 'Not specified'}`]);
+                    wsData.push([]); // Empty row
+
+                    // Add each class
+                    Object.keys(classes).forEach(className => {
+                        const classData = classes[className];
+                        
+                        // Class header
+                        wsData.push([className]);
+                        wsData.push([`Judge: ${classData.judgeName}`, `Date: ${classData.dayDate}`, `Round: ${classData.roundNumber}`]);
+                        wsData.push([`Total: ${classData.totalEntries}`, `Qualifying: ${classData.qualifyingEntries}`, `Q Rate: ${classData.qualifyingRate}%`]);
+                        wsData.push([]); // Empty row
+
+                        // Participants table
+                        wsData.push(['Place', 'Registration', 'Dog Name', 'Handler', 'Result', 'Score', 'Time']);
+                        
+                        classData.participants.forEach(participant => {
+                            wsData.push([
+                                participant.placement || '-',
+                                participant.cwagsNumber || '-',
+                                participant.dogCallName || '-',
+                                participant.handlerName || '-',
+                                participant.result || '-',
+                                participant.score || '-',
+                                participant.time || '-'
+                            ]);
+                        });
+                        
+                        wsData.push([]); // Empty row between classes
+                    });
+
+                    const ws = XLSX.utils.aoa_to_sheet(wsData);
+                    const sheetName = trialInfo.clubName.substring(0, 31); // Excel sheet name limit
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                });
+                
+                const filename = `ClassSummarySheets_${new Date().toISOString().split('T')[0]}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                
+                showStatus('Class summaries export completed successfully', 'success');
+            } catch (error) {
+                showStatus('Error exporting class summaries: ' + error.message, 'error');
+                console.error('Export error:', error);
+            }
+        }
             } catch (error) {
                 showStatus('Error exporting data: ' + error.message, 'error');
                 console.error('Export error:', error);
