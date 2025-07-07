@@ -573,6 +573,33 @@
     </div>
 
     <script>
+        // ========================================
+        // TROUBLESHOOTER - Check in console
+        // ========================================
+        console.log('🔧 Dashboard Troubleshooter Starting...');
+        
+        function troubleshoot() {
+            console.log('=== DASHBOARD TROUBLESHOOT ===');
+            console.log('1. Firebase Config:', typeof firebase !== 'undefined' ? '✅ Loaded' : '❌ Missing');
+            console.log('2. XLSX Library:', typeof XLSX !== 'undefined' ? '✅ Loaded' : '❌ Missing');
+            console.log('3. jsPDF Library:', typeof window.jspdf !== 'undefined' ? '✅ Loaded' : '❌ Missing');
+            console.log('4. Functions defined:');
+            console.log('   - showTab:', typeof showTab !== 'undefined' ? '✅' : '❌');
+            console.log('   - validateDataStructures:', typeof validateDataStructures !== 'undefined' ? '✅' : '❌');
+            console.log('   - loadOverviewData:', typeof loadOverviewData !== 'undefined' ? '✅' : '❌');
+            console.log('   - processConsolidation:', typeof processConsolidation !== 'undefined' ? '✅' : '❌');
+            console.log('5. Global Variables:');
+            console.log('   - currentUser:', typeof currentUser);
+            console.log('   - allTrials:', typeof allTrials, allTrials ? allTrials.length : 0);
+            console.log('   - allUsers:', typeof allUsers, allUsers ? allUsers.length : 0);
+            console.log('=== END TROUBLESHOOT ===');
+        }
+        
+        // Make troubleshoot available globally
+        window.troubleshoot = troubleshoot;
+        
+        console.log('🔧 Run troubleshoot() in console to check system status');
+
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
