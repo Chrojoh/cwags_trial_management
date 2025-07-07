@@ -550,6 +550,132 @@
         const auth = firebase.auth();
         const db = firebase.firestore();
 
+        // ========================================
+        // TIMEZONE-SAFE DATE UTILITIES (from project knowledge)
+        // ========================================
+
+        function createLocalDate(dateStr) {
+            if (!dateStr) return null;
+            if (typeof dateStr === 'string') {
+                const dateWithTime = dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00';
+                return new Date(dateWithTime);
+            }
+            return new Date(dateStr);
+        }
+
+        function formatLocalDate(date) {
+            if (!date || !(date instanceof Date)) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            let date;
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
+            } else {
+                return '';
+            }
+            return formatLocalDate(date);
+        }
+
+        function formatDateDisplay(dateInput, options = {}) {
+            let date;
+            
+            if (typeof dateInput === 'string') {
+                date = createLocalDate(dateInput);
+            } else if (dateInput instanceof Date) {
+                date = new Date(dateInput);
+            } else {
+                return 'Invalid Date';
+            }
+            
+            if (!date || isNaN(date.getTime())) return 'Invalid Date';
+            
+            const defaultOptions = {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            const formatOptions = { ...defaultOptions, ...options };
+            return new Intl.DateTimeFormat('en-US', formatOptions).format(date);
+        }
+
+        function calculateTrialDuration(trial) {
+            if (!trial.days || trial.days.length === 0) {
+                return { days: 0, text: 'No dates set' };
+            }
+
+            const validDates = trial.days
+                .map(day => day.date ? getDateFromFirebase(day.date) : null)
+                .filter(date => date)
+                .map(dateStr => createLocalDate(dateStr))
+                .filter(date => date && !isNaN(date.getTime()));
+
+            if (validDates.length === 0) {
+                return { days: 0, text: 'No valid dates' };
+            }
+
+            if (validDates.length === 1) {
+                return { days: 1, text: '1 day' };
+            }
+
+            // Sort dates to find span
+            validDates.sort((a, b) => a - b);
+            const startDate = validDates[0];
+            const endDate = validDates[validDates.length - 1];
+            
+            const diffTime = Math.abs(endDate - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end day
+            
+            return { 
+                days: diffDays, 
+                text: diffDays === 1 ? '1 day' : `${diffDays} days`,
+                startDate: formatDateDisplay(startDate, { weekday: 'short', month: 'short', day: 'numeric' }),
+                endDate: diffDays > 1 ? formatDateDisplay(endDate, { weekday: 'short', month: 'short', day: 'numeric' }) : null
+            };
+        }
+
+        // Authentication check
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists) {
+                        currentUser = { uid: user.uid, ...userDoc.data() };
+                        
+                        if (currentUser.role !== 'administrator') {
+                            showStatus('Access denied. Administrator role required.', 'error');
+                            setTimeout(() => window.location.href = 'index.html', 3000);
+                            return;
+                        }
+
+                        updateUserInfo();
+                        await loadOverviewData();
+                    }
+                } catch (error) {
+                    showStatus('Error loading user profile: ' + error.message, 'error');
+                }
+            } else {
+                window.location.href = 'index.html';
+            }
+        });
+
+        function updateUserInfo() {
+            document.getElementById('userInfo').textContent = 
+                `${currentUser.firstName || ''} ${currentUser.lastName || ''} • Administrator`;
+        }
+
         // Global variables
         let currentUser = null;
         let allTrials = [];
@@ -615,10 +741,20 @@
                     }
                 });
                 
-                // Store data globally
+                // Store data globally and fix dates using proper utilities
                 allTrials = [];
                 trialsSnapshot.forEach(doc => {
-                    allTrials.push({ id: doc.id, ...doc.data() });
+                    const rawTrialData = doc.data();
+                    
+                    // Fix date handling for trial days using timezone-safe utilities
+                    if (rawTrialData.days && Array.isArray(rawTrialData.days)) {
+                        rawTrialData.days = rawTrialData.days.map(day => ({
+                            ...day,
+                            date: day.date ? getDateFromFirebase(day.date) : null
+                        }));
+                    }
+                    
+                    allTrials.push({ id: doc.id, ...rawTrialData });
                 });
                 
                 allUsers = [];
@@ -825,36 +961,25 @@
                 `${creator.firstName} ${creator.lastName}` : 
                 creator.username || creator.email || 'Unknown User';
             
-            // Handle creation date
+            // Handle creation date using proper utilities
             let createdDate = 'Unknown Date';
             if (trial.createdAt) {
                 if (trial.createdAt.seconds) {
-                    createdDate = new Date(trial.createdAt.seconds * 1000).toLocaleDateString();
+                    createdDate = formatDateDisplay(new Date(trial.createdAt.seconds * 1000));
                 } else if (trial.createdAt.toDate) {
-                    createdDate = trial.createdAt.toDate().toLocaleDateString();
+                    createdDate = formatDateDisplay(trial.createdAt.toDate());
                 }
             }
             
-            // Handle trial date
-            let trialDate = 'No date set';
-            if (trial.days && trial.days[0] && trial.days[0].date) {
-                const dateData = trial.days[0].date;
-                
-                if (dateData.seconds) {
-                    // Firestore Timestamp
-                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
-                } else if (dateData.toDate) {
-                    // Firestore Timestamp object
-                    trialDate = dateData.toDate().toLocaleDateString();
-                } else if (typeof dateData === 'string') {
-                    // String date
-                    const parsedDate = new Date(dateData);
-                    if (!isNaN(parsedDate.getTime())) {
-                        trialDate = parsedDate.toLocaleDateString();
-                    }
-                } else if (dateData instanceof Date) {
-                    // JavaScript Date object
-                    trialDate = dateData.toLocaleDateString();
+            // Calculate trial duration and format dates properly
+            const duration = calculateTrialDuration(trial);
+            let trialDateDisplay = 'No date set';
+            
+            if (duration.days > 0) {
+                if (duration.days === 1) {
+                    trialDateDisplay = duration.startDate;
+                } else {
+                    trialDateDisplay = `${duration.startDate} - ${duration.endDate}`;
                 }
             }
 
@@ -862,7 +987,8 @@
                 <div class="trial-card">
                     <h3>${trial.clubName || 'Unnamed Trial'}</h3>
                     <div class="trial-details">
-                        <div><strong>📅 Trial Date:</strong> ${trialDate}</div>
+                        <div><strong>📅 Trial Date:</strong> ${trialDateDisplay}</div>
+                        <div><strong>⏱️ Duration:</strong> ${duration.text}</div>
                         <div><strong>🎯 Type:</strong> ${trial.trialType || 'Unknown'}</div>
                         <div><strong>👤 Secretary:</strong> ${creatorName}</div>
                         <div><strong>📍 Location:</strong> ${trial.location || 'Not specified'}</div>
@@ -1102,27 +1228,15 @@
         }
 
         function createConsolidationTrialCard(trial) {
-            // Handle different date formats from Firestore
-            let trialDate = 'No date set';
+            // Calculate trial duration and format dates properly using timezone-safe utilities
+            const duration = calculateTrialDuration(trial);
+            let trialDateDisplay = 'No date set';
             
-            if (trial.days && trial.days[0] && trial.days[0].date) {
-                const dateData = trial.days[0].date;
-                
-                if (dateData.seconds) {
-                    // Firestore Timestamp
-                    trialDate = new Date(dateData.seconds * 1000).toLocaleDateString();
-                } else if (dateData.toDate) {
-                    // Firestore Timestamp object
-                    trialDate = dateData.toDate().toLocaleDateString();
-                } else if (typeof dateData === 'string') {
-                    // String date
-                    const parsedDate = new Date(dateData);
-                    if (!isNaN(parsedDate.getTime())) {
-                        trialDate = parsedDate.toLocaleDateString();
-                    }
-                } else if (dateData instanceof Date) {
-                    // JavaScript Date object
-                    trialDate = dateData.toLocaleDateString();
+            if (duration.days > 0) {
+                if (duration.days === 1) {
+                    trialDateDisplay = duration.startDate;
+                } else {
+                    trialDateDisplay = `${duration.startDate} - ${duration.endDate}`;
                 }
             }
 
@@ -1130,7 +1244,8 @@
                 <div class="trial-card" data-trial-id="${trial.id}" onclick="toggleTrialSelection('${trial.id}')">
                     <h3>${trial.clubName || 'Unknown Club'}</h3>
                     <div class="trial-details">
-                        <div><strong>📅 Date:</strong> ${trialDate}</div>
+                        <div><strong>📅 Date:</strong> ${trialDateDisplay}</div>
+                        <div><strong>⏱️ Duration:</strong> ${duration.text}</div>
                         <div><strong>📍 Location:</strong> ${trial.location || 'TBD'}</div>
                         <div><strong>🎯 Type:</strong> ${trial.trialType || 'Various'}</div>
                     </div>
@@ -1273,21 +1388,8 @@
 
         function getTrialDate(trial) {
             if (trial.days && trial.days[0] && trial.days[0].date) {
-                const dateData = trial.days[0].date;
-                
-                if (dateData.seconds) {
-                    // Firestore Timestamp
-                    return new Date(dateData.seconds * 1000);
-                } else if (dateData.toDate) {
-                    // Firestore Timestamp object
-                    return dateData.toDate();
-                } else if (typeof dateData === 'string') {
-                    // String date
-                    return new Date(dateData);
-                } else if (dateData instanceof Date) {
-                    // JavaScript Date object
-                    return dateData;
-                }
+                // Use the already processed date string from getDateFromFirebase
+                return createLocalDate(trial.days[0].date);
             }
             return new Date();
         }
