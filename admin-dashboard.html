@@ -1225,7 +1225,54 @@
             }
         }
 
-        // User management functions from original admin dashboard
+        function displayTrials() {
+            const trialsGrid = document.getElementById('trialsGrid');
+            trialsGrid.innerHTML = '';
+
+            allTrials.forEach(trial => {
+                const trialCard = document.createElement('div');
+                trialCard.className = 'trial-card';
+                trialCard.dataset.trialId = trial.id;
+                
+                const startDate = trial.days && trial.days[0] && trial.days[0].date 
+                    ? new Date(trial.days[0].date.seconds * 1000).toLocaleDateString()
+                    : 'Date TBD';
+                
+                const endDate = trial.days && trial.days[trial.days.length - 1] && trial.days[trial.days.length - 1].date
+                    ? new Date(trial.days[trial.days.length - 1].date.seconds * 1000).toLocaleDateString()
+                    : '';
+
+                const dateRange = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+
+                trialCard.innerHTML = `
+                    <h3>${trial.clubName || 'Unknown Club'}</h3>
+                    <div class="trial-details">
+                        <div><strong>📅 Date:</strong> ${dateRange}</div>
+                        <div><strong>📍 Location:</strong> ${trial.location || 'TBD'}</div>
+                        <div><strong>🎯 Type:</strong> ${trial.trialType || 'Various'}</div>
+                        <div><strong>👥 Entries:</strong> <span id="entries-${trial.id}">Loading...</span></div>
+                    </div>
+                `;
+
+                trialCard.onclick = () => toggleTrialSelection(trial.id);
+                trialsGrid.appendChild(trialCard);
+
+                // Load entry count
+                loadTrialEntryCount(trial.id);
+            });
+        }
+
+        async function loadTrialEntryCount(trialId) {
+            try {
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+                
+                document.getElementById(`entries-${trialId}`).textContent = entriesSnapshot.size;
+            } catch (error) {
+                document.getElementById(`entries-${trialId}`).textContent = 'Error';
+            }
+        }
         async function resetUserPassword() {
             const username = document.getElementById('resetUsername').value.toLowerCase().trim();
             
