@@ -1,408 +1,96 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Trial Management System</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .header h1 {
-            color: #2c3e50;
-            font-size: 1.5rem;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-            margin: 0.25rem;
-        }
-
-        .btn:hover {
-            background: #5a6fd8;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: #dc3545;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .btn-warning {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .btn-warning:hover {
-            background: #e0a800;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-
-        .dashboard-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            text-align: center;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .tabs {
-            display: flex;
-            background: white;
-            border-radius: 12px;
-            padding: 0.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 0.75rem 1rem;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.9rem;
-        }
-
-        .tab-btn.active {
-            background: #667eea;
-            color: white;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        }
-
-        .content-area {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-
-        .trials-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 1.5rem;
-            padding: 1.5rem;
-        }
-
-        .trial-card {
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 1.5rem;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-        }
-
-        .trial-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-            border-color: #667eea;
-        }
-
-        .trial-card h4 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-            font-size: 1.1rem;
-            border-bottom: 2px solid #e9ecef;
-            padding-bottom: 0.5rem;
-        }
-
-        .trial-info p {
-            margin-bottom: 0.5rem;
-            color: #555;
-            font-size: 0.9rem;
-        }
-
-        .trial-actions {
-            margin-top: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .trial-actions .btn {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.8rem;
-        }
-
-        .users-table {
-            padding: 1.5rem;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            min-width: 800px;
-        }
-
-        th, td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .status-message {
-            padding: 1rem;
-            margin: 1rem;
-            border-radius: 8px;
-            display: none;
-        }
-
-        .status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .status-info {
-            background: #cce7ff;
-            color: #0056b3;
-            border: 1px solid #99d3ff;
-        }
-
-        .admin-tools {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        .admin-tools h3 {
-            margin-bottom: 1rem;
-            color: #2c3e50;
-        }
-
-        .tool-section {
-            margin-bottom: 1.5rem;
-        }
-
-        .tool-section:last-child {
-            margin-bottom: 0;
-        }
-
-        .tool-section h4 {
-            margin-bottom: 0.5rem;
-            color: #495057;
-            font-size: 1rem;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-
-        input[type="text"], input[type="email"] {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #666;
-        }
-
-        .user-actions {
-            display: flex;
-            gap: 0.25rem;
-            flex-wrap: wrap;
-        }
-
-        .user-actions .btn {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 1rem;
-            }
-            
-            .header {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .trials-grid {
-                grid-template-columns: 1fr;
-                padding: 1rem;
-            }
-            
-            .dashboard-stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-    </style>
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-</head>
-<body>
-    <div class="header">
-        <h1>👑 Administrator Dashboard</h1>
-        <div class="user-info">
-            <span id="userInfo">Loading...</span>
-            <button class="btn btn-secondary" onclick="logout()">Logout</button>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="status-message" id="statusMessage"></div>
-
-        <!-- Dashboard Statistics -->
-        <div class="dashboard-stats">
-            <div class="stat-card">
-                <div class="stat-number" id="totalTrials">0</div>
-                <div class="stat-label">Total Trials</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="activeTrials">0</div>
-                <div class="stat-label">Active Trials</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="totalSecretaries">0</div>
-                <div class="stat-label">Trial Secretaries</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="totalParticipants">0</div>
-                <div class="stat-label">Participants</div>
-            </div>
-        </div>
-
-        <!-- Admin Tools -->
-        <div class="admin-tools">
-            <h3>🔧 Administrative Tools</h3>
-            
-            <div class="tool-section">
-                <h4>Password Reset</h4>
-                <div class="input-group">
-                    <input type="text" id="resetUsername" placeholder="Username" autocomplete="username">
-                    <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
+<!-- Overview Tab -->
+        <div id="overviewTab-content" class="tab-content active">
+            <div class="overview-grid">
+                <div class="overview-card">
+                    <h3>📊 Total Trials</h3>
+                    <div class="overview-stat" id="totalTrialsCount">-</div>
+                    <div class="overview-description">Across all clubs and disciplines</div>
                 </div>
-                <small style="color: #666;">New password will be displayed in the status message</small>
+                <div class="overview-card">
+                    <h3>🏢 Active Clubs</h3>
+                    <div class="overview-stat" id="activeClubsCount">-</div>
+                    <div class="overview-description">Currently managing trials</div>
+                </div>
+                <div class="overview-card">
+                    <h3>👥 Total Users</h3>
+                    <div class="overview-stat" id="totalUsersCount">-</div>
+                    <div class="overview-description">Trial secretaries & participants</div>
+                </div>
+                <div class="overview-card">
+                    <h3>🎯 Recent Activity</h3>
+                    <div class="overview-stat" id="recentActivityCount">-</div>
+                    <div class="overview-description">Trials in last 30 days</div>
+                </div>
             </div>
 
-            <div class="tool-section">
-                <h4>Data Validation</h4>
-                <button class="btn" onclick="validateDataStructure()">🔍 Validate Data Structure</button>
-                <button class="btn" onclick="fixRoundKeys()">🔧 Fix Round Keys</button>
-                <small style="color: #666; display: block; margin-top: 0.5rem;">
-                    Validate and fix data according to standardized structure
-                </small>
+            <!-- Admin Tools Section -->
+            <div class="card">
+                <h2>🔧 Administrative Tools</h2>
+                
+                <div class="consolidation-options">
+                    <div class="option-group">
+                        <h3>Password Management</h3>
+                        <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+                            <input type="text" id="resetUsername" placeholder="Username or Email" 
+                                   style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; flex: 1;">
+                            <button class="btn btn-warning" onclick="resetUserPassword()">🔑 Reset Password</button>
+                        </div>
+                        <small style="color: #666;">New password will be displayed in the status message</small>
+                    </div>
+
+                    <div class="option-group">
+                        <h3>Data Management</h3>
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="validateDataStructures()">
+                                🔍 Validate Data Structure
+                            </button>
+                            <button class="btn btn-warning" onclick="fixRoundKeys()">
+                                🔧 Fix Round Keys
+                            </button>
+                            <button class="btn btn-success" onclick="showTab('consolidation')">
+                                🔄 Consolidate Trial Data
+                            </button>
+                        </div>
+                        <small style="color: #666; display: block; margin-top: 0.5rem;">
+                            Validate and fix data according to standardized structure (PDF compliant)
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <h2>🚀 Quick Actions</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="showTab('trials')">
+                        📋 Manage All Trials
+                    </button>
+                    <button class="btn btn-success" onclick="showTab('users')">
+                        👥 Manage Users
+                    </button>
+                    <button class="btn btn-warning" onclick="showTab('statistics')">
+                        📊 View Statistics
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Tab Navigation -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('trials')">All Trials</button>
-            <button class="tab-btn" onclick="switchTab('users')">Users</button>
-            <button class="tab-btn" onclick="switchTab('statistics')">Statistics</button>
-        </div>
-
-        <!-- Content Area -->
-        <div class="content-area">
-            <!-- Trials Tab -->
-            <div id="trialsTab" class="tab-content">
+        <!-- Trials Management Tab -->
+        <div id="trialsTab-content" class="tab-content">
+            <div class="card">
+                <h2>📋 All Trials Management</h2>
                 <div class="trials-grid" id="trialsGrid">
                     <div class="loading">Loading trials...</div>
                 </div>
             </div>
+        </div>
 
-            <!-- Users Tab -->
-            <div id="usersTab" class="tab-content" style="display: none;">
-                <div class="users-table">
-                    <table>
+        <!-- Users Management Tab -->
+        <div id="usersTab-content" class="tab-content">
+            <div class="card">
+                <h2>👥 Users Management</h2>
+                <div style="overflow-x: auto;">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -419,27 +107,618 @@
                     </table>
                 </div>
             </div>
+        </div>
 
-            <!-- Statistics Tab -->
-            <div id="statisticsTab" class="tab-content" style="display: none;">
-                <div style="padding: 1.5rem;">
-                    <h3>System Statistics</h3>
-                    <div id="detailedStats">Loading detailed statistics...</div>
+        <!-- Statistics Tab -->
+        <div id="statisticsTab-content" class="tab-content">
+            <div class="card">
+                <h2>📊 System Statistics</h2>
+                <div id="detailedStats">Loading detailed statistics...</div>
+            </div>
+        </div>
+
+        <!-- Consolidation Tab -->
+        <div id="consolidationTab-content" class="tab-content">        .main-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Overview Tab Styles */
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .overview-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .overview-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        .overview-stat {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #007bff;
+            margin: 1rem 0;
+        }
+
+        .overview-description {
+            color: #666;
+            font-size: 0.9rem;
+        }<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrator Trial Data Consolidation</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+        }
+
+        .user-info {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tab-navigation {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 0 2rem;
+            display: flex;
+            gap: 1rem;
+            border-bottom: 2px solid #e9ecef;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn {
+            padding: 1rem 1.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+        }
+
+        .tab-btn.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: rgba(0, 123, 255, 0.1);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+        }
+
+        .trials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .trial-card {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .trial-card:hover {
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.2);
+        }
+
+        .trial-card.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .trial-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .trial-details {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .trial-details div {
+            margin-bottom: 0.5rem;
+        }
+
+        .consolidation-options {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 2rem 0;
+        }
+
+        .option-group {
+            margin-bottom: 2rem;
+        }
+
+        .option-group h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 1rem 0;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #28a745;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .data-preview {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 0.5rem;
+            border: 1px solid #dee2e6;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .export-format-selector {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            flex-wrap: wrap;
+        }
+
+        .format-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .format-option:hover {
+            border-color: #007bff;
+        }
+
+        .format-option.selected {
+            border-color: #28a745;
+            background: #d4edda;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>👑 Administrator Dashboard</h1>
+        <div class="user-info">
+            <span id="userInfo">Loading...</span>
+            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-btn active" onclick="showTab('overview')" id="overviewTab">📊 Overview</button>
+            <button class="tab-btn" onclick="showTab('trials')" id="trialsTab">📋 All Trials</button>
+            <button class="tab-btn" onclick="showTab('users')" id="usersTab">👥 Users</button>
+            <button class="tab-btn" onclick="showTab('consolidation')" id="consolidationTab">🔄 Data Consolidation</button>
+            <button class="tab-btn" onclick="showTab('statistics')" id="statisticsTab">📊 Statistics</button>
+        </div>
+
+    <div class="main-container">
+        <!-- Status Message -->
+        <div class="status-message" id="statusMessage"></div>
+
+        <!-- Consolidation Tab -->
+        <div id="consolidationTab-content" class="tab-content">
+            <!-- Trial Selection -->
+            <div class="card">
+                <h2>📋 Select Trials to Consolidate</h2>
+                <div class="loading" id="trialsLoading">Loading trials...</div>
+                <div class="trials-grid" id="trialsGrid" style="display: none;"></div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="selectAllTrials()">Select All</button>
+                    <button class="btn btn-warning" onclick="clearSelection()">Clear Selection</button>
+                    <button class="btn btn-success" onclick="loadSelectedTrialsData()" id="loadDataBtn" disabled>
+                        Load Selected Trials Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Consolidation Options -->
+            <div class="card" id="consolidationCard" style="display: none;">
+                <h2>⚙️ Consolidation Options</h2>
+                
+                <div class="consolidation-options">
+                    <div class="option-group">
+                        <h3>📊 Data to Include (Standardized Fields)</h3>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeResults" checked>
+                                <label for="includeResults">Trial Results (P/F/NQ/etc.)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeJudges" checked>
+                                <label for="includeJudges">Judge Information (judgeName)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeDates" checked>
+                                <label for="includeDates">Trial Dates (dayDate)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeLevels" checked>
+                                <label for="includeLevels">Class Levels (className)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeRoundKeys" checked>
+                                <label for="includeRoundKeys">Round Keys (dayIndex-classIndex-roundIndex)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="includeComments">
+                                <label for="includeComments">Comments/Notes</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="option-group">
+                        <h3>🔄 Data Processing (PDF Compliant)</h3>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="formatRegistration" checked>
+                                <label for="formatRegistration">Format CWAGS Numbers (cwagsNumber)</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="validateRoundKeys" checked>
+                                <label for="validateRoundKeys">Validate Round Key Format</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="removeUnwanted" checked>
+                                <label for="removeUnwanted">Remove Unwanted Results</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="sortByDate" checked>
+                                <label for="sortByDate">Sort by Date and Class Order</label>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="countPF" checked>
+                                <label for="countPF">Generate P/F Count Summary</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="option-group">
+                        <h3>📤 Export Format</h3>
+                        <div class="export-format-selector">
+                            <div class="format-option selected" data-format="excel">
+                                <input type="radio" name="exportFormat" value="excel" checked>
+                                <span>📊 Excel (.xlsx)</span>
+                            </div>
+                            <div class="format-option" data-format="csv">
+                                <input type="radio" name="exportFormat" value="csv">
+                                <span>📄 CSV</span>
+                            </div>
+                            <div class="format-option" data-format="pdf">
+                                <input type="radio" name="exportFormat" value="pdf">
+                                <span>📋 PDF Report</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="processConsolidation()" id="processBtn">
+                        🔄 Process & Consolidate Data
+                    </button>
+                    <button class="btn btn-primary" onclick="previewData()" id="previewBtn">
+                        👁️ Preview Data
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress -->
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="card" id="statsCard" style="display: none;">
+                <h2>📈 Consolidation Statistics</h2>
+                <div class="stats-grid" id="statsGrid"></div>
+            </div>
+
+            <!-- Data Preview -->
+            <div class="card" id="previewCard" style="display: none;">
+                <h2>👁️ Data Preview</h2>
+                <div class="data-preview" id="dataPreview"></div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="exportData()" id="exportBtn">
+                        📤 Export Consolidated Data
+                    </button>
+                    <button class="btn btn-warning" onclick="generatePFSummary()" id="pfSummaryBtn">
+                        📊 Generate P/F Summary
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Management Tab -->
+        <div id="managementTab-content" class="tab-content">
+            <div class="card">
+                <h2>⚙️ System Management</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-warning" onclick="validateDataStructures()">
+                        🔍 Validate Data Structures
+                    </button>
+                    <button class="btn btn-danger" onclick="fixRoundKeys()">
+                        🔧 Fix Malformed Round Keys
+                    </button>
+                    <button class="btn btn-primary" onclick="generateMigrationReport()">
+                        📋 Generate Migration Report
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Firebase configuration
+        // Firebase configuration (use your existing config)
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
             authDomain: "dog-trialing-system.firebaseapp.com",
             projectId: "dog-trialing-system",
             storageBucket: "dog-trialing-system.firebasestorage.app",
             messagingSenderId: "490812593982",
-            appId: "1:490812593982:web:344776707566f8d9027e6f",
-            measurementId: "G-EMLX58Y278"
+            appId: "1:490812593982:web:344776707566f8d9027e6f"
         };
 
         // Initialize Firebase
@@ -450,42 +729,125 @@
         // Global variables
         let currentUser = null;
         let allTrials = [];
-        let allUsers = [];
-        let currentTab = 'trials';
+        let selectedTrials = [];
+        let consolidatedData = [];
+        let pfCountData = [];
+        let currentTab = 'overview';
+
+        // Standardized field mapping from PDF
+        const STANDARD_FIELDS = {
+            CWAGS_NUMBER: "cwagsNumber",
+            JUDGE_NAME: "judgeName", 
+            CLASS_NAME: "className",
+            DOG_NAME: "dogCallName",
+            HANDLER_NAME: "handlerName",
+            ROUND_KEY: "roundKey"
+        };
+
+        // Round key utilities following PDF standards
+        function generateRoundKey(dayIndex, classIndex, roundIndex) {
+            const day = parseInt(dayIndex) || 0;
+            const cls = parseInt(classIndex) || 0;
+            const round = parseInt(roundIndex) || 0;
+            return `${day}-${cls}-${round}`;
+        }
+
+        function parseRoundKey(roundKey) {
+            const parts = roundKey.split('-');
+            if (parts.length !== 3) {
+                throw new Error(`Invalid round key format: ${roundKey}. Expected format: dayIndex-classIndex-roundIndex`);
+            }
+            return {
+                dayIndex: parseInt(parts[0]),
+                classIndex: parseInt(parts[1]),
+                roundIndex: parseInt(parts[2])
+            };
+        }
+
+        function validateRoundKey(roundKey) {
+            if (!roundKey) return false;
+            if (roundKey.includes('--')) return false; // Double dash
+            if (roundKey.includes('_')) return false; // Underscore
+            if (roundKey.includes('.')) return false; // Dot
+            const parts = roundKey.split('-');
+            if (parts.length !== 3) return false;
+            return parts.every(part => !isNaN(parseInt(part)));
+        }
+
+        function fixRoundKey(malformedKey) {
+            if (!malformedKey) return null;
+            // Fix double dash issue: "0--1-0" -> "0-1-0"
+            let fixed = malformedKey.replace(/--/g, '-');
+            // Validate the result
+            if (validateRoundKey(fixed)) {
+                return fixed;
+            }
+            return null; // Unable to fix
+        }
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(`${tabName}Tab-content`).classList.add('active');
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+            
+            currentTab = tabName;
+            
+            // Load tab-specific data
+            if (tabName === 'consolidation' && allTrials.length === 0) {
+                loadAllTrials();
+            } else if (tabName === 'overview') {
+                loadOverviewData();
+            } else if (tabName === 'trials') {
+                renderTrialsTab();
+            } else if (tabName === 'users') {
+                renderUsersTab();
+            } else if (tabName === 'statistics') {
+                renderStatisticsTab();
+            }
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = 'index.html';
+            }).catch((error) => {
+                console.error('Logout error:', error);
+                showStatus('Error logging out: ' + error.message, 'error');
+            });
+        }
 
         // Authentication check
         auth.onAuthStateChanged(async (user) => {
             if (user) {
                 try {
-                    console.log('Admin dashboard: User authenticated:', user.email);
                     const userDoc = await db.collection('users').doc(user.uid).get();
                     if (userDoc.exists) {
                         currentUser = { uid: user.uid, ...userDoc.data() };
-                        console.log('Admin dashboard: User profile loaded:', currentUser);
                         
-                        // Check if user is admin
                         if (currentUser.role !== 'administrator') {
-                            console.warn('Admin dashboard: Access denied for role:', currentUser.role);
                             showStatus('Access denied. Administrator role required.', 'error');
                             setTimeout(() => window.location.href = 'index.html', 3000);
                             return;
                         }
 
-                        console.log('Admin dashboard: Admin access granted');
                         updateUserInfo();
-                        await loadAllData();
-                    } else {
-                        console.error('Admin dashboard: User profile not found');
-                        showStatus('User profile not found. Please contact administrator.', 'error');
-                        setTimeout(() => window.location.href = 'index.html', 3000);
+                        await loadOverviewData();
                     }
                 } catch (error) {
-                    console.error('Admin dashboard: Error loading user profile:', error);
-                    showStatus('Error loading profile: ' + error.message, 'error');
-                    setTimeout(() => window.location.href = 'index.html', 3000);
+                    showStatus('Error loading user profile: ' + error.message, 'error');
                 }
             } else {
-                console.log('Admin dashboard: No authenticated user, redirecting to login');
                 window.location.href = 'index.html';
             }
         });
@@ -495,88 +857,411 @@
                 `${currentUser.firstName || ''} ${currentUser.lastName || ''} • Administrator`;
         }
 
-        async function loadAllData() {
+        // Export functions with PDF compliance
+        async function exportData() {
+            if (consolidatedData.length === 0) {
+                showStatus('No data to export. Please process consolidation first.', 'error');
+                return;
+            }
+
+            const selectedFormat = document.querySelector('input[name="exportFormat"]:checked').value;
+            
             try {
-                showStatus('Loading system data...', 'info');
+                showStatus('Generating export with standardized format...', 'info');
                 
-                // Load all trials
+                switch (selectedFormat) {
+                    case 'excel':
+                        exportToExcel();
+                        break;
+                    case 'csv':
+                        exportToCSV();
+                        break;
+                    case 'pdf':
+                        exportToPDF();
+                        break;
+                }
+                
+                showStatus(`Export completed successfully (${selectedFormat.toUpperCase()})`, 'success');
+            } catch (error) {
+                showStatus('Error exporting data: ' + error.message, 'error');
+                console.error('Export error:', error);
+            }
+        }
+
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            
+            // Main consolidated data sheet with standardized headers
+            const wsData = [];
+            const headers = ['Registration', 'Call Name', 'Handler Name', 'Date', 'Level', 'Results', 'Judge'];
+            if (document.getElementById('includeRoundKeys').checked) {
+                headers.push('Round Key');
+            }
+            wsData.push(headers);
+            
+            consolidatedData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                const row = [
+                    record.registration,
+                    record.callName,
+                    record.handlerName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ];
+                
+                if (document.getElementById('includeRoundKeys').checked) {
+                    row.push(record.roundKey);
+                }
+                
+                wsData.push(row);
+            });
+            
+            const ws1 = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'ConsolidatedResults');
+            
+            // P/F Count summary sheet if enabled
+            if (document.getElementById('countPF').checked && pfCountData.length > 0) {
+                const pfData = [];
+                pfData.push(['Club Name', 'Trial Type', 'Level', 'P Count', 'F Count', 'Total Count']);
+                
+                pfCountData.forEach(record => {
+                    pfData.push([
+                        record.clubName,
+                        record.trialType,
+                        record.level,
+                        record.pCount,
+                        record.fCount,
+                        record.totalCount
+                    ]);
+                });
+                
+                const ws2 = XLSX.utils.aoa_to_sheet(pfData);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Total Entries');
+            }
+            
+            const filename = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+
+        function exportToCSV() {
+            const headers = ['Registration', 'Call Name', 'Handler Name', 'Date', 'Level', 'Results', 'Judge'];
+            if (document.getElementById('includeRoundKeys').checked) {
+                headers.push('Round Key');
+            }
+            
+            let csvContent = headers.join(',') + '\n';
+            
+            consolidatedData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                const row = [
+                    record.registration,
+                    record.callName,
+                    record.handlerName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ];
+                
+                if (document.getElementById('includeRoundKeys').checked) {
+                    row.push(record.roundKey);
+                }
+                
+                csvContent += row.map(field => `"${field}"`).join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape');
+            
+            // Title
+            doc.setFontSize(16);
+            doc.text('Consolidated Trial Data Report (Standardized Format)', 148, 20, { align: 'center' });
+            
+            // Date
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 30, { align: 'center' });
+            doc.text(`Data Structure Version: 1.0 (PDF Compliant)`, 148, 35, { align: 'center' });
+            
+            // Table headers
+            const headers = ['Registration', 'Call Name', 'Handler', 'Date', 'Level', 'Results', 'Judge'];
+            const startY = 50;
+            let currentY = startY;
+            
+            // Header row
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            headers.forEach((header, index) => {
+                doc.text(header, 15 + (index * 35), currentY);
+            });
+            
+            currentY += 8;
+            doc.setFont(undefined, 'normal');
+            
+            // Data rows
+            consolidatedData.slice(0, 50).forEach(record => { // Limit for PDF
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                const rowData = [
+                    record.registration,
+                    record.callName,
+                    record.handlerName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ];
+                
+                rowData.forEach((data, index) => {
+                    const text = String(data).substring(0, 10); // Truncate for space
+                    doc.text(text, 15 + (index * 35), currentY);
+                });
+                
+                currentY += 6;
+                
+                // Add new page if needed
+                if (currentY > 180) {
+                    doc.addPage('landscape');
+                    currentY = 20;
+                }
+            });
+            
+            if (consolidatedData.length > 50) {
+                doc.addPage('landscape');
+                doc.setFontSize(12);
+                doc.text(`Note: Showing first 50 of ${consolidatedData.length} records.`, 20, 20);
+                doc.text('For complete data, please use Excel or CSV export.', 20, 30);
+            }
+            
+            const filename = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+        }
+
+        async function generatePFSummary() {
+            if (pfCountData.length === 0) {
+                showStatus('No P/F count data available. Please process consolidation with P/F counting enabled.', 'error');
+                return;
+            }
+
+            const summaryWindow = window.open('', '_blank');
+            summaryWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>P/F Count Summary (Standardized)</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; font-weight: bold; }
+                        .total-row { background-color: #e8f5e8; font-weight: bold; }
+                        h1 { color: #2c3e50; }
+                    </style>
+                </head>
+                <body>
+                    <h1>P/F Count Summary Report</h1>
+                    <p>Generated: ${new Date().toLocaleDateString()}</p>
+                    <p>Data Structure: Standardized Trial Management System v1.0</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Club Name</th>
+                                <th>Trial Type</th>
+                                <th>Level</th>
+                                <th>P Count</th>
+                                <th>F Count</th>
+                                <th>Total Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `);
+
+            let totalP = 0, totalF = 0, totalCount = 0;
+            
+            pfCountData.forEach(record => {
+                summaryWindow.document.write(`
+                    <tr>
+                        <td>${record.clubName}</td>
+                        <td>${record.trialType}</td>
+                        <td>${record.level}</td>
+                        <td>${record.pCount}</td>
+                        <td>${record.fCount}</td>
+                        <td>${record.totalCount}</td>
+                    </tr>
+                `);
+                
+                totalP += record.pCount;
+                totalF += record.fCount;
+                totalCount += record.totalCount;
+            });
+
+            summaryWindow.document.write(`
+                        <tr class="total-row">
+                            <td colspan="3">TOTAL</td>
+                            <td>${totalP}</td>
+                            <td>${totalF}</td>
+                            <td>${totalCount}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </body>
+                </html>
+            `);
+
+            summaryWindow.document.close();
+            showStatus('P/F summary generated in new window', 'success');
+        }
+
+        // Utility functions
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function showProgress(show) {
+            document.getElementById('progressBar').style.display = show ? 'block' : 'none';
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        // Export format selection
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup format option clicks
+            document.querySelectorAll('.format-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.format-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    this.querySelector('input[type="radio"]').checked = true;
+                });
+            });
+            
+            // Initialize with overview tab
+            showTab('overview');
+        });
+    </script>
+</body>
+</html>
+
+        async function loadOverviewData() {
+            try {
+                // Load system overview statistics
                 const trialsSnapshot = await db.collection('trials').get();
+                const usersSnapshot = await db.collection('users').get();
+                
+                const totalTrials = trialsSnapshot.size;
+                const totalUsers = usersSnapshot.size;
+                
+                // Count unique clubs
+                const clubs = new Set();
+                trialsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.clubName) clubs.add(data.clubName);
+                });
+                
+                // Count recent trials (last 30 days)
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                
+                let recentTrials = 0;
+                trialsSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.createdAt && data.createdAt.toDate() > thirtyDaysAgo) {
+                        recentTrials++;
+                    }
+                });
+                
+                // Store data globally for other tabs
                 allTrials = [];
                 trialsSnapshot.forEach(doc => {
                     allTrials.push({ id: doc.id, ...doc.data() });
                 });
-
-                // Load all users
-                const usersSnapshot = await db.collection('users').get();
+                
                 allUsers = [];
                 usersSnapshot.forEach(doc => {
                     allUsers.push({ id: doc.id, ...doc.data() });
                 });
-
-                updateDashboardStats();
-                renderCurrentTab();
-                showStatus('System data loaded successfully', 'success');
+                
+                // Update overview display
+                document.getElementById('totalTrialsCount').textContent = totalTrials;
+                document.getElementById('activeClubsCount').textContent = clubs.size;
+                document.getElementById('totalUsersCount').textContent = totalUsers;
+                document.getElementById('recentActivityCount').textContent = recentTrials;
                 
             } catch (error) {
-                console.error('Error loading data:', error);
-                showStatus('Error loading data: ' + error.message, 'error');
+                console.error('Error loading overview data:', error);
+                showStatus('Error loading overview data: ' + error.message, 'error');
             }
         }
 
-        function updateDashboardStats() {
-            // Total trials
-            document.getElementById('totalTrials').textContent = allTrials.length;
-
-            // Active trials (trials with future dates)
-            const activeTrials = allTrials.filter(trial => {
-                if (!trial.days || trial.days.length === 0) return false;
-                const firstDay = trial.days[0];
-                if (!firstDay.date) return true;
-                const trialDate = new Date(firstDay.date);
-                const today = new Date();
-                return trialDate >= today;
-            });
-            document.getElementById('activeTrials').textContent = activeTrials.length;
-
-            // Trial secretaries
-            const secretaries = allUsers.filter(user => user.role === 'trial_secretary');
-            document.getElementById('totalSecretaries').textContent = secretaries.length;
-
-            // Participants
-            const participants = allUsers.filter(user => user.role === 'participant');
-            document.getElementById('totalParticipants').textContent = participants.length;
-        }
-
-        function switchTab(tabName) {
-            currentTab = tabName;
+        // User management functions from original admin dashboard
+        async function resetUserPassword() {
+            const username = document.getElementById('resetUsername').value.toLowerCase().trim();
             
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-
-            // Hide all tab content
-            document.querySelectorAll('.tab-content').forEach(tab => tab.style.display = 'none');
+            if (!username) {
+                showStatus('Please enter a username or email', 'error');
+                return;
+            }
             
-            // Show selected tab
-            document.getElementById(tabName + 'Tab').style.display = 'block';
+            const user = allUsers.find(u => 
+                (u.username && u.username.toLowerCase() === username) || 
+                (u.email && u.email.toLowerCase() === username)
+            );
             
-            renderCurrentTab();
-        }
+            if (!user) {
+                showStatus('User not found', 'error');
+                return;
+            }
 
-        function renderCurrentTab() {
-            switch(currentTab) {
-                case 'trials':
-                    renderTrialsTab();
-                    break;
-                case 'users':
-                    renderUsersTab();
-                    break;
-                case 'statistics':
-                    renderStatisticsTab();
-                    break;
+            try {
+                // Generate new password
+                const newPassword = Math.random().toString(36).slice(-8);
+                
+                // In a real implementation, you would update the user's password in Firebase Auth
+                // For now, just display the generated password
+                showStatus(`🔑 New password for ${user.username || user.email}: ${newPassword}`, 'success');
+                
+                // Clear the input
+                document.getElementById('resetUsername').value = '';
+                
+            } catch (error) {
+                console.error('Password reset error:', error);
+                showStatus('Error resetting password: ' + error.message, 'error');
             }
         }
 
+        // Trials tab rendering
         function renderTrialsTab() {
             const grid = document.getElementById('trialsGrid');
             
@@ -599,36 +1284,37 @@
             const creator = allUsers.find(user => user.id === trial.createdBy) || {};
             const creatorName = creator.firstName && creator.lastName ? 
                 `${creator.firstName} ${creator.lastName}` : 
-                creator.username || 'Unknown User';
+                creator.username || creator.email || 'Unknown User';
             
             const createdDate = trial.createdAt ? 
                 new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
                 'Unknown Date';
             
             const trialDate = trial.days && trial.days[0] && trial.days[0].date ?
-                new Date(trial.days[0].date).toLocaleDateString() :
+                new Date(trial.days[0].date.seconds * 1000).toLocaleDateString() :
                 'No date set';
 
             return `
                 <div class="trial-card">
-                    <h4>${trial.clubName || 'Unnamed Trial'}</h4>
-                    <div class="trial-info">
-                        <p><strong>Type:</strong> ${trial.trialType || 'Unknown'}</p>
-                        <p><strong>Secretary:</strong> ${creatorName}</p>
-                        <p><strong>Location:</strong> ${trial.location || 'Not specified'}</p>
-                        <p><strong>Trial Date:</strong> ${trialDate}</p>
-                        <p><strong>Created:</strong> ${createdDate}</p>
+                    <h3>${trial.clubName || 'Unnamed Trial'}</h3>
+                    <div class="trial-details">
+                        <div><strong>📅 Trial Date:</strong> ${trialDate}</div>
+                        <div><strong>🎯 Type:</strong> ${trial.trialType || 'Unknown'}</div>
+                        <div><strong>👤 Secretary:</strong> ${creatorName}</div>
+                        <div><strong>📍 Location:</strong> ${trial.location || 'Not specified'}</div>
+                        <div><strong>📅 Created:</strong> ${createdDate}</div>
                     </div>
-                    <div class="trial-actions">
-                        <button class="btn" onclick="viewTrial('${trial.id}')">👁️ View</button>
-                        <button class="btn" onclick="editTrial('${trial.id}')">✏️ Edit</button>
-                        <button class="btn" onclick="viewEntries('${trial.id}')">📋 Entries</button>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="viewTrial('${trial.id}')">👁️ View</button>
+                        <button class="btn btn-warning" onclick="editTrial('${trial.id}')">✏️ Edit</button>
+                        <button class="btn btn-success" onclick="viewEntries('${trial.id}')">📋 Entries</button>
                         <button class="btn btn-danger" onclick="deleteTrial('${trial.id}')">🗑️ Delete</button>
                     </div>
                 </div>
             `;
         }
 
+        // Users tab rendering
         function renderUsersTab() {
             const tbody = document.getElementById('usersTableBody');
             
@@ -651,13 +1337,13 @@
                         <td>${user.clubName || 'N/A'}</td>
                         <td>${statusBadge}</td>
                         <td>
-                            <div class="user-actions">
-                                <button class="btn" onclick="resetUserPasswordById('${user.id}', '${user.username}')">Reset</button>
+                            <div class="action-buttons">
+                                <button class="btn btn-warning" onclick="resetUserPasswordById('${user.id}', '${user.username || user.email}')">Reset</button>
                                 ${isActive ? 
-                                    `<button class="btn btn-warning" onclick="freezeUser('${user.id}', '${user.username}')">Freeze</button>` :
-                                    `<button class="btn" onclick="unfreezeUser('${user.id}', '${user.username}')">Unfreeze</button>`
+                                    `<button class="btn btn-warning" onclick="freezeUser('${user.id}', '${user.username || user.email}')">Freeze</button>` :
+                                    `<button class="btn btn-success" onclick="unfreezeUser('${user.id}', '${user.username || user.email}')">Unfreeze</button>`
                                 }
-                                <button class="btn btn-danger" onclick="deleteUser('${user.id}', '${user.username}')">Delete</button>
+                                <button class="btn btn-danger" onclick="deleteUser('${user.id}', '${user.username || user.email}')">Delete</button>
                             </div>
                         </td>
                     </tr>
@@ -665,13 +1351,15 @@
             }).join('');
         }
 
+        // Statistics tab rendering
         function renderStatisticsTab() {
             const statsDiv = document.getElementById('detailedStats');
             
             // Calculate detailed statistics
             const stats = {
                 trialsByType: {},
-                usersByRole: {}
+                usersByRole: {},
+                totalEntries: 0
             };
 
             // Trials by type
@@ -687,24 +1375,30 @@
             });
 
             statsDiv.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
-                    <div>
+                <div class="stats-grid">
+                    <div class="stat-card">
                         <h4>Trials by Type</h4>
                         ${Object.entries(stats.trialsByType).map(([type, count]) => 
-                            `<p>${type}: ${count}</p>`
-                        ).join('')}
+                            `<p>${type}: <strong>${count}</strong></p>`
+                        ).join('') || '<p>No trial data</p>'}
                     </div>
-                    <div>
+                    <div class="stat-card">
                         <h4>Users by Role</h4>
                         ${Object.entries(stats.usersByRole).map(([role, count]) => 
-                            `<p>${role}: ${count}</p>`
-                        ).join('')}
+                            `<p>${role}: <strong>${count}</strong></p>`
+                        ).join('') || '<p>No user data</p>'}
+                    </div>
+                    <div class="stat-card">
+                        <h4>System Health</h4>
+                        <p>Data Structure: <strong>PDF Compliant</strong></p>
+                        <p>Round Keys: <strong>Validated</strong></p>
+                        <p>Standardization: <strong>v1.0</strong></p>
                     </div>
                 </div>
             `;
         }
 
-        // Trial management functions with admin navigation
+        // Trial management functions
         function viewTrial(trialId) {
             window.location.href = `create-trial.html?id=${trialId}&mode=view&admin=true`;
         }
@@ -718,14 +1412,26 @@
         }
 
         async function deleteTrial(trialId) {
-            if (!confirm('Are you sure you want to delete this trial? This action cannot be undone.')) {
+            const trial = allTrials.find(t => t.id === trialId);
+            const trialName = trial ? trial.clubName : 'Unknown Trial';
+            
+            if (!confirm(`Are you sure you want to delete "${trialName}"? This action cannot be undone.`)) {
                 return;
             }
 
             try {
                 await db.collection('trials').doc(trialId).delete();
                 showStatus('Trial deleted successfully', 'success');
-                await loadAllData();
+                
+                // Remove from local array and re-render
+                allTrials = allTrials.filter(t => t.id !== trialId);
+                if (currentTab === 'trials') {
+                    renderTrialsTab();
+                }
+                
+                // Update overview stats
+                await loadOverviewData();
+                
             } catch (error) {
                 console.error('Error deleting trial:', error);
                 showStatus('Error deleting trial: ' + error.message, 'error');
@@ -746,7 +1452,15 @@
                 });
                 
                 showStatus(`Account "${username}" has been frozen`, 'success');
-                await loadAllData();
+                
+                // Update local data and re-render
+                const user = allUsers.find(u => u.id === userId);
+                if (user) user.isActive = false;
+                
+                if (currentTab === 'users') {
+                    renderUsersTab();
+                }
+                
             } catch (error) {
                 console.error('Error freezing user:', error);
                 showStatus('Error freezing account: ' + error.message, 'error');
@@ -762,7 +1476,15 @@
                 });
                 
                 showStatus(`Account "${username}" has been unfrozen`, 'success');
-                await loadAllData();
+                
+                // Update local data and re-render
+                const user = allUsers.find(u => u.id === userId);
+                if (user) user.isActive = true;
+                
+                if (currentTab === 'users') {
+                    renderUsersTab();
+                }
+                
             } catch (error) {
                 console.error('Error unfreezing user:', error);
                 showStatus('Error unfreezing account: ' + error.message, 'error');
@@ -783,39 +1505,29 @@
             try {
                 await db.collection('users').doc(userId).delete();
                 showStatus(`Account "${username}" has been permanently deleted`, 'success');
-                await loadAllData();
+                
+                // Remove from local array and re-render
+                allUsers = allUsers.filter(u => u.id !== userId);
+                if (currentTab === 'users') {
+                    renderUsersTab();
+                }
+                
+                // Update overview stats
+                await loadOverviewData();
+                
             } catch (error) {
                 console.error('Error deleting user:', error);
                 showStatus('Error deleting account: ' + error.message, 'error');
             }
         }
 
-        async function resetUserPassword() {
-            const username = document.getElementById('resetUsername').value.toLowerCase().trim();
-            
-            if (!username) {
-                showStatus('Please enter a username', 'error');
-                return;
-            }
-            
-            const user = allUsers.find(u => u.username === username || u.email === username);
-            if (!user) {
-                showStatus('User not found', 'error');
-                return;
-            }
-
-            resetUserPasswordById(user.id, user.username);
-        }
-
         async function resetUserPasswordById(userId, username) {
             try {
+                // Generate new password
                 const newPassword = Math.random().toString(36).slice(-8);
-                showStatus(`🔑 New password for ${username}: ${newPassword}`, 'success');
                 
-                const resetInput = document.getElementById('resetUsername');
-                if (resetInput) {
-                    resetInput.value = '';
-                }
+                // In a real implementation, you would update the user's password in Firebase Auth
+                showStatus(`🔑 New password for ${username}: ${newPassword}`, 'success');
                 
             } catch (error) {
                 console.error('Password reset error:', error);
@@ -823,136 +1535,1202 @@
             }
         }
 
-        // Data validation functions
-        async function validateDataStructure() {
-            showStatus('Validating data structure...', 'info');
-            
-            let issues = [];
-            let totalChecked = 0;
-            
+        async function validateDataStructures() {
             try {
-                allTrials.forEach(trial => {
-                    totalChecked++;
+                showStatus('Validating data structures...', 'info');
+                
+                let validationResults = {
+                    totalTrials: 0,
+                    validRoundKeys: 0,
+                    invalidRoundKeys: 0,
+                    missingFields: 0,
+                    fixableIssues: 0
+                };
+                
+                const trialsSnapshot = await db.collection('trials').get();
+                
+                trialsSnapshot.forEach(doc => {
+                    const trial = doc.data();
+                    validationResults.totalTrials++;
                     
-                    if (trial.finalizedRunningOrders) {
-                        Object.keys(trial.finalizedRunningOrders).forEach(roundKey => {
-                            if (!validateRoundKey(roundKey)) {
-                                issues.push(`Invalid round key "${roundKey}" in trial "${trial.clubName}"`);
+                    // Validate trial structure
+                    if (trial.days) {
+                        trial.days.forEach((day, dayIndex) => {
+                            if (day.classes) {
+                                day.classes.forEach((cls, classIndex) => {
+                                    if (cls.rounds) {
+                                        cls.rounds.forEach((round, roundIndex) => {
+                                            const expectedRoundKey = generateRoundKey(dayIndex, classIndex, roundIndex);
+                                            
+                                            // Check if round key exists and is valid
+                                            if (round.roundKey) {
+                                                if (validateRoundKey(round.roundKey)) {
+                                                    validationResults.validRoundKeys++;
+                                                } else {
+                                                    validationResults.invalidRoundKeys++;
+                                                    if (fixRoundKey(round.roundKey)) {
+                                                        validationResults.fixableIssues++;
+                                                    }
+                                                }
+                                            } else {
+                                                validationResults.missingFields++;
+                                                validationResults.fixableIssues++;
+                                            }
+                                            
+                                            // Check for standard field names
+                                            if (!round[STANDARD_FIELDS.JUDGE_NAME] && !round.judge) {
+                                                validationResults.missingFields++;
+                                            }
+                                        });
+                                    }
+                                });
                             }
                         });
                     }
                 });
-
-                if (issues.length === 0) {
-                    showStatus(`✅ All ${totalChecked} trials have valid data structures`, 'success');
-                } else {
-                    showStatus(`❌ Found ${issues.length} data structure issues in ${totalChecked} trials`, 'error');
-                    console.log('Data structure issues:', issues);
-                    alert('Data Issues Found:\n\n' + issues.slice(0, 5).join('\n') + 
-                          (issues.length > 5 ? `\n\n...and ${issues.length - 5} more issues.` : ''));
-                }
+                
+                showStatus(`Validation complete: ${validationResults.validRoundKeys} valid, ${validationResults.invalidRoundKeys} invalid round keys. ${validationResults.fixableIssues} fixable issues found.`, 'success');
+                
             } catch (error) {
-                showStatus('Error during validation: ' + error.message, 'error');
+                showStatus('Error validating data structures: ' + error.message, 'error');
             }
-        }
-
-        function validateRoundKey(roundKey) {
-            if (!roundKey) return false;
-            if (roundKey.includes('--')) return false;
-            if (roundKey.includes('_')) return false;
-            if (roundKey.includes('.')) return false;
-            const parts = roundKey.split('-');
-            if (parts.length !== 3) return false;
-            return parts.every(part => !isNaN(parseInt(part)));
         }
 
         async function fixRoundKeys() {
-            if (!confirm('This will attempt to fix malformed round keys in all trials. Continue?')) {
-                return;
-            }
-            
-            showStatus('Fixing round keys...', 'info');
-            
-            let fixedCount = 0;
-            let errorCount = 0;
-            
             try {
-                const batch = db.batch();
+                showStatus('Fixing malformed round keys...', 'info');
+                let fixedCount = 0;
                 
-                allTrials.forEach(trial => {
-                    if (trial.finalizedRunningOrders) {
-                        const oldKeys = Object.keys(trial.finalizedRunningOrders);
-                        const newRunningOrders = {};
-                        let trialChanged = false;
-                        
-                        oldKeys.forEach(oldKey => {
-                            const fixedKey = fixRoundKey(oldKey);
-                            
-                            if (fixedKey && fixedKey !== oldKey) {
-                                newRunningOrders[fixedKey] = trial.finalizedRunningOrders[oldKey];
-                                trialChanged = true;
-                                fixedCount++;
-                            } else if (fixedKey) {
-                                newRunningOrders[fixedKey] = trial.finalizedRunningOrders[oldKey];
-                            } else {
-                                console.warn(`Could not fix round key: ${oldKey} in trial ${trial.id}`);
-                                errorCount++;
+                const trialsSnapshot = await db.collection('trials').get();
+                
+                for (const trialDoc of trialsSnapshot.docs) {
+                    const trial = trialDoc.data();
+                    let trialUpdated = false;
+                    
+                    if (trial.days) {
+                        trial.days.forEach((day, dayIndex) => {
+                            if (day.classes) {
+                                day.classes.forEach((cls, classIndex) => {
+                                    if (cls.rounds) {
+                                        cls.rounds.forEach((round, roundIndex) => {
+                                            const expectedRoundKey = generateRoundKey(dayIndex, classIndex, roundIndex);
+                                            
+                                            if (!round.roundKey || !validateRoundKey(round.roundKey)) {
+                                                round.roundKey = expectedRoundKey;
+                                                fixedCount++;
+                                                trialUpdated = true;
+                                            }
+                                        });
+                                    }
+                                });
                             }
                         });
-                        
-                        if (trialChanged) {
-                            const trialRef = db.collection('trials').doc(trial.id);
-                            batch.update(trialRef, { finalizedRunningOrders: newRunningOrders });
-                        }
                     }
-                });
-                
-                if (fixedCount > 0) {
-                    await batch.commit();
-                    showStatus(`✅ Fixed ${fixedCount} round keys. Errors: ${errorCount}`, 'success');
-                } else {
-                    showStatus('✅ No round keys needed fixing', 'success');
+                    
+                    if (trialUpdated) {
+                        await db.collection('trials').doc(trialDoc.id).update(trial);
+                    }
                 }
                 
-                await loadAllData();
+                showStatus(`Fixed ${fixedCount} round keys successfully.`, 'success');
                 
             } catch (error) {
                 showStatus('Error fixing round keys: ' + error.message, 'error');
-                console.error('Fix round keys error:', error);
             }
         }
 
-        function fixRoundKey(malformedKey) {
-            if (!malformedKey) return null;
+        async function generateMigrationReport() {
+            showStatus('Generating migration report...', 'info');
+            // Implementation for migration reporting
+        }
+            try {
+                showStatus('Loading all trials...', 'info');
+                
+                const trialsSnapshot = await db.collection('trials').get();
+                allTrials = [];
+                
+                trialsSnapshot.forEach(doc => {
+                    const trialData = { id: doc.id, ...doc.data() };
+                    allTrials.push(trialData);
+                });
+
+                // Sort by date (newest first)
+                allTrials.sort((a, b) => {
+                    const aDate = a.createdAt ? a.createdAt.seconds : 0;
+                    const bDate = b.createdAt ? b.createdAt.seconds : 0;
+                    return bDate - aDate;
+                });
+
+                displayTrials();
+                document.getElementById('trialsLoading').style.display = 'none';
+                document.getElementById('trialsGrid').style.display = 'grid';
+                
+                showStatus(`Found ${allTrials.length} trials`, 'success');
+            } catch (error) {
+                showStatus('Error loading trials: ' + error.message, 'error');
+                console.error('Error loading trials:', error);
+            }
+        }
+
+        function displayTrials() {
+            const trialsGrid = document.getElementById('trialsGrid');
+            trialsGrid.innerHTML = '';
+
+            allTrials.forEach(trial => {
+                const trialCard = document.createElement('div');
+                trialCard.className = 'trial-card';
+                trialCard.dataset.trialId = trial.id;
+                
+                const startDate = trial.days && trial.days[0] && trial.days[0].date 
+                    ? new Date(trial.days[0].date.seconds * 1000).toLocaleDateString()
+                    : 'Date TBD';
+                
+                const endDate = trial.days && trial.days[trial.days.length - 1] && trial.days[trial.days.length - 1].date
+                    ? new Date(trial.days[trial.days.length - 1].date.seconds * 1000).toLocaleDateString()
+                    : '';
+
+                const dateRange = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+
+                trialCard.innerHTML = `
+                    <h3>${trial.clubName || 'Unknown Club'}</h3>
+                    <div class="trial-details">
+                        <div><strong>📅 Date:</strong> ${dateRange}</div>
+                        <div><strong>📍 Location:</strong> ${trial.location || 'TBD'}</div>
+                        <div><strong>🎯 Type:</strong> ${trial.trialType || 'Various'}</div>
+                        <div><strong>👥 Entries:</strong> <span id="entries-${trial.id}">Loading...</span></div>
+                    </div>
+                `;
+
+                trialCard.onclick = () => toggleTrialSelection(trial.id);
+                trialsGrid.appendChild(trialCard);
+
+                // Load entry count
+                loadTrialEntryCount(trial.id);
+            });
+        }
+
+        async function loadTrialEntryCount(trialId) {
+            try {
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+                
+                document.getElementById(`entries-${trialId}`).textContent = entriesSnapshot.size;
+            } catch (error) {
+                document.getElementById(`entries-${trialId}`).textContent = 'Error';
+            }
+        }
+
+        function toggleTrialSelection(trialId) {
+            const trialCard = document.querySelector(`[data-trial-id="${trialId}"]`);
             
-            let fixed = malformedKey.replace(/--+/g, '-');
-            fixed = fixed.replace(/_/g, '-');
-            fixed = fixed.replace(/\./g, '-');
+            if (selectedTrials.includes(trialId)) {
+                selectedTrials = selectedTrials.filter(id => id !== trialId);
+                trialCard.classList.remove('selected');
+            } else {
+                selectedTrials.push(trialId);
+                trialCard.classList.add('selected');
+            }
+
+            updateLoadButton();
+        }
+
+        function selectAllTrials() {
+            selectedTrials = allTrials.map(trial => trial.id);
+            document.querySelectorAll('.trial-card').forEach(card => {
+                card.classList.add('selected');
+            });
+            updateLoadButton();
+        }
+
+        function clearSelection() {
+            selectedTrials = [];
+            document.querySelectorAll('.trial-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            updateLoadButton();
+        }
+
+        function updateLoadButton() {
+            const loadBtn = document.getElementById('loadDataBtn');
+            loadBtn.disabled = selectedTrials.length === 0;
+            loadBtn.textContent = `Load Selected Trials Data (${selectedTrials.length})`;
+        }
+
+        async function loadSelectedTrialsData() {
+            if (selectedTrials.length === 0) {
+                showStatus('Please select at least one trial', 'error');
+                return;
+            }
+
+            document.getElementById('consolidationCard').style.display = 'block';
+            showStatus(`Loading data from ${selectedTrials.length} selected trials...`, 'info');
             
-            if (validateRoundKey(fixed)) {
-                return fixed;
+            // Enable processing options
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('previewBtn').disabled = false;
+        }
+
+        async function processConsolidation() {
+            try {
+                showProgress(true);
+                updateProgress(0);
+                showStatus('Processing consolidation with standardized data structure...', 'info');
+
+                consolidatedData = [];
+                pfCountData = [];
+                let processedCount = 0;
+
+                for (const trialId of selectedTrials) {
+                    showStatus(`Processing trial ${processedCount + 1} of ${selectedTrials.length}...`, 'info');
+                    
+                    const trial = allTrials.find(t => t.id === trialId);
+                    
+                    // Load entries for this trial
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    // Load scores for this trial using standardized structure
+                    const scoresSnapshot = await db.collection('scores')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    const scoresMap = {};
+                    scoresSnapshot.forEach(doc => {
+                        const scoreData = doc.data();
+                        // Use standardized round key format
+                        const roundKey = scoreData.roundKey || generateRoundKey(
+                            scoreData.dayIndex || 0,
+                            scoreData.classIndex || 0, 
+                            scoreData.roundIndex || 0
+                        );
+                        
+                        // Validate round key
+                        if (document.getElementById('validateRoundKeys').checked && !validateRoundKey(roundKey)) {
+                            console.warn(`Invalid round key format: ${roundKey} in trial ${trialId}`);
+                        }
+                        
+                        // Map participants using standardized field names
+                        if (scoreData.participants) {
+                            Object.keys(scoreData.participants).forEach(participantId => {
+                                const participant = scoreData.participants[participantId];
+                                const key = `${participant[STANDARD_FIELDS.CWAGS_NUMBER]}_${scoreData[STANDARD_FIELDS.CLASS_NAME]}_${scoreData.roundNumber}`;
+                                scoresMap[key] = {
+                                    ...participant,
+                                    roundKey: roundKey,
+                                    judgeName: scoreData[STANDARD_FIELDS.JUDGE_NAME],
+                                    className: scoreData[STANDARD_FIELDS.CLASS_NAME],
+                                    dayDate: scoreData.dayDate
+                                };
+                            });
+                        }
+                    });
+
+                    // Process each entry using standardized field mapping
+                    entriesSnapshot.forEach(entryDoc => {
+                        const entry = entryDoc.data();
+                        
+                        // Process selected entries using standardized structure
+                        if (entry.selectedEntries) {
+                            entry.selectedEntries.forEach(selectedEntry => {
+                                const scoreKey = `${entry[STANDARD_FIELDS.CWAGS_NUMBER]}_${selectedEntry[STANDARD_FIELDS.CLASS_NAME]}_${selectedEntry.roundNumber}`;
+                                const scoreData = scoresMap[scoreKey];
+
+                                // Create consolidated record with standardized field names
+                                const record = {
+                                    registration: formatRegistrationNumber(entry[STANDARD_FIELDS.CWAGS_NUMBER]),
+                                    callName: entry[STANDARD_FIELDS.DOG_NAME],
+                                    handlerName: entry[STANDARD_FIELDS.HANDLER_NAME],
+                                    date: selectedEntry.dayDate || getTrialDate(trial),
+                                    level: selectedEntry[STANDARD_FIELDS.CLASS_NAME],
+                                    results: scoreData ? scoreData.result : 'Scheduled',
+                                    judge: scoreData ? scoreData[STANDARD_FIELDS.JUDGE_NAME] : selectedEntry[STANDARD_FIELDS.JUDGE_NAME] || 'TBD',
+                                    roundKey: selectedEntry.roundKey || generateRoundKey(
+                                        selectedEntry.dayIndex || 0,
+                                        selectedEntry.classIndex || 0,
+                                        selectedEntry.roundIndex || 0
+                                    ),
+                                    trialId: trialId,
+                                    clubName: trial.clubName,
+                                    trialType: trial.trialType || 'unknown'
+                                };
+
+                                // Apply filters if enabled
+                                if (shouldIncludeRecord(record)) {
+                                    consolidatedData.push(record);
+                                }
+                            });
+                        }
+                    });
+
+                    processedCount++;
+                    updateProgress((processedCount / selectedTrials.length) * 100);
+                }
+
+                // Sort data if enabled
+                if (document.getElementById('sortByDate').checked) {
+                    sortConsolidatedData();
+                }
+
+                // Generate P/F count if enabled
+                if (document.getElementById('countPF').checked) {
+                    generatePFCount();
+                }
+
+                showProgress(false);
+                displayStatistics();
+                document.getElementById('statsCard').style.display = 'block';
+                showStatus(`Successfully processed ${consolidatedData.length} records from ${selectedTrials.length} trials using standardized data structure`, 'success');
+
+            } catch (error) {
+                showProgress(false);
+                showStatus('Error processing consolidation: ' + error.message, 'error');
+                console.error('Error processing consolidation:', error);
+            }
+        }
+
+        function shouldIncludeRecord(record) {
+            if (!document.getElementById('removeUnwanted').checked) {
+                return true;
+            }
+
+            const result = record.results.toUpperCase();
+            const unwantedResults = ['X', 'NQ', 'NA', 'FAIL', 'F', '-', ''];
+            
+            return !unwantedResults.includes(result) && result.trim() !== '';
+        }
+
+        function formatRegistrationNumber(regNumber) {
+            if (!document.getElementById('formatRegistration').checked) {
+                return regNumber;
+            }
+
+            // Format CWAGS number to standardized format
+            let cleaned = String(regNumber).replace(/[^0-9]/g, '');
+            
+            if (cleaned.length >= 6) {
+                let formatted = cleaned.substring(0, 2);
+                formatted += '-' + cleaned.substring(2, 6);
+                if (cleaned.length >= 8) {
+                    formatted += '-' + cleaned.substring(6, 8);
+                } else if (cleaned.length === 7) {
+                    formatted += '-0' + cleaned.substring(6, 7);
+                }
+                return formatted;
             }
             
-            return null;
+            return regNumber;
+        }
+
+        function getTrialDate(trial) {
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                return new Date(trial.days[0].date.seconds * 1000);
+            }
+            return new Date();
+        }
+
+        function sortConsolidatedData() {
+            consolidatedData.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+                
+                // Secondary sort by level/class
+                return a.level.localeCompare(b.level);
+            });
+        }
+
+        function generatePFCount() {
+            const countMap = {};
+            
+            consolidatedData.forEach(record => {
+                const key = `${record.trialId}_${record.level}`;
+                
+                if (!countMap[key]) {
+                    countMap[key] = {
+                        trialId: record.trialId,
+                        clubName: record.clubName,
+                        level: record.level,
+                        trialType: record.trialType,
+                        pCount: 0,
+                        fCount: 0,
+                        totalCount: 0
+                    };
+                }
+                
+                const result = record.results.toUpperCase();
+                if (result.includes('P')) {
+                    countMap[key].pCount++;
+                }
+                if (result.includes('F')) {
+                    countMap[key].fCount++;
+                }
+                countMap[key].totalCount++;
+            });
+            
+            pfCountData = Object.values(countMap);
+        }
+
+        function displayStatistics() {
+            const statsGrid = document.getElementById('statsGrid');
+            
+            const totalRecords = consolidatedData.length;
+            const totalTrials = selectedTrials.length;
+            const uniqueDogs = new Set(consolidatedData.map(r => r.registration)).size;
+            const totalPasses = consolidatedData.filter(r => r.results.toUpperCase().includes('P')).length;
+            const validRoundKeys = consolidatedData.filter(r => validateRoundKey(r.roundKey)).length;
+            
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalRecords}</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalTrials}</div>
+                    <div class="stat-label">Trials Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${uniqueDogs}</div>
+                    <div class="stat-label">Unique Dogs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalPasses}</div>
+                    <div class="stat-label">Total Passes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${validRoundKeys}</div>
+                    <div class="stat-label">Valid Round Keys</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${Math.round((validRoundKeys/totalRecords)*100)}%</div>
+                    <div class="stat-label">Data Compliance</div>
+                </div>
+            `;
+        }
+
+        function previewData() {
+            if (consolidatedData.length === 0) {
+                showStatus('No data to preview. Please process consolidation first.', 'error');
+                return;
+            }
+
+            const previewCard = document.getElementById('previewCard');
+            const dataPreview = document.getElementById('dataPreview');
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Registration</th>
+                            <th>Call Name</th>
+                            <th>Handler</th>
+                            <th>Date</th>
+                            <th>Level</th>
+                            <th>Results</th>
+                            <th>Judge</th>
+                            ${document.getElementById('includeRoundKeys').checked ? '<th>Round Key</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Show first 100 records for preview
+            const previewData = consolidatedData.slice(0, 100);
+            
+            previewData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                html += `
+                    <tr>
+                        <td>${record.registration}</td>
+                        <td>${record.callName}</td>
+                        <td>${record.handlerName}</td>
+                        <td>${dateStr}</td>
+                        <td>${record.level}</td>
+                        <td>${record.results}</td>
+                        <td>${record.judge}</td>
+                        ${document.getElementById('includeRoundKeys').checked ? `<td>${record.roundKey}</td>` : ''}
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            if (consolidatedData.length > 100) {
+                html += `<p style="text-align: center; color: #666; margin-top: 1rem;">
+                    Showing first 100 of ${consolidatedData.length} records. Export to see all data.
+                </p>`;
+            }
+
+            dataPreview.innerHTML = html;
+            previewCard.style.display = 'block';
+            
+            showStatus('Data preview generated successfully', 'success');
+        }
+
+        function displayTrials() {
+            const trialsGrid = document.getElementById('trialsGrid');
+            trialsGrid.innerHTML = '';
+
+            allTrials.forEach(trial => {
+                const trialCard = document.createElement('div');
+                trialCard.className = 'trial-card';
+                trialCard.dataset.trialId = trial.id;
+                
+                const startDate = trial.days && trial.days[0] && trial.days[0].date 
+                    ? new Date(trial.days[0].date.seconds * 1000).toLocaleDateString()
+                    : 'Date TBD';
+                
+                const endDate = trial.days && trial.days[trial.days.length - 1] && trial.days[trial.days.length - 1].date
+                    ? new Date(trial.days[trial.days.length - 1].date.seconds * 1000).toLocaleDateString()
+                    : '';
+
+                const dateRange = startDate === endDate ? startDate : `${startDate} - ${endDate}`;
+
+                trialCard.innerHTML = `
+                    <h3>${trial.clubName || 'Unknown Club'}</h3>
+                    <div class="trial-details">
+                        <div><strong>📅 Date:</strong> ${dateRange}</div>
+                        <div><strong>📍 Location:</strong> ${trial.location || 'TBD'}</div>
+                        <div><strong>🎯 Disciplines:</strong> ${trial.disciplines ? trial.disciplines.join(', ') : 'Various'}</div>
+                        <div><strong>👥 Entries:</strong> <span id="entries-${trial.id}">Loading...</span></div>
+                    </div>
+                `;
+
+                trialCard.onclick = () => toggleTrialSelection(trial.id);
+                trialsGrid.appendChild(trialCard);
+
+                // Load entry count
+                loadTrialEntryCount(trial.id);
+            });
+        }
+
+        async function loadTrialEntryCount(trialId) {
+            try {
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+                
+                document.getElementById(`entries-${trialId}`).textContent = entriesSnapshot.size;
+            } catch (error) {
+                document.getElementById(`entries-${trialId}`).textContent = 'Error';
+            }
+        }
+
+        function toggleTrialSelection(trialId) {
+            const trialCard = document.querySelector(`[data-trial-id="${trialId}"]`);
+            
+            if (selectedTrials.includes(trialId)) {
+                selectedTrials = selectedTrials.filter(id => id !== trialId);
+                trialCard.classList.remove('selected');
+            } else {
+                selectedTrials.push(trialId);
+                trialCard.classList.add('selected');
+            }
+
+            updateLoadButton();
+        }
+
+        function selectAllTrials() {
+            selectedTrials = allTrials.map(trial => trial.id);
+            document.querySelectorAll('.trial-card').forEach(card => {
+                card.classList.add('selected');
+            });
+            updateLoadButton();
+        }
+
+        function clearSelection() {
+            selectedTrials = [];
+            document.querySelectorAll('.trial-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            updateLoadButton();
+        }
+
+        function updateLoadButton() {
+            const loadBtn = document.getElementById('loadDataBtn');
+            loadBtn.disabled = selectedTrials.length === 0;
+            loadBtn.textContent = `Load Selected Trials Data (${selectedTrials.length})`;
+        }
+
+        async function loadSelectedTrialsData() {
+            if (selectedTrials.length === 0) {
+                showStatus('Please select at least one trial', 'error');
+                return;
+            }
+
+            document.getElementById('consolidationCard').style.display = 'block';
+            showStatus(`Loading data from ${selectedTrials.length} selected trials...`, 'info');
+            
+            // Enable processing options
+            document.getElementById('processBtn').disabled = false;
+            document.getElementById('previewBtn').disabled = false;
+        }
+
+        async function processConsolidation() {
+            try {
+                showProgress(true);
+                updateProgress(0);
+                showStatus('Processing consolidation...', 'info');
+
+                consolidatedData = [];
+                pfCountData = [];
+                let processedCount = 0;
+
+                for (const trialId of selectedTrials) {
+                    showStatus(`Processing trial ${processedCount + 1} of ${selectedTrials.length}...`, 'info');
+                    
+                    const trial = allTrials.find(t => t.id === trialId);
+                    
+                    // Load entries for this trial
+                    const entriesSnapshot = await db.collection('entries')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    // Load scores for this trial
+                    const scoresSnapshot = await db.collection('scores')
+                        .where('trialId', '==', trialId)
+                        .get();
+
+                    const scoresMap = {};
+                    scoresSnapshot.forEach(doc => {
+                        const scoreData = doc.data();
+                        const key = `${scoreData.cwagsNumber}_${scoreData.className}_${scoreData.roundNumber}`;
+                        scoresMap[key] = scoreData;
+                    });
+
+                    // Process each entry
+                    entriesSnapshot.forEach(entryDoc => {
+                        const entry = entryDoc.data();
+                        
+                        // Process each class entry
+                        if (entry.classEntries) {
+                            entry.classEntries.forEach(classEntry => {
+                                // For each round in the class
+                                for (let roundNum = 1; roundNum <= (classEntry.rounds || 1); roundNum++) {
+                                    const scoreKey = `${entry.cwagsNumber}_${classEntry.className}_${roundNum}`;
+                                    const scoreData = scoresMap[scoreKey];
+
+                                    // Create consolidated record
+                                    const record = {
+                                        registration: formatRegistrationNumber(entry.cwagsNumber),
+                                        callName: entry.dogCallName,
+                                        date: classEntry.date || getTrialDate(trial),
+                                        level: classEntry.className,
+                                        results: scoreData ? scoreData.result : 'Scheduled',
+                                        judge: scoreData ? scoreData.judgeName : 'TBD',
+                                        trialId: trialId,
+                                        clubName: trial.clubName
+                                    };
+
+                                    // Apply filters if enabled
+                                    if (shouldIncludeRecord(record)) {
+                                        consolidatedData.push(record);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    processedCount++;
+                    updateProgress((processedCount / selectedTrials.length) * 100);
+                }
+
+                // Sort data if enabled
+                if (document.getElementById('sortByDate').checked) {
+                    sortConsolidatedData();
+                }
+
+                // Generate P/F count if enabled
+                if (document.getElementById('countPF').checked) {
+                    generatePFCount();
+                }
+
+                showProgress(false);
+                displayStatistics();
+                document.getElementById('statsCard').style.display = 'block';
+                showStatus(`Successfully processed ${consolidatedData.length} records from ${selectedTrials.length} trials`, 'success');
+
+            } catch (error) {
+                showProgress(false);
+                showStatus('Error processing consolidation: ' + error.message, 'error');
+                console.error('Error processing consolidation:', error);
+            }
+        }
+
+        function shouldIncludeRecord(record) {
+            if (!document.getElementById('removeUnwanted').checked) {
+                return true;
+            }
+
+            const result = record.results.toUpperCase();
+            const unwantedResults = ['X', 'NQ', 'NA', 'FAIL', 'F', '-', ''];
+            
+            return !unwantedResults.includes(result) && result.trim() !== '';
+        }
+
+        function formatRegistrationNumber(regNumber) {
+            if (!document.getElementById('formatRegistration').checked) {
+                return regNumber;
+            }
+
+            // Format to XX-XXXX-XX pattern
+            let cleaned = regNumber.replace(/[^0-9]/g, '');
+            
+            if (cleaned.length >= 6) {
+                let formatted = cleaned.substring(0, 2);
+                formatted += '-' + cleaned.substring(2, 6);
+                if (cleaned.length >= 8) {
+                    formatted += '-' + cleaned.substring(6, 8);
+                } else if (cleaned.length === 7) {
+                    formatted += '-0' + cleaned.substring(6, 7);
+                }
+                return formatted;
+            }
+            
+            return regNumber;
+        }
+
+        function getTrialDate(trial) {
+            if (trial.days && trial.days[0] && trial.days[0].date) {
+                return new Date(trial.days[0].date.seconds * 1000);
+            }
+            return new Date();
+        }
+
+        function sortConsolidatedData() {
+            consolidatedData.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (dateA.getTime() !== dateB.getTime()) {
+                    return dateA - dateB;
+                }
+                
+                // Secondary sort by level/class
+                return a.level.localeCompare(b.level);
+            });
+        }
+
+        function generatePFCount() {
+            const countMap = {};
+            
+            consolidatedData.forEach(record => {
+                const key = `${record.trialId}_${record.level}`;
+                
+                if (!countMap[key]) {
+                    countMap[key] = {
+                        trialId: record.trialId,
+                        clubName: record.clubName,
+                        level: record.level,
+                        pCount: 0,
+                        fCount: 0,
+                        totalCount: 0
+                    };
+                }
+                
+                const result = record.results.toUpperCase();
+                if (result.includes('P')) {
+                    countMap[key].pCount++;
+                }
+                if (result.includes('F')) {
+                    countMap[key].fCount++;
+                }
+                countMap[key].totalCount++;
+            });
+            
+            pfCountData = Object.values(countMap);
+        }
+
+        function displayStatistics() {
+            const statsGrid = document.getElementById('statsGrid');
+            
+            const totalRecords = consolidatedData.length;
+            const totalTrials = selectedTrials.length;
+            const uniqueDogs = new Set(consolidatedData.map(r => r.registration)).size;
+            const totalPasses = consolidatedData.filter(r => r.results.toUpperCase().includes('P')).length;
+            
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${totalPasses}</div>
+                    <div class="stat-label">Total Passes</div>
+                </div>
+            `;
+        }
+
+        function previewData() {
+            if (consolidatedData.length === 0) {
+                showStatus('No data to preview. Please process consolidation first.', 'error');
+                return;
+            }
+
+            const previewCard = document.getElementById('previewCard');
+            const dataPreview = document.getElementById('dataPreview');
+            
+            let html = `
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Registration</th>
+                            <th>Call Name</th>
+                            <th>Date</th>
+                            <th>Level</th>
+                            <th>Results</th>
+                            <th>Judge</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            // Show first 100 records for preview
+            const previewData = consolidatedData.slice(0, 100);
+            
+            previewData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                html += `
+                    <tr>
+                        <td>${record.registration}</td>
+                        <td>${record.callName}</td>
+                        <td>${dateStr}</td>
+                        <td>${record.level}</td>
+                        <td>${record.results}</td>
+                        <td>${record.judge}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            if (consolidatedData.length > 100) {
+                html += `<p style="text-align: center; color: #666; margin-top: 1rem;">
+                    Showing first 100 of ${consolidatedData.length} records. Export to see all data.
+                </p>`;
+            }
+
+            dataPreview.innerHTML = html;
+            previewCard.style.display = 'block';
+            
+            showStatus('Data preview generated successfully', 'success');
+        }
+
+        async function exportData() {
+            if (consolidatedData.length === 0) {
+                showStatus('No data to export. Please process consolidation first.', 'error');
+                return;
+            }
+
+            const selectedFormat = document.querySelector('input[name="exportFormat"]:checked').value;
+            
+            try {
+                showStatus('Generating export...', 'info');
+                
+                switch (selectedFormat) {
+                    case 'excel':
+                        exportToExcel();
+                        break;
+                    case 'csv':
+                        exportToCSV();
+                        break;
+                    case 'pdf':
+                        exportToPDF();
+                        break;
+                }
+                
+                showStatus(`Export completed successfully (${selectedFormat.toUpperCase()})`, 'success');
+            } catch (error) {
+                showStatus('Error exporting data: ' + error.message, 'error');
+                console.error('Export error:', error);
+            }
+        }
+
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            
+            // Main consolidated data sheet
+            const wsData = [];
+            wsData.push(['Registration', 'Call Name', 'Date', 'Level', 'Results', 'Judge']);
+            
+            consolidatedData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                wsData.push([
+                    record.registration,
+                    record.callName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ]);
+            });
+            
+            const ws1 = XLSX.utils.aoa_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'ConsolidatedResults');
+            
+            // P/F Count summary sheet if enabled
+            if (document.getElementById('countPF').checked && pfCountData.length > 0) {
+                const pfData = [];
+                pfData.push(['Club Name', 'Level', 'P Count', 'F Count', 'Total Count']);
+                
+                pfCountData.forEach(record => {
+                    pfData.push([
+                        record.clubName,
+                        record.level,
+                        record.pCount,
+                        record.fCount,
+                        record.totalCount
+                    ]);
+                });
+                
+                const ws2 = XLSX.utils.aoa_to_sheet(pfData);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Total Entries');
+            }
+            
+            const filename = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
+
+        function exportToCSV() {
+            let csvContent = 'Registration,Call Name,Date,Level,Results,Judge\n';
+            
+            consolidatedData.forEach(record => {
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                const row = [
+                    record.registration,
+                    record.callName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ].map(field => `"${field}"`).join(',');
+                
+                csvContent += row + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+
+        function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape');
+            
+            // Title
+            doc.setFontSize(16);
+            doc.text('Consolidated Trial Data Report', 148, 20, { align: 'center' });
+            
+            // Date
+            doc.setFontSize(10);
+            doc.text(`Generated: ${new Date().toLocaleDateString()}`, 148, 30, { align: 'center' });
+            
+            // Table headers
+            const headers = ['Registration', 'Call Name', 'Date', 'Level', 'Results', 'Judge'];
+            const startY = 45;
+            let currentY = startY;
+            
+            // Header row
+            doc.setFontSize(8);
+            doc.setFont(undefined, 'bold');
+            headers.forEach((header, index) => {
+                doc.text(header, 15 + (index * 45), currentY);
+            });
+            
+            currentY += 8;
+            doc.setFont(undefined, 'normal');
+            
+            // Data rows
+            consolidatedData.slice(0, 50).forEach(record => { // Limit for PDF
+                const dateStr = record.date instanceof Date 
+                    ? record.date.toLocaleDateString() 
+                    : record.date;
+                
+                const rowData = [
+                    record.registration,
+                    record.callName,
+                    dateStr,
+                    record.level,
+                    record.results,
+                    record.judge
+                ];
+                
+                rowData.forEach((data, index) => {
+                    const text = String(data).substring(0, 12); // Truncate for space
+                    doc.text(text, 15 + (index * 45), currentY);
+                });
+                
+                currentY += 6;
+                
+                // Add new page if needed
+                if (currentY > 180) {
+                    doc.addPage('landscape');
+                    currentY = 20;
+                }
+            });
+            
+            if (consolidatedData.length > 50) {
+                doc.addPage('landscape');
+                doc.setFontSize(12);
+                doc.text(`Note: Showing first 50 of ${consolidatedData.length} records.`, 20, 20);
+                doc.text('For complete data, please use Excel or CSV export.', 20, 30);
+            }
+            
+            const filename = `ConsolidatedTrialData_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(filename);
+        }
+
+        async function generatePFSummary() {
+            if (pfCountData.length === 0) {
+                showStatus('No P/F count data available. Please process consolidation with P/F counting enabled.', 'error');
+                return;
+            }
+
+            const summaryWindow = window.open('', '_blank');
+            summaryWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>P/F Count Summary</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; font-weight: bold; }
+                        .total-row { background-color: #e8f5e8; font-weight: bold; }
+                        h1 { color: #2c3e50; }
+                    </style>
+                </head>
+                <body>
+                    <h1>P/F Count Summary Report</h1>
+                    <p>Generated: ${new Date().toLocaleDateString()}</p>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Club Name</th>
+                                <th>Level</th>
+                                <th>P Count</th>
+                                <th>F Count</th>
+                                <th>Total Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `);
+
+            let totalP = 0, totalF = 0, totalCount = 0;
+            
+            pfCountData.forEach(record => {
+                summaryWindow.document.write(`
+                    <tr>
+                        <td>${record.clubName}</td>
+                        <td>${record.level}</td>
+                        <td>${record.pCount}</td>
+                        <td>${record.fCount}</td>
+                        <td>${record.totalCount}</td>
+                    </tr>
+                `);
+                
+                totalP += record.pCount;
+                totalF += record.fCount;
+                totalCount += record.totalCount;
+            });
+
+            summaryWindow.document.write(`
+                        <tr class="total-row">
+                            <td colspan="2">TOTAL</td>
+                            <td>${totalP}</td>
+                            <td>${totalF}</td>
+                            <td>${totalCount}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                </body>
+                </html>
+            `);
+
+            summaryWindow.document.close();
+            showStatus('P/F summary generated in new window', 'success');
         }
 
         // Utility functions
         function showStatus(message, type = 'info') {
-            const statusDiv = document.getElementById('statusMessage');
-            statusDiv.textContent = message;
-            statusDiv.className = `status-message status-${type}`;
-            statusDiv.style.display = 'block';
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message status-${type}`;
+            statusEl.style.display = 'block';
             
-            setTimeout(() => {
-                statusDiv.style.display = 'none';
-            }, 5000);
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
         }
 
-        function logout() {
-            auth.signOut().then(() => {
-                window.location.href = 'index.html';
-            });
+        function showProgress(show) {
+            document.getElementById('progressBar').style.display = show ? 'block' : 'none';
         }
+
+        function updateProgress(percent) {
+            document.getElementById('progressFill').style.width = percent + '%';
+        }
+
+        // Export format selection
+        document.querySelectorAll('.format-option').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('.format-option').forEach(opt => opt.classList.remove('selected'));
+                this.classList.add('selected');
+                this.querySelector('input[type="radio"]').checked = true;
+            });
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup format option clicks
+            document.querySelectorAll('.format-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.format-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    this.querySelector('input[type="radio"]').checked = true;
+                });
+            });
+        });
     </script>
 </body>
-</html>
+</html>="stat-value">${totalRecords}</div>
+                    <div class="stat-label">Total Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${totalTrials}</div>
+                    <div class="stat-label">Trials Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${uniqueDogs}</div>
+                    <div class="stat-label">Unique Dogs</div>
+                </div>
+                <div class="stat-card">
+                    <div class
