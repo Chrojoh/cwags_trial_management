@@ -1465,6 +1465,7 @@
                 console.error('Error processing consolidation:', error);
             }
         }
+        }
 
         function getTrialDate(trial) {
             if (trial.days && trial.days[0] && trial.days[0].date) {
@@ -1873,6 +1874,7 @@
                 console.error('Export error:', error);
             }
         }
+        }
             } catch (error) {
                 showStatus('Error exporting data: ' + error.message, 'error');
                 console.error('Export error:', error);
@@ -1906,6 +1908,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             showTab('overview');
         });
+
     </script>
 </body>
 </html>
