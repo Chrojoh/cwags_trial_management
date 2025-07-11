@@ -1103,6 +1103,31 @@ function getRoundKeyIndices(roundKey) {
             }
         }
 
+         // Simple function to add date range to trial name
+function formatTrialDisplayName(trial) {
+    const clubName = trial.clubName || 'Unnamed Trial';
+    
+    // Get trial dates
+    if (trial.days && Array.isArray(trial.days) && trial.days.length > 0) {
+        const dates = trial.days
+            .map(day => day.date ? getDateFromFirebase(day.date) : null)
+            .filter(date => date)
+            .sort();
+        
+        if (dates.length > 0) {
+            if (dates.length === 1) {
+                return `${clubName} (${new Date(dates[0]).toLocaleDateString()})`;
+            } else {
+                const startDate = new Date(dates[0]).toLocaleDateString();
+                const endDate = new Date(dates[dates.length - 1]).toLocaleDateString();
+                return `${clubName} (${startDate} - ${endDate})`;
+            }
+        }
+    }
+    
+    return clubName;
+}   
+        
         // Load trials for the dropdown
         async function loadTrials() {
             try {
