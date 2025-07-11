@@ -1130,7 +1130,7 @@ function getRoundKeyIndices(roundKey) {
                     trials.forEach(trial => {
                         const option = document.createElement('option');
                         option.value = trial.id;
-                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        option.textContent = formatTrialDisplayName(trial);
                         trialSelect.appendChild(option);
                     });
 
