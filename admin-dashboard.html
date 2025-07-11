@@ -1421,7 +1421,7 @@
                 }
             });
             
-           // FALLBACK: If no scores found, use entries collection (like original approach)
+          // FALLBACK: If no scores found, use entries collection (like original approach)
 if (!foundScoreData) {
     console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
     showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
@@ -1430,11 +1430,16 @@ if (!foundScoreData) {
         .where('trialId', '==', trialId)
         .get();
 
+    // Debug: Let's see what selectedEntries look like
     entriesSnapshot.forEach(entryDoc => {
         const entry = entryDoc.data();
         
         if (entry.selectedEntries) {
-            entry.selectedEntries.forEach(selectedEntry => {
+            console.log(`🐕 ${entry.dogCallName} has ${entry.selectedEntries.length} selectedEntries:`, entry.selectedEntries);
+            
+            entry.selectedEntries.forEach((selectedEntry, index) => {
+                console.log(`  Entry ${index}: ${selectedEntry.className} Round ${selectedEntry.roundNumber || 'unknown'} Judge: ${selectedEntry.judgeName}`);
+                
                 // Each selectedEntry is one dog in one specific round
                 const record = {
                     registration: entry.cwagsNumber || 'TBD',
@@ -1446,8 +1451,7 @@ if (!foundScoreData) {
                     points: 1,
                     trialId: trialId,
                     clubName: trial.clubName,
-                    classOrder: getCWAGSClassOrder(selectedEntry.className),
-                    roundNumber: selectedEntry.roundNumber || 1 // Add round tracking
+                    classOrder: getCWAGSClassOrder(selectedEntry.className)
                 };
                 
                 consolidatedData.push(record);
