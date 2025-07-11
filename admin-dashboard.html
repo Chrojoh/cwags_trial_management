@@ -1323,7 +1323,7 @@
             }
         }
 
-      async function processConsolidation() {
+     async function processConsolidation() {
     try {
         showStatus('Processing consolidation from score sheets...', 'info');
         
@@ -1408,6 +1408,7 @@
                             callName: callName,
                             date: scoreData.dayDate || getTrialDate(trial),
                             level: scoreData.className,
+                            roundNumber: scoreData.roundNumber || 1, // Add round tracking
                             results: participant.passFail || 'Scheduled',
                             judge: scoreData.judgeName || 'TBD',
                             points: 1,
@@ -1421,43 +1422,100 @@
                 }
             });
             
-          // FALLBACK: If no scores found, use entries collection (like original approach)
-if (!foundScoreData) {
-    console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
-    showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
-    
-    const entriesSnapshot = await db.collection('entries')
-        .where('trialId', '==', trialId)
-        .get();
+            // FALLBACK: If no scores found, use entries collection with deduplication
+            if (!foundScoreData) {
+                console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
+                showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
+                
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
 
-    // Debug: Let's see what selectedEntries look like
-    entriesSnapshot.forEach(entryDoc => {
-        const entry = entryDoc.data();
-        
-        if (entry.selectedEntries) {
-            console.log(`🐕 ${entry.dogCallName} has ${entry.selectedEntries.length} selectedEntries:`, entry.selectedEntries);
-            
-            entry.selectedEntries.forEach((selectedEntry, index) => {
-                console.log(`  Entry ${index}: ${selectedEntry.className} Round ${selectedEntry.roundNumber || 'unknown'} Judge: ${selectedEntry.judgeName}`);
+                // Track unique entries to prevent duplicates
+                const seenEntries = new Set();
                 
-                // Each selectedEntry is one dog in one specific round
-                const record = {
-                    registration: entry.cwagsNumber || 'TBD',
-                    callName: entry.dogCallName || 'Unknown',
-                    date: selectedEntry.dayDate || getTrialDate(trial),
-                    level: selectedEntry.className,
-                    results: 'Scheduled',
-                    judge: selectedEntry.judgeName || 'TBD',
-                    points: 1,
-                    trialId: trialId,
-                    clubName: trial.clubName,
-                    classOrder: getCWAGSClassOrder(selectedEntry.className)
-                };
-                
-                consolidatedData.push(record);
-            });
+                entriesSnapshot.forEach(entryDoc => {
+                    const entry = entryDoc.data();
+                    
+                    if (entry.selectedEntries) {
+                        console.log(`🐕 ${entry.dogCallName} has ${entry.selectedEntries.length} selectedEntries:`, entry.selectedEntries);
+                        
+                        entry.selectedEntries.forEach((selectedEntry, index) => {
+                            // Create a unique key for each entry
+                            const entryKey = `${entry.cwagsNumber || 'TBD'}-${selectedEntry.className}-${selectedEntry.dayDate || getTrialDate(trial)}-${selectedEntry.judgeName || 'TBD'}-${selectedEntry.roundNumber || index + 1}`;
+                            
+                            // Skip if we've already seen this exact entry
+                            if (seenEntries.has(entryKey)) {
+                                console.log(`⚠️ Skipping duplicate entry: ${entryKey}`);
+                                return;
+                            }
+                            
+                            seenEntries.add(entryKey);
+                            
+                            console.log(`  Entry ${index}: ${selectedEntry.className} Round ${selectedEntry.roundNumber || (index + 1)} Judge: ${selectedEntry.judgeName}`);
+                            
+                            // Each selectedEntry is one dog in one specific round
+                            const record = {
+                                registration: entry.cwagsNumber || 'TBD',
+                                callName: entry.dogCallName || 'Unknown',
+                                date: selectedEntry.dayDate || getTrialDate(trial),
+                                level: selectedEntry.className,
+                                roundNumber: selectedEntry.roundNumber || (index + 1), // Use index as fallback
+                                results: 'Scheduled',
+                                judge: selectedEntry.judgeName || 'TBD',
+                                points: 1,
+                                trialId: trialId,
+                                clubName: trial.clubName,
+                                classOrder: getCWAGSClassOrder(selectedEntry.className)
+                            };
+                            
+                            consolidatedData.push(record);
+                        });
+                    }
+                });
+            }
+             
+            processedCount++;
         }
-    });
+        
+        // Enhanced sorting: Date → C-WAGS Class Order → Round Number → Call Name
+        consolidatedData.sort((a, b) => {
+            // Primary sort: by date (earliest first)
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA - dateB;
+            }
+            
+            // Secondary sort: by C-WAGS class order
+            if (a.classOrder !== b.classOrder) {
+                return a.classOrder - b.classOrder;
+            }
+            
+            // Tertiary sort: by round number
+            if (a.roundNumber !== b.roundNumber) {
+                if (typeof a.roundNumber === 'string' && typeof b.roundNumber === 'number') return 1;
+                if (typeof b.roundNumber === 'string' && typeof a.roundNumber === 'number') return -1;
+                return a.roundNumber - b.roundNumber;
+            }
+            
+            // Quaternary sort: by call name (maintains running order within class/round)
+            return a.callName.localeCompare(b.callName);
+        });
+
+        // Remove the temporary classOrder field for final output
+        consolidatedData.forEach(record => {
+            delete record.classOrder;
+        });
+        
+        console.log(`✅ Sorted ${consolidatedData.length} records by: Date → C-WAGS Class Order → Round Number → Running Order`);
+        showStatus(`✅ Successfully processed ${consolidatedData.length} entries from ${selectedTrials.length} trials`, 'success');
+
+    } catch (error) {
+        showStatus('Error processing consolidation: ' + error.message, 'error');
+        console.error('Error processing consolidation:', error);
+    }
 }
              
             processedCount++;
