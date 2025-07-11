@@ -1366,9 +1366,17 @@
                             console.log(`🔍 DEBUG Dog ${entryCount + 1}: ${entry.dogCallName}`);
                             console.log(`🔍 DEBUG selectedEntries:`, entry.selectedEntries);
                             
+                            // Show all entries to see if dayIndex varies
                             entry.selectedEntries.forEach((selectedEntry, index) => {
-                                if (index < 3) { // Only first 3 entries per dog
-                                    console.log(`🔍 DEBUG Entry ${index}:`, selectedEntry);
+                                if (index < 10) { // Show first 10 entries to see patterns
+                                    console.log(`🔍 DEBUG Entry ${index}:`, {
+                                        className: selectedEntry.className,
+                                        judgeName: selectedEntry.judgeName,
+                                        dayIndex: selectedEntry.dayIndex,
+                                        dayDate: selectedEntry.dayDate,
+                                        dayName: selectedEntry.dayName,
+                                        allKeys: Object.keys(selectedEntry)
+                                    });
                                     
                                     // Try to extract date
                                     let entryDate = 'unknown';
@@ -1386,19 +1394,21 @@
                                         entryDate = trial.days && trial.days[0] ? trial.days[0].date : '2025-07-11';
                                     }
                                     
-                                    const record = {
-                                        registration: entry.cwagsNumber || 'TBD',
-                                        callName: entry.dogCallName || 'Unknown',
-                                        date: entryDate,
-                                        level: selectedEntry.className,
-                                        roundNumber: index + 1, // Simple for now
-                                        results: 'Scheduled',
-                                        judge: selectedEntry.judgeName || 'TBD',
-                                        points: 1
-                                    };
-                                    
-                                    console.log(`🔍 DEBUG Created record:`, record);
-                                    consolidatedData.push(record);
+                                    if (index < 6) { // Only create records for first 6 for debugging
+                                        const record = {
+                                            registration: entry.cwagsNumber || 'TBD',
+                                            callName: entry.dogCallName || 'Unknown',
+                                            date: entryDate,
+                                            level: selectedEntry.className,
+                                            roundNumber: index + 1, // Simple for now
+                                            results: 'Scheduled',
+                                            judge: selectedEntry.judgeName || 'TBD',
+                                            points: 1
+                                        };
+                                        
+                                        console.log(`🔍 DEBUG Created record:`, record);
+                                        consolidatedData.push(record);
+                                    }
                                 }
                             });
                             entryCount++;
