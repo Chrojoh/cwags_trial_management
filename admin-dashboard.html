@@ -1517,25 +1517,8 @@
         console.error('Error processing consolidation:', error);
     }
 }
-             
-            processedCount++;
-        }
-        
-        // Enhanced sorting: Date → C-WAGS Class Order → Call Name
-        consolidatedData.sort((a, b) => {
-            // Primary sort: by date (earliest first)
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            
-            if (dateA.getTime() !== dateB.getTime()) {
-                return dateA - dateB;
-            }
-            
-            // Secondary sort: by C-WAGS class order
-            if (a.classOrder !== b.classOrder) {
-                return a.classOrder - b.classOrder;
-            }
-            
+          
+                 
             // Tertiary sort: by call name (maintains running order within class)
             return a.callName.localeCompare(b.callName);
         });
