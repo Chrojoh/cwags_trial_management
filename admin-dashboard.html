@@ -1421,39 +1421,41 @@
                 }
             });
             
-            // FALLBACK: If no scores found, use entries collection (like original approach)
-            if (!foundScoreData) {
-                console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
-                showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
-                
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', trialId)
-                    .get();
+           // FALLBACK: If no scores found, use entries collection (like original approach)
+if (!foundScoreData) {
+    console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
+    showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
+    
+    const entriesSnapshot = await db.collection('entries')
+        .where('trialId', '==', trialId)
+        .get();
 
-                entriesSnapshot.forEach(entryDoc => {
-                    const entry = entryDoc.data();
-                    
-                    if (entry.selectedEntries) {
-                        entry.selectedEntries.forEach(selectedEntry => {
-                            const record = {
-                                registration: entry.cwagsNumber || 'TBD',
-                                callName: entry.dogCallName || 'Unknown',
-                                date: selectedEntry.dayDate || getTrialDate(trial),
-                                level: selectedEntry.className,
-                                results: 'Scheduled', // No scores available
-                                judge: selectedEntry.judgeName || 'TBD',
-                                points: 1,
-                                trialId: trialId,
-                                clubName: trial.clubName,
-                                classOrder: getCWAGSClassOrder(selectedEntry.className)
-                            };
-                            
-                            consolidatedData.push(record);
-                        });
-                    }
-                });
-            }
-            
+    entriesSnapshot.forEach(entryDoc => {
+        const entry = entryDoc.data();
+        
+        if (entry.selectedEntries) {
+            entry.selectedEntries.forEach(selectedEntry => {
+                // Each selectedEntry is one dog in one specific round
+                const record = {
+                    registration: entry.cwagsNumber || 'TBD',
+                    callName: entry.dogCallName || 'Unknown',
+                    date: selectedEntry.dayDate || getTrialDate(trial),
+                    level: selectedEntry.className,
+                    results: 'Scheduled',
+                    judge: selectedEntry.judgeName || 'TBD',
+                    points: 1,
+                    trialId: trialId,
+                    clubName: trial.clubName,
+                    classOrder: getCWAGSClassOrder(selectedEntry.className),
+                    roundNumber: selectedEntry.roundNumber || 1 // Add round tracking
+                };
+                
+                consolidatedData.push(record);
+            });
+        }
+    });
+}
+             
             processedCount++;
         }
         
