@@ -1103,11 +1103,11 @@ function getRoundKeyIndices(roundKey) {
             }
         }
 
-         // Simple function to add date range to trial name
+        // Simple function to add date range to trial name
 function formatTrialDisplayName(trial) {
     const clubName = trial.clubName || 'Unnamed Trial';
     
-    // Get trial dates using universal date utilities
+    // Get trial dates using your existing date utilities
     if (trial.days && Array.isArray(trial.days) && trial.days.length > 0) {
         const dates = trial.days
             .map(day => day.date ? getDateFromFirebase(day.date) : null)
@@ -1116,23 +1116,10 @@ function formatTrialDisplayName(trial) {
         
         if (dates.length > 0) {
             if (dates.length === 1) {
-                const displayDate = formatDateDisplay(dates[0], { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
-                return `${clubName} (${displayDate})`;
+                return `${clubName} (${createLocalDate(dates[0]).toLocaleDateString()})`;
             } else {
-                const startDate = formatDateDisplay(dates[0], { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
-                const endDate = formatDateDisplay(dates[dates.length - 1], { 
-                    year: 'numeric', 
-                    month: 'short', 
-                    day: 'numeric' 
-                });
+                const startDate = createLocalDate(dates[0]).toLocaleDateString();
+                const endDate = createLocalDate(dates[dates.length - 1]).toLocaleDateString();
                 return `${clubName} (${startDate} - ${endDate})`;
             }
         }
