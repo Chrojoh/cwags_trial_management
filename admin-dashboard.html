@@ -1323,7 +1323,7 @@
             }
         }
 
-       async function processConsolidation() {
+      async function processConsolidation() {
     try {
         showStatus('Processing consolidation from score sheets...', 'info');
         
@@ -1381,16 +1381,19 @@
             
             const trial = allTrials.find(t => t.id === trialId);
             
-            // Load scores collection (maintains running order from score sheets)
+            // First try scores collection (maintains running order from score sheets)
             const scoresSnapshot = await db.collection('scores')
                 .where('trialId', '==', trialId)
                 .get();
+            
+            let foundScoreData = false;
             
             scoresSnapshot.forEach(doc => {
                 const scoreData = doc.data();
                 
                 // Process participants in their original running order
-                if (scoreData.participants) {
+                if (scoreData.participants && Object.keys(scoreData.participants).length > 0) {
+                    foundScoreData = true;
                     Object.entries(scoreData.participants).forEach(([participantId, participant]) => {
                         // Extract call name from various possible formats
                         let callName = 'Unknown';
@@ -1407,7 +1410,7 @@
                             level: scoreData.className,
                             results: participant.passFail || 'Scheduled',
                             judge: scoreData.judgeName || 'TBD',
-                            points: 1, // Always 1 since these are actual entries
+                            points: 1,
                             trialId: trialId,
                             clubName: trial.clubName,
                             classOrder: getCWAGSClassOrder(scoreData.className)
@@ -1418,10 +1421,43 @@
                 }
             });
             
+            // FALLBACK: If no scores found, use entries collection (like original approach)
+            if (!foundScoreData) {
+                console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
+                showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
+                
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                entriesSnapshot.forEach(entryDoc => {
+                    const entry = entryDoc.data();
+                    
+                    if (entry.selectedEntries) {
+                        entry.selectedEntries.forEach(selectedEntry => {
+                            const record = {
+                                registration: entry.cwagsNumber || 'TBD',
+                                callName: entry.dogCallName || 'Unknown',
+                                date: selectedEntry.dayDate || getTrialDate(trial),
+                                level: selectedEntry.className,
+                                results: 'Scheduled', // No scores available
+                                judge: selectedEntry.judgeName || 'TBD',
+                                points: 1,
+                                trialId: trialId,
+                                clubName: trial.clubName,
+                                classOrder: getCWAGSClassOrder(selectedEntry.className)
+                            };
+                            
+                            consolidatedData.push(record);
+                        });
+                    }
+                });
+            }
+            
             processedCount++;
         }
         
-        // Enhanced sorting: Date → C-WAGS Class Order → Call Name (maintains running order within class)
+        // Enhanced sorting: Date → C-WAGS Class Order → Call Name
         consolidatedData.sort((a, b) => {
             // Primary sort: by date (earliest first)
             const dateA = new Date(a.date);
@@ -1446,7 +1482,7 @@
         });
         
         console.log(`✅ Sorted ${consolidatedData.length} records by: Date → C-WAGS Class Order → Running Order`);
-        showStatus(`✅ Successfully processed ${consolidatedData.length} entries maintaining running order from ${selectedTrials.length} trials`, 'success');
+        showStatus(`✅ Successfully processed ${consolidatedData.length} entries from ${selectedTrials.length} trials`, 'success');
 
     } catch (error) {
         showStatus('Error processing consolidation: ' + error.message, 'error');
