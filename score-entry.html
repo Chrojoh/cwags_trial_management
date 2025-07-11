@@ -1107,7 +1107,7 @@ function getRoundKeyIndices(roundKey) {
 function formatTrialDisplayName(trial) {
     const clubName = trial.clubName || 'Unnamed Trial';
     
-    // Get trial dates
+    // Get trial dates using universal date utilities
     if (trial.days && Array.isArray(trial.days) && trial.days.length > 0) {
         const dates = trial.days
             .map(day => day.date ? getDateFromFirebase(day.date) : null)
@@ -1116,17 +1116,30 @@ function formatTrialDisplayName(trial) {
         
         if (dates.length > 0) {
             if (dates.length === 1) {
-                return `${clubName} (${new Date(dates[0]).toLocaleDateString()})`;
+                const displayDate = formatDateDisplay(dates[0], { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                return `${clubName} (${displayDate})`;
             } else {
-                const startDate = new Date(dates[0]).toLocaleDateString();
-                const endDate = new Date(dates[dates.length - 1]).toLocaleDateString();
+                const startDate = formatDateDisplay(dates[0], { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                const endDate = formatDateDisplay(dates[dates.length - 1], { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
                 return `${clubName} (${startDate} - ${endDate})`;
             }
         }
     }
     
     return clubName;
-}   
+}
         
         // Load trials for the dropdown
         async function loadTrials() {
