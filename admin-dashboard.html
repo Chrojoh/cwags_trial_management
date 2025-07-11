@@ -1323,219 +1323,199 @@
             }
         }
 
-     async function processConsolidation() {
-    try {
-        showStatus('Processing consolidation from score sheets...', 'info');
-        
-        consolidatedData = [];
-        let processedCount = 0;
-        
-        // C-WAGS class order mapping
-        const CWAGS_CLASS_ORDER = {
-            'PATROL 1': 1, 'PATROL1': 1, 'P1': 1,
-            'DETECTIVE 2': 2, 'DETECTIVE2': 2, 'DET2': 2, 'D2': 2,
-            'INVESTIGATOR 3': 3, 'INVESTIGATOR3': 3, 'INV3': 3, 'I3': 3,
-            'SUPER SLEUTH 4': 4, 'SUPER SLEUTH4': 4, 'SUPERSLEUTH4': 4, 'SS4': 4, 'S4': 4,
-            'PRIVATE INV': 5, 'PRIVATE INVESTIGATOR': 5, 'PRIVATEINV': 5, 'PRIV INV': 5, 'PI': 5,
-            'DET DIVERSIONS': 6, 'DETECTIVE DIVERSIONS': 6, 'DETDIVERSIONS': 6, 'DD': 6,
-            'RANGER 1': 7, 'RANGER1': 7, 'R1': 7,
-            'RANGER 2': 8, 'RANGER2': 8, 'R2': 8,
-            'RANGER 3': 9, 'RANGER3': 9, 'R3': 9,
-            'RANGER 4': 10, 'RANGER4': 10, 'R4': 10,
-            'RANGER 5': 11, 'RANGER5': 11, 'R5': 11,
-            'DASHER 3': 12, 'DASHER3': 12, 'DASH3': 12, 'DA3': 12,
-            'DASHER 4': 13, 'DASHER4': 13, 'DASH4': 13, 'DA4': 13,
-            'DASHER 5': 14, 'DASHER5': 14, 'DASH5': 14, 'DA5': 14,
-            'DASHER 6': 15, 'DASHER6': 15, 'DASH6': 15, 'DA6': 15
-        };
+    async function processConsolidation() {
+            try {
+                showStatus('Processing consolidation from score sheets...', 'info');
+                
+                consolidatedData = [];
+                let processedCount = 0;
+                
+                // C-WAGS class order mapping
+                const CWAGS_CLASS_ORDER = {
+                    'PATROL 1': 1, 'PATROL1': 1, 'P1': 1,
+                    'DETECTIVE 2': 2, 'DETECTIVE2': 2, 'DET2': 2, 'D2': 2,
+                    'INVESTIGATOR 3': 3, 'INVESTIGATOR3': 3, 'INV3': 3, 'I3': 3,
+                    'SUPER SLEUTH 4': 4, 'SUPER SLEUTH4': 4, 'SUPERSLEUTH4': 4, 'SS4': 4, 'S4': 4,
+                    'PRIVATE INV': 5, 'PRIVATE INVESTIGATOR': 5, 'PRIVATEINV': 5, 'PRIV INV': 5, 'PI': 5,
+                    'DET DIVERSIONS': 6, 'DETECTIVE DIVERSIONS': 6, 'DETDIVERSIONS': 6, 'DD': 6,
+                    'RANGER 1': 7, 'RANGER1': 7, 'R1': 7,
+                    'RANGER 2': 8, 'RANGER2': 8, 'R2': 8,
+                    'RANGER 3': 9, 'RANGER3': 9, 'R3': 9,
+                    'RANGER 4': 10, 'RANGER4': 10, 'R4': 10,
+                    'RANGER 5': 11, 'RANGER5': 11, 'R5': 11,
+                    'DASHER 3': 12, 'DASHER3': 12, 'DASH3': 12, 'DA3': 12,
+                    'DASHER 4': 13, 'DASHER4': 13, 'DASH4': 13, 'DA4': 13,
+                    'DASHER 5': 14, 'DASHER5': 14, 'DASH5': 14, 'DA5': 14,
+                    'DASHER 6': 15, 'DASHER6': 15, 'DASH6': 15, 'DA6': 15
+                };
 
-        // Function to get C-WAGS class order
-        function getCWAGSClassOrder(className) {
-            if (!className) return 999;
-            
-            const cleanClassName = className.toUpperCase()
-                .replace(/[^A-Z0-9\s]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-            
-            if (CWAGS_CLASS_ORDER[cleanClassName]) {
-                return CWAGS_CLASS_ORDER[cleanClassName];
-            }
-            
-            const noSpaceClassName = cleanClassName.replace(/\s/g, '');
-            if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
-                return CWAGS_CLASS_ORDER[noSpaceClassName];
-            }
-            
-            for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
-                if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
-                    return order;
-                }
-            }
-            
-            return 999;
-        }
-        
-        for (const trialId of selectedTrials) {
-            showStatus(`Processing trial ${processedCount + 1} of ${selectedTrials.length}...`, 'info');
-            
-            const trial = allTrials.find(t => t.id === trialId);
-            
-            // First try scores collection (maintains running order from score sheets)
-            const scoresSnapshot = await db.collection('scores')
-                .where('trialId', '==', trialId)
-                .get();
-            
-            let foundScoreData = false;
-            
-            scoresSnapshot.forEach(doc => {
-                const scoreData = doc.data();
-                
-                // Process participants in their original running order
-                if (scoreData.participants && Object.keys(scoreData.participants).length > 0) {
-                    foundScoreData = true;
-                    Object.entries(scoreData.participants).forEach(([participantId, participant]) => {
-                        // Extract call name from various possible formats
-                        let callName = 'Unknown';
-                        if (participant.dogCallName) {
-                            callName = participant.dogCallName;
-                        } else if (participant.handlerName && participant.handlerName.includes(' - ')) {
-                            callName = participant.handlerName.split(' - ')[1];
-                        }
-                        
-                        const record = {
-                            registration: participant.cwagsNumber || 'TBD',
-                            callName: callName,
-                            date: scoreData.dayDate || getTrialDate(trial),
-                            level: scoreData.className,
-                            roundNumber: scoreData.roundNumber || 1, // Add round tracking
-                            results: participant.passFail || 'Scheduled',
-                            judge: scoreData.judgeName || 'TBD',
-                            points: 1,
-                            trialId: trialId,
-                            clubName: trial.clubName,
-                            classOrder: getCWAGSClassOrder(scoreData.className)
-                        };
-                        
-                        consolidatedData.push(record);
-                    });
-                }
-            });
-            
-            // FALLBACK: If no scores found, use entries collection with deduplication
-            if (!foundScoreData) {
-                console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
-                showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
-                
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', trialId)
-                    .get();
-
-                // Track unique entries to prevent duplicates
-                const seenEntries = new Set();
-                
-                entriesSnapshot.forEach(entryDoc => {
-                    const entry = entryDoc.data();
+                function getCWAGSClassOrder(className) {
+                    if (!className) return 999;
                     
-                    if (entry.selectedEntries) {
-                        console.log(`🐕 ${entry.dogCallName} has ${entry.selectedEntries.length} selectedEntries:`, entry.selectedEntries);
+                    const cleanClassName = className.toUpperCase()
+                        .replace(/[^A-Z0-9\s]/g, '')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    if (CWAGS_CLASS_ORDER[cleanClassName]) {
+                        return CWAGS_CLASS_ORDER[cleanClassName];
+                    }
+                    
+                    const noSpaceClassName = cleanClassName.replace(/\s/g, '');
+                    if (CWAGS_CLASS_ORDER[noSpaceClassName]) {
+                        return CWAGS_CLASS_ORDER[noSpaceClassName];
+                    }
+                    
+                    for (const [code, order] of Object.entries(CWAGS_CLASS_ORDER)) {
+                        if (cleanClassName.includes(code) || code.includes(cleanClassName)) {
+                            return order;
+                        }
+                    }
+                    
+                    return 999;
+                }
+                
+                for (const trialId of selectedTrials) {
+                    showStatus(`Processing trial ${processedCount + 1} of ${selectedTrials.length}...`, 'info');
+                    
+                    const trial = allTrials.find(t => t.id === trialId);
+                    
+                    // First try scores collection (maintains running order from score sheets)
+                    const scoresSnapshot = await db.collection('scores')
+                        .where('trialId', '==', trialId)
+                        .get();
+                    
+                    let foundScoreData = false;
+                    
+                    scoresSnapshot.forEach(doc => {
+                        const scoreData = doc.data();
                         
-                        entry.selectedEntries.forEach((selectedEntry, index) => {
-                            // Create a unique key for each entry
-                            const entryKey = `${entry.cwagsNumber || 'TBD'}-${selectedEntry.className}-${selectedEntry.dayDate || getTrialDate(trial)}-${selectedEntry.judgeName || 'TBD'}-${selectedEntry.roundNumber || index + 1}`;
+                        // Process participants in their original running order
+                        if (scoreData.participants && Object.keys(scoreData.participants).length > 0) {
+                            foundScoreData = true;
+                            Object.entries(scoreData.participants).forEach(([participantId, participant]) => {
+                                // Extract call name from various possible formats
+                                let callName = 'Unknown';
+                                if (participant.dogCallName) {
+                                    callName = participant.dogCallName;
+                                } else if (participant.handlerName && participant.handlerName.includes(' - ')) {
+                                    callName = participant.handlerName.split(' - ')[1];
+                                }
+                                
+                                const record = {
+                                    registration: participant.cwagsNumber || 'TBD',
+                                    callName: callName,
+                                    date: scoreData.dayDate || getTrialDate(trial),
+                                    level: scoreData.className,
+                                    roundNumber: scoreData.roundNumber || 1,
+                                    results: participant.passFail || 'Scheduled',
+                                    judge: scoreData.judgeName || 'TBD',
+                                    points: 1,
+                                    trialId: trialId,
+                                    clubName: trial.clubName,
+                                    classOrder: getCWAGSClassOrder(scoreData.className)
+                                };
+                                
+                                consolidatedData.push(record);
+                            });
+                        }
+                    });
+                    
+                    // FALLBACK: If no scores found, use entries collection with deduplication
+                    if (!foundScoreData) {
+                        console.log(`⚠️ No scores found for trial ${trial.clubName || trialId}, falling back to entries data`);
+                        showStatus(`No scores found for ${trial.clubName || 'trial'}, using entries data...`, 'info');
+                        
+                        const entriesSnapshot = await db.collection('entries')
+                            .where('trialId', '==', trialId)
+                            .get();
+
+                        // Track unique entries to prevent duplicates
+                        const seenEntries = new Set();
+                        
+                        entriesSnapshot.forEach(entryDoc => {
+                            const entry = entryDoc.data();
                             
-                            // Skip if we've already seen this exact entry
-                            if (seenEntries.has(entryKey)) {
-                                console.log(`⚠️ Skipping duplicate entry: ${entryKey}`);
-                                return;
+                            if (entry.selectedEntries) {
+                                console.log(`🐕 ${entry.dogCallName} has ${entry.selectedEntries.length} selectedEntries:`, entry.selectedEntries);
+                                
+                                entry.selectedEntries.forEach((selectedEntry, index) => {
+                                    // Create a unique key for each entry
+                                    const entryKey = `${entry.cwagsNumber || 'TBD'}-${selectedEntry.className}-${selectedEntry.dayDate || getTrialDate(trial)}-${selectedEntry.judgeName || 'TBD'}-${selectedEntry.roundNumber || index + 1}`;
+                                    
+                                    // Skip if we've already seen this exact entry
+                                    if (seenEntries.has(entryKey)) {
+                                        console.log(`⚠️ Skipping duplicate entry: ${entryKey}`);
+                                        return;
+                                    }
+                                    
+                                    seenEntries.add(entryKey);
+                                    
+                                    console.log(`  Entry ${index}: ${selectedEntry.className} Round ${selectedEntry.roundNumber || (index + 1)} Judge: ${selectedEntry.judgeName}`);
+                                    
+                                    // Each selectedEntry is one dog in one specific round
+                                    const record = {
+                                        registration: entry.cwagsNumber || 'TBD',
+                                        callName: entry.dogCallName || 'Unknown',
+                                        date: selectedEntry.dayDate || getTrialDate(trial),
+                                        level: selectedEntry.className,
+                                        roundNumber: selectedEntry.roundNumber || (index + 1),
+                                        results: 'Scheduled',
+                                        judge: selectedEntry.judgeName || 'TBD',
+                                        points: 1,
+                                        trialId: trialId,
+                                        clubName: trial.clubName,
+                                        classOrder: getCWAGSClassOrder(selectedEntry.className)
+                                    };
+                                    
+                                    consolidatedData.push(record);
+                                });
                             }
-                            
-                            seenEntries.add(entryKey);
-                            
-                            console.log(`  Entry ${index}: ${selectedEntry.className} Round ${selectedEntry.roundNumber || (index + 1)} Judge: ${selectedEntry.judgeName}`);
-                            
-                            // Each selectedEntry is one dog in one specific round
-                            const record = {
-                                registration: entry.cwagsNumber || 'TBD',
-                                callName: entry.dogCallName || 'Unknown',
-                                date: selectedEntry.dayDate || getTrialDate(trial),
-                                level: selectedEntry.className,
-                                roundNumber: selectedEntry.roundNumber || (index + 1), // Use index as fallback
-                                results: 'Scheduled',
-                                judge: selectedEntry.judgeName || 'TBD',
-                                points: 1,
-                                trialId: trialId,
-                                clubName: trial.clubName,
-                                classOrder: getCWAGSClassOrder(selectedEntry.className)
-                            };
-                            
-                            consolidatedData.push(record);
                         });
                     }
+                     
+                    processedCount++;
+                }
+                
+                // Enhanced sorting: Date → C-WAGS Class Order → Round Number → Call Name
+                consolidatedData.sort((a, b) => {
+                    // Primary sort: by date (earliest first)
+                    const dateA = new Date(a.date);
+                    const dateB = new Date(b.date);
+                    
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateA - dateB;
+                    }
+                    
+                    // Secondary sort: by C-WAGS class order
+                    if (a.classOrder !== b.classOrder) {
+                        return a.classOrder - b.classOrder;
+                    }
+                    
+                    // Tertiary sort: by round number
+                    if (a.roundNumber !== b.roundNumber) {
+                        if (typeof a.roundNumber === 'string' && typeof b.roundNumber === 'number') return 1;
+                        if (typeof b.roundNumber === 'string' && typeof a.roundNumber === 'number') return -1;
+                        return a.roundNumber - b.roundNumber;
+                    }
+                    
+                    // Quaternary sort: by call name (maintains running order within class/round)
+                    return a.callName.localeCompare(b.callName);
                 });
+
+                // Remove the temporary classOrder field for final output
+                consolidatedData.forEach(record => {
+                    delete record.classOrder;
+                });
+                
+                console.log(`✅ Sorted ${consolidatedData.length} records by: Date → C-WAGS Class Order → Round Number → Running Order`);
+                showStatus(`✅ Successfully processed ${consolidatedData.length} entries from ${selectedTrials.length} trials`, 'success');
+
+            } catch (error) {
+                showStatus('Error processing consolidation: ' + error.message, 'error');
+                console.error('Error processing consolidation:', error);
             }
-             
-            processedCount++;
         }
-        
-        // Enhanced sorting: Date → C-WAGS Class Order → Round Number → Call Name
-        consolidatedData.sort((a, b) => {
-            // Primary sort: by date (earliest first)
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            
-            if (dateA.getTime() !== dateB.getTime()) {
-                return dateA - dateB;
-            }
-            
-            // Secondary sort: by C-WAGS class order
-            if (a.classOrder !== b.classOrder) {
-                return a.classOrder - b.classOrder;
-            }
-            
-            // Tertiary sort: by round number
-            if (a.roundNumber !== b.roundNumber) {
-                if (typeof a.roundNumber === 'string' && typeof b.roundNumber === 'number') return 1;
-                if (typeof b.roundNumber === 'string' && typeof a.roundNumber === 'number') return -1;
-                return a.roundNumber - b.roundNumber;
-            }
-            
-            // Quaternary sort: by call name (maintains running order within class/round)
-            return a.callName.localeCompare(b.callName);
-        });
-
-        // Remove the temporary classOrder field for final output
-        consolidatedData.forEach(record => {
-            delete record.classOrder;
-        });
-        
-        console.log(`✅ Sorted ${consolidatedData.length} records by: Date → C-WAGS Class Order → Round Number → Running Order`);
-        showStatus(`✅ Successfully processed ${consolidatedData.length} entries from ${selectedTrials.length} trials`, 'success');
-
-    } catch (error) {
-        showStatus('Error processing consolidation: ' + error.message, 'error');
-        console.error('Error processing consolidation:', error);
-    }
-}
-          
-                 
-            // Tertiary sort: by call name (maintains running order within class)
-            return a.callName.localeCompare(b.callName);
-        });
-
-        // Remove the temporary classOrder field
-        consolidatedData.forEach(record => {
-            delete record.classOrder;
-        });
-        
-        console.log(`✅ Sorted ${consolidatedData.length} records by: Date → C-WAGS Class Order → Running Order`);
-        showStatus(`✅ Successfully processed ${consolidatedData.length} entries from ${selectedTrials.length} trials`, 'success');
-
-    } catch (error) {
-        showStatus('Error processing consolidation: ' + error.message, 'error');
-        console.error('Error processing consolidation:', error);
-    }
-}
         function getTrialDate(trial) {
             if (trial.days && trial.days[0] && trial.days[0].date) {
                 // Use the already processed date string from getDateFromFirebase
