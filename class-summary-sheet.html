@@ -861,29 +861,30 @@
                                         if (entryIds && entryIds.length > 0) {
                                             const participants = [];
                                             entryIds.forEach(entryId => {
-    const [docId] = entryId.split('_');
-    const entry = entryMap[docId];
-    if (entry) {
-        // Find the specific selected entry to get the entry type
-        let entryType = 'regular'; // default
-        if (entry.selectedEntries) {
-            const matchingSelectedEntry = entry.selectedEntries.find(se => 
-                entryId.includes(se.className) && entryId.includes(se.roundName)
-            );
-            if (matchingSelectedEntry && matchingSelectedEntry.type) {
-                entryType = matchingSelectedEntry.type;
-            }
-        }
-        
-        participants.push({
-            id: entryId,
-            handlerName: entry.handlerName || 'Unknown Handler',
-            dogCallName: entry.dogCallName || 'Unknown',
-            cwagsNumber: entry.cwagsNumber || 'TBD',
-            entryType: entryType  // Add the entry type
-        });
-    }
-});
+                                                const [docId] = entryId.split('_');
+                                                const entry = entryMap[docId];
+                                                if (entry) {
+                                                    // Find the specific selected entry to get the entry type
+                                                    let entryType = 'regular'; // default
+                                                    if (entry.selectedEntries) {
+                                                        const matchingSelectedEntry = entry.selectedEntries.find(se => 
+                                                            entryId.includes(se.className) && entryId.includes(se.roundName)
+                                                        );
+                                                        if (matchingSelectedEntry && matchingSelectedEntry.type) {
+                                                            entryType = matchingSelectedEntry.type;
+                                                        }
+                                                    }
+                                                    
+                                                    participants.push({
+                                                        id: entryId,
+                                                        handlerName: entry.handlerName || 'Unknown Handler',
+                                                        dogCallName: entry.dogCallName || 'Unknown',
+                                                        cwagsNumber: entry.cwagsNumber || 'TBD',
+                                                        entryType: entryType  // Add the entry type
+                                                    });
+                                                }
+                                            });
+
                                             if (participants.length > 0) {
                                                 rounds.push({
                                                     roundKey: roundKey,
@@ -1095,32 +1096,6 @@
             thead.innerHTML = '';
             tbody.innerHTML = '';
 
-classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // DEBUG: Log the participant data to see what fields exist
-            console.log('Participant ID:', participantId);
-            console.log('Participant data:', result);
-            console.log('Has entryType?', result.entryType);
-            console.log('All keys:', Object.keys(result));
-            
-            // Skip FEO entries in class summaries
-            if (result && result.entryType === 'feo') {
-                console.log('SKIPPING FEO ENTRY:', participantId);
-                return;
-            }
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    }
-    // ... rest of the code
-});
-            
             // Create headers
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `
@@ -1132,46 +1107,44 @@ classData.rounds.forEach(round => {
             `;
             thead.appendChild(headerRow);
 
-           // Create rows for each class
-Object.entries(allClassSummaries).forEach(([className, classData]) => {
-    const row = document.createElement('tr');
-    
-    let totalRuns = 0;
-    let totalPasses = 0;
-    let totalScheduled = 0;  // Changed from scheduledRuns to totalScheduled
-    
-    classData.rounds.forEach(round => {
-        if (round.hasScores) {
-            Object.entries(round.participants).forEach(([participantId, result]) => {
-                // Skip FEO entries in class summaries
-                if (result && result.entryType === 'feo') return;
+            // Create rows for each class
+            Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                const row = document.createElement('tr');
                 
-                if (result.passFail && result.passFail !== '-') {
-                    totalRuns++;
-                    if (result.passFail === 'Pass') {
-                        totalPasses++;
+                let totalRuns = 0;
+                let totalPasses = 0;
+                let totalScheduled = 0;
+                
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in class summaries
+                            if (result && result.entryType === 'feo') return;
+                            
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        // Count scheduled runs, excluding FEO
+                        if (round.participants) {
+                            if (Array.isArray(round.participants)) {
+                                const nonFeoParticipants = round.participants.filter(p => p && p.entryType !== 'feo');
+                                totalScheduled += nonFeoParticipants.length;
+                            } else {
+                                const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
+                                totalScheduled += participantCount;
+                            }
+                        }
                     }
-                }
-            });
-        } else {
-            // Count scheduled runs, excluding FEO
-            if (round.participants) {
-                if (Array.isArray(round.participants)) {
-                    const nonFeoParticipants = round.participants.filter(p => p && p.entryType !== 'feo');
-                    totalScheduled += nonFeoParticipants.length;
-                } else {
-                    const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
-                    totalScheduled += participantCount;
-                }
-            }
-        }
-    });
-    
-    const totalPossibleRuns = totalRuns + totalScheduled;  // Changed from scheduledRuns to totalScheduled
-    const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
-    const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
-    
-    // ... rest of the row creation code
+                });
+                
+                const totalPossibleRuns = totalRuns + totalScheduled;
+                const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
+                const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
                 
                 row.innerHTML = `
                     <td class="participant-cwags">${className}</td>
@@ -1204,21 +1177,21 @@ Object.entries(allClassSummaries).forEach(([className, classData]) => {
                 totalParticipants += classData.totalParticipants;
                 totalRounds += classData.totalRounds;
                 
-               classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in overall statistics
-            if (result && result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in overall statistics
+                            if (result && result.entryType === 'feo') return;
+                            
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    }
+                });
             });
 
             const overallPassRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
@@ -1395,29 +1368,34 @@ Object.entries(allClassSummaries).forEach(([className, classData]) => {
             let totalFails = 0;
             let totalScheduled = 0;
 
-           summaryData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in single class statistics
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                } else if (result.passFail === 'Fail') {
-                    totalFails++;
+            summaryData.rounds.forEach(round => {
+                if (round.hasScores) {
+                    Object.entries(round.participants).forEach(([participantId, result]) => {
+                        // Skip FEO entries in single class statistics
+                        if (result && result.entryType === 'feo') return;
+                        
+                        if (result.passFail && result.passFail !== '-') {
+                            totalRuns++;
+                            if (result.passFail === 'Pass') {
+                                totalPasses++;
+                            } else if (result.passFail === 'Fail') {
+                                totalFails++;
+                            }
+                        }
+                    });
+                } else {
+                    // Count scheduled runs, excluding FEO
+                    if (round.participants) {
+                        if (Array.isArray(round.participants)) {
+                            const nonFeoParticipants = round.participants.filter(p => p && p.entryType !== 'feo');
+                            totalScheduled += nonFeoParticipants.length;
+                        } else {
+                            const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
+                            totalScheduled += participantCount;
+                        }
+                    }
                 }
-            }
-        });
-    } else {
-        // Count scheduled runs, excluding FEO
-        if (round.participants) {
-            const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-            totalScheduled += nonFeoParticipants.length;
-        }
-    }
-});
+            });
 
             const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
@@ -1934,27 +1912,32 @@ Object.entries(allClassSummaries).forEach(([className, classData]) => {
                 let totalPasses = 0;
                 let totalScheduled = 0;
 
-               classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in multi-class stats
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    } else {
-        // Count scheduled runs, excluding FEO
-        if (round.participants) {
-            const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-            totalScheduled += nonFeoParticipants.length;
-        }
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in PDF generation
+                            if (result && result.entryType === 'feo') return;
+                            
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        // Count scheduled runs, excluding FEO
+                        if (round.participants) {
+                            if (Array.isArray(round.participants)) {
+                                const nonFeoParticipants = round.participants.filter(p => p && p.entryType !== 'feo');
+                                totalScheduled += nonFeoParticipants.length;
+                            } else {
+                                const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
+                                totalScheduled += participantCount;
+                            }
+                        }
+                    }
+                });
 
                 const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
