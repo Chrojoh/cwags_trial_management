@@ -831,26 +831,71 @@
 
         async function loadTrials() {
             try {
-                console.log('📋 Loading available trials...');
+                console.log('📋 Loading available trials for this secretary...');
+                
+                // Get current user's email to match with secretary field
+                const userEmail = currentUser.email;
+                console.log('🔍 Looking for trials where secretary matches:', userEmail);
                 
                 const trialsSnapshot = await db.collection('trials').get();
                 allTrials = [];
                 
                 trialsSnapshot.forEach(doc => {
-                    allTrials.push({ id: doc.id, ...doc.data() });
+                    const trialData = { id: doc.id, ...doc.data() };
+                    
+                    // Check if this secretary has access to this trial
+                    const secretaryEmail = trialData.secretaryEmail || trialData.secretary;
+                    const createdBy = trialData.createdBy;
+                    
+                    // Allow access if:
+                    // 1. Secretary email matches current user
+                    // 2. Secretary field matches current user email
+                    // 3. User created this trial
+                    if (secretaryEmail === userEmail || 
+                        trialData.secretary === userEmail ||
+                        createdBy === currentUser.uid) {
+                        allTrials.push(trialData);
+                        console.log(`✅ Access granted to trial: ${trialData.clubName}`);
+                    } else {
+                        console.log(`🚫 Access denied to trial: ${trialData.clubName} (secretary: ${secretaryEmail})`);
+                    }
                 });
 
                 const trialSelect = document.getElementById('trialSelect');
                 trialSelect.innerHTML = '<option value="">Select a trial...</option>';
                 
+                if (allTrials.length === 0) {
+                    trialSelect.innerHTML = '<option value="">No trials available for this secretary</option>';
+                    showStatus('No trials found for this secretary. Contact the trial host for access.', 'error');
+                    return;
+                }
+                
                 allTrials.forEach(trial => {
                     const option = document.createElement('option');
                     option.value = trial.id;
-                    option.textContent = `${trial.clubName} - ${trial.trialDates ? trial.trialDates.join(', ') : 'Date TBD'}`;
+                    
+                    // Try different date field formats
+                    let dateDisplay = 'Date TBD';
+                    if (trial.trialDates && trial.trialDates.length > 0) {
+                        dateDisplay = trial.trialDates.join(', ');
+                    } else if (trial.days && trial.days.length > 0) {
+                        const dates = trial.days.map(day => {
+                            if (day.date) {
+                                const date = getDateFromFirebase(day.date);
+                                return date ? date.toLocaleDateString() : 'Date TBD';
+                            }
+                            return 'Date TBD';
+                        }).filter(d => d !== 'Date TBD');
+                        if (dates.length > 0) {
+                            dateDisplay = dates.join(', ');
+                        }
+                    }
+                    
+                    option.textContent = `${trial.clubName} - ${dateDisplay}`;
                     trialSelect.appendChild(option);
                 });
 
-                console.log(`✅ Loaded ${allTrials.length} trials`);
+                console.log(`✅ Loaded ${allTrials.length} trials for this secretary`);
                 
             } catch (error) {
                 console.error('❌ Error loading trials:', error);
@@ -888,45 +933,107 @@
 
                 const runningOrderData = orderDoc.data();
                 console.log('Running order data structure:', Object.keys(runningOrderData));
+                console.log('Full running order data sample:', runningOrderData);
                 
-                // Check for different possible field names
+                // Check for different possible field names your system might use
                 let finalizedData = null;
                 if (runningOrderData.finalizedRunningOrders) {
                     finalizedData = runningOrderData.finalizedRunningOrders;
+                    console.log('Using finalizedRunningOrders');
                 } else if (runningOrderData.generatedSheets) {
                     finalizedData = runningOrderData.generatedSheets;
+                    console.log('Using generatedSheets');
                 } else if (runningOrderData.roundOrders) {
-                    finalizedData = runningOrderData.roundOrders;
+                    // Your system uses roundOrders - different structure
+                    console.log('Using roundOrders structure');
+                    finalizedData = {};
+                    
+                    // Convert roundOrders to expected format
+                    if (Array.isArray(runningOrderData.roundOrders)) {
+                        runningOrderData.roundOrders.forEach(roundOrder => {
+                            if (roundOrder.rounds) {
+                                Object.entries(roundOrder.rounds).forEach(([roundKey, roundData]) => {
+                                    if (roundData.participants && roundData.participants.length > 0) {
+                                        finalizedData[roundKey] = roundData;
+                                    }
+                                });
+                            }
+                        });
+                    } else if (typeof runningOrderData.roundOrders === 'object') {
+                        // If roundOrders is an object, use it directly
+                        Object.entries(runningOrderData.roundOrders).forEach(([key, value]) => {
+                            if (value.participants && value.participants.length > 0) {
+                                finalizedData[key] = value;
+                            } else if (value.rounds) {
+                                // Nested structure
+                                Object.entries(value.rounds).forEach(([roundKey, roundData]) => {
+                                    if (roundData.participants && roundData.participants.length > 0) {
+                                        finalizedData[roundKey] = roundData;
+                                    }
+                                });
+                            }
+                        });
+                    }
                 } else {
                     throw new Error('No running order data found. Please generate running orders first.');
                 }
 
+                if (!finalizedData || Object.keys(finalizedData).length === 0) {
+                    throw new Error('No rounds with participants found in running order data.');
+                }
+
+                console.log('📋 Processed running order data:', Object.keys(finalizedData));
                 allRounds = [];
 
                 // Process rounds from the available data structure
                 Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
-                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                    const day = currentTrial.days[dayIndex];
-                    const cls = day?.classes[classIndex];
-                    const round = cls?.rounds[roundIndex];
+                    console.log(`📝 Processing round ${roundKey}:`, roundData);
+                    
+                    try {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        
+                        // Validate indices
+                        if (isNaN(dayIndex) || isNaN(classIndex) || isNaN(roundIndex)) {
+                            console.warn(`⚠️ Invalid round key format: ${roundKey}`);
+                            return;
+                        }
+                        
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
 
-                    if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
-                        allRounds.push({
-                            key: roundKey,
-                            dayIndex,
-                            classIndex,
-                            roundIndex,
-                            className: cls[STANDARD_FIELDS.CLASS_NAME] || cls.className,
-                            roundNumber: round.roundNumber || (roundIndex + 1),
-                            judgeName: round[STANDARD_FIELDS.JUDGE_NAME] || round.judgeName,
-                            date: day.date ? getDateFromFirebase(day.date) : null,
-                            participants: roundData.participants || []
-                        });
+                        if (day && cls && round && roundData.participants && roundData.participants.length > 0) {
+                            const roundInfo = {
+                                key: roundKey,
+                                dayIndex,
+                                classIndex,
+                                roundIndex,
+                                className: cls[STANDARD_FIELDS.CLASS_NAME] || cls.className,
+                                roundNumber: round.roundNumber || (roundIndex + 1),
+                                judgeName: round[STANDARD_FIELDS.JUDGE_NAME] || round.judgeName,
+                                date: day.date ? getDateFromFirebase(day.date) : null,
+                                participants: roundData.participants || []
+                            };
+                            
+                            console.log(`✅ Added round: ${roundInfo.className} Round ${roundInfo.roundNumber} (${roundInfo.participants.length} participants)`);
+                            allRounds.push(roundInfo);
+                        } else {
+                            console.warn(`⚠️ Skipping round ${roundKey}: missing data or no participants`);
+                            console.log('Day:', day ? 'exists' : 'missing');
+                            console.log('Class:', cls ? cls.className : 'missing');
+                            console.log('Round:', round ? `Round ${round.roundNumber}` : 'missing');
+                            console.log('Participants:', roundData.participants ? roundData.participants.length : 0);
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error processing round ${roundKey}:`, error);
                     }
                 });
 
                 if (allRounds.length === 0) {
-                    throw new Error('No rounds with participants found');
+                    console.error('❌ No valid rounds found after processing');
+                    console.log('Available round keys:', Object.keys(finalizedData));
+                    console.log('Trial structure:', currentTrial.days);
+                    throw new Error('No rounds with participants found. Please check that running orders have been generated and contain participant data.');
                 }
 
                 console.log(`✅ Loaded ${allRounds.length} rounds with participants`);
