@@ -1313,15 +1313,20 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
             
             // Process each participant with full details lookup
             for (const [participantId, result] of Object.entries(scoreData.participants)) {
-                if (result.passFail) {
-                    // Get full participant details from entries collection
-                    const participantDetails = await getParticipantDetails(participantId, trialId);
-                    
-                    // Skip FEO entries
-                    if (isFeoEntry(participantDetails.entryType)) {
-                        console.log(`🚫 Skipping FEO entry: ${participantId}`);
-                        continue;
-                    }
+    if (result.passFail) {
+        // Enhanced filtering: Skip FEO and orphaned entries
+        if (shouldExcludeParticipantEnhanced(result, participantId)) {
+            const [docId] = participantId.split('_');
+            if (!entriesData[docId]) {
+                console.log(`🚫 Skipping orphaned score: ${participantId}`);
+            } else {
+                console.log(`🚫 Skipping FEO entry: ${participantId}`);
+            }
+            continue;
+        }
+        
+        // Get full participant details from entries collection
+        const participantDetails = await getParticipantDetails(participantId, trialId);
                     
                     const discipline = getDisciplineForClass(scoreData.className);
                     const dayDate = currentTrial.days[currentDay].date || '';
