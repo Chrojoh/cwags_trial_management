@@ -1160,19 +1160,21 @@
                 totalParticipants += classData.totalParticipants;
                 totalRounds += classData.totalRounds;
                 
-                classData.rounds.forEach(round => {
-                    if (round.hasScores) {
-                        Object.entries(round.participants).forEach(([participantId, result]) => {
-                            if (result.passFail && result.passFail !== '-') {
-                                totalRuns++;
-                                if (result.passFail === 'Pass') {
-                                    totalPasses++;
-                                }
-                            }
-                        });
-                    }
-                });
-            });
+          classData.rounds.forEach(round => {
+    if (round.hasScores) {
+        Object.entries(round.participants).forEach(([participantId, result]) => {
+            // Skip FEO entries in overall statistics
+            if (result.entryType === 'feo') return;
+            
+            if (result.passFail && result.passFail !== '-') {
+                totalRuns++;
+                if (result.passFail === 'Pass') {
+                    totalPasses++;
+                }
+            }
+        });
+    }
+});
 
             const overallPassRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
