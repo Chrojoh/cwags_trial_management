@@ -822,275 +822,357 @@
             }
         }
 
-        // Generate class summary for a specific class
-        async function generateSummaryForClass(className) {
-            console.log(`🎯 Generating summary for class: ${className}`);
-            const trialId = currentTrial.id;
+      // Generate class summary for a specific class
+async function generateSummaryForClass(className) {
+    console.log(`🎯 Generating summary for class: ${className}`);
+    const trialId = currentTrial.id;
 
-            // First try to get scored rounds
-            const rounds = [];
-            const scoresSnapshot = await db.collection('scores')
-                .where('trialId', '==', trialId)
-                .where('className', '==', className)
-                .get();
+    // FIRST: Load all entries data for FEO checking
+    console.log('📂 Loading entries data for FEO checking...');
+    const entriesSnapshot = await db.collection('entries')
+        .where('trialId', '==', trialId)
+        .get();
 
-            console.log(`📊 Found ${scoresSnapshot.size} score documents for ${className}`);
+    const entriesData = {};
+    entriesSnapshot.forEach(doc => {
+        entriesData[doc.id] = doc.data();
+    });
+    console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents`);
 
-            scoresSnapshot.forEach(doc => {
-                const scoreData = doc.data();
-                console.log(`📋 Processing score document: ${doc.id}`);
+    // Enhanced FEO detection function
+    function shouldExcludeParticipantFinal(participant, participantId) {
+        // Check multiple possible FEO indicators
+        
+        // Direct entryType check (from score data)
+        if (participant.entryType && isFeoEntry(participant.entryType)) {
+            console.log(`🚫 FEO detected via entryType: ${participantId} (${participant.entryType})`);
+            return true;
+        }
+        
+        // Check type field (from score data)
+        if (participant.type && isFeoEntry(participant.type)) {
+            console.log(`🚫 FEO detected via type: ${participantId} (${participant.type})`);
+            return true;
+        }
+        
+        // Check if participantId contains FEO indicators
+        if (participantId && participantId.toLowerCase().includes('feo')) {
+            console.log(`🚫 FEO detected in participantId: ${participantId}`);
+            return true;
+        }
+        
+        // Check comments for FEO indicators
+        if (participant.comments && participant.comments.toLowerCase().includes('feo')) {
+            console.log(`🚫 FEO detected in comments: ${participantId} (${participant.comments})`);
+            return true;
+        }
+        
+        // 🚨 REFINED: Check original entries data for FEO status
+        const [docId] = participantId.split('_');
+        const originalEntry = entriesData[docId];
+        
+        if (originalEntry && originalEntry.selectedEntries) {
+            // Extract class and round info from participantId
+            const parts = participantId.split('_');
+            if (parts.length > 1) {
+                const entryDetails = parts[1]; // "Patrol 1-Round 1-0-0"
                 
-                rounds.push({
-                    id: doc.id,
-                    roundKey: scoreData.roundKey,
-                    judgeName: scoreData.judgeName,
-                    roundNumber: scoreData.roundNumber,
-                    lastUpdated: scoreData.lastUpdated,
-                    participants: scoreData.participants || {},
-                    hasScores: true,
-                    ...scoreData
-                });
-            });
-
-            // If no scored rounds, try to get from running orders
-            if (rounds.length === 0) {
-                console.log(`⚠️ No scores found for ${className}, checking running orders...`);
+                // More careful parsing of class name
+                let parsedClassName = '';
+                if (entryDetails.includes('Patrol 1')) {
+                    parsedClassName = 'Patrol 1';
+                } else if (entryDetails.includes('Detective 2')) {
+                    parsedClassName = 'Detective 2';
+                } else if (entryDetails.includes('Investigator 3')) {
+                    parsedClassName = 'Investigator 3';
+                } else if (entryDetails.includes('Super Sleuth 4')) {
+                    parsedClassName = 'Super Sleuth 4';
+                } else if (entryDetails.includes('Private Inv')) {
+                    parsedClassName = 'Private Inv';
+                } else if (entryDetails.includes('Det Diversions')) {
+                    parsedClassName = 'Det Diversions';
+                } else if (entryDetails.includes('Ranger 1')) {
+                    parsedClassName = 'Ranger 1';
+                } else if (entryDetails.includes('Ranger 2')) {
+                    parsedClassName = 'Ranger 2';
+                } else if (entryDetails.includes('Ranger 3')) {
+                    parsedClassName = 'Ranger 3';
+                } else if (entryDetails.includes('Ranger 4')) {
+                    parsedClassName = 'Ranger 4';
+                } else if (entryDetails.includes('Ranger 5')) {
+                    parsedClassName = 'Ranger 5';
+                } else if (entryDetails.includes('Dasher 3')) {
+                    parsedClassName = 'Dasher 3';
+                } else if (entryDetails.includes('Dasher 4')) {
+                    parsedClassName = 'Dasher 4';
+                } else if (entryDetails.includes('Dasher 5')) {
+                    parsedClassName = 'Dasher 5';
+                } else if (entryDetails.includes('Dasher 6')) {
+                    parsedClassName = 'Dasher 6';
+                }
                 
-                try {
-                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
-                    if (orderDoc.exists) {
-                        const runningOrderData = orderDoc.data();
-                        
-                        let finalizedData = null;
-                        if (runningOrderData.finalizedRunningOrders) {
-                            finalizedData = runningOrderData.finalizedRunningOrders;
-                        } else if (runningOrderData.generatedSheets) {
-                            finalizedData = runningOrderData.generatedSheets;
-                        } else if (runningOrderData.roundOrders) {
-                            finalizedData = runningOrderData.roundOrders;
-                        }
-
-                        if (finalizedData) {
-                            const entriesSnapshot = await db.collection('entries')
-                                .where('trialId', '==', trialId)
-                                .get();
-
-                            const entryMap = {};
-                            entriesSnapshot.forEach(doc => {
-                                entryMap[doc.id] = doc.data();
-                            });
-
-                            Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
-                                const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                                const day = currentTrial.days[dayIndex];
-                                const cls = day?.classes[classIndex];
-                                const round = cls?.rounds[roundIndex];
-
-                                if (day && cls && round) {
-                                    const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
-                                    
-                                    if (roundClassName && roundClassName.trim() === className.trim()) {
-                                        let entryIds = [];
-                                        if (Array.isArray(roundData)) {
-                                            entryIds = roundData;
-                                        } else if (roundData.entries) {
-                                            entryIds = roundData.entries.map(entry => entry.entryId || entry.id);
-                                        } else if (roundData.participants) {
-                                            entryIds = roundData.participants.map(p => p.entryId || p.id);
-                                        } else {
-                                            entryIds = Object.values(roundData).filter(item => typeof item === 'string');
-                                        }
-                                        
-                                        if (entryIds && entryIds.length > 0) {
-                                            const participants = [];
-                                            entryIds.forEach(entryId => {
-                                                const [docId] = entryId.split('_');
-                                                const entry = entryMap[docId];
-                                                if (entry) {
-                                                    let entryType = 'regular';
-                                                    if (entry.selectedEntries) {
-                                                        const matchingSelectedEntry = entry.selectedEntries.find(se => 
-                                                            entryId.includes(se.className) && entryId.includes(se.roundName)
-                                                        );
-                                                        if (matchingSelectedEntry && matchingSelectedEntry.type) {
-                                                            entryType = matchingSelectedEntry.type;
-                                                        }
-                                                    }
-                                                    
-                                                    participants.push({
-                                                        id: entryId,
-                                                        handlerName: entry.handlerName || 'Unknown Handler',
-                                                        dogCallName: entry.dogCallName || 'Unknown',
-                                                        cwagsNumber: entry.cwagsNumber || 'TBD',
-                                                        entryType: entryType
-                                                    });
-                                                }
-                                            });
-
-                                            if (participants.length > 0) {
-                                                rounds.push({
-                                                    roundKey: roundKey,
-                                                    judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
-                                                    roundNumber: roundIndex + 1,
-                                                    className: roundClassName,
-                                                    participants: participants,
-                                                    hasScores: false
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        }
+                if (parsedClassName) {
+                    // Find matching selected entry
+                    const matchingEntry = originalEntry.selectedEntries.find(se => 
+                        se.className === parsedClassName
+                    );
+                    
+                    if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
+                        console.log(`🚫 FEO detected via original entries: ${participantId} (${matchingEntry.type})`);
+                        return true;
                     }
-                } catch (orderError) {
-                    console.log('No running order found or error accessing it:', orderError);
                 }
             }
+        }
+        
+        return false;
+    }
 
-            if (rounds.length === 0) {
-                console.log(`❌ No data found for class: ${className}`);
-                return null;
-            }
+    // Get scored rounds
+    const rounds = [];
+    const scoresSnapshot = await db.collection('scores')
+        .where('trialId', '==', trialId)
+        .where('className', '==', className)
+        .get();
 
-            console.log(`✅ Found ${rounds.length} rounds for ${className}`);
+    console.log(`📊 Found ${scoresSnapshot.size} score documents for ${className}`);
 
-            rounds.sort((a, b) => {
-                const aKey = a.roundKey || '';
-                const bKey = b.roundKey || '';
-                return aKey.localeCompare(bKey);
-            });
+    scoresSnapshot.forEach(doc => {
+        const scoreData = doc.data();
+        
+        rounds.push({
+            id: doc.id,
+            roundKey: scoreData.roundKey,
+            judgeName: scoreData.judgeName,
+            roundNumber: scoreData.roundNumber,
+            lastUpdated: scoreData.lastUpdated,
+            participants: scoreData.participants || {},
+            hasScores: true,
+            ...scoreData
+        });
+    });
 
-            // Group participants by unique dog/handler combinations
-            const participantMap = new Map();
-            let debugInfo = {
-                totalParticipants: 0,
-                feoFiltered: 0,
-                regularIncluded: 0
-            };
-            
-            rounds.forEach(round => {
-                if (round.hasScores) {
-                    // Handle scored rounds with FEO filtering
-                    Object.keys(round.participants).forEach(participantId => {
-                        const result = round.participants[participantId];
-                        const [docId] = participantId.split('_');
-                        const uniqueKey = docId;
-                        
-                        // Check if this is FEO and skip if it is
-                        if (shouldExcludeParticipant(result, participantId)) {
-                            debugInfo.feoFiltered++;
-                            return; // Skip FEO entries
-                        }
-                        
-                        debugInfo.regularIncluded++;
-                        
-                        if (!participantMap.has(uniqueKey)) {
-                            participantMap.set(uniqueKey, {
-                                id: uniqueKey,
-                                dogName: result.dogCallName || 'Unknown',
-                                handlerName: result.handlerName || 'Unknown Handler',
-                                cwagsNumber: result.cwagsNumber || 'TBD',
-                                participantIds: [participantId],
-                                rounds: new Map()
-                            });
-                        }
-                        
-                        const participant = participantMap.get(uniqueKey);
-                        if (!participant.participantIds.includes(participantId)) {
-                            participant.participantIds.push(participantId);
-                        }
-                    });
-                } else {
-                    // Handle unscored rounds with FEO filtering
-                    if (round.participants && Array.isArray(round.participants)) {
-                        round.participants.forEach(participant => {
-                            // Check if this is FEO and skip if it is
-                            if (shouldExcludeParticipant(participant, participant.id)) {
-                                debugInfo.feoFiltered++;
-                                return; // Skip FEO entries
-                            }
+    // If no scored rounds, try to get from running orders
+    if (rounds.length === 0) {
+        console.log(`⚠️ No scores found for ${className}, checking running orders...`);
+        
+        try {
+            const orderDoc = await db.collection('running_orders').doc(trialId).get();
+            if (orderDoc.exists) {
+                const runningOrderData = orderDoc.data();
+                
+                let finalizedData = null;
+                if (runningOrderData.finalizedRunningOrders) {
+                    finalizedData = runningOrderData.finalizedRunningOrders;
+                } else if (runningOrderData.generatedSheets) {
+                    finalizedData = runningOrderData.generatedSheets;
+                } else if (runningOrderData.roundOrders) {
+                    finalizedData = runningOrderData.roundOrders;
+                }
+
+                if (finalizedData) {
+                    Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                        const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                        const day = currentTrial.days[dayIndex];
+                        const cls = day?.classes[classIndex];
+                        const round = cls?.rounds[roundIndex];
+
+                        if (day && cls && round) {
+                            const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
                             
-                            debugInfo.regularIncluded++;
-                            
-                            const [docId] = participant.id.split('_');
-                            const uniqueKey = docId;
-                            
-                            if (!participantMap.has(uniqueKey)) {
-                                participantMap.set(uniqueKey, {
-                                    id: uniqueKey,
-                                    dogName: participant.dogCallName || 'Unknown',
-                                    handlerName: participant.handlerName || 'Unknown Handler',
-                                    cwagsNumber: participant.cwagsNumber || 'TBD',
-                                    participantIds: [participant.id],
-                                    rounds: new Map()
-                                });
-                            } else {
-                                const existingParticipant = participantMap.get(uniqueKey);
-                                if (!existingParticipant.participantIds.includes(participant.id)) {
-                                    existingParticipant.participantIds.push(participant.id);
+                            if (roundClassName && roundClassName.trim() === className.trim()) {
+                                let entryIds = [];
+                                if (Array.isArray(roundData)) {
+                                    entryIds = roundData;
+                                } else if (roundData.entries) {
+                                    entryIds = roundData.entries.map(entry => entry.entryId || entry.id);
+                                } else if (roundData.participants) {
+                                    entryIds = roundData.participants.map(p => p.entryId || p.id);
+                                } else {
+                                    entryIds = Object.values(roundData).filter(item => typeof item === 'string');
                                 }
                                 
-                                // Update with better data if available
-                                if (existingParticipant.dogName === 'Unknown' && participant.dogCallName) {
-                                    existingParticipant.dogName = participant.dogCallName;
-                                }
-                                if (existingParticipant.handlerName === 'Unknown Handler' && participant.handlerName) {
-                                    existingParticipant.handlerName = participant.handlerName;
-                                }
-                                if (existingParticipant.cwagsNumber === 'TBD' && participant.cwagsNumber) {
-                                    existingParticipant.cwagsNumber = participant.cwagsNumber;
+                                if (entryIds && entryIds.length > 0) {
+                                    const participants = [];
+                                    entryIds.forEach(entryId => {
+                                        const [docId] = entryId.split('_');
+                                        const entry = entriesData[docId];
+                                        if (entry) {
+                                            let entryType = 'regular';
+                                            if (entry.selectedEntries) {
+                                                const matchingSelectedEntry = entry.selectedEntries.find(se => 
+                                                    entryId.includes(se.className) && entryId.includes(se.roundName)
+                                                );
+                                                if (matchingSelectedEntry && matchingSelectedEntry.type) {
+                                                    entryType = matchingSelectedEntry.type;
+                                                }
+                                            }
+                                            
+                                            participants.push({
+                                                id: entryId,
+                                                handlerName: entry.handlerName || 'Unknown Handler',
+                                                dogCallName: entry.dogCallName || 'Unknown',
+                                                cwagsNumber: entry.cwagsNumber || 'TBD',
+                                                entryType: entryType
+                                            });
+                                        }
+                                    });
+
+                                    if (participants.length > 0) {
+                                        rounds.push({
+                                            roundKey: roundKey,
+                                            judgeName: round.judgeName || round.judge || round.JUDGE_NAME || 'Judge TBD',
+                                            roundNumber: roundIndex + 1,
+                                            className: roundClassName,
+                                            participants: participants,
+                                            hasScores: false
+                                        });
+                                    }
                                 }
                             }
-                        });
+                        }
+                    });
+                }
+            }
+        } catch (orderError) {
+            console.log('No running order found or error accessing it:', orderError);
+        }
+    }
+
+    if (rounds.length === 0) {
+        console.log(`❌ No data found for class: ${className}`);
+        return null;
+    }
+
+    console.log(`✅ Found ${rounds.length} rounds for ${className}`);
+
+    rounds.sort((a, b) => {
+        const aKey = a.roundKey || '';
+        const bKey = b.roundKey || '';
+        return aKey.localeCompare(bKey);
+    });
+
+    // 🚨 FIXED FEO FILTERING WITH WORKING LOGIC
+    const participantMap = new Map();
+    let debugInfo = {
+        totalParticipants: 0,
+        feoFiltered: 0,
+        regularIncluded: 0
+    };
+    
+    rounds.forEach(round => {
+        if (round.hasScores) {
+            // Handle scored rounds with FEO filtering
+            Object.keys(round.participants).forEach(participantId => {
+                const result = round.participants[participantId];
+                
+                // 🚨 WORKING FEO CHECK
+                if (shouldExcludeParticipantFinal(result, participantId)) {
+                    debugInfo.feoFiltered++;
+                    return; // Skip FEO entries
+                }
+                
+                const [docId] = participantId.split('_');
+                const uniqueKey = docId;
+                debugInfo.regularIncluded++;
+                
+                if (!participantMap.has(uniqueKey)) {
+                    participantMap.set(uniqueKey, {
+                        id: uniqueKey,
+                        dogName: result.dogCallName || result.dogName || 'Unknown',
+                        handlerName: result.handlerName || 'Unknown Handler',
+                        cwagsNumber: result.cwagsNumber || 'TBD',
+                        participantIds: [participantId],
+                        rounds: new Map(),
+                        entryType: result.entryType || 'regular'
+                    });
+                } else {
+                    const participant = participantMap.get(uniqueKey);
+                    if (!participant.participantIds.includes(participantId)) {
+                        participant.participantIds.push(participantId);
                     }
                 }
             });
-
-            // Get participant details from entries for any missing data
-            if (participantMap.size > 0) {
-                const entriesSnapshot = await db.collection('entries')
-                    .where('trialId', '==', currentTrial.id)
-                    .get();
-
-                const entryMap = {};
-                entriesSnapshot.forEach(doc => {
-                    entryMap[doc.id] = doc.data();
-                });
-
-                participantMap.forEach((participant, uniqueKey) => {
-                    const entry = entryMap[uniqueKey];
-                    if (entry) {
-                        if (participant.dogName === 'Unknown' && entry.dogCallName) {
-                            participant.dogName = entry.dogCallName;
+        } else {
+            // Handle unscored rounds with FEO filtering
+            if (round.participants && Array.isArray(round.participants)) {
+                round.participants.forEach(participant => {
+                    // 🚨 WORKING FEO CHECK
+                    if (shouldExcludeParticipantFinal(participant, participant.id)) {
+                        debugInfo.feoFiltered++;
+                        return; // Skip FEO entries
+                    }
+                    
+                    debugInfo.regularIncluded++;
+                    
+                    const [docId] = participant.id.split('_');
+                    const uniqueKey = docId;
+                    
+                    if (!participantMap.has(uniqueKey)) {
+                        participantMap.set(uniqueKey, {
+                            id: uniqueKey,
+                            dogName: participant.dogCallName || 'Unknown',
+                            handlerName: participant.handlerName || 'Unknown Handler',
+                            cwagsNumber: participant.cwagsNumber || 'TBD',
+                            participantIds: [participant.id],
+                            rounds: new Map(),
+                            entryType: participant.entryType || 'regular'
+                        });
+                    } else {
+                        const existingParticipant = participantMap.get(uniqueKey);
+                        if (!existingParticipant.participantIds.includes(participant.id)) {
+                            existingParticipant.participantIds.push(participant.id);
                         }
-                        if (participant.handlerName === 'Unknown Handler' && entry.handlerName) {
-                            participant.handlerName = entry.handlerName;
+                        
+                        // Update with better data if available
+                        if (existingParticipant.dogName === 'Unknown' && participant.dogCallName) {
+                            existingParticipant.dogName = participant.dogCallName;
                         }
-                        if (participant.cwagsNumber === 'TBD' && entry.cwagsNumber) {
-                            participant.cwagsNumber = entry.cwagsNumber;
+                        if (existingParticipant.handlerName === 'Unknown Handler' && participant.handlerName) {
+                            existingParticipant.handlerName = participant.handlerName;
+                        }
+                        if (existingParticipant.cwagsNumber === 'TBD' && participant.cwagsNumber) {
+                            existingParticipant.cwagsNumber = participant.cwagsNumber;
                         }
                     }
                 });
             }
-
-            debugInfo.totalParticipants = participantMap.size;
-            
-            console.log(`📊 FEO Filtering Results for ${className}:`, debugInfo);
-            console.log(`   - Regular entries included: ${debugInfo.regularIncluded}`);
-            console.log(`   - FEO entries filtered out: ${debugInfo.feoFiltered}`);
-            console.log(`   - Final participant count: ${debugInfo.totalParticipants}`);
-
-            return {
-                trialName: currentTrial.clubName || 'Trial',
-                className: className,
-                rounds: rounds,
-                participants: Array.from(participantMap.values()),
-                totalParticipants: participantMap.size,
-                totalRounds: rounds.length,
-                debugInfo: debugInfo
-            };
         }
+    });
+
+    // Final data enhancement from entries
+    participantMap.forEach((participant, uniqueKey) => {
+        const entry = entriesData[uniqueKey];
+        if (entry) {
+            if (participant.dogName === 'Unknown' && entry.dogCallName) {
+                participant.dogName = entry.dogCallName;
+            }
+            if (participant.handlerName === 'Unknown Handler' && entry.handlerName) {
+                participant.handlerName = entry.handlerName;
+            }
+            if (participant.cwagsNumber === 'TBD' && entry.cwagsNumber) {
+                participant.cwagsNumber = entry.cwagsNumber;
+            }
+        }
+    });
+
+    debugInfo.totalParticipants = participantMap.size;
+    
+    console.log(`🔧 FINAL FEO Filtering Results for ${className}:`, debugInfo);
+    console.log(`   - Regular entries included: ${debugInfo.regularIncluded}`);
+    console.log(`   - FEO entries filtered out: ${debugInfo.feoFiltered}`);
+    console.log(`   - Final participant count: ${debugInfo.totalParticipants}`);
+
+    return {
+        trialName: currentTrial.clubName || 'Trial',
+        className: className,
+        rounds: rounds,
+        participants: Array.from(participantMap.values()),
+        totalParticipants: participantMap.size,
+        totalRounds: rounds.length,
+        debugInfo: debugInfo
+    };
+}
 
         // Generate class summary
         async function generateSummary() {
