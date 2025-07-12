@@ -1248,6 +1248,18 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 showStatus('Generating reports...', 'info');
                 currentDay = parseInt(dayIndex);
 
+                // FIRST: Load all entries data for enhanced FEO/orphaned checking
+    console.log('📂 Loading entries data for enhanced filtering...');
+    const entriesSnapshot = await db.collection('entries')
+        .where('trialId', '==', trialId)
+        .get();
+
+    entriesData = {};
+    entriesSnapshot.forEach(doc => {
+        entriesData[doc.id] = doc.data();
+    });
+    console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents for filtering`);
+
                 console.log('🔍 Looking for data for trial:', trialId, 'day:', currentDay);
                 
                 // DEBUG: Log the trial structure
