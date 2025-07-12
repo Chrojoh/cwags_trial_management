@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Single-Day Trial Report</title>
+    <title>Single-Day Trial Report - Enhanced</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -282,6 +282,17 @@
             margin-top: 0.25rem;
         }
 
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+            display: none;
+        }
+
         @media (max-width: 768px) {
             .control-row {
                 flex-direction: column;
@@ -310,8 +321,8 @@
         <!-- Header -->
         <div class="header">
             <div>
-                <h1>📊 Single-Day Trial Report</h1>
-                <p>Generate detailed trial reports by discipline with individual run entries</p>
+                <h1>📊 Single-Day Trial Report (Enhanced)</h1>
+                <p>Generate detailed trial reports by discipline with enhanced FEO and orphaned entry filtering</p>
             </div>
             <div>
                 <a href="trial-secretary-dashboard.html" class="btn btn-secondary">← Back to Dashboard</a>
@@ -320,6 +331,12 @@
 
         <!-- Status Message -->
         <div class="status-message" id="statusMessage"></div>
+
+        <!-- Debug Info -->
+        <div class="debug-info" id="debugInfo">
+            <strong>Enhanced Filtering Debug Information:</strong>
+            <div id="debugContent"></div>
+        </div>
 
         <!-- Controls -->
         <div class="controls">
@@ -497,6 +514,8 @@
     </div>
 
     <script>
+        console.log('🎯 Enhanced Single-Day Trial Report starting...');
+
         // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
@@ -512,419 +531,214 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
-        // ========================================
-// ROUND KEY UTILITY FUNCTIONS
-// ========================================
+        console.log('🔥 Firebase initialized');
 
-/**
- * Generate a standardized round key
- * @param {number} dayIndex - Day index (0-based)
- * @param {number} classIndex - Class index (0-based)
- * @param {number} roundIndex - Round index (0-based)
- * @returns {string} Standardized round key "dayIndex-classIndex-roundIndex"
- */
-function generateRoundKey(dayIndex, classIndex, roundIndex) {
-    // Ensure all inputs are integers
-    const day = parseInt(dayIndex) || 0;
-    const cls = parseInt(classIndex) || 0;
-    const round = parseInt(roundIndex) || 0;
-    
-    return `${day}-${cls}-${round}`;
-}
-
-/**
- * Parse a round key into its components
- * @param {string} roundKey - Round key to parse
- * @returns {object} Object with dayIndex, classIndex, roundIndex
- */
-function parseRoundKey(roundKey) {
-    if (!roundKey || typeof roundKey !== 'string') {
-        throw new Error(`Invalid round key: ${roundKey}`);
-    }
-    
-    const parts = roundKey.split('-');
-    if (parts.length !== 3) {
-        throw new Error(`Invalid round key format: ${roundKey}. Expected format: dayIndex-classIndex-roundIndex`);
-    }
-    
-    const dayIndex = parseInt(parts[0]);
-    const classIndex = parseInt(parts[1]);
-    const roundIndex = parseInt(parts[2]);
-    
-    if (isNaN(dayIndex) || isNaN(classIndex) || isNaN(roundIndex)) {
-        throw new Error(`Round key contains non-numeric values: ${roundKey}`);
-    }
-    
-    return {
-        dayIndex,
-        classIndex,
-        roundIndex
-    };
-}
-
-/**
- * Validate if a round key follows the standard format
- * @param {string} roundKey - Round key to validate
- * @returns {boolean} True if valid, false otherwise
- */
-function validateRoundKey(roundKey) {
-    try {
-        if (!roundKey || typeof roundKey !== 'string') return false;
-        
-        // Check for common malformed patterns
-        if (roundKey.includes('--')) return false; // Double dash
-        if (roundKey.includes('_')) return false;  // Underscore
-        if (roundKey.includes('.')) return false;  // Dot
-        if (roundKey.includes(' ')) return false;  // Space
-        
-        const parts = roundKey.split('-');
-        if (parts.length !== 3) return false;
-        
-        // Check if all parts are valid integers
-        return parts.every(part => {
-            const num = parseInt(part);
-            return !isNaN(num) && num >= 0 && part === num.toString();
-        });
-    } catch (error) {
-        return false;
-    }
-}
-
-/**
- * Fix common round key formatting issues
- * @param {string} malformedKey - Malformed round key
- * @returns {string|null} Fixed round key or null if unable to fix
- */
-function fixRoundKey(malformedKey) {
-    if (!malformedKey || typeof malformedKey !== 'string') {
-        return null;
-    }
-    
-    console.log(`🔧 Attempting to fix round key: "${malformedKey}"`);
-    
-    let fixed = malformedKey;
-    
-    // Fix double dash issue: "0--1-0" -> "0-1-0"
-    fixed = fixed.replace(/--+/g, '-');
-    
-    // Fix underscore separators: "0_1_0" -> "0-1-0"
-    fixed = fixed.replace(/_/g, '-');
-    
-    // Fix dot separators: "0.1.0" -> "0-1-0"
-    fixed = fixed.replace(/\./g, '-');
-    
-    // Remove spaces
-    fixed = fixed.replace(/\s/g, '');
-    
-    // Handle malformed keys like "0--1-0" where there's an empty part
-    const parts = fixed.split('-');
-    const cleanParts = parts.filter(part => part !== '');
-    
-    if (cleanParts.length === 3) {
-        fixed = cleanParts.join('-');
-    }
-    
-    // Validate the result
-    if (validateRoundKey(fixed)) {
-        console.log(`✅ Fixed round key: "${malformedKey}" -> "${fixed}"`);
-        return fixed;
-    }
-    
-    console.log(`❌ Unable to fix round key: "${malformedKey}"`);
-    return null;
-}
-
-/**
- * Process round key with backwards compatibility
- * Handles both old malformed keys and new standard keys
- * @param {string} roundKey - Round key to process
- * @returns {object} Parsed round key data with original and fixed keys
- */
-function processRoundKey(roundKey) {
-    const result = {
-        original: roundKey,
-        fixed: null,
-        isValid: false,
-        dayIndex: null,
-        classIndex: null,
-        roundIndex: null,
-        needsFix: false
-    };
-    
-    // Check if already valid
-    if (validateRoundKey(roundKey)) {
-        result.fixed = roundKey;
-        result.isValid = true;
-        result.needsFix = false;
-        
-        try {
-            const parsed = parseRoundKey(roundKey);
-            result.dayIndex = parsed.dayIndex;
-            result.classIndex = parsed.classIndex;
-            result.roundIndex = parsed.roundIndex;
-        } catch (error) {
-            console.error('Error parsing valid round key:', error);
+        // ===== ENHANCED ROUND KEY UTILITIES =====
+        function generateRoundKey(dayIndex, classIndex, roundIndex) {
+            const day = parseInt(dayIndex) || 0;
+            const cls = parseInt(classIndex) || 0;
+            const round = parseInt(roundIndex) || 0;
+            return `${day}-${cls}-${round}`;
         }
-    } else {
-        // Try to fix the key
-        const fixed = fixRoundKey(roundKey);
-        if (fixed) {
-            result.fixed = fixed;
-            result.isValid = true;
-            result.needsFix = true;
+
+        function parseRoundKey(roundKey) {
+            if (!roundKey || typeof roundKey !== 'string') {
+                throw new Error(`Invalid round key: ${roundKey}`);
+            }
             
+            const parts = roundKey.split('-');
+            if (parts.length !== 3) {
+                throw new Error(`Invalid round key format: ${roundKey}. Expected format: dayIndex-classIndex-roundIndex`);
+            }
+            
+            const dayIndex = parseInt(parts[0]);
+            const classIndex = parseInt(parts[1]);
+            const roundIndex = parseInt(parts[2]);
+            
+            if (isNaN(dayIndex) || isNaN(classIndex) || isNaN(roundIndex)) {
+                throw new Error(`Round key contains non-numeric values: ${roundKey}`);
+            }
+            
+            return { dayIndex, classIndex, roundIndex };
+        }
+
+        function validateRoundKey(roundKey) {
             try {
-                const parsed = parseRoundKey(fixed);
-                result.dayIndex = parsed.dayIndex;
-                result.classIndex = parsed.classIndex;
-                result.roundIndex = parsed.roundIndex;
-            } catch (error) {
-                console.error('Error parsing fixed round key:', error);
-                result.isValid = false;
-            }
-        }
-    }
-    
-    return result;
-}
-
-// ========================================
-// DATA MIGRATION FUNCTIONS
-// ========================================
-
-/**
- * Scan and report round key issues in running orders
- * @param {string} trialId - Trial ID to scan
- * @returns {Promise<object>} Report of issues found
- */
-async function scanRunningOrderKeys(trialId) {
-    try {
-        console.log(`🔍 Scanning running order keys for trial: ${trialId}`);
-        
-        const orderDoc = await db.collection('running_orders').doc(trialId).get();
-        if (!orderDoc.exists) {
-            return { error: 'No running order found' };
-        }
-        
-        const data = orderDoc.data();
-        const report = {
-            trialId,
-            validKeys: [],
-            invalidKeys: [],
-            fixableKeys: [],
-            unfixableKeys: [],
-            totalKeys: 0
-        };
-        
-        // Check different possible data structures
-        const dataToCheck = data.finalizedRunningOrders || data.generatedSheets || data.roundOrders || {};
-        
-        Object.keys(dataToCheck).forEach(roundKey => {
-            report.totalKeys++;
-            
-            if (validateRoundKey(roundKey)) {
-                report.validKeys.push(roundKey);
-            } else {
-                report.invalidKeys.push(roundKey);
+                if (!roundKey || typeof roundKey !== 'string') return false;
+                if (roundKey.includes('--')) return false;
+                if (roundKey.includes('_')) return false;
+                if (roundKey.includes('.')) return false;
+                if (roundKey.includes(' ')) return false;
                 
-                const fixed = fixRoundKey(roundKey);
-                if (fixed) {
-                    report.fixableKeys.push({ original: roundKey, fixed });
-                } else {
-                    report.unfixableKeys.push(roundKey);
-                }
-            }
-        });
-        
-        console.log('📊 Round key scan results:', report);
-        return report;
-        
-    } catch (error) {
-        console.error('Error scanning round keys:', error);
-        return { error: error.message };
-    }
-}
-
-/**
- * Fix round keys in running orders for a trial
- * @param {string} trialId - Trial ID to fix
- * @param {boolean} dryRun - If true, don't actually update, just report what would be done
- * @returns {Promise<object>} Results of the fix operation
- */
-async function fixRunningOrderKeys(trialId, dryRun = true) {
-    try {
-        console.log(`🔧 ${dryRun ? 'DRY RUN: ' : ''}Fixing running order keys for trial: ${trialId}`);
-        
-        const orderDoc = await db.collection('running_orders').doc(trialId).get();
-        if (!orderDoc.exists) {
-            return { error: 'No running order found' };
-        }
-        
-        const data = orderDoc.data();
-        const updates = {};
-        const results = {
-            trialId,
-            fixed: [],
-            skipped: [],
-            errors: [],
-            dryRun
-        };
-        
-        // Process different possible data structures
-        ['finalizedRunningOrders', 'generatedSheets', 'roundOrders'].forEach(fieldName => {
-            if (data[fieldName]) {
-                updates[fieldName] = {};
+                const parts = roundKey.split('-');
+                if (parts.length !== 3) return false;
                 
-                Object.entries(data[fieldName]).forEach(([roundKey, roundData]) => {
-                    if (validateRoundKey(roundKey)) {
-                        // Key is already valid, keep as-is
-                        updates[fieldName][roundKey] = roundData;
-                        results.skipped.push(roundKey);
-                    } else {
-                        // Try to fix the key
-                        const fixed = fixRoundKey(roundKey);
-                        if (fixed) {
-                            updates[fieldName][fixed] = roundData;
-                            results.fixed.push({ original: roundKey, fixed });
-                        } else {
-                            // Keep original if can't fix
-                            updates[fieldName][roundKey] = roundData;
-                            results.errors.push(`Unable to fix key: ${roundKey}`);
-                        }
-                    }
+                return parts.every(part => {
+                    const num = parseInt(part);
+                    return !isNaN(num) && num >= 0 && part === num.toString();
                 });
+            } catch (error) {
+                return false;
             }
-        });
-        
-        // Apply updates if not dry run
-        if (!dryRun && results.fixed.length > 0) {
-            await db.collection('running_orders').doc(trialId).update(updates);
-            console.log(`✅ Updated ${results.fixed.length} round keys in running orders`);
         }
-        
-        console.log('🔧 Fix results:', results);
-        return results;
-        
-    } catch (error) {
-        console.error('Error fixing round keys:', error);
-        return { error: error.message };
-    }
-}
 
-/**
- * Fix round keys in scores collection
- * @param {string} trialId - Trial ID to fix scores for
- * @param {boolean} dryRun - If true, don't actually update
- * @returns {Promise<object>} Results of the fix operation
- */
-async function fixScoreKeys(trialId, dryRun = true) {
-    try {
-        console.log(`🔧 ${dryRun ? 'DRY RUN: ' : ''}Fixing score keys for trial: ${trialId}`);
-        
-        const scoresSnapshot = await db.collection('scores')
-            .where('trialId', '==', trialId)
-            .get();
-        
-        const results = {
-            trialId,
-            fixed: [],
-            skipped: [],
-            errors: [],
-            dryRun
-        };
-        
-        const batch = db.batch();
-        let batchCount = 0;
-        
-        scoresSnapshot.forEach(doc => {
-            const data = doc.data();
-            const roundKey = data.roundKey;
-            
-            if (!roundKey) {
-                results.errors.push(`Score document ${doc.id} has no roundKey`);
-                return;
+        function fixRoundKey(malformedKey) {
+            if (!malformedKey || typeof malformedKey !== 'string') {
+                return null;
             }
             
+            console.log(`🔧 Attempting to fix round key: "${malformedKey}"`);
+            
+            let fixed = malformedKey;
+            fixed = fixed.replace(/--+/g, '-');
+            fixed = fixed.replace(/_/g, '-');
+            fixed = fixed.replace(/\./g, '-');
+            fixed = fixed.replace(/\s/g, '');
+            
+            const parts = fixed.split('-');
+            const cleanParts = parts.filter(part => part !== '');
+            
+            if (cleanParts.length === 3) {
+                fixed = cleanParts.join('-');
+            }
+            
+            if (validateRoundKey(fixed)) {
+                console.log(`✅ Fixed round key: "${malformedKey}" -> "${fixed}"`);
+                return fixed;
+            }
+            
+            console.log(`❌ Unable to fix round key: "${malformedKey}"`);
+            return null;
+        }
+
+        function getRoundKeyIndices(roundKey) {
             if (validateRoundKey(roundKey)) {
-                results.skipped.push(roundKey);
-                return;
+                try {
+                    const parsed = parseRoundKey(roundKey);
+                    return {
+                        dayIndex: parsed.dayIndex,
+                        classIndex: parsed.classIndex,
+                        roundIndex: parsed.roundIndex,
+                        standardKey: roundKey
+                    };
+                } catch (error) {
+                    console.error('Error parsing valid round key:', error);
+                }
             }
             
             const fixed = fixRoundKey(roundKey);
             if (fixed) {
-                if (!dryRun) {
-                    batch.update(doc.ref, { roundKey: fixed });
-                    batchCount++;
+                console.warn(`⚠️ Using fixed round key: "${roundKey}" -> "${fixed}"`);
+                try {
+                    const parsed = parseRoundKey(fixed);
+                    return {
+                        dayIndex: parsed.dayIndex,
+                        classIndex: parsed.classIndex,
+                        roundIndex: parsed.roundIndex,
+                        standardKey: fixed
+                    };
+                } catch (error) {
+                    console.error('Error parsing fixed round key:', error);
                 }
-                results.fixed.push({ docId: doc.id, original: roundKey, fixed });
-            } else {
-                results.errors.push(`Unable to fix roundKey in doc ${doc.id}: ${roundKey}`);
             }
-        });
-        
-        // Commit batch if not dry run
-        if (!dryRun && batchCount > 0) {
-            await batch.commit();
-            console.log(`✅ Updated ${batchCount} score documents`);
+            
+            console.error(`❌ Invalid round key: "${roundKey}"`);
+            return null;
         }
-        
-        console.log('🔧 Score fix results:', results);
-        return results;
-        
-    } catch (error) {
-        console.error('Error fixing score keys:', error);
-        return { error: error.message };
-    }
-}
 
-// ========================================
-// UNIVERSAL ROUND KEY PROCESSOR
-// ========================================
-
-/**
- * Universal function to handle round keys with backwards compatibility
- * Use this in all your existing code to handle both old and new formats
- * @param {string} roundKey - Round key to process
- * @returns {object|null} Parsed indices or null if invalid
- */
-function getRoundKeyIndices(roundKey) {
-    const processed = processRoundKey(roundKey);
-    
-    if (processed.isValid) {
-        if (processed.needsFix) {
-            console.warn(`⚠️ Using fixed round key: "${processed.original}" -> "${processed.fixed}"`);
-        }
-        
-        return {
-            dayIndex: processed.dayIndex,
-            classIndex: processed.classIndex,
-            roundIndex: processed.roundIndex,
-            standardKey: processed.fixed
+        // ===== ENHANCED FEO + ORPHANED SCORE DETECTION =====
+        let participantCache = new Map();
+        let entriesData = {}; // Global cache for entries data
+        let debugInfo = {
+            totalProcessed: 0,
+            feoFiltered: 0,
+            orphanedFiltered: 0,
+            regularIncluded: 0
         };
-    }
-    
-    console.error(`❌ Invalid round key: "${roundKey}"`);
-    return null;
-}
 
-// ========================================
-// INTEGRATION HELPER
-// ========================================
+        // Helper function to check if entry is FEO (case-insensitive)
+        function isFeoEntry(entryType) {
+            if (!entryType) return false;
+            const typeStr = entryType.toString().toLowerCase().trim();
+            return typeStr === 'feo' || typeStr === 'for exhibition only' || typeStr === 'exhibition';
+        }
 
-/**
- * Replace existing round key parsing in your code with this function
- * Example usage in single-day-trial-report.html:
- * 
- * OLD CODE:
- * const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
- * 
- * NEW CODE:
- * const indices = getRoundKeyIndices(roundKey);
- * if (indices) {
- *   const { dayIndex, classIndex, roundIndex } = indices;
- *   // ... rest of your code
- * }
- */
+        // Enhanced function to determine if participant should be excluded
+        function shouldExcludeParticipantEnhanced(participant, participantId) {
+            // First check for orphaned scores (deleted entries)
+            const [docId] = participantId.split('_');
+            const originalEntry = entriesData[docId];
+            
+            if (!originalEntry) {
+                console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
+                debugInfo.orphanedFiltered++;
+                return true; // Skip orphaned scores from deleted entries
+            }
+
+            // Check multiple possible FEO indicators
+            if (participant.entryType && isFeoEntry(participant.entryType)) {
+                console.log(`🚫 FEO detected via entryType: ${participantId} (${participant.entryType})`);
+                debugInfo.feoFiltered++;
+                return true;
+            }
+
+            if (participant.type && isFeoEntry(participant.type)) {
+                console.log(`🚫 FEO detected via type: ${participantId} (${participant.type})`);
+                debugInfo.feoFiltered++;
+                return true;
+            }
+
+            if (participantId && participantId.toLowerCase().includes('feo')) {
+                console.log(`🚫 FEO detected in participantId: ${participantId}`);
+                debugInfo.feoFiltered++;
+                return true;
+            }
+
+            if (participant.comments && participant.comments.toLowerCase().includes('feo')) {
+                console.log(`🚫 FEO detected in comments: ${participantId} (${participant.comments})`);
+                debugInfo.feoFiltered++;
+                return true;
+            }
+
+            // Check original entries data for FEO status
+            if (originalEntry.selectedEntries) {
+                const parts = participantId.split('_');
+                if (parts.length > 1) {
+                    const entryDetails = parts[1];
+                    let parsedClassName = '';
+                    
+                    // Parse class name from entry details
+                    const classNames = [
+                        'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',
+                        'Private Inv', 'Det Diversions', 'Ranger 1', 'Ranger 2', 
+                        'Ranger 3', 'Ranger 4', 'Ranger 5', 'Dasher 3', 'Dasher 4', 
+                        'Dasher 5', 'Dasher 6'
+                    ];
+                    
+                    for (const className of classNames) {
+                        if (entryDetails.includes(className)) {
+                            parsedClassName = className;
+                            break;
+                        }
+                    }
+
+                    if (parsedClassName) {
+                        const matchingEntry = originalEntry.selectedEntries.find(se => 
+                            se.className === parsedClassName
+                        );
+                        if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
+                            console.log(`🚫 FEO detected via original entries: ${participantId} (${matchingEntry.type})`);
+                            debugInfo.feoFiltered++;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            debugInfo.regularIncluded++;
+            return false;
+        }
+
         // Discipline classifications
         const DISCIPLINE_MAPPING = {
             scent: ['PATROL 1', 'DETECTIVE 2', 'INVESTIGATOR 3', 'SUPER SLEUTH 4', 'PRIVATE INV', 'DET DIVERSIONS'],
@@ -961,6 +775,14 @@ function getRoundKeyIndices(roundKey) {
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 5000);
+        }
+
+        function showDebug(content) {
+            console.log('Debug:', content);
+            const debugDiv = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
+            debugContent.innerHTML = content;
+            debugDiv.style.display = 'block';
         }
 
         function createLocalDate(dateStr) {
@@ -1021,6 +843,72 @@ function getRoundKeyIndices(roundKey) {
             }
             
             return 'scent'; // Default to scent
+        }
+
+        // Get participant details from entries collection (enhanced with cached data)
+        async function getParticipantDetails(participantId, trialId) {
+            console.log(`🔍 Getting participant details for: ${participantId}`);
+            
+            // Check cache first
+            if (participantCache.has(participantId)) {
+                console.log(`📋 Found in cache: ${participantId}`);
+                return participantCache.get(participantId);
+            }
+
+            try {
+                // Extract document ID from participant ID (remove round-specific suffixes)
+                const [docId] = participantId.split('_');
+                console.log(`📄 Looking up entry document: ${docId}`);
+
+                // Use cached entries data instead of individual database calls
+                const entryData = entriesData[docId];
+                
+                if (entryData) {
+                    console.log(`✅ Found cached entry data for ${docId}:`, entryData);
+                    
+                    const participantDetails = {
+                        id: participantId,
+                        cwagsNumber: entryData.cwagsNumber || 'TBD',
+                        dogCallName: entryData.dogCallName || 'Unknown',
+                        handlerName: entryData.handlerName || 'Unknown Handler',
+                        entryType: 'regular' // Default, will be updated if FEO info is available
+                    };
+
+                    // Check if this is an FEO entry
+                    if (entryData.selectedEntries && Array.isArray(entryData.selectedEntries)) {
+                        const matchingEntry = entryData.selectedEntries.find(se => 
+                            participantId.includes(se.className) || participantId.includes(se.roundName)
+                        );
+                        if (matchingEntry && matchingEntry.type) {
+                            participantDetails.entryType = matchingEntry.type;
+                        }
+                    }
+
+                    // Cache the result
+                    participantCache.set(participantId, participantDetails);
+                    console.log(`💾 Cached participant details for ${participantId}`);
+                    
+                    return participantDetails;
+                } else {
+                    console.log(`❌ No cached entry data found for ${docId} - may be orphaned`);
+                    return {
+                        id: participantId,
+                        cwagsNumber: 'TBD',
+                        dogCallName: 'Unknown',
+                        handlerName: 'Unknown Handler',
+                        entryType: 'regular'
+                    };
+                }
+            } catch (error) {
+                console.error(`❌ Error getting participant details for ${participantId}:`, error);
+                return {
+                    id: participantId,
+                    cwagsNumber: 'TBD',
+                    dogCallName: 'Unknown',
+                    handlerName: 'Unknown Handler',
+                    entryType: 'regular'
+                };
+            }
         }
 
         // Initialize the application
@@ -1145,96 +1033,8 @@ function getRoundKeyIndices(roundKey) {
                 showStatus('Error loading trial data: ' + error.message, 'error');
             }
         }
-
-        // Helper function to check if entry is FEO (case-insensitive)
-function isFeoEntry(entryType) {
-    if (!entryType) return false;
-    return entryType.toString().toLowerCase() === 'feo';
-}
-
-// ===== ENHANCED FEO + ORPHANED SCORE DETECTION =====
-let participantCache = new Map();
-let entriesData = {}; // Global cache for entries data
-
-// Helper function to check if entry is FEO (case-insensitive)
-function isFeoEntry(entryType) {
-    if (!entryType) return false;
-    const typeStr = entryType.toString().toLowerCase().trim();
-    return typeStr === 'feo' || typeStr === 'for exhibition only' || typeStr === 'exhibition';
-}
-
-// Enhanced function to determine if participant should be excluded
-function shouldExcludeParticipantEnhanced(participant, participantId) {
-    // First check for orphaned scores (deleted entries)
-    const [docId] = participantId.split('_');
-    const originalEntry = entriesData[docId];
-    
-    if (!originalEntry) {
-        console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
-        return true; // Skip orphaned scores from deleted entries
-    }
-
-    // Check multiple possible FEO indicators
-    if (participant.entryType && isFeoEntry(participant.entryType)) {
-        console.log(`🚫 FEO detected via entryType: ${participantId} (${participant.entryType})`);
-        return true;
-    }
-
-    if (participant.type && isFeoEntry(participant.type)) {
-        console.log(`🚫 FEO detected via type: ${participantId} (${participant.type})`);
-        return true;
-    }
-
-    if (participantId && participantId.toLowerCase().includes('feo')) {
-        console.log(`🚫 FEO detected in participantId: ${participantId}`);
-        return true;
-    }
-
-    if (participant.comments && participant.comments.toLowerCase().includes('feo')) {
-        console.log(`🚫 FEO detected in comments: ${participantId} (${participant.comments})`);
-        return true;
-    }
-
-    // Check original entries data for FEO status
-    if (originalEntry.selectedEntries) {
-        const parts = participantId.split('_');
-        if (parts.length > 1) {
-            const entryDetails = parts[1];
-            let parsedClassName = '';
-            
-            // Parse class name from entry details
-            const classNames = [
-                'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',
-                'Private Inv', 'Det Diversions', 'Ranger 1', 'Ranger 2', 
-                'Ranger 3', 'Ranger 4', 'Ranger 5', 'Dasher 3', 'Dasher 4', 
-                'Dasher 5', 'Dasher 6'
-            ];
-            
-            for (const className of classNames) {
-                if (entryDetails.includes(className)) {
-                    parsedClassName = className;
-                    break;
-                }
-            }
-
-            if (parsedClassName) {
-                const matchingEntry = originalEntry.selectedEntries.find(se => 
-                    se.className === parsedClassName
-                );
-                if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
-                    console.log(`🚫 FEO detected via original entries: ${participantId} (${matchingEntry.type})`);
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
-// Cache for participant details to avoid repeated database calls
         
-        // Generate reports for selected trial and day
+        // Generate reports for selected trial and day (ENHANCED WITH FILTERING)
         async function generateReports() {
             const trialId = document.getElementById('trialSelect').value;
             const dayIndex = document.getElementById('daySelect').value;
@@ -1245,20 +1045,28 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
             }
 
             try {
-                showStatus('Generating reports...', 'info');
+                showStatus('Generating enhanced reports...', 'info');
                 currentDay = parseInt(dayIndex);
 
-                // FIRST: Load all entries data for enhanced FEO/orphaned checking
-    console.log('📂 Loading entries data for enhanced filtering...');
-    const entriesSnapshot = await db.collection('entries')
-        .where('trialId', '==', trialId)
-        .get();
+                // Reset debug info
+                debugInfo = {
+                    totalProcessed: 0,
+                    feoFiltered: 0,
+                    orphanedFiltered: 0,
+                    regularIncluded: 0
+                };
 
-    entriesData = {};
-    entriesSnapshot.forEach(doc => {
-        entriesData[doc.id] = doc.data();
-    });
-    console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents for filtering`);
+                // FIRST: Load all entries data for enhanced FEO/orphaned checking
+                console.log('📂 Loading entries data for enhanced filtering...');
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                entriesData = {};
+                entriesSnapshot.forEach(doc => {
+                    entriesData[doc.id] = doc.data();
+                });
+                console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents for filtering`);
 
                 console.log('🔍 Looking for data for trial:', trialId, 'day:', currentDay);
                 
@@ -1288,68 +1096,53 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                     .get();
 
                 let foundIndividualScores = false;
-               for (const doc of scoresSnapshot.docs) {
-    const scoreData = doc.data();
-    console.log('🔍 Found score document:', doc.id, scoreData);
-    
-    // Check if this score belongs to our selected day
-    if (scoreData.roundKey) {
-        // Fix malformed round keys like "0--1-0"
-        let fixedRoundKey = scoreData.roundKey.replace(/--/g, '-');
-        const parts = fixedRoundKey.split('-');
-        let dayIdx = parseInt(parts[0]) || 0;
-        let classIdx = parseInt(parts[1]) || 0;
-        let roundIdx = parseInt(parts[2]) || 0;
-        
-        // Handle malformed keys like "0--1-0"
-        if (parts.length > 3 && parts[1] === '') {
-            classIdx = parseInt(parts[2]) || 0;
-            roundIdx = parseInt(parts[3]) || 0;
-        }
-        
-        if (dayIdx === currentDay && scoreData.participants) {
-            foundIndividualScores = true;
-            console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
-            
-            // Process each participant with full details lookup
-            for (const [participantId, result] of Object.entries(scoreData.participants)) {
-    if (result.passFail) {
-        // Enhanced filtering: Skip FEO and orphaned entries
-        if (shouldExcludeParticipantEnhanced(result, participantId)) {
-            const [docId] = participantId.split('_');
-            if (!entriesData[docId]) {
-                console.log(`🚫 Skipping orphaned score: ${participantId}`);
-            } else {
-                console.log(`🚫 Skipping FEO entry: ${participantId}`);
-            }
-            continue;
-        }
-        
-        // Get full participant details from entries collection
-        const participantDetails = await getParticipantDetails(participantId, trialId);
+                for (const doc of scoresSnapshot.docs) {
+                    const scoreData = doc.data();
+                    console.log('🔍 Found score document:', doc.id, scoreData);
                     
-                    const discipline = getDisciplineForClass(scoreData.className);
-                    const dayDate = currentTrial.days[currentDay].date || '';
-                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
-                    
-                    allRuns.push({
-                        discipline: discipline,
-                        cwagsNumber: participantDetails.cwagsNumber, // Now using real data!
-                        dogName: participantDetails.dogCallName,     // Now using real data!
-                        handlerName: participantDetails.handlerName, // Now using real data!
-                        date: formattedDate,
-                        className: scoreData.className,
-                        roundNumber: scoreData.roundNumber || 1,
-                        result: formatResult(result.passFail, discipline),
-                        judgeName: scoreData.judgeName || 'TBD',
-                        comments: result.comments || '',
-                        classOrder: getClassOrder(scoreData.className, discipline)
-                    });
+                    // Check if this score belongs to our selected day
+                    if (scoreData.roundKey) {
+                        const indices = getRoundKeyIndices(scoreData.roundKey);
+                        if (indices && indices.dayIndex === currentDay && scoreData.participants) {
+                            foundIndividualScores = true;
+                            console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
+                            
+                            // Process each participant with enhanced filtering
+                            for (const [participantId, result] of Object.entries(scoreData.participants)) {
+                                if (result.passFail) {
+                                    debugInfo.totalProcessed++;
+
+                                    // Enhanced filtering: Skip FEO and orphaned entries
+                                    if (shouldExcludeParticipantEnhanced(result, participantId)) {
+                                        continue; // Skip this entry
+                                    }
+                                    
+                                    // Get full participant details from cached entries data
+                                    const participantDetails = await getParticipantDetails(participantId, trialId);
+                                    
+                                    const discipline = getDisciplineForClass(scoreData.className);
+                                    const dayDate = currentTrial.days[currentDay].date || '';
+                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                    
+                                    allRuns.push({
+                                        discipline: discipline,
+                                        cwagsNumber: participantDetails.cwagsNumber,
+                                        dogName: participantDetails.dogCallName,
+                                        handlerName: participantDetails.handlerName,
+                                        date: formattedDate,
+                                        className: scoreData.className,
+                                        roundNumber: scoreData.roundNumber || 1,
+                                        result: formatResult(result.passFail, discipline),
+                                        judgeName: scoreData.judgeName || 'TBD',
+                                        comments: result.comments || '',
+                                        classOrder: getClassOrder(scoreData.className, discipline)
+                                    });
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-        }
-    }
-}
+
                 // Method 2: Look in running order data if no individual scores found
                 if (!foundIndividualScores) {
                     console.log('📋 Method 2: Looking for running order data...');
@@ -1359,16 +1152,6 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                         if (orderDoc.exists) {
                             const runningOrderData = orderDoc.data();
                             console.log('🔍 Found running order data:', Object.keys(runningOrderData));
-                            
-                            // Get entries data for participant details
-                            const entriesSnapshot = await db.collection('entries')
-                                .where('trialId', '==', trialId)
-                                .get();
-
-                            const entryMap = {};
-                            entriesSnapshot.forEach(doc => {
-                                entryMap[doc.id] = doc.data();
-                            });
 
                             // Check for different possible field names from running order system
                             let finalizedData = null;
@@ -1387,30 +1170,11 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                                 Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
                                     console.log('🔍 Raw round key:', roundKey);
                                     
-                                    // Handle different round key formats
-                                    let dayIndexFromKey, classIndex, roundIndex;
-                                    
-                                    if (roundKey.includes('--')) {
-                                        // Format: "0--1-0" (day--class-round)
-                                        const parts = roundKey.split('--');
-                                        dayIndexFromKey = parseInt(parts[0]);
-                                        const classRound = parts[1].split('-');
-                                        classIndex = parseInt(classRound[0]);
-                                        roundIndex = parseInt(classRound[1]);
-                                    } else {
-                                        // Format: "0-1-0" (day-class-round)
-                                        const parts = roundKey.split('-');
-                                        dayIndexFromKey = parseInt(parts[0]);
-                                        classIndex = parseInt(parts[1]);
-                                        roundIndex = parseInt(parts[2]);
-                                    }
-                                    
-                                    console.log('🔍 Parsed indices:', { dayIndexFromKey, classIndex, roundIndex });
-                                    
-                                    if (dayIndexFromKey === currentDay && entryIds && entryIds.length > 0) {
-                                        const day = currentTrial.days[dayIndexFromKey];
-                                        const cls = day?.classes[classIndex];
-                                        const round = cls?.rounds[roundIndex];
+                                    const indices = getRoundKeyIndices(roundKey);
+                                    if (indices && indices.dayIndex === currentDay && entryIds && entryIds.length > 0) {
+                                        const day = currentTrial.days[indices.dayIndex];
+                                        const cls = day?.classes[indices.classIndex];
+                                        const round = cls?.rounds[indices.roundIndex];
 
                                         console.log(`🔍 Processing round ${roundKey}:`, {
                                             day: day,
@@ -1425,32 +1189,51 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                                             const dayDate = currentTrial.days[currentDay].date || '';
                                             const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
                                             
-                                            // Try multiple judge field names
                                             const judgeName = round.judgeName || round.judge || round.JUDGE_NAME || round.judgname || 'TBD';
                                             
-                                            console.log(`🧑‍⚖️ Judge for ${roundClassName} Round ${roundIndex + 1}:`, judgeName);
-                                            console.log('🔍 Round object keys:', Object.keys(round));
+                                            console.log(`🧑‍⚖️ Judge for ${roundClassName} Round ${indices.roundIndex + 1}:`, judgeName);
                                             
                                             entryIds.forEach(entryId => {
+                                                debugInfo.totalProcessed++;
+
+                                                // Enhanced filtering for running order entries
                                                 const [docId] = entryId.split('_');
-                                                const entry = entryMap[docId];
+                                                const entry = entriesData[docId];
                                                 
-                                                if (entry) {
-                                                    allRuns.push({
-                                                        discipline: discipline,
-                                                        cwagsNumber: entry.cwagsNumber || 'TBD',
-                                                        dogName: entry.dogCallName || 'Unknown',
-                                                        handlerName: entry.handlerName || 'Unknown',
-                                                        date: formattedDate,
-                                                        className: roundClassName,
-                                                        roundNumber: (roundIndex + 1),
-                                                        result: 'Scheduled', // Placeholder for unscored runs
-                                                        judgeName: judgeName,
-                                                        comments: 'Not yet scored',
-                                                        classOrder: getClassOrder(roundClassName, discipline),
-                                                        roundKey: roundKey
-                                                    });
+                                                if (!entry) {
+                                                    console.log(`🚫 Skipping orphaned running order entry: ${entryId}`);
+                                                    debugInfo.orphanedFiltered++;
+                                                    return;
                                                 }
+
+                                                // Check for FEO in running order entries
+                                                if (entry.selectedEntries) {
+                                                    const matchingEntry = entry.selectedEntries.find(se => 
+                                                        entryId.includes(se.className) || entryId.includes(se.roundName)
+                                                    );
+                                                    if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
+                                                        console.log(`🚫 Skipping FEO running order entry: ${entryId}`);
+                                                        debugInfo.feoFiltered++;
+                                                        return;
+                                                    }
+                                                }
+
+                                                debugInfo.regularIncluded++;
+                                                
+                                                allRuns.push({
+                                                    discipline: discipline,
+                                                    cwagsNumber: entry.cwagsNumber || 'TBD',
+                                                    dogName: entry.dogCallName || 'Unknown',
+                                                    handlerName: entry.handlerName || 'Unknown',
+                                                    date: formattedDate,
+                                                    className: roundClassName,
+                                                    roundNumber: (indices.roundIndex + 1),
+                                                    result: 'Scheduled', // Placeholder for unscored runs
+                                                    judgeName: judgeName,
+                                                    comments: 'Not yet scored',
+                                                    classOrder: getClassOrder(roundClassName, discipline),
+                                                    roundKey: roundKey
+                                                });
                                             });
                                         }
                                     }
@@ -1466,18 +1249,23 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 if (allRuns.length === 0) {
                     console.log('📝 Method 3: Looking for basic entry data...');
                     
-                    const entriesSnapshot = await db.collection('entries')
-                        .where('trialId', '==', trialId)
-                        .get();
-
-                    if (!entriesSnapshot.empty) {
-                        console.log('📝 Found', entriesSnapshot.size, 'entries for trial');
+                    if (Object.keys(entriesData).length > 0) {
+                        console.log('📝 Found', Object.keys(entriesData).length, 'entries for trial');
                         
-                        entriesSnapshot.forEach(doc => {
-                            const entry = doc.data();
-                            
+                        Object.values(entriesData).forEach(entry => {
                             if (entry.selectedEntries && Array.isArray(entry.selectedEntries)) {
                                 entry.selectedEntries.forEach(selectedEntry => {
+                                    debugInfo.totalProcessed++;
+
+                                    // Enhanced filtering for basic entries
+                                    if (selectedEntry.type && isFeoEntry(selectedEntry.type)) {
+                                        console.log(`🚫 Skipping FEO basic entry: ${selectedEntry.className}`);
+                                        debugInfo.feoFiltered++;
+                                        return;
+                                    }
+
+                                    debugInfo.regularIncluded++;
+
                                     const discipline = getDisciplineForClass(selectedEntry.className);
                                     const dayDate = currentTrial.days[currentDay]?.date || '';
                                     const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
@@ -1502,6 +1290,17 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 }
 
                 console.log('📊 Total runs found:', allRuns.length);
+                console.log('🔧 Enhanced Filtering Results:', debugInfo);
+
+                // Show debug information
+                showDebug(`
+                    <strong>Enhanced Filtering Results:</strong><br>
+                    Total entries processed: ${debugInfo.totalProcessed}<br>
+                    Regular entries included: ${debugInfo.regularIncluded}<br>
+                    FEO entries filtered out: ${debugInfo.feoFiltered}<br>
+                    Orphaned scores filtered out: ${debugInfo.orphanedFiltered}<br>
+                    Final report entries: ${allRuns.length}
+                `);
 
                 if (allRuns.length === 0) {
                     showStatus('No data found for this trial and day. Please ensure entries exist and running orders have been generated.', 'error');
@@ -1513,7 +1312,6 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 // Group by discipline and sort properly
                 reportData = {
                     scent: allRuns.filter(r => r.discipline === 'scent').sort((a, b) => {
-                        // Sort by class order, then round number, then C-WAGS number
                         if (a.classOrder !== b.classOrder) return a.classOrder - b.classOrder;
                         if (a.roundNumber !== b.roundNumber) return a.roundNumber - b.roundNumber;
                         const aCwags = a.cwagsNumber === 'TBD' ? 'ZZZ999' : a.cwagsNumber;
@@ -1553,10 +1351,15 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 renderReports();
                 document.getElementById('disciplineTabs').style.display = 'flex';
                 document.getElementById('noDataMessage').style.display = 'none';
-                showStatus('Reports generated successfully!', 'success');
+                
+                // Enhanced status message
+                let statusMessage = 'Enhanced reports generated successfully!';
+                if (debugInfo.feoFiltered > 0) statusMessage += ` (${debugInfo.feoFiltered} FEO entries filtered)`;
+                if (debugInfo.orphanedFiltered > 0) statusMessage += ` (${debugInfo.orphanedFiltered} orphaned scores filtered)`;
+                showStatus(statusMessage, 'success');
 
             } catch (error) {
-                console.error('Error generating reports:', error);
+                console.error('Error generating enhanced reports:', error);
                 showStatus('Error generating reports: ' + error.message, 'error');
             }
         }
@@ -1564,8 +1367,6 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
         // Format result based on discipline
         function formatResult(passFail, discipline) {
             if (discipline === 'games') {
-                // For games, we'd need additional logic to determine specific game type
-                // For now, return generic pass/fail
                 return passFail === 'Pass' ? 'P' : 'Fail';
             }
             return passFail === 'Pass' ? 'Pass' : 'Fail';
@@ -1683,249 +1484,3 @@ function shouldExcludeParticipantEnhanced(participant, participantId) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="9" style="text-align: center; color: #6c757d; font-style: italic; padding: 2rem;">
-                            No ${discipline} entries found for this day
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            // Sort groups by class order and round number
-            const sortedGroups = Object.values(groupedRuns).sort((a, b) => {
-                const aOrder = getClassOrder(a.className, discipline);
-                const bOrder = getClassOrder(b.className, discipline);
-                if (aOrder !== bOrder) return aOrder - bOrder;
-                return a.roundNumber - b.roundNumber;
-            });
-            
-            sortedGroups.forEach((group, groupIndex) => {
-                // Add a header row for each round
-                const headerRow = document.createElement('tr');
-                headerRow.style.backgroundColor = '#e9ecef';
-                headerRow.style.fontWeight = 'bold';
-                headerRow.innerHTML = `
-                    <td colspan="9" style="text-align: center; padding: 1rem; font-size: 1rem;">
-                        ${group.className} Round ${group.roundNumber} - Judge: ${group.judgeName} 
-                        (${group.runs.length} entries)
-                    </td>
-                `;
-                tbody.appendChild(headerRow);
-                
-                // Sort runs within group by C-WAGS number
-                group.runs.sort((a, b) => {
-                    const aNum = a.cwagsNumber === 'TBD' ? '999999' : a.cwagsNumber;
-                    const bNum = b.cwagsNumber === 'TBD' ? '999999' : b.cwagsNumber;
-                    return aNum.localeCompare(bNum);
-                });
-                
-                // Add rows for each participant in this round
-                group.runs.forEach(run => {
-                    const row = document.createElement('tr');
-                    
-                    let resultClass = 'result-absent';
-                    if (run.result === 'Pass' || run.result === 'P') resultClass = 'result-pass';
-                    else if (run.result === 'Fail' || run.result === 'F') resultClass = 'result-fail';
-                    else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
-                    else if (run.result === 'Scheduled' || run.result === 'Entry Only') resultClass = 'result-absent';
-                    
-                    row.innerHTML = `
-                        <td style="font-weight: bold;">${run.cwagsNumber}</td>
-                        <td>${run.dogName}</td>
-                        <td>${run.handlerName}</td>
-                        <td>${run.date}</td>
-                        <td style="font-size: 0.8rem;">${run.className}</td>
-                        <td style="text-align: center;">${run.roundNumber}</td>
-                        <td class="${resultClass}" style="text-align: center; font-weight: bold;">${run.result}</td>
-                        <td style="font-size: 0.8rem;">${run.judgeName}</td>
-                        <td contenteditable="true" style="background: #f8f9fa; font-size: 0.8rem;">${run.comments}</td>
-                    `;
-                    
-                    tbody.appendChild(row);
-                });
-                
-                // Add a spacer row between groups (except for the last one)
-                if (groupIndex < sortedGroups.length - 1) {
-                    const spacerRow = document.createElement('tr');
-                    spacerRow.innerHTML = `<td colspan="9" style="height: 10px; border: none;"></td>`;
-                    tbody.appendChild(spacerRow);
-                }
-            });
-        }
-
-        // Show specific discipline tab
-        function showDiscipline(discipline) {
-            // Update tab states
-            document.querySelectorAll('.discipline-tab').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.report-container').forEach(container => container.style.display = 'none');
-            
-            // Activate selected discipline
-            event.target.classList.add('active');
-            document.getElementById(`${discipline}Report`).style.display = 'block';
-            activeDiscipline = discipline;
-        }
-
-        // Export discipline as CSV
-        function exportDisciplineCSV(discipline) {
-            const runs = reportData[discipline] || [];
-            
-            if (runs.length === 0) {
-                showStatus(`No ${discipline} data to export`, 'error');
-                return;
-            }
-
-            try {
-                let csvContent = '';
-                
-                // Header
-                const disciplineNames = {
-                    scent: 'Scent (Detective)',
-                    games: 'Games',
-                    obedience: 'Rally Obedience',
-                    ranger: 'Ranger/Dasher'
-                };
-                
-                csvContent += `"${disciplineNames[discipline]} Disciplines Report"\n`;
-                csvContent += `"Trial","${currentTrial.clubName}"\n`;
-                const dayDate = currentTrial.days[currentDay].date ? 
-                    new Date(currentTrial.days[currentDay].date + 'T12:00:00').toLocaleDateString() : 'Date TBD';
-                csvContent += `"Date","${dayDate}"\n`;
-                csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
-                csvContent += `\n`; // Empty line
-                
-                // Table headers
-                csvContent += '"C-WAGS #","Call Name","Handler","Date","Class","Round","Result","Judge","Comments"\n';
-                
-                // Data rows
-                runs.forEach(run => {
-                    csvContent += `"${run.cwagsNumber}","${run.dogName}","${run.handlerName}","${run.date}","${run.className}","${run.roundNumber}","${run.result}","${run.judgeName}","${run.comments}"\n`;
-                });
-                
-                // Download
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${disciplineNames[discipline].replace(/[^a-zA-Z0-9]/g, '_')}_Report.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-
-                showStatus(`${disciplineNames[discipline]} CSV exported successfully!`, 'success');
-            } catch (error) {
-                console.error('Error exporting CSV:', error);
-                showStatus('Error exporting CSV: ' + error.message, 'error');
-            }
-        }
-
-        // Export discipline as PDF
-        function exportDisciplinePDF(discipline) {
-            const runs = reportData[discipline] || [];
-            
-            if (runs.length === 0) {
-                showStatus(`No ${discipline} data to export`, 'error');
-                return;
-            }
-
-            try {
-                const disciplineNames = {
-                    scent: 'Scent (Detective)',
-                    games: 'Games',
-                    obedience: 'Rally Obedience',
-                    ranger: 'Ranger/Dasher'
-                };
-                
-                const printWindow = window.open('', '_blank');
-                const dayDate = currentTrial.days[currentDay].date ? 
-                    new Date(currentTrial.days[currentDay].date + 'T12:00:00').toLocaleDateString() : 'Date TBD';
-                
-                const htmlContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>${disciplineNames[discipline]} Report</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
-                            .header { text-align: center; margin-bottom: 20px; }
-                            .title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-                            .info { font-size: 12px; color: #666; margin-bottom: 5px; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; font-size: 10px; }
-                            th { background-color: #f5f5f5; font-weight: bold; }
-                            .result-pass { color: #28a745; font-weight: bold; }
-                            .result-fail { color: #dc3545; font-weight: bold; }
-                            .result-games { color: #17a2b8; font-weight: bold; }
-                            @media print { body { margin: 0; } }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <div class="title">${disciplineNames[discipline]} Disciplines Report</div>
-                            <div class="info">Trial: ${currentTrial.clubName}</div>
-                            <div class="info">Date: ${dayDate}</div>
-                            <div class="info">Generated: ${new Date().toLocaleDateString()}</div>
-                        </div>
-                        
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>C-WAGS #</th>
-                                    <th>Call Name</th>
-                                    <th>Handler</th>
-                                    <th>Date</th>
-                                    <th>Class</th>
-                                    <th>Round</th>
-                                    <th>Result</th>
-                                    <th>Judge</th>
-                                    <th>Comments</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${runs.map(run => {
-                                    let resultClass = '';
-                                    if (run.result === 'Pass' || run.result === 'P') resultClass = 'result-pass';
-                                    else if (run.result === 'Fail' || run.result === 'F') resultClass = 'result-fail';
-                                    else if (discipline === 'games' && ['GB', 'C', 'BJ', 'P', 'T'].includes(run.result)) resultClass = 'result-games';
-                                    
-                                    return `<tr>
-                                        <td>${run.cwagsNumber}</td>
-                                        <td>${run.dogName}</td>
-                                        <td>${run.handlerName}</td>
-                                        <td>${run.date}</td>
-                                        <td>${run.className}</td>
-                                        <td>${run.roundNumber}</td>
-                                        <td class="${resultClass}">${run.result}</td>
-                                        <td>${run.judgeName}</td>
-                                        <td>${run.comments}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    </body>
-                    </html>
-                `;
-                
-                printWindow.document.write(htmlContent);
-                printWindow.document.close();
-                
-                printWindow.onload = function() {
-                    printWindow.print();
-                };
-
-                showStatus(`${disciplineNames[discipline]} PDF export opened`, 'success');
-            } catch (error) {
-                console.error('Error exporting PDF:', error);
-                showStatus('Error exporting PDF: ' + error.message, 'error');
-            }
-        }
-
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing single-day trial report system...');
-            init();
-        });
-
-        console.log('Single-Day Trial Report script loaded successfully');
-    </script>
-</body>
-</html>
