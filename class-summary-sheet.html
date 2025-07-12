@@ -501,7 +501,39 @@
         // Helper function to check if entry is FEO (case-insensitive)
         function isFeoEntry(entryType) {
             if (!entryType) return false;
-            return entryType.toString().toLowerCase() === 'feo';
+            const typeStr = entryType.toString().toLowerCase().trim();
+            return typeStr === 'feo' || typeStr === 'for exhibition only' || typeStr === 'exhibition';
+        }
+
+        // Enhanced function to determine if participant should be excluded
+        function shouldExcludeParticipant(participant, participantId) {
+            // Check multiple possible FEO indicators
+            
+            // Direct entryType check
+            if (participant.entryType && isFeoEntry(participant.entryType)) {
+                console.log(`🚫 FEO detected via entryType: ${participantId} (${participant.entryType})`);
+                return true;
+            }
+            
+            // Check type field
+            if (participant.type && isFeoEntry(participant.type)) {
+                console.log(`🚫 FEO detected via type: ${participantId} (${participant.type})`);
+                return true;
+            }
+            
+            // Check if participantId contains FEO indicators
+            if (participantId && participantId.toLowerCase().includes('feo')) {
+                console.log(`🚫 FEO detected in participantId: ${participantId}`);
+                return true;
+            }
+            
+            // Check comments for FEO indicators
+            if (participant.comments && participant.comments.toLowerCase().includes('feo')) {
+                console.log(`🚫 FEO detected in comments: ${participantId} (${participant.comments})`);
+                return true;
+            }
+            
+            return false;
         }
 
         // Get C-WAGS class order
@@ -946,8 +978,7 @@
                         const uniqueKey = docId;
                         
                         // Check if this is FEO and skip if it is
-                        if (isFeoEntry(result.entryType)) {
-                            console.log(`🚫 Filtering out FEO entry: ${participantId} (entryType: ${result.entryType})`);
+                        if (shouldExcludeParticipant(result, participantId)) {
                             debugInfo.feoFiltered++;
                             return; // Skip FEO entries
                         }
@@ -975,8 +1006,7 @@
                     if (round.participants && Array.isArray(round.participants)) {
                         round.participants.forEach(participant => {
                             // Check if this is FEO and skip if it is
-                            if (isFeoEntry(participant.entryType)) {
-                                console.log(`🚫 Filtering out FEO entry: ${participant.id} (entryType: ${participant.entryType})`);
+                            if (shouldExcludeParticipant(participant, participant.id)) {
                                 debugInfo.feoFiltered++;
                                 return; // Skip FEO entries
                             }
@@ -1192,8 +1222,8 @@
                 classData.rounds.forEach(round => {
                     if (round.hasScores) {
                         Object.entries(round.participants).forEach(([participantId, result]) => {
-                            // Skip FEO entries in class summaries (double-check filtering)
-                            if (isFeoEntry(result.entryType)) return;
+                            // Skip FEO entries in class summaries (enhanced filtering)
+                            if (shouldExcludeParticipant(result, participantId)) return;
                             
                             if (result.passFail && result.passFail !== '-') {
                                 totalRuns++;
@@ -1206,10 +1236,10 @@
                         // Count scheduled runs, excluding FEO
                         if (round.participants) {
                             if (Array.isArray(round.participants)) {
-                                const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                                const nonFeoParticipants = round.participants.filter(p => !shouldExcludeParticipant(p, p.id));
                                 totalScheduled += nonFeoParticipants.length;
                             } else {
-                                const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                                const participantCount = Object.values(round.participants).filter(p => !shouldExcludeParticipant(p, p.id)).length;
                                 totalScheduled += participantCount;
                             }
                         }
@@ -1318,8 +1348,8 @@
                             if (round.participants[participantId]) {
                                 const participantResult = round.participants[participantId];
                                 
-                                // Skip if this is FEO (double-check filtering)
-                                if (isFeoEntry(participantResult.entryType)) {
+                                // Skip if this is FEO (enhanced filtering)
+                                if (shouldExcludeParticipant(participantResult, participantId)) {
                                     continue;
                                 }
                                 
@@ -1341,8 +1371,8 @@
                             for (const participantId of participant.participantIds) {
                                 const roundParticipant = round.participants.find(p => p.id === participantId);
                                 if (roundParticipant) {
-                                    // Skip if this is FEO (double-check filtering)
-                                    if (isFeoEntry(roundParticipant.entryType)) {
+                                    // Skip if this is FEO (enhanced filtering)
+                                    if (shouldExcludeParticipant(roundParticipant, participantId)) {
                                         continue;
                                     }
                                     
@@ -1438,8 +1468,8 @@
             summaryData.rounds.forEach(round => {
                 if (round.hasScores) {
                     Object.entries(round.participants).forEach(([participantId, result]) => {
-                        // Skip FEO entries in single class statistics (double-check filtering)
-                        if (isFeoEntry(result.entryType)) return;
+                        // Skip FEO entries in single class statistics (enhanced filtering)
+                        if (shouldExcludeParticipant(result, participantId)) return;
                         
                         if (result.passFail && result.passFail !== '-') {
                             totalRuns++;
@@ -1599,7 +1629,7 @@
                             if (round.participants[participantId]) {
                                 const participantResult = round.participants[participantId];
                                 // Skip FEO entries in CSV export
-                                if (isFeoEntry(participantResult.entryType)) continue;
+                                if (shouldExcludeParticipant(participantResult, participantId)) continue;
                                 
                                 if (participantResult.passFail) {
                                     if (participantResult.passFail === 'Pass') {
@@ -1617,7 +1647,7 @@
                                 const roundParticipant = round.participants.find(p => p.id === participantId);
                                 if (roundParticipant) {
                                     // Skip FEO entries in CSV export
-                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                    if (shouldExcludeParticipant(roundParticipant, participantId)) continue;
                                     result = '•';
                                     break;
                                 }
@@ -1752,7 +1782,7 @@
                             if (round.participants[participantId]) {
                                 const participantResult = round.participants[participantId];
                                 // Skip FEO entries in Excel export
-                                if (isFeoEntry(participantResult.entryType)) continue;
+                                if (shouldExcludeParticipant(participantResult, participantId)) continue;
                                 
                                 if (participantResult.passFail) {
                                     if (participantResult.passFail === 'Pass') {
@@ -1770,7 +1800,7 @@
                                 const roundParticipant = round.participants.find(p => p.id === participantId);
                                 if (roundParticipant) {
                                     // Skip FEO entries in Excel export
-                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                    if (shouldExcludeParticipant(roundParticipant, participantId)) continue;
                                     result = '•';
                                     break;
                                 }
@@ -1969,7 +1999,7 @@
                                             if (round.participants[participantId]) {
                                                 const participantResult = round.participants[participantId];
                                                 // Skip FEO entries in PDF generation
-                                                if (isFeoEntry(participantResult.entryType)) continue;
+                                                if (shouldExcludeParticipant(participantResult, participantId)) continue;
                                                 
                                                 if (participantResult.passFail) {
                                                     if (participantResult.passFail === 'Pass') {
@@ -1989,7 +2019,7 @@
                                                 const roundParticipant = round.participants.find(p => p.id === participantId);
                                                 if (roundParticipant) {
                                                     // Skip FEO entries in PDF generation
-                                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                                    if (shouldExcludeParticipant(roundParticipant, participantId)) continue;
                                                     result = '•';
                                                     break;
                                                 }
@@ -2033,10 +2063,10 @@
                         // Count scheduled runs, excluding FEO
                         if (round.participants) {
                             if (Array.isArray(round.participants)) {
-                                const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                                const nonFeoParticipants = round.participants.filter(p => !shouldExcludeParticipant(p, p.id));
                                 totalScheduled += nonFeoParticipants.length;
                             } else {
-                                const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                                const participantCount = Object.values(round.participants).filter(p => !shouldExcludeParticipant(p, p.id)).length;
                                 totalScheduled += participantCount;
                             }
                         }
