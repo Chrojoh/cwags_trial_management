@@ -1095,46 +1095,46 @@
             `;
             thead.appendChild(headerRow);
 
-            // Create rows for each class
-            Object.entries(allClassSummaries).forEach(([className, classData]) => {
-                const row = document.createElement('tr');
+           // Create rows for each class
+Object.entries(allClassSummaries).forEach(([className, classData]) => {
+    const row = document.createElement('tr');
+    
+    let totalRuns = 0;
+    let totalPasses = 0;
+    let totalScheduled = 0;  // Changed from scheduledRuns to totalScheduled
+    
+    classData.rounds.forEach(round => {
+        if (round.hasScores) {
+            Object.entries(round.participants).forEach(([participantId, result]) => {
+                // Skip FEO entries in class summaries
+                if (result && result.entryType === 'feo') return;
                 
-                let totalRuns = 0;
-                let totalPasses = 0;
-                let scheduledRuns = 0;
-                
-  classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in multi-class stats
-            if (result && result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
+                if (result.passFail && result.passFail !== '-') {
+                    totalRuns++;
+                    if (result.passFail === 'Pass') {
+                        totalPasses++;
+                    }
+                }
+            });
+        } else {
+            // Count scheduled runs, excluding FEO
+            if (round.participants) {
+                if (Array.isArray(round.participants)) {
+                    const nonFeoParticipants = round.participants.filter(p => p && p.entryType !== 'feo');
+                    totalScheduled += nonFeoParticipants.length;
+                } else {
+                    const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
+                    totalScheduled += participantCount;
                 }
             }
-        });
-    } else {
-        // Count scheduled runs, excluding FEO
-        if (round.participants) {
-            if (Array.isArray(round.participants)) {
-                // If participants is an array
-                const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-                totalScheduled += nonFeoParticipants.length;
-            } else {
-                // If participants is an object (like in scored rounds)
-                const participantCount = Object.values(round.participants).filter(p => p && p.entryType !== 'feo').length;
-                totalScheduled += participantCount;
-            }
         }
-    }
-});
-                
-                const totalPossibleRuns = totalRuns + scheduledRuns;
-                const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
-                const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+    });
+    
+    const totalPossibleRuns = totalRuns + totalScheduled;  // Changed from scheduledRuns to totalScheduled
+    const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
+    const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+    
+    // ... rest of the row creation code
                 
                 row.innerHTML = `
                     <td class="participant-cwags">${className}</td>
