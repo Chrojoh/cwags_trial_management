@@ -1041,96 +1041,95 @@
                 return;
             }
 
-            try {
-                if (selectedClass === 'ALL_CLASSES') {
-                    console.log('🔄 Generating summaries for all classes...');
-                    showStatus('Generating summaries for all classes...', 'info');
-                    
-                    // Reset global variable
-                    allClassSummaries = {};
-                    window.allClassSummaries = allClassSummaries; // Make it globally accessible
-                    
-                    let debugSummary = {
-                        totalClasses: allClassNames.length,
-                        processedClasses: 0,
-                        totalFeoFiltered: 0,
-                        totalRegularIncluded: 0
-                    };
-                    
-                    for (let i = 0; i < allClassNames.length; i++) {
-                        const className = allClassNames[i];
-                        console.log(`⏳ Processing class ${i + 1}/${allClassNames.length}: ${className}`);
-                        showProgress(true, Math.round((i / allClassNames.length) * 100), `Processing ${className}`);
-                        
-                        const classSummary = await generateSummaryForClass(className);
-                        if (classSummary) {
-                            allClassSummaries[className] = classSummary;
-                            debugSummary.processedClasses++;
-                            
-                            if (classSummary.debugInfo) {
-                                debugSummary.totalFeoFiltered += classSummary.debugInfo.feoFiltered;
-                                debugSummary.totalRegularIncluded += classSummary.debugInfo.regularIncluded;
-                            }
-                        }
-                    }
-                    
-                    showProgress(false);
-                    
-                    console.log('📊 Final All Classes Debug Summary:', debugSummary);
-                    
-                    if (Object.keys(allClassSummaries).length === 0) {
-                        showStatus('No data found for any classes', 'error');
-                        return;
-                    }
-                    
-                    // Display the first class or a summary view
-                    const firstClassName = Object.keys(allClassSummaries)[0];
-                    summaryData = allClassSummaries[firstClassName];
-                    currentClass = 'ALL_CLASSES';
-                    
-                    document.getElementById('summaryTitle').textContent = `All Classes Summary`;
-                    document.getElementById('summaryInfo').textContent = 
-                        `${summaryData.trialName} • ${Object.keys(allClassSummaries).length} Classes`;
-                    
-                    // Show a simplified view for all classes
-                    renderAllClassesSummary();
-                    showStatus(`Generated summaries for ${Object.keys(allClassSummaries).length} classes (FEO entries filtered)`, 'success');
-                    
-                } else {
-                    // Generate summary for single class
-                    showStatus('Generating class summary...', 'info');
-                    currentClass = selectedClass;
-                    
-                    summaryData = await generateSummaryForClass(selectedClass);
-                    
-                    if (!summaryData) {
-                        showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
-                        document.getElementById('noDataMessage').style.display = 'block';
-                        document.getElementById('summaryContainer').style.display = 'none';
-                        return;
-                    }
-                    
-                    // Show debug information
-                    if (summaryData.debugInfo) {
-                        console.log(`📊 FEO Filtering Results for ${selectedClass}:`, summaryData.debugInfo);
-                    }        showDebug(`
-                            <strong>FEO Filtering Debug Info for ${selectedClass}:</strong><br>
-                            Regular entries included: ${summaryData.debugInfo.regularIncluded}<br>
-                            FEO entries filtered out: ${summaryData.debugInfo.feoFiltered}<br>
-                            Final participant count: ${summaryData.debugInfo.totalParticipants}
-                        `);
-                    }
-                    
-                    renderSummary();
-                    showStatus('Summary generated successfully (FEO entries filtered)!', 'success');
+          try {
+    if (selectedClass === 'ALL_CLASSES') {
+        console.log('🔄 Generating summaries for all classes...');
+        showStatus('Generating summaries for all classes...', 'info');
+        
+        // Reset global variable
+        allClassSummaries = {};
+        window.allClassSummaries = allClassSummaries; // Make it globally accessible
+        
+        let debugSummary = {
+            totalClasses: allClassNames.length,
+            processedClasses: 0,
+            totalFeoFiltered: 0,
+            totalRegularIncluded: 0
+        };
+        
+        for (let i = 0; i < allClassNames.length; i++) {
+            const className = allClassNames[i];
+            console.log(`⏳ Processing class ${i + 1}/${allClassNames.length}: ${className}`);
+            showProgress(true, Math.round((i / allClassNames.length) * 100), `Processing ${className}`);
+            
+            const classSummary = await generateSummaryForClass(className);
+            if (classSummary) {
+                allClassSummaries[className] = classSummary;
+                debugSummary.processedClasses++;
+                
+                if (classSummary.debugInfo) {
+                    debugSummary.totalFeoFiltered += classSummary.debugInfo.feoFiltered;
+                    debugSummary.totalRegularIncluded += classSummary.debugInfo.regularIncluded;
                 }
-
-            } catch (error) {
-                console.error('Error generating summary:', error);
-                showStatus('Error generating summary: ' + error.message, 'error');
-                showProgress(false);
             }
         }
+        
+        showProgress(false);
+        
+        console.log('📊 Final All Classes Debug Summary:', debugSummary);
+        
+        if (Object.keys(allClassSummaries).length === 0) {
+            showStatus('No data found for any classes', 'error');
+            return;
+        }
+        
+        // Display the first class or a summary view
+        const firstClassName = Object.keys(allClassSummaries)[0];
+        summaryData = allClassSummaries[firstClassName];
+        currentClass = 'ALL_CLASSES';
+        
+        document.getElementById('summaryTitle').textContent = `All Classes Summary`;
+        document.getElementById('summaryInfo').textContent = 
+            `${summaryData.trialName} • ${Object.keys(allClassSummaries).length} Classes`;
+        
+        // Show a simplified view for all classes
+        renderAllClassesSummary();
+        showStatus(`Generated summaries for ${Object.keys(allClassSummaries).length} classes (FEO entries filtered)`, 'success');
+        
+    } else {
+        // Generate summary for single class
+        showStatus('Generating class summary...', 'info');
+        currentClass = selectedClass;
+        
+        summaryData = await generateSummaryForClass(selectedClass);
+        
+        if (!summaryData) {
+            showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
+            document.getElementById('noDataMessage').style.display = 'block';
+            document.getElementById('summaryContainer').style.display = 'none';
+            return;
+        }
+        
+        // Show debug information
+        if (summaryData.debugInfo) {
+            console.log(`📊 FEO Filtering Results for ${selectedClass}:`, summaryData.debugInfo);
+            showDebug(`
+                <strong>FEO Filtering Debug Info for ${selectedClass}:</strong><br>
+                Regular entries included: ${summaryData.debugInfo.regularIncluded}<br>
+                FEO entries filtered out: ${summaryData.debugInfo.feoFiltered}<br>
+                Final participant count: ${summaryData.debugInfo.totalParticipants}
+            `);
+        }
+        
+        renderSummary();
+        showStatus('Summary generated successfully (FEO entries filtered)!', 'success');
+    }
+
+} catch (error) {
+    console.error('Error generating summary:', error);
+    showStatus('Error generating summary: ' + error.message, 'error');
+    showProgress(false);
+}
 
         // Render summary for all classes (simplified view) with FEO filtering
         function renderAllClassesSummary() {
