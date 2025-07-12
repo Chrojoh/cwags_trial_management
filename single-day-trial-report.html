@@ -10,6 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -102,8 +105,12 @@
             color: #212529;
         }
 
-        .btn-secondary {
-            background: #6c757d;
+        .btn-excel {
+            background: #217346;
+        }
+
+        .btn-excel:hover {
+            background: #1e5f3a;
         }
 
         .discipline-tabs {
@@ -1287,15 +1294,281 @@
             activeDiscipline = discipline;
         }
 
-        // Placeholder export functions (to prevent errors)
+        // WORKING Export Functions
         function exportDisciplineCSV(discipline) {
-            console.log('📄 CSV export for', discipline, 'not yet implemented');
-            showStatus('CSV export feature coming soon!', 'info');
+            console.log('📄 Exporting CSV for', discipline);
+            
+            const runs = reportData[discipline] || [];
+            if (runs.length === 0) {
+                showStatus('No data to export for ' + discipline, 'error');
+                return;
+            }
+
+            // Create CSV content
+            const headers = ['C-WAGS #', 'Call Name', 'Handler', 'Date', 'Class', 'Round', 'Result', 'Judge', 'Comments'];
+            const csvContent = [
+                headers.join(','),
+                ...runs.map(run => [
+                    `"${run.cwagsNumber}"`,
+                    `"${run.dogName}"`,
+                    `"${run.handlerName}"`,
+                    `"${run.date}"`,
+                    `"${run.className}"`,
+                    `"${run.roundNumber}"`,
+                    `"${run.result}"`,
+                    `"${run.judgeName}"`,
+                    `"${run.comments.replace(/"/g, '""')}"`
+                ].join(','))
+            ].join('\n');
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            const trialName = currentTrial?.clubName || 'Trial';
+            const dayDate = currentTrial?.days[currentDay]?.date || 'Day';
+            const filename = `${trialName}_${discipline}_${dayDate}.csv`.replace(/[^a-zA-Z0-9_-]/g, '_');
+            
+            if (navigator.msSaveBlob) {
+                navigator.msSaveBlob(blob, filename);
+            } else {
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+            
+            showStatus(`CSV exported: ${filename}`, 'success');
         }
 
         function exportDisciplinePDF(discipline) {
-            console.log('📑 PDF export for', discipline, 'not yet implemented');
-            showStatus('PDF export feature coming soon!', 'info');
+            console.log('📑 Exporting PDF for', discipline);
+            
+            const runs = reportData[discipline] || [];
+            if (runs.length === 0) {
+                showStatus('No data to export for ' + discipline, 'error');
+                return;
+            }
+
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank');
+            
+            const trialName = currentTrial?.clubName || 'Trial';
+            const dayDate = currentTrial?.days[currentDay]?.date || 'Date TBD';
+            const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+            
+            // Generate statistics
+            const totalRuns = runs.length;
+            const passes = runs.filter(r => r.result === 'Pass' || r.result === 'P').length;
+            const fails = runs.filter(r => r.result === 'Fail' || r.result === 'F').length;
+            const passRate = totalRuns > 0 ? ((passes / totalRuns) * 100).toFixed(1) : '0';
+
+            const html = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${trialName} - ${discipline.charAt(0).toUpperCase() + discipline.slice(1)} Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+                        .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                        .subtitle { font-size: 16px; color: #666; }
+                        .stats { display: flex; justify-content: space-around; margin: 20px 0; padding: 15px; background: #f5f5f5; }
+                        .stat { text-align: center; }
+                        .stat-value { font-size: 20px; font-weight: bold; color: #333; }
+                        .stat-label { font-size: 12px; color: #666; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; font-weight: bold; }
+                        .result-pass { color: #28a745; font-weight: bold; }
+                        .result-fail { color: #dc3545; font-weight: bold; }
+                        .result-center { text-align: center; }
+                        @media print { 
+                            body { margin: 0; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="title">${trialName}</div>
+                        <div class="subtitle">${discipline.charAt(0).toUpperCase() + discipline.slice(1)} Disciplines Report - ${formattedDate}</div>
+                    </div>
+                    
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value">${totalRuns}</div>
+                            <div class="stat-label">Total Entries</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${passes}</div>
+                            <div class="stat-label">Passes</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${fails}</div>
+                            <div class="stat-label">Fails</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${passRate}%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>C-WAGS #</th>
+                                <th>Call Name</th>
+                                <th>Handler</th>
+                                <th>Date</th>
+                                <th>Class</th>
+                                <th>Round</th>
+                                <th>Result</th>
+                                <th>Judge</th>
+                                <th>Comments</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${runs.map(run => `
+                                <tr>
+                                    <td style="font-weight: bold;">${run.cwagsNumber}</td>
+                                    <td>${run.dogName}</td>
+                                    <td>${run.handlerName}</td>
+                                    <td>${run.date}</td>
+                                    <td>${run.className}</td>
+                                    <td class="result-center">${run.roundNumber}</td>
+                                    <td class="result-center ${run.result === 'Pass' ? 'result-pass' : 'result-fail'}">${run.result}</td>
+                                    <td>${run.judgeName}</td>
+                                    <td>${run.comments}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div class="no-print" style="margin-top: 30px; text-align: center;">
+                        <button onclick="window.print()" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">Print/Save as PDF</button>
+                        <button onclick="window.close()" style="padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Close</button>
+                    </div>
+                </body>
+                </html>
+            `;
+            
+            printWindow.document.write(html);
+            printWindow.document.close();
+            
+            showStatus('PDF preview opened - use Print/Save as PDF', 'success');
+        }
+
+        function exportDisciplineExcel(discipline) {
+            console.log('📊 Exporting Excel for', discipline);
+            
+            const runs = reportData[discipline] || [];
+            if (runs.length === 0) {
+                showStatus('No data to export for ' + discipline, 'error');
+                return;
+            }
+
+            try {
+                // Create workbook and worksheet
+                const wb = XLSX.utils.book_new();
+                
+                const trialName = currentTrial?.clubName || 'Trial';
+                const dayDate = currentTrial?.days[currentDay]?.date || 'Date TBD';
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                // Generate statistics
+                const totalRuns = runs.length;
+                const passes = runs.filter(r => r.result === 'Pass' || r.result === 'P').length;
+                const fails = runs.filter(r => r.result === 'Fail' || r.result === 'F').length;
+                const passRate = totalRuns > 0 ? ((passes / totalRuns) * 100).toFixed(1) : '0';
+
+                // Create summary data
+                const summaryData = [
+                    ['Trial Report Summary'],
+                    ['Trial Name:', trialName],
+                    ['Date:', formattedDate],
+                    ['Discipline:', discipline.charAt(0).toUpperCase() + discipline.slice(1)],
+                    [''],
+                    ['Statistics'],
+                    ['Total Entries:', totalRuns],
+                    ['Passes:', passes],
+                    ['Fails:', fails],
+                    ['Pass Rate:', passRate + '%'],
+                    [''],
+                    ['Detailed Results']
+                ];
+
+                // Add headers for detailed data
+                const headers = ['C-WAGS #', 'Call Name', 'Handler', 'Date', 'Class', 'Round', 'Result', 'Judge', 'Comments'];
+                summaryData.push(headers);
+
+                // Add run data
+                runs.forEach(run => {
+                    summaryData.push([
+                        run.cwagsNumber,
+                        run.dogName,
+                        run.handlerName,
+                        run.date,
+                        run.className,
+                        run.roundNumber,
+                        run.result,
+                        run.judgeName,
+                        run.comments
+                    ]);
+                });
+
+                // Create worksheet
+                const ws = XLSX.utils.aoa_to_sheet(summaryData);
+                
+                // Set column widths
+                const colWidths = [
+                    {wch: 12}, // C-WAGS #
+                    {wch: 15}, // Call Name
+                    {wch: 20}, // Handler
+                    {wch: 12}, // Date
+                    {wch: 20}, // Class
+                    {wch: 8},  // Round
+                    {wch: 10}, // Result
+                    {wch: 15}, // Judge
+                    {wch: 30}  // Comments
+                ];
+                ws['!cols'] = colWidths;
+
+                // Style the header row (row 13 in our case, where detailed results start)
+                const headerRowIndex = 12; // 0-based index
+                for (let col = 0; col < headers.length; col++) {
+                    const cellRef = XLSX.utils.encode_cell({r: headerRowIndex, c: col});
+                    if (!ws[cellRef]) ws[cellRef] = {};
+                    ws[cellRef].s = {
+                        font: { bold: true },
+                        fill: { fgColor: { rgb: "F2F2F2" } },
+                        border: {
+                            top: { style: "thin" },
+                            bottom: { style: "thin" },
+                            left: { style: "thin" },
+                            right: { style: "thin" }
+                        }
+                    };
+                }
+
+                // Add worksheet to workbook
+                const sheetName = discipline.charAt(0).toUpperCase() + discipline.slice(1);
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+                // Generate filename and save
+                const filename = `${trialName}_${discipline}_${dayDate}.xlsx`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                XLSX.writeFile(wb, filename);
+                
+                showStatus(`Excel file exported: ${filename}`, 'success');
+                
+            } catch (error) {
+                console.error('Error creating Excel file:', error);
+                showStatus('Error creating Excel file. Using fallback CSV export.', 'error');
+                // Fallback to CSV if Excel fails
+                exportDisciplineCSV(discipline);
+            }
         }
 
         // Start the application when page loads
