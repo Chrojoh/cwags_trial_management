@@ -595,30 +595,39 @@
         // Initialize the application
         async function init() {
             try {
+                console.log('🔧 Initializing class summary application...');
+                
                 await new Promise((resolve, reject) => {
                     const unsubscribe = auth.onAuthStateChanged(async (user) => {
                         unsubscribe();
                         if (user) {
                             try {
+                                console.log('👤 User authenticated:', user.uid);
                                 const userDoc = await db.collection('users').doc(user.uid).get();
                                 if (userDoc.exists) {
                                     currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log('✅ User profile loaded:', currentUser.firstName, currentUser.lastName);
                                     resolve();
                                 } else {
                                     reject(new Error('User profile not found'));
                                 }
                             } catch (error) {
+                                console.error('❌ Error loading user profile:', error);
                                 reject(error);
                             }
                         } else {
+                            console.log('❌ No user authenticated, redirecting to login');
                             window.location.href = 'index.html';
                         }
                     });
                 });
 
+                console.log('📋 Loading trials for user...');
                 await loadTrials();
+                console.log('✅ Class summary initialization complete');
+                
             } catch (error) {
-                console.error('Error initializing:', error);
+                console.error('❌ Error initializing:', error);
                 showStatus('Error initializing application: ' + error.message, 'error');
             }
         }
@@ -626,19 +635,33 @@
         // Load trials for the dropdown
         async function loadTrials() {
             try {
+                console.log('📊 Starting trial load process...');
                 showStatus('Loading your trials...', 'info');
 
+                if (!currentUser || !currentUser.uid) {
+                    throw new Error('No authenticated user found');
+                }
+
+                console.log('🔍 Querying trials for user:', currentUser.uid);
                 const trialsSnapshot = await db.collection("trials")
                     .where("createdBy", "==", currentUser.uid)
                     .get();
 
+                console.log(`📈 Found ${trialsSnapshot.size} trials in database`);
+
                 const trialSelect = document.getElementById('trialSelect');
+                if (!trialSelect) {
+                    throw new Error('Trial select element not found');
+                }
+
                 trialSelect.innerHTML = '<option value="">Select a trial...</option>';
 
                 if (!trialsSnapshot.empty) {
                     const trials = [];
                     trialsSnapshot.forEach(doc => {
-                        trials.push({ id: doc.id, ...doc.data() });
+                        const trialData = doc.data();
+                        console.log(`📋 Processing trial: ${trialData.clubName || 'Unnamed'} (${doc.id})`);
+                        trials.push({ id: doc.id, ...trialData });
                     });
 
                     trials.sort((a, b) => {
@@ -672,15 +695,24 @@
                         
                         option.textContent = trialLabel;
                         trialSelect.appendChild(option);
+                        console.log(`✅ Added trial option: ${trialLabel}`);
                     });
 
                     showStatus(`Found ${trials.length} trials`, 'success');
+                    console.log(`✅ Successfully loaded ${trials.length} trials into dropdown`);
                 } else {
+                    console.log('⚠️ No trials found for this user');
                     showStatus('No trials found', 'error');
+                    trialSelect.innerHTML = '<option value="">No trials found - create a trial first</option>';
                 }
             } catch (error) {
-                console.error('Error loading trials:', error);
+                console.error('❌ Error loading trials:', error);
                 showStatus('Error loading trials: ' + error.message, 'error');
+                
+                const trialSelect = document.getElementById('trialSelect');
+                if (trialSelect) {
+                    trialSelect.innerHTML = '<option value="">Error loading trials</option>';
+                }
             }
         }
 
