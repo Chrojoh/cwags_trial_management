@@ -539,12 +539,14 @@
         }
 
         function showDebug(content) {
-            // Debug functionality removed for cleaner UI
-            console.log('Debug:', content);
+            const debugDiv = document.getElementById('debugInfo');
+            const debugContent = document.getElementById('debugContent');
+            debugContent.innerHTML = content;
+            debugDiv.style.display = 'block';
         }
 
         function hideDebug() {
-            // Debug functionality removed for cleaner UI
+            document.getElementById('debugInfo').style.display = 'none';
         }
 
         function showProgress(show = false, percent = 0, text = '') {
@@ -693,6 +695,7 @@
                 classSelect.innerHTML = '<option value="">Select a trial first</option>';
                 document.getElementById('summaryContainer').style.display = 'none';
                 allClassNames = [];
+                hideDebug();
                 return;
             }
 
@@ -1083,6 +1086,15 @@
                         return;
                     }
                     
+                    // Show debug information
+                    showDebug(`
+                        <strong>FEO Filtering Debug Info:</strong><br>
+                        Total classes processed: ${debugSummary.processedClasses}/${debugSummary.totalClasses}<br>
+                        Total FEO entries filtered out: ${debugSummary.totalFeoFiltered}<br>
+                        Total regular entries included: ${debugSummary.totalRegularIncluded}<br>
+                        Classes with data: ${Object.keys(allClassSummaries).join(', ')}
+                    `);
+                    
                     // Display the first class or a summary view
                     const firstClassName = Object.keys(allClassSummaries)[0];
                     summaryData = allClassSummaries[firstClassName];
@@ -1107,6 +1119,7 @@
                         showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
                         document.getElementById('noDataMessage').style.display = 'block';
                         document.getElementById('summaryContainer').style.display = 'none';
+                        hideDebug();
                         return;
                     }
                     
@@ -1129,6 +1142,7 @@
                 console.error('Error generating summary:', error);
                 showStatus('Error generating summary: ' + error.message, 'error');
                 showProgress(false);
+                hideDebug();
             }
         }
 
@@ -2045,7 +2059,7 @@
             init();
         });
 
-        console.log('Class Summary Sheet with FEO filtering loaded successfully');
+        console.log('Fixed Class Summary Sheet with FEO filtering loaded successfully');
     </script>
 </body>
 </html>
