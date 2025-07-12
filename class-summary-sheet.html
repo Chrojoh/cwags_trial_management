@@ -450,6 +450,16 @@
     </div>
 
     <script>
+        console.log('🎯 Script starting...');
+
+// Right after firebase.initializeApp(firebaseConfig);
+console.log('🔥 Firebase initialized');
+
+// In the auth.onAuthStateChanged callback:
+auth.onAuthStateChanged((user) => {
+    console.log('👤 Auth state changed:', user ? 'User found' : 'No user');
+    // ... rest of your code
+});
         // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
