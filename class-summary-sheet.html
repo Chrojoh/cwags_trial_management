@@ -10,6 +10,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- JSZip for ZIP file creation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -100,6 +106,10 @@
         .btn-warning {
             background: #ffc107;
             color: #212529;
+        }
+
+        .btn-info {
+            background: #17a2b8;
         }
 
         .btn-secondary {
@@ -303,6 +313,27 @@
             gap: 1rem;
             justify-content: center;
             margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .progress-container {
+            background: #e9ecef;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            background: #667eea;
+            height: 20px;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
         }
 
         @media (max-width: 768px) {
@@ -340,6 +371,12 @@
 
         <!-- Status Message -->
         <div class="status-message" id="statusMessage"></div>
+
+        <!-- Progress Container -->
+        <div class="progress-container" id="progressContainer">
+            <div>Processing classes...</div>
+            <div class="progress-bar" id="progressBar">0%</div>
+        </div>
 
         <!-- Controls -->
         <div class="controls">
@@ -384,6 +421,7 @@
 
             <div class="export-buttons">
                 <button class="btn btn-success" onclick="exportSummaryCSV()">📄 Export CSV</button>
+                <button class="btn btn-info" onclick="exportSummaryExcel()">📊 Export Excel</button>
                 <button class="btn btn-warning" onclick="exportSummaryPDF()">📑 Export PDF</button>
             </div>
         </div>
@@ -491,6 +529,8 @@
         let currentTrial = null;
         let currentClass = null;
         let summaryData = null;
+        let allClassNames = [];
+        let allClassSummaries = {};
 
         // Get C-WAGS class order
         function getCWAGSClassOrder(className) {
@@ -529,6 +569,19 @@
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 5000);
+        }
+
+        function showProgress(show = false, percent = 0, text = '') {
+            const container = document.getElementById('progressContainer');
+            const bar = document.getElementById('progressBar');
+            
+            if (show) {
+                container.style.display = 'block';
+                bar.style.width = `${percent}%`;
+                bar.textContent = `${percent}% - ${text}`;
+            } else {
+                container.style.display = 'none';
+            }
         }
 
         function createLocalDate(dateStr) {
@@ -621,7 +674,29 @@
                     trials.forEach(trial => {
                         const option = document.createElement('option');
                         option.value = trial.id;
-                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        
+                        // Start with club name
+                        let trialLabel = trial.clubName || 'Unnamed Trial';
+                        
+                        // Add dates if available using timezone-safe formatting
+                        if (trial.days && trial.days.length > 0) {
+                            const dates = trial.days
+                                .filter(day => day.date)
+                                .map(day => {
+                                    const localDate = createLocalDate(day.date);
+                                    return localDate.toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                                    });
+                                })
+                                .join(', ');
+                            if (dates) {
+                                trialLabel += ` (${dates})`;
+                            }
+                        }
+                        
+                        option.textContent = trialLabel;
                         trialSelect.appendChild(option);
                     });
 
@@ -643,6 +718,7 @@
             if (!trialId) {
                 classSelect.innerHTML = '<option value="">Select a trial first</option>';
                 document.getElementById('summaryContainer').style.display = 'none';
+                allClassNames = [];
                 return;
             }
 
@@ -674,11 +750,21 @@
                 classSelect.innerHTML = '<option value="">Select a class...</option>';
                 
                 if (classNames.size > 0) {
+                    // Add "Select All" option
+                    const selectAllOption = document.createElement('option');
+                    selectAllOption.value = 'ALL_CLASSES';
+                    selectAllOption.textContent = '📊 Select All Classes';
+                    selectAllOption.style.fontWeight = 'bold';
+                    selectAllOption.style.backgroundColor = '#e9ecef';
+                    classSelect.appendChild(selectAllOption);
+                    
                     const sortedClasses = Array.from(classNames).sort((a, b) => {
                         const orderA = getCWAGSClassOrder(a);
                         const orderB = getCWAGSClassOrder(b);
                         return orderA - orderB;
                     });
+                    
+                    allClassNames = sortedClasses; // Store for multi-class operations
                     
                     sortedClasses.forEach(className => {
                         const option = document.createElement('option');
@@ -690,93 +776,89 @@
                     showStatus(`Found ${classNames.size} classes`, 'success');
                 } else {
                     showStatus('No classes found in this trial', 'error');
+                    allClassNames = [];
                 }
 
             } catch (error) {
                 console.error('Error loading trial classes:', error);
                 showStatus('Error loading classes: ' + error.message, 'error');
+                allClassNames = [];
             }
         }
 
-        // Generate class summary
-        async function generateSummary() {
-            const trialId = document.getElementById('trialSelect').value;
-            const className = document.getElementById('classSelect').value;
-            
-            if (!trialId || !className) {
-                showStatus('Please select both trial and class', 'error');
-                return;
-            }
+        // Generate class summary for a specific class
+        async function generateSummaryForClass(className) {
+            const trialId = currentTrial.id;
 
-            try {
-                showStatus('Generating class summary...', 'info');
-                currentClass = className;
+            // First try to get scored rounds
+            const rounds = [];
+            const scoresSnapshot = await db.collection('scores')
+                .where('trialId', '==', trialId)
+                .where('className', '==', className)
+                .get();
 
-                // First try to get scored rounds
-                const rounds = [];
-                const scoresSnapshot = await db.collection('scores')
-                    .where('trialId', '==', trialId)
-                    .where('className', '==', className)
-                    .get();
-
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    rounds.push({
-                        id: doc.id,
-                        roundKey: scoreData.roundKey,
-                        judgeName: scoreData.judgeName,
-                        roundNumber: scoreData.roundNumber,
-                        lastUpdated: scoreData.lastUpdated,
-                        participants: scoreData.participants || {},
-                        hasScores: true,
-                        ...scoreData
-                    });
+            scoresSnapshot.forEach(doc => {
+                const scoreData = doc.data();
+                rounds.push({
+                    id: doc.id,
+                    roundKey: scoreData.roundKey,
+                    judgeName: scoreData.judgeName,
+                    roundNumber: scoreData.roundNumber,
+                    lastUpdated: scoreData.lastUpdated,
+                    participants: scoreData.participants || {},
+                    hasScores: true,
+                    ...scoreData
                 });
+            });
 
-                // If no scored rounds, try to get from running orders (even without scores)
-                if (rounds.length === 0) {
-                    showStatus('No scores found. Looking for running order data...', 'info');
-                    
-                    try {
-                        const orderDoc = await db.collection('running_orders').doc(trialId).get();
-                        if (orderDoc.exists) {
-                            const runningOrderData = orderDoc.data();
-                            
-                            // Check for different possible field names from your running order system
-                            let finalizedData = null;
-                            if (runningOrderData.finalizedRunningOrders) {
-                                finalizedData = runningOrderData.finalizedRunningOrders;
-                            } else if (runningOrderData.generatedSheets) {
-                                finalizedData = runningOrderData.generatedSheets;
-                            } else if (runningOrderData.roundOrders) {
-                                // This is the format your running-order.html saves
-                                finalizedData = runningOrderData.roundOrders;
-                            }
+            // If no scored rounds, try to get from running orders
+            if (rounds.length === 0) {
+                try {
+                    const orderDoc = await db.collection('running_orders').doc(trialId).get();
+                    if (orderDoc.exists) {
+                        const runningOrderData = orderDoc.data();
+                        
+                        let finalizedData = null;
+                        if (runningOrderData.finalizedRunningOrders) {
+                            finalizedData = runningOrderData.finalizedRunningOrders;
+                        } else if (runningOrderData.generatedSheets) {
+                            finalizedData = runningOrderData.generatedSheets;
+                        } else if (runningOrderData.roundOrders) {
+                            finalizedData = runningOrderData.roundOrders;
+                        }
 
-                            if (finalizedData) {
-                                // Get all entries to resolve participant details
-                                const entriesSnapshot = await db.collection('entries')
-                                    .where('trialId', '==', trialId)
-                                    .get();
+                        if (finalizedData) {
+                            const entriesSnapshot = await db.collection('entries')
+                                .where('trialId', '==', trialId)
+                                .get();
 
-                                const entryMap = {};
-                                entriesSnapshot.forEach(doc => {
-                                    entryMap[doc.id] = doc.data();
-                                });
+                            const entryMap = {};
+                            entriesSnapshot.forEach(doc => {
+                                entryMap[doc.id] = doc.data();
+                            });
 
-                                // Process running order data to create rounds
-                                Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
-                                    const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
-                                    const day = currentTrial.days[dayIndex];
-                                    const cls = day?.classes[classIndex];
-                                    const round = cls?.rounds[roundIndex];
+                            Object.entries(finalizedData).forEach(([roundKey, roundData]) => {
+                                const [dayIndex, classIndex, roundIndex] = roundKey.split('-').map(Number);
+                                const day = currentTrial.days[dayIndex];
+                                const cls = day?.classes[classIndex];
+                                const round = cls?.rounds[roundIndex];
 
-                                    if (day && cls && round && entryIds && entryIds.length > 0) {
-                                        const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
+                                if (day && cls && round) {
+                                    const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
+                                    
+                                    if (roundClassName && roundClassName.trim() === className.trim()) {
+                                        let entryIds = [];
+                                        if (Array.isArray(roundData)) {
+                                            entryIds = roundData;
+                                        } else if (roundData.entries) {
+                                            entryIds = roundData.entries.map(entry => entry.entryId || entry.id);
+                                        } else if (roundData.participants) {
+                                            entryIds = roundData.participants.map(p => p.entryId || p.id);
+                                        } else {
+                                            entryIds = Object.values(roundData).filter(item => typeof item === 'string');
+                                        }
                                         
-                                        // Check if this round matches our selected class
-                                        if (roundClassName && roundClassName.trim() === className.trim()) {
-                                            // Build participants list from entryIds
+                                        if (entryIds && entryIds.length > 0) {
                                             const participants = [];
                                             entryIds.forEach(entryId => {
                                                 const [docId] = entryId.split('_');
@@ -803,141 +885,311 @@
                                             }
                                         }
                                     }
-                                });
-                            }
-                        }
-                    } catch (orderError) {
-                        console.log('No running order found or error accessing it:', orderError);
-                        // Continue without running order data
-                    }
-                }
-
-                if (rounds.length === 0) {
-                    showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
-                    document.getElementById('noDataMessage').style.display = 'block';
-                    document.getElementById('summaryContainer').style.display = 'none';
-                    return;
-                }
-
-                rounds.sort((a, b) => {
-                    const aKey = a.roundKey || '';
-                    const bKey = b.roundKey || '';
-                    return aKey.localeCompare(bKey);
-                });
-
-                // Group participants by unique dog/handler combinations
-                const participantMap = new Map();
-                
-                rounds.forEach(round => {
-                    if (round.hasScores) {
-                        // Handle scored rounds
-                        Object.keys(round.participants).forEach(participantId => {
-                            const [docId] = participantId.split('_');
-                            const uniqueKey = docId; // Use base docId as unique identifier
-                            
-                            if (!participantMap.has(uniqueKey)) {
-                                participantMap.set(uniqueKey, {
-                                    id: uniqueKey,
-                                    dogName: 'Unknown',
-                                    handlerName: 'Unknown Handler',
-                                    cwagsNumber: 'TBD',
-                                    participantIds: [participantId], // Track all participant IDs for this team
-                                    rounds: new Map() // Track which rounds they participated in
-                                });
-                            }
-                            
-                            // Add this participant ID if not already tracked
-                            const participant = participantMap.get(uniqueKey);
-                            if (!participant.participantIds.includes(participantId)) {
-                                participant.participantIds.push(participantId);
-                            }
-                        });
-                    } else {
-                        // Handle unscored rounds - get participants from running order
-                        if (round.participants && Array.isArray(round.participants)) {
-                            round.participants.forEach(participant => {
-                                const [docId] = participant.id.split('_');
-                                const uniqueKey = docId;
-                                
-                                if (!participantMap.has(uniqueKey)) {
-                                    participantMap.set(uniqueKey, {
-                                        id: uniqueKey,
-                                        dogName: participant.dogCallName || 'Unknown',
-                                        handlerName: participant.handlerName || 'Unknown Handler',
-                                        cwagsNumber: participant.cwagsNumber || 'TBD',
-                                        participantIds: [participant.id],
-                                        rounds: new Map()
-                                    });
-                                } else {
-                                    // Add this participant ID if not already tracked
-                                    const existingParticipant = participantMap.get(uniqueKey);
-                                    if (!existingParticipant.participantIds.includes(participant.id)) {
-                                        existingParticipant.participantIds.push(participant.id);
-                                    }
-                                    
-                                    // Update with better data if available
-                                    if (existingParticipant.dogName === 'Unknown' && participant.dogCallName) {
-                                        existingParticipant.dogName = participant.dogCallName;
-                                    }
-                                    if (existingParticipant.handlerName === 'Unknown Handler' && participant.handlerName) {
-                                        existingParticipant.handlerName = participant.handlerName;
-                                    }
-                                    if (existingParticipant.cwagsNumber === 'TBD' && participant.cwagsNumber) {
-                                        existingParticipant.cwagsNumber = participant.cwagsNumber;
-                                    }
                                 }
                             });
                         }
                     }
-                });
+                } catch (orderError) {
+                    console.log('No running order found or error accessing it:', orderError);
+                }
+            }
 
-                // Get participant details from entries for any missing data
-                if (participantMap.size > 0) {
-                    const entriesSnapshot = await db.collection('entries')
-                        .where('trialId', '==', trialId)
-                        .get();
+            if (rounds.length === 0) {
+                return null; // No data for this class
+            }
 
-                    const entryMap = {};
-                    entriesSnapshot.forEach(doc => {
-                        entryMap[doc.id] = doc.data();
-                    });
+            rounds.sort((a, b) => {
+                const aKey = a.roundKey || '';
+                const bKey = b.roundKey || '';
+                return aKey.localeCompare(bKey);
+            });
 
-                    // Update participant data from entries
-                    participantMap.forEach((participant, uniqueKey) => {
-                        const entry = entryMap[uniqueKey];
-                        if (entry) {
-                            if (participant.dogName === 'Unknown' && entry.dogCallName) {
-                                participant.dogName = entry.dogCallName;
-                            }
-                            if (participant.handlerName === 'Unknown Handler' && entry.handlerName) {
-                                participant.handlerName = entry.handlerName;
-                            }
-                            if (participant.cwagsNumber === 'TBD' && entry.cwagsNumber) {
-                                participant.cwagsNumber = entry.cwagsNumber;
-                            }
+            // Group participants by unique dog/handler combinations
+            const participantMap = new Map();
+            
+            rounds.forEach(round => {
+                if (round.hasScores) {
+                    // Handle scored rounds
+                    Object.keys(round.participants).forEach(participantId => {
+                        const [docId] = participantId.split('_');
+                        const uniqueKey = docId;
+                        
+                        if (!participantMap.has(uniqueKey)) {
+                            participantMap.set(uniqueKey, {
+                                id: uniqueKey,
+                                dogName: 'Unknown',
+                                handlerName: 'Unknown Handler',
+                                cwagsNumber: 'TBD',
+                                participantIds: [participantId],
+                                rounds: new Map()
+                            });
+                        }
+                        
+                        const participant = participantMap.get(uniqueKey);
+                        if (!participant.participantIds.includes(participantId)) {
+                            participant.participantIds.push(participantId);
                         }
                     });
+                } else {
+                    // Handle unscored rounds
+                    if (round.participants && Array.isArray(round.participants)) {
+                        round.participants.forEach(participant => {
+                            const [docId] = participant.id.split('_');
+                            const uniqueKey = docId;
+                            
+                            if (!participantMap.has(uniqueKey)) {
+                                participantMap.set(uniqueKey, {
+                                    id: uniqueKey,
+                                    dogName: participant.dogCallName || 'Unknown',
+                                    handlerName: participant.handlerName || 'Unknown Handler',
+                                    cwagsNumber: participant.cwagsNumber || 'TBD',
+                                    participantIds: [participant.id],
+                                    rounds: new Map()
+                                });
+                            } else {
+                                const existingParticipant = participantMap.get(uniqueKey);
+                                if (!existingParticipant.participantIds.includes(participant.id)) {
+                                    existingParticipant.participantIds.push(participant.id);
+                                }
+                                
+                                // Update with better data if available
+                                if (existingParticipant.dogName === 'Unknown' && participant.dogCallName) {
+                                    existingParticipant.dogName = participant.dogCallName;
+                                }
+                                if (existingParticipant.handlerName === 'Unknown Handler' && participant.handlerName) {
+                                    existingParticipant.handlerName = participant.handlerName;
+                                }
+                                if (existingParticipant.cwagsNumber === 'TBD' && participant.cwagsNumber) {
+                                    existingParticipant.cwagsNumber = participant.cwagsNumber;
+                                }
+                            }
+                        });
+                    }
                 }
+            });
 
-                summaryData = {
-                    trialName: currentTrial.clubName || 'Trial',
-                    className: className,
-                    rounds: rounds,
-                    participants: Array.from(participantMap.values()),
-                    totalParticipants: participantMap.size,
-                    totalRounds: rounds.length
-                };
+            // Get participant details from entries for any missing data
+            if (participantMap.size > 0) {
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', currentTrial.id)
+                    .get();
 
-                renderSummary();
-                showStatus('Summary generated successfully!', 'success');
+                const entryMap = {};
+                entriesSnapshot.forEach(doc => {
+                    entryMap[doc.id] = doc.data();
+                });
+
+                participantMap.forEach((participant, uniqueKey) => {
+                    const entry = entryMap[uniqueKey];
+                    if (entry) {
+                        if (participant.dogName === 'Unknown' && entry.dogCallName) {
+                            participant.dogName = entry.dogCallName;
+                        }
+                        if (participant.handlerName === 'Unknown Handler' && entry.handlerName) {
+                            participant.handlerName = entry.handlerName;
+                        }
+                        if (participant.cwagsNumber === 'TBD' && entry.cwagsNumber) {
+                            participant.cwagsNumber = entry.cwagsNumber;
+                        }
+                    }
+                });
+            }
+
+            return {
+                trialName: currentTrial.clubName || 'Trial',
+                className: className,
+                rounds: rounds,
+                participants: Array.from(participantMap.values()),
+                totalParticipants: participantMap.size,
+                totalRounds: rounds.length
+            };
+        }
+
+        // Generate class summary
+        async function generateSummary() {
+            const trialId = document.getElementById('trialSelect').value;
+            const selectedClass = document.getElementById('classSelect').value;
+            
+            if (!trialId || !selectedClass) {
+                showStatus('Please select both trial and class', 'error');
+                return;
+            }
+
+            try {
+                if (selectedClass === 'ALL_CLASSES') {
+                    showStatus('Generating summaries for all classes...', 'info');
+                    
+                    // Generate summaries for all classes
+                    allClassSummaries = {};
+                    
+                    for (let i = 0; i < allClassNames.length; i++) {
+                        const className = allClassNames[i];
+                        showProgress(true, Math.round((i / allClassNames.length) * 100), `Processing ${className}`);
+                        
+                        const classSummary = await generateSummaryForClass(className);
+                        if (classSummary) {
+                            allClassSummaries[className] = classSummary;
+                        }
+                    }
+                    
+                    showProgress(false);
+                    
+                    if (Object.keys(allClassSummaries).length === 0) {
+                        showStatus('No data found for any classes', 'error');
+                        return;
+                    }
+                    
+                    // Display the first class or a summary view
+                    const firstClassName = Object.keys(allClassSummaries)[0];
+                    summaryData = allClassSummaries[firstClassName];
+                    currentClass = 'ALL_CLASSES';
+                    
+                    document.getElementById('summaryTitle').textContent = `All Classes Summary`;
+                    document.getElementById('summaryInfo').textContent = 
+                        `${summaryData.trialName} • ${Object.keys(allClassSummaries).length} Classes`;
+                    
+                    // Show a simplified view for all classes
+                    renderAllClassesSummary();
+                    showStatus(`Generated summaries for ${Object.keys(allClassSummaries).length} classes`, 'success');
+                    
+                } else {
+                    // Generate summary for single class
+                    showStatus('Generating class summary...', 'info');
+                    currentClass = selectedClass;
+                    
+                    summaryData = await generateSummaryForClass(selectedClass);
+                    
+                    if (!summaryData) {
+                        showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
+                        document.getElementById('noDataMessage').style.display = 'block';
+                        document.getElementById('summaryContainer').style.display = 'none';
+                        return;
+                    }
+                    
+                    renderSummary();
+                    showStatus('Summary generated successfully!', 'success');
+                }
 
             } catch (error) {
                 console.error('Error generating summary:', error);
                 showStatus('Error generating summary: ' + error.message, 'error');
+                showProgress(false);
             }
         }
 
-        // Render the summary table
+        // Render summary for all classes (simplified view)
+        function renderAllClassesSummary() {
+            const thead = document.getElementById('summaryTableHead');
+            const tbody = document.getElementById('summaryTableBody');
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            // Create headers
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = `
+                <th class="participant-cwags">Class Name</th>
+                <th class="participant-dog">Participants</th>
+                <th class="participant-handler">Rounds</th>
+                <th class="round-header">Completion Rate</th>
+                <th class="round-header">Pass Rate</th>
+            `;
+            thead.appendChild(headerRow);
+
+            // Create rows for each class
+            Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                const row = document.createElement('tr');
+                
+                let totalRuns = 0;
+                let totalPasses = 0;
+                let scheduledRuns = 0;
+                
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        scheduledRuns += round.participants ? round.participants.length : 0;
+                    }
+                });
+                
+                const totalPossibleRuns = totalRuns + scheduledRuns;
+                const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
+                const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+                
+                row.innerHTML = `
+                    <td class="participant-cwags">${className}</td>
+                    <td class="participant-dog">${classData.totalParticipants}</td>
+                    <td class="participant-handler">${classData.totalRounds}</td>
+                    <td class="result-cell">${completionRate}% (${totalRuns}/${totalPossibleRuns})</td>
+                    <td class="result-cell result-${totalPasses > 0 ? 'pass' : 'fail'}">${passRate}% (${totalPasses}/${totalRuns})</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Generate overall statistics
+            generateAllClassesStatistics();
+            document.getElementById('summaryContainer').style.display = 'block';
+            document.getElementById('noDataMessage').style.display = 'none';
+        }
+
+        // Generate statistics for all classes
+        function generateAllClassesStatistics() {
+            const statsSection = document.getElementById('statsSection');
+            statsSection.innerHTML = '';
+
+            let totalClasses = Object.keys(allClassSummaries).length;
+            let totalParticipants = 0;
+            let totalRounds = 0;
+            let totalRuns = 0;
+            let totalPasses = 0;
+
+            Object.values(allClassSummaries).forEach(classData => {
+                totalParticipants += classData.totalParticipants;
+                totalRounds += classData.totalRounds;
+                
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+
+            const overallPassRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+
+            const stats = [
+                { label: 'Total Classes', value: totalClasses },
+                { label: 'Total Participants', value: totalParticipants },
+                { label: 'Total Rounds', value: totalRounds },
+                { label: 'Completed Runs', value: totalRuns },
+                { label: 'Total Passes', value: totalPasses },
+                { label: 'Overall Pass Rate', value: `${overallPassRate}%` }
+            ];
+
+            stats.forEach(stat => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <div class="stat-value">${stat.value}</div>
+                    <div class="stat-label">${stat.label}</div>
+                `;
+                statsSection.appendChild(card);
+            });
+        }
+
+        // Render the summary table for single class
         function renderSummary() {
             if (!summaryData) return;
 
@@ -1010,13 +1262,11 @@
                     const cell = document.createElement('td');
                     cell.className = 'result-cell';
                     
-                    // Check if this participant participated in this round
                     let participatedInRound = false;
                     let result = '-';
                     let cssClass = 'result-absent';
                     
                     if (round.hasScores) {
-                        // Check if any of the participant's IDs are in this round's participants
                         for (const participantId of participant.participantIds) {
                             if (round.participants[participantId]) {
                                 participatedInRound = true;
@@ -1030,11 +1280,10 @@
                                         cssClass = 'result-fail';
                                     }
                                 }
-                                break; // Use first found result
+                                break;
                             }
                         }
                     } else {
-                        // Check if participant is scheduled for this unscored round
                         if (round.participants && Array.isArray(round.participants)) {
                             for (const participantId of participant.participantIds) {
                                 if (round.participants.some(p => p.id === participantId)) {
@@ -1105,7 +1354,6 @@
                         }
                     });
                 } else {
-                    // Count scheduled runs for unscored rounds
                     totalScheduled += round.participants ? round.participants.length : 0;
                 }
             });
@@ -1134,231 +1382,537 @@
         }
 
         // Export summary as CSV
-        function exportSummaryCSV() {
-            if (!summaryData) {
-                showStatus('No summary data to export', 'error');
-                return;
-            }
-
-            try {
-                let csvContent = '';
-                
-                csvContent += `"Class Summary Report"\n`;
-                csvContent += `"Trial","${summaryData.trialName}"\n`;
-                csvContent += `"Class","${summaryData.className}"\n`;
-                csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
-                csvContent += `\n`;
-                
-                let headerRow = '"C-WAGS Number","Dog Name","Handler Name"';
-                summaryData.rounds.forEach((round, index) => {
-                    const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
-                    const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
-                        ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
-                        : 'Date TBD';
-                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+        async function exportSummaryCSV() {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes as separate CSV files in a ZIP
+                try {
+                    showStatus('Creating CSV files for all classes...', 'info');
+                    const zip = new JSZip();
                     
-                    const sameJudgeDate = summaryData.rounds.filter((r, i) => 
-                        i <= index && 
-                        r.judgeName === round.judgeName && 
-                        getDateFromRound(r) === getDateFromRound(round)
-                    ).length;
-                    const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
-                    
-                    headerRow += `,"${round.judgeName || 'Judge TBD'} - ${formattedDate}${roundSuffix}"`;
-                });
-                csvContent += headerRow + '\n';
-                
-                summaryData.participants.forEach(participant => {
-                    let row = `"${participant.cwagsNumber || 'TBD'}","${participant.dogName || 'Unknown'}","${participant.handlerName || 'Unknown Handler'}"`;
-                    
-                    summaryData.rounds.forEach(round => {
-                        let result = '-';
-                        
-                        if (round.hasScores) {
-                            // Check if any of the participant's IDs have results in this round
-                            for (const participantId of participant.participantIds) {
-                                if (round.participants[participantId]) {
-                                    const participantResult = round.participants[participantId];
-                                    if (participantResult.passFail) {
-                                        if (participantResult.passFail === 'Pass') {
-                                            result = 'P';
-                                        } else if (participantResult.passFail === 'Fail') {
-                                            result = 'F';
-                                        }
-                                    }
-                                    break;
-                                }
-                            }
-                        } else {
-                            // Check if participant is scheduled for this unscored round
-                            if (round.participants && Array.isArray(round.participants)) {
-                                for (const participantId of participant.participantIds) {
-                                    if (round.participants.some(p => p.id === participantId)) {
-                                        result = '•';
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        
-                        row += `,"${result}"`;
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        const csvContent = generateCSVContent(classData);
+                        const filename = `${className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
+                        zip.file(filename, csvContent);
                     });
                     
-                    csvContent += row + '\n';
-                });
-                
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-
-                showStatus('Summary CSV exported successfully!', 'success');
-            } catch (error) {
-                console.error('Error exporting CSV:', error);
-                showStatus('Error exporting CSV: ' + error.message, 'error');
+                    const zipContent = await zip.generateAsync({type: 'blob'});
+                    const url = URL.createObjectURL(zipContent);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${currentTrial.clubName || 'Trial'}_All_Classes_Summary.zip`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('All class CSV files exported as ZIP!', 'success');
+                } catch (error) {
+                    console.error('Error exporting CSV ZIP:', error);
+                    showStatus('Error exporting CSV files: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class
+                try {
+                    const csvContent = generateCSVContent(summaryData);
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Summary CSV exported successfully!', 'success');
+                } catch (error) {
+                    console.error('Error exporting CSV:', error);
+                    showStatus('Error exporting CSV: ' + error.message, 'error');
+                }
+            } else {
+                showStatus('No summary data to export', 'error');
             }
         }
 
-        // Export summary as PDF
-        function exportSummaryPDF() {
-            if (!summaryData) {
-                showStatus('No summary data to export', 'error');
-                return;
-            }
-
-            try {
-                const printWindow = window.open('', '_blank');
+        // Generate CSV content for a class
+        function generateCSVContent(classData) {
+            let csvContent = '';
+            
+            csvContent += `"Class Summary Report"\n`;
+            csvContent += `"Trial","${classData.trialName}"\n`;
+            csvContent += `"Class","${classData.className}"\n`;
+            csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
+            csvContent += `\n`;
+            
+            let headerRow = '"C-WAGS Number","Dog Name","Handler Name"';
+            classData.rounds.forEach((round, index) => {
+                const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                    ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                    : 'Date TBD';
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
                 
-                const htmlContent = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <title>Class Summary: ${summaryData.className}</title>
-                        <style>
-                            body { font-family: Arial, sans-serif; margin: 20px; }
-                            .header { text-align: center; margin-bottom: 30px; }
-                            .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-                            .info { font-size: 14px; color: #666; margin-bottom: 5px; }
-                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                            th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-                            th { background-color: #f5f5f5; font-weight: bold; }
-                            .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
-                            .result-pass { color: #28a745; font-weight: bold; }
-                            .result-fail { color: #dc3545; font-weight: bold; }
-                            .result-absent { color: #6c757d; }
-                            @media print { body { margin: 0; } }
-                        </style>
-                    </head>
-                    <body>
-                        <div class="header">
-                            <div class="title">Class Summary: ${summaryData.className}</div>
-                            <div class="info">Trial: ${summaryData.trialName}</div>
-                            <div class="info">Generated: ${new Date().toLocaleDateString()}</div>
-                            <div class="info">Total Participants: ${summaryData.totalParticipants} | Total Rounds: ${summaryData.totalRounds}</div>
-                        </div>
+                const sameJudgeDate = classData.rounds.filter((r, i) => 
+                    i <= index && 
+                    r.judgeName === round.judgeName && 
+                    getDateFromRound(r) === getDateFromRound(round)
+                ).length;
+                const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                
+                headerRow += `,"${round.judgeName || 'Judge TBD'} - ${formattedDate}${roundSuffix}"`;
+            });
+            csvContent += headerRow + '\n';
+            
+            classData.participants.forEach(participant => {
+                let row = `"${participant.cwagsNumber || 'TBD'}","${participant.dogName || 'Unknown'}","${participant.handlerName || 'Unknown Handler'}"`;
+                
+                classData.rounds.forEach(round => {
+                    let result = '-';
+                    
+                    if (round.hasScores) {
+                        for (const participantId of participant.participantIds) {
+                            if (round.participants[participantId]) {
+                                const participantResult = round.participants[participantId];
+                                if (participantResult.passFail) {
+                                    if (participantResult.passFail === 'Pass') {
+                                        result = 'P';
+                                    } else if (participantResult.passFail === 'Fail') {
+                                        result = 'F';
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        if (round.participants && Array.isArray(round.participants)) {
+                            for (const participantId of participant.participantIds) {
+                                if (round.participants.some(p => p.id === participantId)) {
+                                    result = '•';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    row += `,"${result}"`;
+                });
+                
+                csvContent += row + '\n';
+            });
+            
+            return csvContent;
+        }
+
+        // Export summary as Excel
+        async function exportSummaryExcel() {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes as separate sheets in one Excel file
+                try {
+                    showStatus('Creating Excel workbook with all classes...', 'info');
+                    
+                    const workbook = XLSX.utils.book_new();
+                    
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        const worksheetData = generateExcelSheetData(classData);
+                        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
                         
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th rowspan="3" class="participant-cwags">C-WAGS Number</th>
-                                    <th rowspan="3" class="participant-dog">Dog Name</th>
-                                    <th rowspan="3" class="participant-handler">Handler Name</th>
-                                    ${summaryData.rounds.map(round => `<th>${round.judgeName || 'Judge TBD'}</th>`).join('')}
-                                </tr>
-                                <tr>
-                                    ${summaryData.rounds.map(round => {
-                                        const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
-                                        const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
-                                            ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
-                                            : 'Date TBD';
-                                        const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
-                                        return `<th>${formattedDate}</th>`;
-                                    }).join('')}
-                                </tr>
-                                <tr>
-                                    ${summaryData.rounds.map((round, index) => {
-                                        const sameJudgeDate = summaryData.rounds.filter((r, i) => 
-                                            i <= index && 
-                                            r.judgeName === round.judgeName && 
-                                            getDateFromRound(r) === getDateFromRound(round)
-                                        ).length;
-                                        const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
-                                        return `<th>${round.className || 'Class'}${roundSuffix}</th>`;
-                                    }).join('')}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${summaryData.participants.map(participant => {
-                                    const resultCells = summaryData.rounds.map(round => {
-                                        let result = '-';
-                                        let cssClass = 'result-absent';
-                                        
-                                        if (round.hasScores) {
-                                            // Check if any of the participant's IDs have results in this round
-                                            for (const participantId of participant.participantIds) {
-                                                if (round.participants[participantId]) {
-                                                    const participantResult = round.participants[participantId];
-                                                    if (participantResult.passFail) {
-                                                        if (participantResult.passFail === 'Pass') {
-                                                            result = 'P';
-                                                            cssClass = 'result-pass';
-                                                        } else if (participantResult.passFail === 'Fail') {
-                                                            result = 'F';
-                                                            cssClass = 'result-fail';
-                                                        }
+                        // Clean sheet name for Excel compatibility
+                        const sheetName = className.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 31);
+                        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+                    });
+                    
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${currentTrial.clubName || 'Trial'}_All_Classes_Summary.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Excel workbook with all classes exported!', 'success');
+                } catch (error) {
+                    console.error('Error exporting Excel:', error);
+                    showStatus('Error exporting Excel: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class
+                try {
+                    const workbook = XLSX.utils.book_new();
+                    const worksheetData = generateExcelSheetData(summaryData);
+                    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+                    XLSX.utils.book_append_sheet(workbook, worksheet, summaryData.className.substring(0, 31));
+                    
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Excel summary exported successfully!', 'success');
+                } catch (error) {
+                    console.error('Error exporting Excel:', error);
+                    showStatus('Error exporting Excel: ' + error.message, 'error');
+                }
+            } else {
+                showStatus('No summary data to export', 'error');
+            }
+        }
+
+        // Generate Excel sheet data for a class
+        function generateExcelSheetData(classData) {
+            const data = [];
+            
+            // Title and info
+            data.push(['Class Summary Report']);
+            data.push(['Trial', classData.trialName]);
+            data.push(['Class', classData.className]);
+            data.push(['Generated', new Date().toLocaleDateString()]);
+            data.push([]);
+            
+            // Headers
+            const judgeRow = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
+            const dateRow = ['', '', ''];
+            const roundRow = ['', '', ''];
+            
+            classData.rounds.forEach((round, index) => {
+                const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                    ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                    : 'Date TBD';
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                const sameJudgeDate = classData.rounds.filter((r, i) => 
+                    i <= index && 
+                    r.judgeName === round.judgeName && 
+                    getDateFromRound(r) === getDateFromRound(round)
+                ).length;
+                const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                
+                judgeRow.push(round.judgeName || 'Judge TBD');
+                dateRow.push(formattedDate);
+                roundRow.push(`${round.className || 'Class'}${roundSuffix}`);
+            });
+            
+            data.push(judgeRow);
+            data.push(dateRow);
+            data.push(roundRow);
+            
+            // Participant data
+            classData.participants.forEach(participant => {
+                const row = [
+                    participant.cwagsNumber || 'TBD',
+                    participant.dogName || 'Unknown',
+                    participant.handlerName || 'Unknown Handler'
+                ];
+                
+                classData.rounds.forEach(round => {
+                    let result = '-';
+                    
+                    if (round.hasScores) {
+                        for (const participantId of participant.participantIds) {
+                            if (round.participants[participantId]) {
+                                const participantResult = round.participants[participantId];
+                                if (participantResult.passFail) {
+                                    if (participantResult.passFail === 'Pass') {
+                                        result = 'P';
+                                    } else if (participantResult.passFail === 'Fail') {
+                                        result = 'F';
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        if (round.participants && Array.isArray(round.participants)) {
+                            for (const participantId of participant.participantIds) {
+                                if (round.participants.some(p => p.id === participantId)) {
+                                    result = '•';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    row.push(result);
+                });
+                
+                data.push(row);
+            });
+            
+            return data;
+        }
+
+        // Export summary as PDF
+        async function exportSummaryPDF() {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes in one PDF document
+                try {
+                    showStatus('Creating PDF with all classes...', 'info');
+                    
+                    const printWindow = window.open('', '_blank');
+                    
+                    let htmlContent = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>All Classes Summary: ${currentTrial.clubName}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+                                .trial-header { text-align: center; margin-bottom: 30px; page-break-after: avoid; }
+                                .trial-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                                .trial-info { font-size: 14px; color: #666; margin-bottom: 5px; }
+                                .class-section { page-break-before: always; margin-bottom: 40px; }
+                                .class-section:first-of-type { page-break-before: avoid; }
+                                .class-header { text-align: center; margin-bottom: 20px; page-break-after: avoid; }
+                                .class-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+                                .class-info { font-size: 12px; color: #666; margin-bottom: 5px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: avoid; }
+                                th, td { border: 1px solid #ddd; padding: 4px; text-align: center; font-size: 10px; }
+                                th { background-color: #f5f5f5; font-weight: bold; }
+                                .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
+                                .result-pass { color: #28a745; font-weight: bold; }
+                                .result-fail { color: #dc3545; font-weight: bold; }
+                                .result-absent { color: #6c757d; }
+                                .stats-section { margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+                                .stat-box { border: 1px solid #ddd; padding: 10px; text-align: center; }
+                                .stat-value { font-size: 16px; font-weight: bold; color: #667eea; }
+                                .stat-label { font-size: 10px; color: #666; }
+                                @media print { 
+                                    body { margin: 0; font-size: 10px; } 
+                                    .class-section { page-break-before: always; }
+                                    .class-section:first-of-type { page-break-before: avoid; }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="trial-header">
+                                <div class="trial-title">All Classes Summary</div>
+                                <div class="trial-info">Trial: ${currentTrial.clubName}</div>
+                                <div class="trial-info">Generated: ${new Date().toLocaleDateString()}</div>
+                                <div class="trial-info">Total Classes: ${Object.keys(allClassSummaries).length}</div>
+                            </div>
+                    `;
+                    
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        htmlContent += generatePDFClassSection(classData);
+                    });
+                    
+                    htmlContent += `
+                            <div style="margin-top: 30px; font-size: 10px; color: #666; text-align: center;">
+                                <p><strong>Legend:</strong> P = Pass, F = Fail, • = Scheduled, - = Did not run</p>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+                    
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    
+                    printWindow.onload = function() {
+                        printWindow.print();
+                    };
+
+                    showStatus('PDF with all classes opened in new window', 'success');
+                } catch (error) {
+                    console.error('Error exporting PDF:', error);
+                    showStatus('Error exporting PDF: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class PDF
+                try {
+                    const printWindow = window.open('', '_blank');
+                    
+                    const htmlContent = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Class Summary: ${summaryData.className}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; }
+                                .header { text-align: center; margin-bottom: 30px; }
+                                .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                                .info { font-size: 14px; color: #666; margin-bottom: 5px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                                th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+                                th { background-color: #f5f5f5; font-weight: bold; }
+                                .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
+                                .result-pass { color: #28a745; font-weight: bold; }
+                                .result-fail { color: #dc3545; font-weight: bold; }
+                                .result-absent { color: #6c757d; }
+                                @media print { body { margin: 0; } }
+                            </style>
+                        </head>
+                        <body>
+                            ${generatePDFClassSection(summaryData, false)}
+                            <div style="margin-top: 30px; font-size: 12px; color: #666;">
+                                <p><strong>Legend:</strong> P = Pass, F = Fail, • = Scheduled, - = Did not run</p>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+                    
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    
+                    printWindow.onload = function() {
+                        printWindow.print();
+                    };
+
+                    showStatus('PDF export opened in new window', 'success');
+                } catch (error) {
+                    console.error('Error exporting PDF:', error);
+                    showStatus('Error exporting PDF: ' + error.message, 'error');
+                }
+            } else {
+                showStatus('No summary data to export', 'error');
+            }
+        }
+
+        // Generate PDF section for a class
+        function generatePDFClassSection(classData, isMultiClass = true) {
+            const sectionClass = isMultiClass ? 'class-section' : '';
+            const headerClass = isMultiClass ? 'class-header' : 'header';
+            const titleClass = isMultiClass ? 'class-title' : 'title';
+            const infoClass = isMultiClass ? 'class-info' : 'info';
+            
+            let html = `
+                <div class="${sectionClass}">
+                    <div class="${headerClass}">
+                        <div class="${titleClass}">Class Summary: ${classData.className}</div>
+                        <div class="${infoClass}">Trial: ${classData.trialName}</div>
+                        <div class="${infoClass}">Total Participants: ${classData.totalParticipants} | Total Rounds: ${classData.totalRounds}</div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="participant-cwags">C-WAGS Number</th>
+                                <th rowspan="3" class="participant-dog">Dog Name</th>
+                                <th rowspan="3" class="participant-handler">Handler Name</th>
+                                ${classData.rounds.map(round => `<th>${round.judgeName || 'Judge TBD'}</th>`).join('')}
+                            </tr>
+                            <tr>
+                                ${classData.rounds.map(round => {
+                                    const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                                    const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                                        ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                                        : 'Date TBD';
+                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                                    return `<th>${formattedDate}</th>`;
+                                }).join('')}
+                            </tr>
+                            <tr>
+                                ${classData.rounds.map((round, index) => {
+                                    const sameJudgeDate = classData.rounds.filter((r, i) => 
+                                        i <= index && 
+                                        r.judgeName === round.judgeName && 
+                                        getDateFromRound(r) === getDateFromRound(round)
+                                    ).length;
+                                    const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                                    return `<th>${round.className || 'Class'}${roundSuffix}</th>`;
+                                }).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${classData.participants.map(participant => {
+                                const resultCells = classData.rounds.map(round => {
+                                    let result = '-';
+                                    let cssClass = 'result-absent';
+                                    
+                                    if (round.hasScores) {
+                                        for (const participantId of participant.participantIds) {
+                                            if (round.participants[participantId]) {
+                                                const participantResult = round.participants[participantId];
+                                                if (participantResult.passFail) {
+                                                    if (participantResult.passFail === 'Pass') {
+                                                        result = 'P';
+                                                        cssClass = 'result-pass';
+                                                    } else if (participantResult.passFail === 'Fail') {
+                                                        result = 'F';
+                                                        cssClass = 'result-fail';
                                                     }
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        if (round.participants && Array.isArray(round.participants)) {
+                                            for (const participantId of participant.participantIds) {
+                                                if (round.participants.some(p => p.id === participantId)) {
+                                                    result = '•';
                                                     break;
                                                 }
                                             }
-                                        } else {
-                                            // Check if participant is scheduled for this unscored round
-                                            if (round.participants && Array.isArray(round.participants)) {
-                                                for (const participantId of participant.participantIds) {
-                                                    if (round.participants.some(p => p.id === participantId)) {
-                                                        result = '•';
-                                                        break;
-                                                    }
-                                                }
-                                            }
                                         }
-                                        
-                                        return `<td class="${cssClass}">${result}</td>`;
-                                    }).join('');
+                                    }
                                     
-                                    return `<tr>
-                                        <td class="participant-cwags">${participant.cwagsNumber || 'TBD'}</td>
-                                        <td class="participant-dog">${participant.dogName || 'Unknown'}</td>
-                                        <td class="participant-handler">${participant.handlerName || 'Unknown Handler'}</td>
-                                        ${resultCells}
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                        
-                        <div style="margin-top: 30px; font-size: 12px; color: #666;">
-                            <p><strong>Legend:</strong> P = Pass, F = Fail, - = Did not run</p>
-                        </div>
-                    </body>
-                    </html>
-                `;
-                
-                printWindow.document.write(htmlContent);
-                printWindow.document.close();
-                
-                printWindow.onload = function() {
-                    printWindow.print();
-                };
+                                    return `<td class="${cssClass}">${result}</td>`;
+                                }).join('');
+                                
+                                return `<tr>
+                                    <td class="participant-cwags">${participant.cwagsNumber || 'TBD'}</td>
+                                    <td class="participant-dog">${participant.dogName || 'Unknown'}</td>
+                                    <td class="participant-handler">${participant.handlerName || 'Unknown Handler'}</td>
+                                    ${resultCells}
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>`;
+            
+            if (isMultiClass) {
+                // Add quick stats for multi-class view
+                let totalRuns = 0;
+                let totalPasses = 0;
+                let totalScheduled = 0;
 
-                showStatus('PDF export opened in new window', 'success');
-            } catch (error) {
-                console.error('Error exporting PDF:', error);
-                showStatus('Error exporting PDF: ' + error.message, 'error');
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        totalScheduled += round.participants ? round.participants.length : 0;
+                    }
+                });
+
+                const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+
+                html += `
+                    <div class="stats-section">
+                        <div class="stat-box">
+                            <div class="stat-value">${totalRuns}</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${totalScheduled}</div>
+                            <div class="stat-label">Scheduled</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${totalPasses}</div>
+                            <div class="stat-label">Passes</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${passRate}%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                    </div>`;
             }
+            
+            html += `</div>`;
+            return html;
         }
 
         // Initialize when page loads
@@ -1367,7 +1921,7 @@
             init();
         });
 
-        console.log('Class Summary Sheet script loaded successfully');
+        console.log('Enhanced Class Summary Sheet script loaded successfully');
     </script>
 </body>
 </html>
