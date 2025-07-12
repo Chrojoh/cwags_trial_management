@@ -1110,7 +1110,6 @@
                         showStatus('No rounds found for this class. Please ensure running orders are generated first.', 'error');
                         document.getElementById('noDataMessage').style.display = 'block';
                         document.getElementById('summaryContainer').style.display = 'none';
-                        hideDebug();
                         return;
                     }
                     
@@ -1133,7 +1132,6 @@
                 console.error('Error generating summary:', error);
                 showStatus('Error generating summary: ' + error.message, 'error');
                 showProgress(false);
-                hideDebug();
             }
         }
 
