@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Single-Day Trial Report - Enhanced</title>
+    <title>Single-Day Trial Report - Enhanced (Fixed)</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -321,7 +321,7 @@
         <!-- Header -->
         <div class="header">
             <div>
-                <h1>📊 Single-Day Trial Report (Enhanced)</h1>
+                <h1>📊 Single-Day Trial Report (Enhanced & Fixed)</h1>
                 <p>Generate detailed trial reports by discipline with enhanced FEO and orphaned entry filtering</p>
             </div>
             <div>
@@ -514,7 +514,7 @@
     </div>
 
     <script>
-        console.log('🎯 Enhanced Single-Day Trial Report starting...');
+        console.log('🎯 Enhanced Single-Day Trial Report (FIXED VERSION) starting...');
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -527,41 +527,19 @@
             measurementId: "G-EMLX58Y278"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        console.log('🔥 Firebase initialized');
+        // Initialize Firebase immediately
+        let auth, db, currentUser = null, currentTrial = null, currentDay = null;
+        let reportData = {}, activeDiscipline = 'scent';
+        let participantCache = new Map();
+        let entriesData = {};
+        let debugInfo = {
+            totalProcessed: 0,
+            feoFiltered: 0,
+            orphanedFiltered: 0,
+            regularIncluded: 0
+        };
 
-        // ===== ENHANCED ROUND KEY UTILITIES =====
-        function generateRoundKey(dayIndex, classIndex, roundIndex) {
-            const day = parseInt(dayIndex) || 0;
-            const cls = parseInt(classIndex) || 0;
-            const round = parseInt(roundIndex) || 0;
-            return `${day}-${cls}-${round}`;
-        }
-
-        function parseRoundKey(roundKey) {
-            if (!roundKey || typeof roundKey !== 'string') {
-                throw new Error(`Invalid round key: ${roundKey}`);
-            }
-            
-            const parts = roundKey.split('-');
-            if (parts.length !== 3) {
-                throw new Error(`Invalid round key format: ${roundKey}. Expected format: dayIndex-classIndex-roundIndex`);
-            }
-            
-            const dayIndex = parseInt(parts[0]);
-            const classIndex = parseInt(parts[1]);
-            const roundIndex = parseInt(parts[2]);
-            
-            if (isNaN(dayIndex) || isNaN(classIndex) || isNaN(roundIndex)) {
-                throw new Error(`Round key contains non-numeric values: ${roundKey}`);
-            }
-            
-            return { dayIndex, classIndex, roundIndex };
-        }
-
+        // Enhanced round key utilities
         function validateRoundKey(roundKey) {
             try {
                 if (!roundKey || typeof roundKey !== 'string') return false;
@@ -614,11 +592,11 @@
         function getRoundKeyIndices(roundKey) {
             if (validateRoundKey(roundKey)) {
                 try {
-                    const parsed = parseRoundKey(roundKey);
+                    const parts = roundKey.split('-');
                     return {
-                        dayIndex: parsed.dayIndex,
-                        classIndex: parsed.classIndex,
-                        roundIndex: parsed.roundIndex,
+                        dayIndex: parseInt(parts[0]),
+                        classIndex: parseInt(parts[1]),
+                        roundIndex: parseInt(parts[2]),
                         standardKey: roundKey
                     };
                 } catch (error) {
@@ -630,11 +608,11 @@
             if (fixed) {
                 console.warn(`⚠️ Using fixed round key: "${roundKey}" -> "${fixed}"`);
                 try {
-                    const parsed = parseRoundKey(fixed);
+                    const parts = fixed.split('-');
                     return {
-                        dayIndex: parsed.dayIndex,
-                        classIndex: parsed.classIndex,
-                        roundIndex: parsed.roundIndex,
+                        dayIndex: parseInt(parts[0]),
+                        classIndex: parseInt(parts[1]),
+                        roundIndex: parseInt(parts[2]),
                         standardKey: fixed
                     };
                 } catch (error) {
@@ -646,33 +624,22 @@
             return null;
         }
 
-        // ===== ENHANCED FEO + ORPHANED SCORE DETECTION =====
-        let participantCache = new Map();
-        let entriesData = {}; // Global cache for entries data
-        let debugInfo = {
-            totalProcessed: 0,
-            feoFiltered: 0,
-            orphanedFiltered: 0,
-            regularIncluded: 0
-        };
-
-        // Helper function to check if entry is FEO (case-insensitive)
+        // FEO detection
         function isFeoEntry(entryType) {
             if (!entryType) return false;
             const typeStr = entryType.toString().toLowerCase().trim();
             return typeStr === 'feo' || typeStr === 'for exhibition only' || typeStr === 'exhibition';
         }
 
-        // Enhanced function to determine if participant should be excluded
         function shouldExcludeParticipantEnhanced(participant, participantId) {
-            // First check for orphaned scores (deleted entries)
+            // Check for orphaned scores (deleted entries)
             const [docId] = participantId.split('_');
             const originalEntry = entriesData[docId];
             
             if (!originalEntry) {
                 console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
                 debugInfo.orphanedFiltered++;
-                return true; // Skip orphaned scores from deleted entries
+                return true;
             }
 
             // Check multiple possible FEO indicators
@@ -707,7 +674,6 @@
                     const entryDetails = parts[1];
                     let parsedClassName = '';
                     
-                    // Parse class name from entry details
                     const classNames = [
                         'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',
                         'Private Inv', 'Det Diversions', 'Ranger 1', 'Ranger 2', 
@@ -747,23 +713,33 @@
             ranger: ['RANGER 1', 'RANGER 2', 'RANGER 3', 'RANGER 4', 'RANGER 5', 'DASHER 3', 'DASHER 4', 'DASHER 5', 'DASHER 6']
         };
 
-        // Games result codes
-        const GAMES_RESULTS = {
-            'GB': 'Grab Bag',
-            'C': 'Colors', 
-            'BJ': 'Black Jack',
-            'P': 'Pairs',
-            'T': 'Team',
-            'Fail': 'Fail',
-            'abs': 'Absent'
-        };
-
-        // Global variables
-        let currentUser = null;
-        let currentTrial = null;
-        let currentDay = null;
-        let reportData = {};
-        let activeDiscipline = 'scent';
+        function getDisciplineForClass(className) {
+            const upperClassName = className.toUpperCase();
+            
+            for (const [discipline, classes] of Object.entries(DISCIPLINE_MAPPING)) {
+                if (classes.some(cls => upperClassName.includes(cls) || cls.includes(upperClassName))) {
+                    return discipline;
+                }
+            }
+            
+            // Additional fuzzy matching
+            if (upperClassName.includes('PATROL') || upperClassName.includes('DETECTIVE') || 
+                upperClassName.includes('INVESTIGATOR') || upperClassName.includes('SLEUTH') || 
+                upperClassName.includes('PRIVATE') || upperClassName.includes('SCENT')) {
+                return 'scent';
+            }
+            if (upperClassName.includes('GAME')) {
+                return 'games';
+            }
+            if (upperClassName.includes('OBEDIENCE') || upperClassName.includes('RALLY')) {
+                return 'obedience';
+            }
+            if (upperClassName.includes('RANGER') || upperClassName.includes('DASHER')) {
+                return 'ranger';
+            }
+            
+            return 'scent'; // Default to scent
+        }
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -817,124 +793,33 @@
             return formatLocalDate(date);
         }
 
-        function getDisciplineForClass(className) {
-            const upperClassName = className.toUpperCase();
-            
-            for (const [discipline, classes] of Object.entries(DISCIPLINE_MAPPING)) {
-                if (classes.some(cls => upperClassName.includes(cls) || cls.includes(upperClassName))) {
-                    return discipline;
-                }
-            }
-            
-            // Additional fuzzy matching
-            if (upperClassName.includes('PATROL') || upperClassName.includes('DETECTIVE') || 
-                upperClassName.includes('INVESTIGATOR') || upperClassName.includes('SLEUTH') || 
-                upperClassName.includes('PRIVATE') || upperClassName.includes('SCENT')) {
-                return 'scent';
-            }
-            if (upperClassName.includes('GAME')) {
-                return 'games';
-            }
-            if (upperClassName.includes('OBEDIENCE') || upperClassName.includes('RALLY')) {
-                return 'obedience';
-            }
-            if (upperClassName.includes('RANGER') || upperClassName.includes('DASHER')) {
-                return 'ranger';
-            }
-            
-            return 'scent'; // Default to scent
-        }
-
-        // Get participant details from entries collection (enhanced with cached data)
-        async function getParticipantDetails(participantId, trialId) {
-            console.log(`🔍 Getting participant details for: ${participantId}`);
-            
-            // Check cache first
-            if (participantCache.has(participantId)) {
-                console.log(`📋 Found in cache: ${participantId}`);
-                return participantCache.get(participantId);
-            }
-
-            try {
-                // Extract document ID from participant ID (remove round-specific suffixes)
-                const [docId] = participantId.split('_');
-                console.log(`📄 Looking up entry document: ${docId}`);
-
-                // Use cached entries data instead of individual database calls
-                const entryData = entriesData[docId];
-                
-                if (entryData) {
-                    console.log(`✅ Found cached entry data for ${docId}:`, entryData);
-                    
-                    const participantDetails = {
-                        id: participantId,
-                        cwagsNumber: entryData.cwagsNumber || 'TBD',
-                        dogCallName: entryData.dogCallName || 'Unknown',
-                        handlerName: entryData.handlerName || 'Unknown Handler',
-                        entryType: 'regular' // Default, will be updated if FEO info is available
-                    };
-
-                    // Check if this is an FEO entry
-                    if (entryData.selectedEntries && Array.isArray(entryData.selectedEntries)) {
-                        const matchingEntry = entryData.selectedEntries.find(se => 
-                            participantId.includes(se.className) || participantId.includes(se.roundName)
-                        );
-                        if (matchingEntry && matchingEntry.type) {
-                            participantDetails.entryType = matchingEntry.type;
-                        }
-                    }
-
-                    // Cache the result
-                    participantCache.set(participantId, participantDetails);
-                    console.log(`💾 Cached participant details for ${participantId}`);
-                    
-                    return participantDetails;
-                } else {
-                    console.log(`❌ No cached entry data found for ${docId} - may be orphaned`);
-                    return {
-                        id: participantId,
-                        cwagsNumber: 'TBD',
-                        dogCallName: 'Unknown',
-                        handlerName: 'Unknown Handler',
-                        entryType: 'regular'
-                    };
-                }
-            } catch (error) {
-                console.error(`❌ Error getting participant details for ${participantId}:`, error);
-                return {
-                    id: participantId,
-                    cwagsNumber: 'TBD',
-                    dogCallName: 'Unknown',
-                    handlerName: 'Unknown Handler',
-                    entryType: 'regular'
-                };
-            }
-        }
-
-        // Initialize the application
+        // Initialize Firebase and start the application
         async function init() {
             try {
-                console.log('🚀 Starting enhanced initialization...');
+                console.log('🚀 Starting FIXED initialization...');
                 
+                // Initialize Firebase
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                console.log('✅ Firebase initialized');
+                
+                // Wait for authentication
                 await new Promise((resolve, reject) => {
                     const unsubscribe = auth.onAuthStateChanged(async (user) => {
                         unsubscribe();
-                        console.log('👤 Auth state changed:', user ? 'User found' : 'No user');
                         
                         if (user) {
                             try {
-                                console.log('📋 Fetching user profile...');
                                 const userDoc = await db.collection('users').doc(user.uid).get();
                                 if (userDoc.exists) {
                                     currentUser = { uid: user.uid, ...userDoc.data() };
-                                    console.log('✅ User profile loaded:', currentUser.uid);
+                                    console.log('✅ User authenticated:', currentUser.uid);
                                     resolve();
                                 } else {
-                                    console.error('❌ User profile not found');
                                     reject(new Error('User profile not found'));
                                 }
                             } catch (error) {
-                                console.error('❌ Error fetching user profile:', error);
                                 reject(error);
                             }
                         } else {
@@ -946,7 +831,7 @@
 
                 console.log('📊 Loading trials...');
                 await loadTrials();
-                console.log('✅ Enhanced initialization complete');
+                console.log('✅ FIXED initialization complete');
                 
             } catch (error) {
                 console.error('❌ Error initializing:', error);
@@ -987,7 +872,6 @@
                         
                         let trialLabel = trial.clubName || 'Unnamed Trial';
                         
-                        // Add dates if available
                         if (trial.days && trial.days.length > 0) {
                             const dates = trial.days
                                 .filter(day => day.date)
@@ -1019,12 +903,6 @@
             } catch (error) {
                 console.error('❌ Error loading trials:', error);
                 showStatus('Error loading trials: ' + error.message, 'error');
-                
-                // Add debugging info to help troubleshoot
-                console.log('🔧 Debug info:');
-                console.log('- Current user:', currentUser);
-                console.log('- Firebase auth state:', auth.currentUser);
-                console.log('- Database reference:', db);
             }
         }
 
@@ -1078,8 +956,8 @@
                 showStatus('Error loading trial data: ' + error.message, 'error');
             }
         }
-        
-        // Generate reports for selected trial and day (ENHANCED WITH FILTERING)
+
+        // FIXED Generate reports function
         async function generateReports() {
             const trialId = document.getElementById('trialSelect').value;
             const dayIndex = document.getElementById('daySelect').value;
@@ -1101,7 +979,6 @@
                     regularIncluded: 0
                 };
 
-                // FIRST: Load all entries data for enhanced FEO/orphaned checking
                 console.log('📂 Loading entries data for enhanced filtering...');
                 const entriesSnapshot = await db.collection('entries')
                     .where('trialId', '==', trialId)
@@ -1113,224 +990,60 @@
                 });
                 console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents for filtering`);
 
-                console.log('🔍 Looking for data for trial:', trialId, 'day:', currentDay);
-                
-                // DEBUG: Log the trial structure
-                console.log('🏗️ Trial structure:', currentTrial);
-                if (currentTrial && currentTrial.days && currentTrial.days[currentDay]) {
-                    console.log('📅 Day structure:', currentTrial.days[currentDay]);
-                    if (currentTrial.days[currentDay].classes) {
-                        currentTrial.days[currentDay].classes.forEach((cls, idx) => {
-                            console.log(`📚 Class ${idx}:`, cls);
-                            if (cls.rounds) {
-                                cls.rounds.forEach((round, rIdx) => {
-                                    console.log(`🔄 Round ${rIdx}:`, round);
-                                });
-                            }
-                        });
-                    }
-                }
-
-                // ENHANCED DATA LOADING - Look in multiple places
-                const allRuns = [];
-
-                // Method 1: Look for individual round scores (preferred for scent work)
-                console.log('📊 Method 1: Looking for individual round scores...');
+                console.log('🔍 Looking for scores...');
                 const scoresSnapshot = await db.collection('scores')
                     .where('trialId', '==', trialId)
                     .get();
 
-                let foundIndividualScores = false;
+                const allRuns = [];
+                let foundScores = false;
+
+                // Process scores with enhanced filtering
                 for (const doc of scoresSnapshot.docs) {
                     const scoreData = doc.data();
-                    console.log('🔍 Found score document:', doc.id, scoreData);
+                    console.log('🔍 Processing score document:', doc.id, scoreData.className);
                     
-                    // Check if this score belongs to our selected day
                     if (scoreData.roundKey) {
                         const indices = getRoundKeyIndices(scoreData.roundKey);
                         if (indices && indices.dayIndex === currentDay && scoreData.participants) {
-                            foundIndividualScores = true;
+                            foundScores = true;
                             console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
                             
-                            // Process each participant with enhanced filtering
                             for (const [participantId, result] of Object.entries(scoreData.participants)) {
                                 if (result.passFail) {
                                     debugInfo.totalProcessed++;
 
                                     // Enhanced filtering: Skip FEO and orphaned entries
                                     if (shouldExcludeParticipantEnhanced(result, participantId)) {
-                                        continue; // Skip this entry
+                                        continue;
                                     }
                                     
-                                    // Get full participant details from cached entries data
-                                    const participantDetails = await getParticipantDetails(participantId, trialId);
+                                    // Get participant details from cached entries data
+                                    const [docId] = participantId.split('_');
+                                    const entry = entriesData[docId];
                                     
-                                    const discipline = getDisciplineForClass(scoreData.className);
-                                    const dayDate = currentTrial.days[currentDay].date || '';
-                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
-                                    
-                                    allRuns.push({
-                                        discipline: discipline,
-                                        cwagsNumber: participantDetails.cwagsNumber,
-                                        dogName: participantDetails.dogCallName,
-                                        handlerName: participantDetails.handlerName,
-                                        date: formattedDate,
-                                        className: scoreData.className,
-                                        roundNumber: scoreData.roundNumber || 1,
-                                        result: formatResult(result.passFail, discipline),
-                                        judgeName: scoreData.judgeName || 'TBD',
-                                        comments: result.comments || '',
-                                        classOrder: getClassOrder(scoreData.className, discipline)
-                                    });
+                                    if (entry) {
+                                        const discipline = getDisciplineForClass(scoreData.className);
+                                        const dayDate = currentTrial.days[currentDay].date || '';
+                                        const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                                        
+                                        allRuns.push({
+                                            discipline: discipline,
+                                            cwagsNumber: entry.cwagsNumber || 'TBD',
+                                            dogName: entry.dogCallName || 'Unknown',
+                                            handlerName: entry.handlerName || 'Unknown Handler',
+                                            date: formattedDate,
+                                            className: scoreData.className,
+                                            roundNumber: scoreData.roundNumber || 1,
+                                            result: result.passFail === 'Pass' ? 'Pass' : 'Fail',
+                                            judgeName: scoreData.judgeName || 'TBD',
+                                            comments: result.comments || '',
+                                            classOrder: getClassOrder(scoreData.className, discipline)
+                                        });
+                                    }
                                 }
                             }
                         }
-                    }
-                }
-
-                // Method 2: Look in running order data if no individual scores found
-                if (!foundIndividualScores) {
-                    console.log('📋 Method 2: Looking for running order data...');
-                    
-                    try {
-                        const orderDoc = await db.collection('running_orders').doc(trialId).get();
-                        if (orderDoc.exists) {
-                            const runningOrderData = orderDoc.data();
-                            console.log('🔍 Found running order data:', Object.keys(runningOrderData));
-
-                            // Check for different possible field names from running order system
-                            let finalizedData = null;
-                            if (runningOrderData.finalizedRunningOrders) {
-                                finalizedData = runningOrderData.finalizedRunningOrders;
-                            } else if (runningOrderData.generatedSheets) {
-                                finalizedData = runningOrderData.generatedSheets;
-                            } else if (runningOrderData.roundOrders) {
-                                finalizedData = runningOrderData.roundOrders;
-                            }
-
-                            if (finalizedData) {
-                                console.log('📋 Processing running order data:', Object.keys(finalizedData));
-                                
-                                // Process running order data to create placeholder entries
-                                Object.entries(finalizedData).forEach(([roundKey, entryIds]) => {
-                                    console.log('🔍 Raw round key:', roundKey);
-                                    
-                                    const indices = getRoundKeyIndices(roundKey);
-                                    if (indices && indices.dayIndex === currentDay && entryIds && entryIds.length > 0) {
-                                        const day = currentTrial.days[indices.dayIndex];
-                                        const cls = day?.classes[indices.classIndex];
-                                        const round = cls?.rounds[indices.roundIndex];
-
-                                        console.log(`🔍 Processing round ${roundKey}:`, {
-                                            day: day,
-                                            class: cls,
-                                            round: round,
-                                            entryCount: entryIds.length
-                                        });
-
-                                        if (day && cls && round) {
-                                            const roundClassName = cls.className || cls.class || cls.CLASS_NAME;
-                                            const discipline = getDisciplineForClass(roundClassName);
-                                            const dayDate = currentTrial.days[currentDay].date || '';
-                                            const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
-                                            
-                                            const judgeName = round.judgeName || round.judge || round.JUDGE_NAME || round.judgname || 'TBD';
-                                            
-                                            console.log(`🧑‍⚖️ Judge for ${roundClassName} Round ${indices.roundIndex + 1}:`, judgeName);
-                                            
-                                            entryIds.forEach(entryId => {
-                                                debugInfo.totalProcessed++;
-
-                                                // Enhanced filtering for running order entries
-                                                const [docId] = entryId.split('_');
-                                                const entry = entriesData[docId];
-                                                
-                                                if (!entry) {
-                                                    console.log(`🚫 Skipping orphaned running order entry: ${entryId}`);
-                                                    debugInfo.orphanedFiltered++;
-                                                    return;
-                                                }
-
-                                                // Check for FEO in running order entries
-                                                if (entry.selectedEntries) {
-                                                    const matchingEntry = entry.selectedEntries.find(se => 
-                                                        entryId.includes(se.className) || entryId.includes(se.roundName)
-                                                    );
-                                                    if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
-                                                        console.log(`🚫 Skipping FEO running order entry: ${entryId}`);
-                                                        debugInfo.feoFiltered++;
-                                                        return;
-                                                    }
-                                                }
-
-                                                debugInfo.regularIncluded++;
-                                                
-                                                allRuns.push({
-                                                    discipline: discipline,
-                                                    cwagsNumber: entry.cwagsNumber || 'TBD',
-                                                    dogName: entry.dogCallName || 'Unknown',
-                                                    handlerName: entry.handlerName || 'Unknown',
-                                                    date: formattedDate,
-                                                    className: roundClassName,
-                                                    roundNumber: (indices.roundIndex + 1),
-                                                    result: 'Scheduled', // Placeholder for unscored runs
-                                                    judgeName: judgeName,
-                                                    comments: 'Not yet scored',
-                                                    classOrder: getClassOrder(roundClassName, discipline),
-                                                    roundKey: roundKey
-                                                });
-                                            });
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    } catch (orderError) {
-                        console.log('⚠️ No running order found:', orderError);
-                    }
-                }
-
-                // Method 3: Look for entries data even without scores/running orders
-                if (allRuns.length === 0) {
-                    console.log('📝 Method 3: Looking for basic entry data...');
-                    
-                    if (Object.keys(entriesData).length > 0) {
-                        console.log('📝 Found', Object.keys(entriesData).length, 'entries for trial');
-                        
-                        Object.values(entriesData).forEach(entry => {
-                            if (entry.selectedEntries && Array.isArray(entry.selectedEntries)) {
-                                entry.selectedEntries.forEach(selectedEntry => {
-                                    debugInfo.totalProcessed++;
-
-                                    // Enhanced filtering for basic entries
-                                    if (selectedEntry.type && isFeoEntry(selectedEntry.type)) {
-                                        console.log(`🚫 Skipping FEO basic entry: ${selectedEntry.className}`);
-                                        debugInfo.feoFiltered++;
-                                        return;
-                                    }
-
-                                    debugInfo.regularIncluded++;
-
-                                    const discipline = getDisciplineForClass(selectedEntry.className);
-                                    const dayDate = currentTrial.days[currentDay]?.date || '';
-                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
-                                    
-                                    allRuns.push({
-                                        discipline: discipline,
-                                        cwagsNumber: entry.cwagsNumber || 'TBD',
-                                        dogName: entry.dogCallName || 'Unknown',
-                                        handlerName: entry.handlerName || 'Unknown',
-                                        date: formattedDate,
-                                        className: selectedEntry.className,
-                                        roundNumber: selectedEntry.roundNumber || 1,
-                                        result: 'Entry Only', // Just showing the entry exists
-                                        judgeName: 'TBD',
-                                        comments: 'Entry submitted - no scores yet',
-                                        classOrder: getClassOrder(selectedEntry.className, discipline)
-                                    });
-                                });
-                            }
-                        });
                     }
                 }
 
@@ -1348,7 +1061,7 @@
                 `);
 
                 if (allRuns.length === 0) {
-                    showStatus('No data found for this trial and day. Please ensure entries exist and running orders have been generated.', 'error');
+                    showStatus('No score data found for this day. Ensure scores have been entered.', 'error');
                     document.getElementById('noDataMessage').style.display = 'block';
                     document.getElementById('disciplineTabs').style.display = 'none';
                     return;
@@ -1397,7 +1110,6 @@
                 document.getElementById('disciplineTabs').style.display = 'flex';
                 document.getElementById('noDataMessage').style.display = 'none';
                 
-                // Enhanced status message
                 let statusMessage = 'Enhanced reports generated successfully!';
                 if (debugInfo.feoFiltered > 0) statusMessage += ` (${debugInfo.feoFiltered} FEO entries filtered)`;
                 if (debugInfo.orphanedFiltered > 0) statusMessage += ` (${debugInfo.orphanedFiltered} orphaned scores filtered)`;
@@ -1407,14 +1119,6 @@
                 console.error('Error generating enhanced reports:', error);
                 showStatus('Error generating reports: ' + error.message, 'error');
             }
-        }
-
-        // Format result based on discipline
-        function formatResult(passFail, discipline) {
-            if (discipline === 'games') {
-                return passFail === 'Pass' ? 'P' : 'Fail';
-            }
-            return passFail === 'Pass' ? 'Pass' : 'Fail';
         }
 
         // Get class order for sorting
@@ -1461,12 +1165,17 @@
             });
         }
 
-        // Render specific discipline report
+        // FIXED Render specific discipline report
         function renderDisciplineReport(discipline) {
             const runs = reportData[discipline] || [];
             const tbody = document.getElementById(`${discipline}TableBody`);
             const info = document.getElementById(`${discipline}ReportInfo`);
             const stats = document.getElementById(`${discipline}Stats`);
+            
+            if (!tbody || !info || !stats) {
+                console.log('⚠️ Report elements not found for discipline:', discipline);
+                return;
+            }
             
             // Update info
             const dayDate = currentTrial.days[currentDay].date ? 
@@ -1480,29 +1189,10 @@
             const scheduled = runs.filter(r => r.result === 'Scheduled' || r.result === 'Entry Only').length;
             const passRate = (totalRuns - scheduled) > 0 ? (((passes / (totalRuns - scheduled)) * 100).toFixed(1)) : '0';
             
-            // Group runs by class and round for better organization
-            const groupedRuns = {};
-            runs.forEach(run => {
-                const key = `${run.className} Round ${run.roundNumber}`;
-                if (!groupedRuns[key]) {
-                    groupedRuns[key] = {
-                        className: run.className,
-                        roundNumber: run.roundNumber,
-                        judgeName: run.judgeName,
-                        runs: []
-                    };
-                }
-                groupedRuns[key].runs.push(run);
-            });
-            
             stats.innerHTML = `
                 <div class="stat-card">
                     <div class="stat-value">${totalRuns}</div>
                     <div class="stat-label">Total Entries</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">${Object.keys(groupedRuns).length}</div>
-                    <div class="stat-label">Rounds</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${passes}</div>
@@ -1522,10 +1212,102 @@
                 </div>
             `;
             
-            // Generate table rows - grouped by round
+            // Generate table rows
             tbody.innerHTML = '';
             
             if (runs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
                         <td colspan="9" style="text-align: center; color: #6c757d; font-style: italic; padding: 2rem;">
+                            No ${discipline} entries found for this day
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            runs.forEach(run => {
+                const row = document.createElement('tr');
+                
+                let resultClass = 'result-absent';
+                if (run.result === 'Pass') resultClass = 'result-pass';
+                else if (run.result === 'Fail') resultClass = 'result-fail';
+                
+                row.innerHTML = `
+                    <td style="font-weight: bold;">${run.cwagsNumber}</td>
+                    <td>${run.dogName}</td>
+                    <td>${run.handlerName}</td>
+                    <td>${run.date}</td>
+                    <td style="font-size: 0.8rem;">${run.className}</td>
+                    <td style="text-align: center;">${run.roundNumber}</td>
+                    <td class="${resultClass}" style="text-align: center; font-weight: bold;">${run.result}</td>
+                    <td style="font-size: 0.8rem;">${run.judgeName}</td>
+                    <td style="background: #f8f9fa; font-size: 0.8rem;">${run.comments}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Show the report container
+            document.getElementById(`${discipline}Report`).style.display = 'block';
+        }
+
+        // FIXED Show different disciplines
+        function showDiscipline(discipline) {
+            // Hide all report containers
+            document.querySelectorAll('.report-container').forEach(container => {
+                container.style.display = 'none';
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.discipline-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected discipline and make tab active
+            document.getElementById(`${discipline}Report`).style.display = 'block';
+            
+            // Find and activate the clicked tab
+            const tabs = document.querySelectorAll('.discipline-tab');
+            tabs.forEach(tab => {
+                if (tab.textContent.toLowerCase().includes(discipline) || 
+                    (discipline === 'scent' && tab.textContent.includes('Scent')) ||
+                    (discipline === 'games' && tab.textContent.includes('Games')) ||
+                    (discipline === 'obedience' && tab.textContent.includes('Obedience')) ||
+                    (discipline === 'ranger' && tab.textContent.includes('Ranger'))) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // Render the report
+            if (reportData && reportData[discipline]) {
+                renderDisciplineReport(discipline);
+            }
+            
+            activeDiscipline = discipline;
+        }
+
+        // Placeholder export functions (to prevent errors)
+        function exportDisciplineCSV(discipline) {
+            console.log('📄 CSV export for', discipline, 'not yet implemented');
+            showStatus('CSV export feature coming soon!', 'info');
+        }
+
+        function exportDisciplinePDF(discipline) {
+            console.log('📑 PDF export for', discipline, 'not yet implemented');
+            showStatus('PDF export feature coming soon!', 'info');
+        }
+
+        // Start the application when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📋 DOM loaded, starting FIXED app...');
+            init().catch(error => {
+                console.error('❌ Failed to initialize app:', error);
+                showStatus('Failed to initialize application', 'error');
+            });
+        });
+
+        console.log('📋 FIXED script setup complete, waiting for DOM...');
+    </script>
+</body>
+</html>
