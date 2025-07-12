@@ -1123,7 +1123,8 @@
                     
                     renderSummary();
                     showStatus('Summary generated successfully (FEO entries filtered)!', 'success');
-                
+                }
+
             } catch (error) {
                 console.error('Error generating summary:', error);
                 showStatus('Error generating summary: ' + error.message, 'error');
