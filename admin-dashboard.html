@@ -1418,33 +1418,30 @@
                         if (scoreData.participants && Object.keys(scoreData.participants).length > 0) {
                             foundScoreData = true;
                             Object.entries(scoreData.participants).forEach(([participantId, participant]) => {
-    // Skip FEO entries in consolidation
-    if (participant.entryType === 'feo') return;
-    
-    // Extract call name from various possible formats
-    let callName = 'Unknown';
-    if (participant.dogCallName) {
-        callName = participant.dogCallName;
-    } else if (participant.handlerName && participant.handlerName.includes(' - ')) {
-        callName = participant.handlerName.split(' - ')[1];
-    }
-    
-    const record = {
-        registration: participant.cwagsNumber || 'TBD',
-        callName: callName,
-        date: scoreData.dayDate || getTrialDate(trial),
-        level: scoreData.className,
-        roundNumber: scoreData.roundNumber || 1,
-        results: participant.passFail || 'Scheduled',
-        judge: scoreData.judgeName || 'TBD',
-        points: 1,
-        trialId: trialId,
-        clubName: trial.clubName,
-        classOrder: getCWAGSClassOrder(scoreData.className)
-    };
-    
-    consolidatedData.push(record);
-});
+                                // Extract call name from various possible formats
+                                let callName = 'Unknown';
+                                if (participant.dogCallName) {
+                                    callName = participant.dogCallName;
+                                } else if (participant.handlerName && participant.handlerName.includes(' - ')) {
+                                    callName = participant.handlerName.split(' - ')[1];
+                                }
+                                
+                                const record = {
+                                    registration: participant.cwagsNumber || 'TBD',
+                                    callName: callName,
+                                    date: scoreData.dayDate || getTrialDate(trial),
+                                    level: scoreData.className,
+                                    roundNumber: scoreData.roundNumber || 1,
+                                    results: participant.passFail || 'Scheduled',
+                                    judge: scoreData.judgeName || 'TBD',
+                                    points: 1,
+                                    trialId: trialId,
+                                    clubName: trial.clubName,
+                                    classOrder: getCWAGSClassOrder(scoreData.className)
+                                };
+                                
+                                consolidatedData.push(record);
+                            });
                         }
                     });
                     

@@ -1103,33 +1103,20 @@
                 let totalPasses = 0;
                 let scheduledRuns = 0;
                 
-              classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in class summaries
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    } else {
-   // Count scheduled runs, excluding FEO
-if (round.participants) {
-    if (Array.isArray(round.participants)) {
-        const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-        scheduledRuns += nonFeoParticipants.length;
-    } else {
-        // If participants is an object, count non-FEO entries
-        const participantCount = Object.values(round.participants).filter(p => p.entryType !== 'feo').length;
-        scheduledRuns += participantCount;
-    }
-}
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        scheduledRuns += round.participants ? round.participants.length : 0;
+                    }
+                });
                 
                 const totalPossibleRuns = totalRuns + scheduledRuns;
                 const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
@@ -1166,21 +1153,19 @@ if (round.participants) {
                 totalParticipants += classData.totalParticipants;
                 totalRounds += classData.totalRounds;
                 
-          classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in overall statistics
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
 
             const overallPassRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
@@ -1356,29 +1341,22 @@ if (round.participants) {
             let totalFails = 0;
             let totalScheduled = 0;
 
-           summaryData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in single class statistics
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                } else if (result.passFail === 'Fail') {
-                    totalFails++;
+            summaryData.rounds.forEach(round => {
+                if (round.hasScores) {
+                    Object.entries(round.participants).forEach(([participantId, result]) => {
+                        if (result.passFail && result.passFail !== '-') {
+                            totalRuns++;
+                            if (result.passFail === 'Pass') {
+                                totalPasses++;
+                            } else if (result.passFail === 'Fail') {
+                                totalFails++;
+                            }
+                        }
+                    });
+                } else {
+                    totalScheduled += round.participants ? round.participants.length : 0;
                 }
-            }
-        });
-    } else {
-        // Count scheduled runs, excluding FEO
-        if (round.participants) {
-            const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-            totalScheduled += nonFeoParticipants.length;
-        }
-    }
-});
+            });
 
             const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
@@ -1895,27 +1873,20 @@ if (round.participants) {
                 let totalPasses = 0;
                 let totalScheduled = 0;
 
-            classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in multi-class stats
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    } else {
-        // Count scheduled runs, excluding FEO
-        if (round.participants) {
-            const nonFeoParticipants = round.participants.filter(p => p.entryType !== 'feo');
-            totalScheduled += nonFeoParticipants.length;
-        }
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        totalScheduled += round.participants ? round.participants.length : 0;
+                    }
+                });
 
                 const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
 
