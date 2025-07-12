@@ -1084,6 +1084,32 @@
             thead.innerHTML = '';
             tbody.innerHTML = '';
 
+classData.rounds.forEach(round => {
+    if (round.hasScores) {
+        Object.entries(round.participants).forEach(([participantId, result]) => {
+            // DEBUG: Log the participant data to see what fields exist
+            console.log('Participant ID:', participantId);
+            console.log('Participant data:', result);
+            console.log('Has entryType?', result.entryType);
+            console.log('All keys:', Object.keys(result));
+            
+            // Skip FEO entries in class summaries
+            if (result && result.entryType === 'feo') {
+                console.log('SKIPPING FEO ENTRY:', participantId);
+                return;
+            }
+            
+            if (result.passFail && result.passFail !== '-') {
+                totalRuns++;
+                if (result.passFail === 'Pass') {
+                    totalPasses++;
+                }
+            }
+        });
+    }
+    // ... rest of the code
+});
+            
             // Create headers
             const headerRow = document.createElement('tr');
             headerRow.innerHTML = `
