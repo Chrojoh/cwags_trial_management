@@ -1146,6 +1146,81 @@ function getRoundKeyIndices(roundKey) {
             }
         }
 
+        // Helper function to check if entry is FEO (case-insensitive)
+function isFeoEntry(entryType) {
+    if (!entryType) return false;
+    return entryType.toString().toLowerCase() === 'feo';
+}
+
+// Cache for participant details to avoid repeated database calls
+let participantCache = new Map();
+
+// Get participant details from entries collection
+async function getParticipantDetails(participantId, trialId) {
+    console.log(`🔍 Getting participant details for: ${participantId}`);
+    
+    // Check cache first
+    if (participantCache.has(participantId)) {
+        console.log(`📋 Found in cache: ${participantId}`);
+        return participantCache.get(participantId);
+    }
+
+    try {
+        // Extract document ID from participant ID (remove round-specific suffixes)
+        const [docId] = participantId.split('_');
+        console.log(`📄 Looking up entry document: ${docId}`);
+
+        const entryDoc = await db.collection('entries').doc(docId).get();
+        
+        if (entryDoc.exists) {
+            const entryData = entryDoc.data();
+            console.log(`✅ Found entry data for ${docId}:`, entryData);
+            
+            const participantDetails = {
+                id: participantId,
+                cwagsNumber: entryData.cwagsNumber || 'TBD',
+                dogCallName: entryData.dogCallName || 'Unknown',
+                handlerName: entryData.handlerName || 'Unknown Handler',
+                entryType: 'regular' // Default, will be updated if FEO info is available
+            };
+
+            // Check if this is an FEO entry
+            if (entryData.selectedEntries && Array.isArray(entryData.selectedEntries)) {
+                const matchingEntry = entryData.selectedEntries.find(se => 
+                    participantId.includes(se.className) || participantId.includes(se.roundName)
+                );
+                if (matchingEntry && matchingEntry.type) {
+                    participantDetails.entryType = matchingEntry.type;
+                }
+            }
+
+            // Cache the result
+            participantCache.set(participantId, participantDetails);
+            console.log(`💾 Cached participant details for ${participantId}`);
+            
+            return participantDetails;
+        } else {
+            console.log(`❌ No entry document found for ${docId}`);
+            return {
+                id: participantId,
+                cwagsNumber: 'TBD',
+                dogCallName: 'Unknown',
+                handlerName: 'Unknown Handler',
+                entryType: 'regular'
+            };
+        }
+    } catch (error) {
+        console.error(`❌ Error getting participant details for ${participantId}:`, error);
+        return {
+            id: participantId,
+            cwagsNumber: 'TBD',
+            dogCallName: 'Unknown',
+            handlerName: 'Unknown Handler',
+            entryType: 'regular'
+        };
+    }
+}
+        
         // Generate reports for selected trial and day
         async function generateReports() {
             const trialId = document.getElementById('trialSelect').value;
@@ -1188,54 +1263,63 @@ function getRoundKeyIndices(roundKey) {
                     .get();
 
                 let foundIndividualScores = false;
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    console.log('🔍 Found score document:', doc.id, scoreData);
-                    
-                   // Check if this score belongs to our selected day
-if (scoreData.roundKey) {
-    // Fix malformed round keys like "0--1-0"
-    let fixedRoundKey = scoreData.roundKey.replace(/--/g, '-');
-    const parts = fixedRoundKey.split('-');
-    let dayIdx = parseInt(parts[0]) || 0;
-    let classIdx = parseInt(parts[1]) || 0;
-    let roundIdx = parseInt(parts[2]) || 0;
+               for (const doc of scoresSnapshot.docs) {
+    const scoreData = doc.data();
+    console.log('🔍 Found score document:', doc.id, scoreData);
     
-    // Handle malformed keys like "0--1-0"
-    if (parts.length > 3 && parts[1] === '') {
-        classIdx = parseInt(parts[2]) || 0;
-        roundIdx = parseInt(parts[3]) || 0;
-    }
-                        
-                        if (dayIdx === currentDay && scoreData.participants) {
-                            foundIndividualScores = true;
-                            console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
-                            
-                            Object.entries(scoreData.participants).forEach(([participantId, result]) => {
-                                if (result.passFail) {
-                                    const discipline = getDisciplineForClass(scoreData.className);
-                                    const dayDate = currentTrial.days[currentDay].date || '';
-                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
-                                    
-                                    allRuns.push({
-                                        discipline: discipline,
-                                        cwagsNumber: result.cwagsNumber || 'TBD',
-                                        dogName: result.dogName || result.dogCallName || 'Unknown',
-                                        handlerName: result.handlerName || 'Unknown',
-                                        date: formattedDate,
-                                        className: scoreData.className,
-                                        roundNumber: scoreData.roundNumber || 1,
-                                        result: formatResult(result.passFail, discipline),
-                                        judgeName: scoreData.judgeName || 'TBD',
-                                        comments: result.comments || '',
-                                        classOrder: getClassOrder(scoreData.className, discipline)
-                                    });
-                                }
-                            });
-                        }
+    // Check if this score belongs to our selected day
+    if (scoreData.roundKey) {
+        // Fix malformed round keys like "0--1-0"
+        let fixedRoundKey = scoreData.roundKey.replace(/--/g, '-');
+        const parts = fixedRoundKey.split('-');
+        let dayIdx = parseInt(parts[0]) || 0;
+        let classIdx = parseInt(parts[1]) || 0;
+        let roundIdx = parseInt(parts[2]) || 0;
+        
+        // Handle malformed keys like "0--1-0"
+        if (parts.length > 3 && parts[1] === '') {
+            classIdx = parseInt(parts[2]) || 0;
+            roundIdx = parseInt(parts[3]) || 0;
+        }
+        
+        if (dayIdx === currentDay && scoreData.participants) {
+            foundIndividualScores = true;
+            console.log('✅ Found scores for day', currentDay, ':', Object.keys(scoreData.participants).length, 'participants');
+            
+            // Process each participant with full details lookup
+            for (const [participantId, result] of Object.entries(scoreData.participants)) {
+                if (result.passFail) {
+                    // Get full participant details from entries collection
+                    const participantDetails = await getParticipantDetails(participantId, trialId);
+                    
+                    // Skip FEO entries
+                    if (isFeoEntry(participantDetails.entryType)) {
+                        console.log(`🚫 Skipping FEO entry: ${participantId}`);
+                        continue;
                     }
-                });
-
+                    
+                    const discipline = getDisciplineForClass(scoreData.className);
+                    const dayDate = currentTrial.days[currentDay].date || '';
+                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : '';
+                    
+                    allRuns.push({
+                        discipline: discipline,
+                        cwagsNumber: participantDetails.cwagsNumber, // Now using real data!
+                        dogName: participantDetails.dogCallName,     // Now using real data!
+                        handlerName: participantDetails.handlerName, // Now using real data!
+                        date: formattedDate,
+                        className: scoreData.className,
+                        roundNumber: scoreData.roundNumber || 1,
+                        result: formatResult(result.passFail, discipline),
+                        judgeName: scoreData.judgeName || 'TBD',
+                        comments: result.comments || '',
+                        classOrder: getClassOrder(scoreData.className, discipline)
+                    });
+                }
+            }
+        }
+    }
+}
                 // Method 2: Look in running order data if no individual scores found
                 if (!foundIndividualScores) {
                     console.log('📋 Method 2: Looking for running order data...');
