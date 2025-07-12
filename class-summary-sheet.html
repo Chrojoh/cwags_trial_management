@@ -371,7 +371,7 @@
         <!-- Header -->
         <div class="header">
             <div>
-                <h1>📊 Class Summary Sheet (Fixed FEO Filtering)</h1>
+                <h1>📊 Class Summary Sheet</h1>
                 <p>Track competitor progress across all rounds of a class</p>
             </div>
             <div>
@@ -1086,15 +1086,6 @@
                         return;
                     }
                     
-                    // Show debug information
-                    showDebug(`
-                        <strong>FEO Filtering Debug Info:</strong><br>
-                        Total classes processed: ${debugSummary.processedClasses}/${debugSummary.totalClasses}<br>
-                        Total FEO entries filtered out: ${debugSummary.totalFeoFiltered}<br>
-                        Total regular entries included: ${debugSummary.totalRegularIncluded}<br>
-                        Classes with data: ${Object.keys(allClassSummaries).join(', ')}
-                    `);
-                    
                     // Display the first class or a summary view
                     const firstClassName = Object.keys(allClassSummaries)[0];
                     summaryData = allClassSummaries[firstClassName];
@@ -1125,7 +1116,8 @@
                     
                     // Show debug information
                     if (summaryData.debugInfo) {
-                        showDebug(`
+                        console.log(`📊 FEO Filtering Results for ${selectedClass}:`, summaryData.debugInfo);
+                    }        showDebug(`
                             <strong>FEO Filtering Debug Info for ${selectedClass}:</strong><br>
                             Regular entries included: ${summaryData.debugInfo.regularIncluded}<br>
                             FEO entries filtered out: ${summaryData.debugInfo.feoFiltered}<br>
@@ -1488,32 +1480,568 @@
             });
         }
 
-        // Export functions (simplified - just CSV for now)
+        // Export summary as CSV
         async function exportSummaryCSV() {
-            if (!summaryData && !allClassSummaries) {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes as separate CSV files in a ZIP
+                try {
+                    showStatus('Creating CSV files for all classes...', 'info');
+                    const zip = new JSZip();
+                    
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        const csvContent = generateCSVContent(classData);
+                        const filename = `${className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
+                        zip.file(filename, csvContent);
+                    });
+                    
+                    const zipContent = await zip.generateAsync({type: 'blob'});
+                    const url = URL.createObjectURL(zipContent);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${currentTrial.clubName || 'Trial'}_All_Classes_Summary.zip`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('All class CSV files exported as ZIP!', 'success');
+                } catch (error) {
+                    console.error('Error exporting CSV ZIP:', error);
+                    showStatus('Error exporting CSV files: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class
+                try {
+                    const csvContent = generateCSVContent(summaryData);
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Summary CSV exported successfully!', 'success');
+                } catch (error) {
+                    console.error('Error exporting CSV:', error);
+                    showStatus('Error exporting CSV: ' + error.message, 'error');
+                }
+            } else {
                 showStatus('No summary data to export', 'error');
-                return;
             }
-            
-            showStatus('CSV export functionality would be implemented here', 'info');
         }
 
+        // Generate CSV content for a class
+        function generateCSVContent(classData) {
+            let csvContent = '';
+            
+            csvContent += `"Class Summary Report"\n`;
+            csvContent += `"Trial","${classData.trialName}"\n`;
+            csvContent += `"Class","${classData.className}"\n`;
+            csvContent += `"Generated","${new Date().toLocaleDateString()}"\n`;
+            csvContent += `\n`;
+            
+            let headerRow = '"C-WAGS Number","Dog Name","Handler Name"';
+            classData.rounds.forEach((round, index) => {
+                const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                    ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                    : 'Date TBD';
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                const sameJudgeDate = classData.rounds.filter((r, i) => 
+                    i <= index && 
+                    r.judgeName === round.judgeName && 
+                    getDateFromRound(r) === getDateFromRound(round)
+                ).length;
+                const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                
+                headerRow += `,"${round.judgeName || 'Judge TBD'} - ${formattedDate}${roundSuffix}"`;
+            });
+            csvContent += headerRow + '\n';
+            
+            classData.participants.forEach(participant => {
+                let row = `"${participant.cwagsNumber || 'TBD'}","${participant.dogName || 'Unknown'}","${participant.handlerName || 'Unknown Handler'}"`;
+                
+                classData.rounds.forEach(round => {
+                    let result = '-';
+                    
+                    if (round.hasScores) {
+                        for (const participantId of participant.participantIds) {
+                            if (round.participants[participantId]) {
+                                const participantResult = round.participants[participantId];
+                                // Skip FEO entries in CSV export
+                                if (isFeoEntry(participantResult.entryType)) continue;
+                                
+                                if (participantResult.passFail) {
+                                    if (participantResult.passFail === 'Pass') {
+                                        result = 'P';
+                                    } else if (participantResult.passFail === 'Fail') {
+                                        result = 'F';
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        if (round.participants && Array.isArray(round.participants)) {
+                            for (const participantId of participant.participantIds) {
+                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                if (roundParticipant) {
+                                    // Skip FEO entries in CSV export
+                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                    result = '•';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    row += `,"${result}"`;
+                });
+                
+                csvContent += row + '\n';
+            });
+            
+            return csvContent;
+        }
+
+        // Export summary as Excel
         async function exportSummaryExcel() {
-            if (!summaryData && !allClassSummaries) {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes as separate sheets in one Excel file
+                try {
+                    showStatus('Creating Excel workbook with all classes...', 'info');
+                    
+                    const workbook = XLSX.utils.book_new();
+                    
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        const worksheetData = generateExcelSheetData(classData);
+                        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+                        
+                        // Clean sheet name for Excel compatibility
+                        const sheetName = className.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 31);
+                        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+                    });
+                    
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${currentTrial.clubName || 'Trial'}_All_Classes_Summary.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Excel workbook with all classes exported!', 'success');
+                } catch (error) {
+                    console.error('Error exporting Excel:', error);
+                    showStatus('Error exporting Excel: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class
+                try {
+                    const workbook = XLSX.utils.book_new();
+                    const worksheetData = generateExcelSheetData(summaryData);
+                    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+                    XLSX.utils.book_append_sheet(workbook, worksheet, summaryData.className.substring(0, 31));
+                    
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${summaryData.className.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.xlsx`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    showStatus('Excel summary exported successfully!', 'success');
+                } catch (error) {
+                    console.error('Error exporting Excel:', error);
+                    showStatus('Error exporting Excel: ' + error.message, 'error');
+                }
+            } else {
                 showStatus('No summary data to export', 'error');
-                return;
             }
-            
-            showStatus('Excel export functionality would be implemented here', 'info');
         }
 
+        // Generate Excel sheet data for a class
+        function generateExcelSheetData(classData) {
+            const data = [];
+            
+            // Title and info
+            data.push(['Class Summary Report']);
+            data.push(['Trial', classData.trialName]);
+            data.push(['Class', classData.className]);
+            data.push(['Generated', new Date().toLocaleDateString()]);
+            data.push([]);
+            
+            // Headers
+            const judgeRow = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
+            const dateRow = ['', '', ''];
+            const roundRow = ['', '', ''];
+            
+            classData.rounds.forEach((round, index) => {
+                const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                    ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                    : 'Date TBD';
+                const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                
+                const sameJudgeDate = classData.rounds.filter((r, i) => 
+                    i <= index && 
+                    r.judgeName === round.judgeName && 
+                    getDateFromRound(r) === getDateFromRound(round)
+                ).length;
+                const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                
+                judgeRow.push(round.judgeName || 'Judge TBD');
+                dateRow.push(formattedDate);
+                roundRow.push(`${round.className || 'Class'}${roundSuffix}`);
+            });
+            
+            data.push(judgeRow);
+            data.push(dateRow);
+            data.push(roundRow);
+            
+            // Participant data
+            classData.participants.forEach(participant => {
+                const row = [
+                    participant.cwagsNumber || 'TBD',
+                    participant.dogName || 'Unknown',
+                    participant.handlerName || 'Unknown Handler'
+                ];
+                
+                classData.rounds.forEach(round => {
+                    let result = '-';
+                    
+                    if (round.hasScores) {
+                        for (const participantId of participant.participantIds) {
+                            if (round.participants[participantId]) {
+                                const participantResult = round.participants[participantId];
+                                // Skip FEO entries in Excel export
+                                if (isFeoEntry(participantResult.entryType)) continue;
+                                
+                                if (participantResult.passFail) {
+                                    if (participantResult.passFail === 'Pass') {
+                                        result = 'P';
+                                    } else if (participantResult.passFail === 'Fail') {
+                                        result = 'F';
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        if (round.participants && Array.isArray(round.participants)) {
+                            for (const participantId of participant.participantIds) {
+                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                if (roundParticipant) {
+                                    // Skip FEO entries in Excel export
+                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                    result = '•';
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    row.push(result);
+                });
+                
+                data.push(row);
+            });
+            
+            return data;
+        }
+
+        // Export summary as PDF
         async function exportSummaryPDF() {
-            if (!summaryData && !allClassSummaries) {
+            if (currentClass === 'ALL_CLASSES' && Object.keys(allClassSummaries).length > 0) {
+                // Export all classes in one PDF document
+                try {
+                    showStatus('Creating PDF with all classes...', 'info');
+                    
+                    const printWindow = window.open('', '_blank');
+                    
+                    let htmlContent = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>All Classes Summary: ${currentTrial.clubName}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+                                .trial-header { text-align: center; margin-bottom: 30px; page-break-after: avoid; }
+                                .trial-title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                                .trial-info { font-size: 14px; color: #666; margin-bottom: 5px; }
+                                .class-section { page-break-before: always; margin-bottom: 40px; }
+                                .class-section:first-of-type { page-break-before: avoid; }
+                                .class-header { text-align: center; margin-bottom: 20px; page-break-after: avoid; }
+                                .class-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+                                .class-info { font-size: 12px; color: #666; margin-bottom: 5px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: avoid; }
+                                th, td { border: 1px solid #ddd; padding: 4px; text-align: center; font-size: 10px; }
+                                th { background-color: #f5f5f5; font-weight: bold; }
+                                .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
+                                .result-pass { color: #28a745; font-weight: bold; }
+                                .result-fail { color: #dc3545; font-weight: bold; }
+                                .result-absent { color: #6c757d; }
+                                .stats-section { margin-top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+                                .stat-box { border: 1px solid #ddd; padding: 10px; text-align: center; }
+                                .stat-value { font-size: 16px; font-weight: bold; color: #667eea; }
+                                .stat-label { font-size: 10px; color: #666; }
+                                @media print { 
+                                    body { margin: 0; font-size: 10px; } 
+                                    .class-section { page-break-before: always; }
+                                    .class-section:first-of-type { page-break-before: avoid; }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="trial-header">
+                                <div class="trial-title">All Classes Summary</div>
+                                <div class="trial-info">Trial: ${currentTrial.clubName}</div>
+                                <div class="trial-info">Generated: ${new Date().toLocaleDateString()}</div>
+                                <div class="trial-info">Total Classes: ${Object.keys(allClassSummaries).length}</div>
+                            </div>
+                    `;
+                    
+                    Object.entries(allClassSummaries).forEach(([className, classData]) => {
+                        htmlContent += generatePDFClassSection(classData);
+                    });
+                    
+                    htmlContent += `
+                            <div style="margin-top: 30px; font-size: 10px; color: #666; text-align: center;">
+                                <p><strong>Legend:</strong> P = Pass, F = Fail, • = Scheduled, - = Did not run</p>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+                    
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    
+                    printWindow.onload = function() {
+                        printWindow.print();
+                    };
+
+                    showStatus('PDF with all classes opened in new window', 'success');
+                } catch (error) {
+                    console.error('Error exporting PDF:', error);
+                    showStatus('Error exporting PDF: ' + error.message, 'error');
+                }
+            } else if (summaryData) {
+                // Export single class PDF
+                try {
+                    const printWindow = window.open('', '_blank');
+                    
+                    const htmlContent = `
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Class Summary: ${summaryData.className}</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 20px; }
+                                .header { text-align: center; margin-bottom: 30px; }
+                                .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
+                                .info { font-size: 14px; color: #666; margin-bottom: 5px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                                th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+                                th { background-color: #f5f5f5; font-weight: bold; }
+                                .participant-name { text-align: left; font-weight: bold; background-color: #f0f8ff; }
+                                .result-pass { color: #28a745; font-weight: bold; }
+                                .result-fail { color: #dc3545; font-weight: bold; }
+                                .result-absent { color: #6c757d; }
+                                @media print { body { margin: 0; } }
+                            </style>
+                        </head>
+                        <body>
+                            ${generatePDFClassSection(summaryData, false)}
+                            <div style="margin-top: 30px; font-size: 12px; color: #666;">
+                                <p><strong>Legend:</strong> P = Pass, F = Fail, • = Scheduled, - = Did not run</p>
+                            </div>
+                        </body>
+                        </html>
+                    `;
+                    
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    
+                    printWindow.onload = function() {
+                        printWindow.print();
+                    };
+
+                    showStatus('PDF export opened in new window', 'success');
+                } catch (error) {
+                    console.error('Error exporting PDF:', error);
+                    showStatus('Error exporting PDF: ' + error.message, 'error');
+                }
+            } else {
                 showStatus('No summary data to export', 'error');
-                return;
+            }
+        }
+
+        // Generate PDF section for a class
+        function generatePDFClassSection(classData, isMultiClass = true) {
+            const sectionClass = isMultiClass ? 'class-section' : '';
+            const headerClass = isMultiClass ? 'class-header' : 'header';
+            const titleClass = isMultiClass ? 'class-title' : 'title';
+            const infoClass = isMultiClass ? 'class-info' : 'info';
+            
+            let html = `
+                <div class="${sectionClass}">
+                    <div class="${headerClass}">
+                        <div class="${titleClass}">Class Summary: ${classData.className}</div>
+                        <div class="${infoClass}">Trial: ${classData.trialName}</div>
+                        <div class="${infoClass}">Total Participants: ${classData.totalParticipants} | Total Rounds: ${classData.totalRounds}</div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr>
+                                <th rowspan="3" class="participant-cwags">C-WAGS Number</th>
+                                <th rowspan="3" class="participant-dog">Dog Name</th>
+                                <th rowspan="3" class="participant-handler">Handler Name</th>
+                                ${classData.rounds.map(round => `<th>${round.judgeName || 'Judge TBD'}</th>`).join('')}
+                            </tr>
+                            <tr>
+                                ${classData.rounds.map(round => {
+                                    const [dayIndex] = round.roundKey ? round.roundKey.split('-').map(Number) : [0];
+                                    const dayDate = currentTrial.days && currentTrial.days[dayIndex] 
+                                        ? getDateFromFirebase(currentTrial.days[dayIndex].date) 
+                                        : 'Date TBD';
+                                    const formattedDate = dayDate ? new Date(dayDate + 'T12:00:00').toLocaleDateString() : 'Date TBD';
+                                    return `<th>${formattedDate}</th>`;
+                                }).join('')}
+                            </tr>
+                            <tr>
+                                ${classData.rounds.map((round, index) => {
+                                    const sameJudgeDate = classData.rounds.filter((r, i) => 
+                                        i <= index && 
+                                        r.judgeName === round.judgeName && 
+                                        getDateFromRound(r) === getDateFromRound(round)
+                                    ).length;
+                                    const roundSuffix = sameJudgeDate > 1 ? ` (${sameJudgeDate})` : '';
+                                    return `<th>${round.className || 'Class'}${roundSuffix}</th>`;
+                                }).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${classData.participants.map(participant => {
+                                const resultCells = classData.rounds.map(round => {
+                                    let result = '-';
+                                    let cssClass = 'result-absent';
+                                    
+                                    if (round.hasScores) {
+                                        for (const participantId of participant.participantIds) {
+                                            if (round.participants[participantId]) {
+                                                const participantResult = round.participants[participantId];
+                                                // Skip FEO entries in PDF generation
+                                                if (isFeoEntry(participantResult.entryType)) continue;
+                                                
+                                                if (participantResult.passFail) {
+                                                    if (participantResult.passFail === 'Pass') {
+                                                        result = 'P';
+                                                        cssClass = 'result-pass';
+                                                    } else if (participantResult.passFail === 'Fail') {
+                                                        result = 'F';
+                                                        cssClass = 'result-fail';
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        if (round.participants && Array.isArray(round.participants)) {
+                                            for (const participantId of participant.participantIds) {
+                                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                                if (roundParticipant) {
+                                                    // Skip FEO entries in PDF generation
+                                                    if (isFeoEntry(roundParticipant.entryType)) continue;
+                                                    result = '•';
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    
+                                    return `<td class="${cssClass}">${result}</td>`;
+                                }).join('');
+                                
+                                return `<tr>
+                                    <td class="participant-cwags">${participant.cwagsNumber || 'TBD'}</td>
+                                    <td class="participant-dog">${participant.dogName || 'Unknown'}</td>
+                                    <td class="participant-handler">${participant.handlerName || 'Unknown Handler'}</td>
+                                    ${resultCells}
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>`;
+            
+            if (isMultiClass) {
+                // Add quick stats for multi-class view
+                let totalRuns = 0;
+                let totalPasses = 0;
+                let totalScheduled = 0;
+
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in PDF generation
+                            if (isFeoEntry(result.entryType)) return;
+                            
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    } else {
+                        // Count scheduled runs, excluding FEO
+                        if (round.participants) {
+                            if (Array.isArray(round.participants)) {
+                                const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                                totalScheduled += nonFeoParticipants.length;
+                            } else {
+                                const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                                totalScheduled += participantCount;
+                            }
+                        }
+                    }
+                });
+
+                const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
+
+                html += `
+                    <div class="stats-section">
+                        <div class="stat-box">
+                            <div class="stat-value">${totalRuns}</div>
+                            <div class="stat-label">Completed</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${totalScheduled}</div>
+                            <div class="stat-label">Scheduled</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${totalPasses}</div>
+                            <div class="stat-label">Passes</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">${passRate}%</div>
+                            <div class="stat-label">Pass Rate</div>
+                        </div>
+                    </div>`;
             }
             
-            showStatus('PDF export functionality would be implemented here', 'info');
+            html += `</div>`;
+            return html;
         }
 
         // Initialize when page loads
