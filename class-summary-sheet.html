@@ -539,14 +539,12 @@
         }
 
         function showDebug(content) {
-            const debugDiv = document.getElementById('debugInfo');
-            const debugContent = document.getElementById('debugContent');
-            debugContent.innerHTML = content;
-            debugDiv.style.display = 'block';
+            // Debug functionality removed for cleaner UI
+            console.log('Debug:', content);
         }
 
         function hideDebug() {
-            document.getElementById('debugInfo').style.display = 'none';
+            // Debug functionality removed for cleaner UI
         }
 
         function showProgress(show = false, percent = 0, text = '') {
