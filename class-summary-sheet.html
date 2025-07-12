@@ -861,18 +861,29 @@
                                         if (entryIds && entryIds.length > 0) {
                                             const participants = [];
                                             entryIds.forEach(entryId => {
-                                                const [docId] = entryId.split('_');
-                                                const entry = entryMap[docId];
-                                                if (entry) {
-                                                    participants.push({
-                                                        id: entryId,
-                                                        handlerName: entry.handlerName || 'Unknown Handler',
-                                                        dogCallName: entry.dogCallName || 'Unknown',
-                                                        cwagsNumber: entry.cwagsNumber || 'TBD'
-                                                    });
-                                                }
-                                            });
-
+    const [docId] = entryId.split('_');
+    const entry = entryMap[docId];
+    if (entry) {
+        // Find the specific selected entry to get the entry type
+        let entryType = 'regular'; // default
+        if (entry.selectedEntries) {
+            const matchingSelectedEntry = entry.selectedEntries.find(se => 
+                entryId.includes(se.className) && entryId.includes(se.roundName)
+            );
+            if (matchingSelectedEntry && matchingSelectedEntry.type) {
+                entryType = matchingSelectedEntry.type;
+            }
+        }
+        
+        participants.push({
+            id: entryId,
+            handlerName: entry.handlerName || 'Unknown Handler',
+            dogCallName: entry.dogCallName || 'Unknown',
+            cwagsNumber: entry.cwagsNumber || 'TBD',
+            entryType: entryType  // Add the entry type
+        });
+    }
+});
                                             if (participants.length > 0) {
                                                 rounds.push({
                                                     roundKey: roundKey,
