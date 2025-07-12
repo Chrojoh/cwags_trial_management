@@ -914,30 +914,42 @@
         // Initialize the application
         async function init() {
             try {
+                console.log('🚀 Starting enhanced initialization...');
+                
                 await new Promise((resolve, reject) => {
                     const unsubscribe = auth.onAuthStateChanged(async (user) => {
                         unsubscribe();
+                        console.log('👤 Auth state changed:', user ? 'User found' : 'No user');
+                        
                         if (user) {
                             try {
+                                console.log('📋 Fetching user profile...');
                                 const userDoc = await db.collection('users').doc(user.uid).get();
                                 if (userDoc.exists) {
                                     currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log('✅ User profile loaded:', currentUser.uid);
                                     resolve();
                                 } else {
+                                    console.error('❌ User profile not found');
                                     reject(new Error('User profile not found'));
                                 }
                             } catch (error) {
+                                console.error('❌ Error fetching user profile:', error);
                                 reject(error);
                             }
                         } else {
+                            console.log('🔄 Redirecting to login...');
                             window.location.href = 'index.html';
                         }
                     });
                 });
 
+                console.log('📊 Loading trials...');
                 await loadTrials();
+                console.log('✅ Enhanced initialization complete');
+                
             } catch (error) {
-                console.error('Error initializing:', error);
+                console.error('❌ Error initializing:', error);
                 showStatus('Error initializing application: ' + error.message, 'error');
             }
         }
@@ -945,11 +957,14 @@
         // Load trials for the dropdown
         async function loadTrials() {
             try {
+                console.log('🔍 Loading trials for user:', currentUser?.uid);
                 showStatus('Loading your trials...', 'info');
 
                 const trialsSnapshot = await db.collection("trials")
                     .where("createdBy", "==", currentUser.uid)
                     .get();
+
+                console.log('📊 Found', trialsSnapshot.size, 'trials');
 
                 const trialSelect = document.getElementById('trialSelect');
                 trialSelect.innerHTML = '<option value="">Select a trial...</option>';
@@ -969,17 +984,47 @@
                     trials.forEach(trial => {
                         const option = document.createElement('option');
                         option.value = trial.id;
-                        option.textContent = trial.clubName || 'Unnamed Trial';
+                        
+                        let trialLabel = trial.clubName || 'Unnamed Trial';
+                        
+                        // Add dates if available
+                        if (trial.days && trial.days.length > 0) {
+                            const dates = trial.days
+                                .filter(day => day.date)
+                                .map(day => {
+                                    const localDate = createLocalDate(day.date);
+                                    return localDate ? localDate.toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                                    }) : '';
+                                })
+                                .filter(date => date)
+                                .join(', ');
+                            if (dates) {
+                                trialLabel += ` (${dates})`;
+                            }
+                        }
+                        
+                        option.textContent = trialLabel;
                         trialSelect.appendChild(option);
                     });
 
                     showStatus(`Found ${trials.length} trials`, 'success');
+                    console.log('✅ Trials loaded successfully');
                 } else {
-                    showStatus('No trials found', 'error');
+                    showStatus('No trials found for your account', 'error');
+                    console.log('⚠️ No trials found for user');
                 }
             } catch (error) {
-                console.error('Error loading trials:', error);
+                console.error('❌ Error loading trials:', error);
                 showStatus('Error loading trials: ' + error.message, 'error');
+                
+                // Add debugging info to help troubleshoot
+                console.log('🔧 Debug info:');
+                console.log('- Current user:', currentUser);
+                console.log('- Firebase auth state:', auth.currentUser);
+                console.log('- Database reference:', db);
             }
         }
 
