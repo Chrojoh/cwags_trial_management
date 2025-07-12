@@ -1,4 +1,79 @@
-// Add dates if available
+// Process scores data with enhanced FEO and orphaned entry filtering
+                // Group by CLASS NAME rather than individual rounds
+                const classMap = new Map();
+                let totalEntered = 0;
+                let totalActual = 0;
+                let totalQualifiers = 0;
+                let debugInfo = {
+                    totalProcessed: 0,
+                    feoFiltered: 0,
+                    orphanedFiltered: 0,
+                    regularIncluded: 0
+                };
+
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const participants = scoreData.participants || {};
+                    const className = scoreData.className;
+                    
+                    console.log(`📊 Processing class: ${className}, participants: ${Object.keys(participants).length}`);
+
+                    // Initialize class data if not exists
+                    if (!classMap.has(className)) {
+                        // Fix date handling - better date processing
+                        let classDate = null;
+                        
+                        // Try multiple date sources
+                        if (scoreData.dayDate) {
+                            classDate = createLocalDate(scoreData.dayDate);
+                        } else if (scoreData.date) {
+                            classDate = createLocalDate(scoreData.date);
+                        } else if (currentTrial.days && scoreData.roundKey) {
+                            // Extract day index from round key
+                            const indices = getRoundKeyIndices(scoreData.roundKey);
+                            if (indices && currentTrial.days[indices.dayIndex]) {
+                                const dayData = currentTrial.days[indices.dayIndex];
+                                if (dayData && dayData.date) {
+                                    classDate = createLocalDate(dayData.date);
+                                }
+                            }
+                        }
+                        
+                        // Fallback to first trial day if no specific date found
+                        if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
+                            const firstDay = currentTrial.days.find(day => day.date);
+                            if (firstDay) {
+                                classDate = createLocalDate(firstDay.date);
+                            }
+                        }
+
+                        classMap.set(className, {
+                            date: classDate || new Date(),
+                            className: className,
+                            entered: 0,
+                            actual: 0,
+                            qualifiers: 0,
+                            participants: new Set() // Track unique participants across rounds
+                        });
+                    }
+
+                    const classInfo = classMap.get(className);
+
+                    // Process each participant with enhanced filtering
+                    Object.entries(participants).forEach(([participantId, participant]) => {
+                        debugInfo.totalProcessed++;
+
+                        // Check for orphaned scores (deleted entries)
+                        const [docId] = participantId.split('_');
+                        const originalEntry = entriesData[docId];
+                        
+                        if (!originalEntry) {
+                            console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
+                            debugInfo.orphanedFiltered++;
+                            return; // Skip orphaned scores
+                        }
+
+                        // Check for FEO entries                        // Add dates if available
                         if (trial.days && trial.days.length > 0) {
                             const dates = trial.days
                                 .filter(day => day.date)
@@ -89,10 +164,8 @@
                 }
 
                 // Process scores data with enhanced FEO and orphaned entry filtering
-                classData = [];
-                let totalEntered = 0;
-                let totalActual = 0;
-                let totalQualifiers = 0;
+                // Group by CLASS NAME rather than individual rounds
+                const classMap = new Map();
                 let debugInfo = {
                     totalProcessed: 0,
                     feoFiltered: 0,
@@ -103,16 +176,59 @@
                 scoresSnapshot.forEach(doc => {
                     const scoreData = doc.data();
                     const participants = scoreData.participants || {};
+                    const className = scoreData.className;
                     
-                    let classEntered = 0;
-                    let classActual = 0;
-                    let classQualifiers = 0;
+                    console.log(`📊 Processing class: ${className}, participants: ${Object.keys(participants).length}`);
 
-                    console.log(`📊 Processing class: ${scoreData.className}, participants: ${Object.keys(participants).length}`);
+                    // Initialize class data if not exists
+                    if (!classMap.has(className)) {
+                        // Fix date handling - better date processing
+                        let classDate = null;
+                        
+                        // Try multiple date sources
+                        if (scoreData.dayDate) {
+                            classDate = createLocalDate(scoreData.dayDate);
+                        } else if (scoreData.date) {
+                            classDate = createLocalDate(scoreData.date);
+                        } else if (currentTrial.days && scoreData.roundKey) {
+                            // Extract day index from round key
+                            const indices = getRoundKeyIndices(scoreData.roundKey);
+                            if (indices && currentTrial.days[indices.dayIndex]) {
+                                const dayData = currentTrial.days[indices.dayIndex];
+                                if (dayData && dayData.date) {
+                                    classDate = createLocalDate(dayData.date);
+                                }
+                            }
+                        }
+                        
+                        // Fallback to first trial day if no specific date found
+                        if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
+                            const firstDay = currentTrial.days.find(day => day.date);
+                            if (firstDay) {
+                                classDate = createLocalDate(firstDay.date);
+                            }
+                        }
+
+                        classMap.set(className, {
+                            date: classDate || new Date(),
+                            className: className,
+                            entered: 0,
+                            actual: 0,
+                            qualifiers: 0,
+                            participants: new Set() // Track unique participants across rounds
+                        });
+                    }
+
+                    const classInfo = classMap.get(className);
 
                     // Process each participant with enhanced filtering
                     Object.entries(participants).forEach(([participantId, participant]) => {
                         debugInfo.totalProcessed++;
+
+                        // Skip if we've already processed this participant for this class
+                        if (classInfo.participants.has(participantId)) {
+                            return;
+                        }
 
                         // Check for orphaned scores (deleted entries)
                         const [docId] = participantId.split('_');
@@ -172,8 +288,11 @@
 
                         debugInfo.regularIncluded++;
                         
+                        // Add to participants set to avoid double counting
+                        classInfo.participants.add(participantId);
+                        
                         // Count regular (non-FEO, non-orphaned) participants as "entered"
-                        classEntered++;
+                        classInfo.entered++;
                         
                         // Count actual runs - check both passFail and result fields
                         let hasResult = false;
@@ -188,59 +307,40 @@
                         }
                         
                         if (hasResult) {
-                            classActual++;
+                            classInfo.actual++;
                             
                             // Count qualifiers - expanded list for games and scent
                             const qualifyingResults = ['Pass', 'Q', 'P', 'BJ', 'GB', 'T', 'C', 'A', 'B'];
                             const numericScore = parseFloat(resultValue);
                             
                             if (qualifyingResults.includes(resultValue) || (!isNaN(numericScore) && numericScore > 0)) {
-                                classQualifiers++;
+                                classInfo.qualifiers++;
                             }
                         }
                     });
 
-                    // Fix date handling - better date processing
-                    let classDate = null;
-                    
-                    // Try multiple date sources
-                    if (scoreData.dayDate) {
-                        classDate = createLocalDate(scoreData.dayDate);
-                    } else if (scoreData.date) {
-                        classDate = createLocalDate(scoreData.date);
-                    } else if (currentTrial.days && scoreData.roundKey) {
-                        // Extract day index from round key
-                        const indices = getRoundKeyIndices(scoreData.roundKey);
-                        if (indices && currentTrial.days[indices.dayIndex]) {
-                            const dayData = currentTrial.days[indices.dayIndex];
-                            if (dayData && dayData.date) {
-                                classDate = createLocalDate(dayData.date);
-                            }
-                        }
-                    }
-                    
-                    // Fallback to first trial day if no specific date found
-                    if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
-                        const firstDay = currentTrial.days.find(day => day.date);
-                        if (firstDay) {
-                            classDate = createLocalDate(firstDay.date);
-                        }
-                    }
+                    console.log(`📊 Class ${className}: Entered=${classInfo.entered}, Actual=${classInfo.actual}, Qualifiers=${classInfo.qualifiers}`);
+                });
 
-                    console.log(`📊 Class ${scoreData.className}: Entered=${classEntered}, Actual=${classActual}, Qualifiers=${classQualifiers}, Date=${classDate}`);
+                // Convert classMap to classData array
+                classData = Array.from(classMap.values()).map(classInfo => ({
+                    date: classInfo.date,
+                    className: classInfo.className,
+                    entered: classInfo.entered,
+                    actual: classInfo.actual,
+                    qualifiers: classInfo.qualifiers,
+                    hasScores: classInfo.actual > 0
+                }));
 
-                    classData.push({
-                        date: classDate || new Date(), // Use current date as fallback
-                        className: scoreData.className,
-                        entered: classEntered,
-                        actual: classActual,
-                        qualifiers: classQualifiers,
-                        hasScores: classActual > 0
-                    });
-
-                    totalEntered += classEntered;
-                    totalActual += classActual;
-                    totalQualifiers += classQualifiers;
+                // Calculate totals
+                let totalEntered = 0;
+                let totalActual = 0;
+                let totalQualifiers = 0;
+                
+                classData.forEach(classInfo => {
+                    totalEntered += classInfo.entered;
+                    totalActual += classInfo.actual;
+                    totalQualifiers += classInfo.qualifiers;
                 });
 
                 console.log('🔧 Enhanced Filtering Results:', debugInfo);
