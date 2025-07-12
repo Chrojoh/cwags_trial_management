@@ -974,21 +974,32 @@
                         console.log('📋 Processing roundOrders as object...');
                         Object.entries(runningOrderData.roundOrders).forEach(([key, value]) => {
                             console.log(`Processing roundOrder key ${key}:`, value);
-                            if (value && value.participants && value.participants.length > 0) {
+                            
+                            // Check if value is directly an array of participants
+                            if (Array.isArray(value) && value.length > 0) {
+                                // Your structure: roundKey -> Array of participants directly
+                                finalizedData[key] = { participants: value };
+                                console.log(`✅ Added round ${key} with ${value.length} participants (direct array)`);
+                            } else if (value && value.participants && value.participants.length > 0) {
+                                // Standard structure: roundKey -> Object with participants property
                                 finalizedData[key] = value;
-                                console.log(`✅ Added round ${key} with ${value.participants.length} participants`);
+                                console.log(`✅ Added round ${key} with ${value.participants.length} participants (object with participants)`);
                             } else if (value && value.rounds) {
                                 // Nested structure
                                 console.log(`Processing nested rounds in ${key}:`, value.rounds);
                                 Object.entries(value.rounds).forEach(([roundKey, roundData]) => {
                                     console.log(`Found nested round ${roundKey}:`, roundData);
-                                    if (roundData.participants && roundData.participants.length > 0) {
+                                    if (Array.isArray(roundData) && roundData.length > 0) {
+                                        finalizedData[roundKey] = { participants: roundData };
+                                        console.log(`✅ Added nested round ${roundKey} with ${roundData.length} participants (direct array)`);
+                                    } else if (roundData.participants && roundData.participants.length > 0) {
                                         finalizedData[roundKey] = roundData;
-                                        console.log(`✅ Added nested round ${roundKey} with ${roundData.participants.length} participants`);
+                                        console.log(`✅ Added nested round ${roundKey} with ${roundData.participants.length} participants (object)`);
                                     }
                                 });
                             } else {
                                 console.log(`⚠️ Skipping key ${key} - no participants or unexpected structure`);
+                                console.log(`Value type: ${typeof value}, Is array: ${Array.isArray(value)}, Length: ${value?.length}`);
                             }
                         });
                     }
