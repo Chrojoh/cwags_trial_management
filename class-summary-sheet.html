@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Class Summary Sheet</title>
+    <title>Class Summary Sheet - Fixed FEO Filtering</title>
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -142,6 +142,16 @@
         .summary-info {
             color: #6c757d;
             font-size: 1.1rem;
+        }
+
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.85rem;
         }
 
         .summary-table-container {
@@ -397,6 +407,12 @@
             </div>
         </div>
 
+        <!-- Debug Info -->
+        <div class="debug-info" id="debugInfo" style="display: none;">
+            <strong>Debug Information:</strong>
+            <div id="debugContent"></div>
+        </div>
+
         <!-- Summary Container -->
         <div class="summary-container" id="summaryContainer">
             <div class="summary-header">
@@ -452,76 +468,21 @@
 
         // C-WAGS class order mapping
         const CWAGS_CLASS_ORDER = {
-            'PATROL 1': 1,
-            'PATROL1': 1,
-            'P1': 1,
-            
-            'DETECTIVE 2': 2,
-            'DETECTIVE2': 2,
-            'DET2': 2,
-            'D2': 2,
-            
-            'INVESTIGATOR 3': 3,
-            'INVESTIGATOR3': 3,
-            'INV3': 3,
-            'I3': 3,
-            
-            'SUPER SLEUTH 4': 4,
-            'SUPER SLEUTH4': 4,
-            'SUPERSLEUTH4': 4,
-            'SS4': 4,
-            'S4': 4,
-            
-            'PRIVATE INV': 5,
-            'PRIVATE INVESTIGATOR': 5,
-            'PRIVATEINV': 5,
-            'PRIV INV': 5,
-            'PI': 5,
-            
-            'DET DIVERSIONS': 6,
-            'DETECTIVE DIVERSIONS': 6,
-            'DETDIVERSIONS': 6,
-            'DD': 6,
-            
-            'RANGER 1': 7,
-            'RANGER1': 7,
-            'R1': 7,
-            
-            'RANGER 2': 8,
-            'RANGER2': 8,
-            'R2': 8,
-            
-            'RANGER 3': 9,
-            'RANGER3': 9,
-            'R3': 9,
-            
-            'RANGER 4': 10,
-            'RANGER4': 10,
-            'R4': 10,
-            
-            'RANGER 5': 11,
-            'RANGER5': 11,
-            'R5': 11,
-            
-            'DASHER 3': 12,
-            'DASHER3': 12,
-            'DASH3': 12,
-            'DA3': 12,
-            
-            'DASHER 4': 13,
-            'DASHER4': 13,
-            'DASH4': 13,
-            'DA4': 13,
-            
-            'DASHER 5': 14,
-            'DASHER5': 14,
-            'DASH5': 14,
-            'DA5': 14,
-            
-            'DASHER 6': 15,
-            'DASHER6': 15,
-            'DASH6': 15,
-            'DA6': 15
+            'PATROL 1': 1, 'PATROL1': 1, 'P1': 1,
+            'DETECTIVE 2': 2, 'DETECTIVE2': 2, 'DET2': 2, 'D2': 2,
+            'INVESTIGATOR 3': 3, 'INVESTIGATOR3': 3, 'INV3': 3, 'I3': 3,
+            'SUPER SLEUTH 4': 4, 'SUPER SLEUTH4': 4, 'SUPERSLEUTH4': 4, 'SS4': 4, 'S4': 4,
+            'PRIVATE INV': 5, 'PRIVATE INVESTIGATOR': 5, 'PRIVATEINV': 5, 'PRIV INV': 5, 'PI': 5,
+            'DET DIVERSIONS': 6, 'DETECTIVE DIVERSIONS': 6, 'DETDIVERSIONS': 6, 'DD': 6,
+            'RANGER 1': 7, 'RANGER1': 7, 'R1': 7,
+            'RANGER 2': 8, 'RANGER2': 8, 'R2': 8,
+            'RANGER 3': 9, 'RANGER3': 9, 'R3': 9,
+            'RANGER 4': 10, 'RANGER4': 10, 'R4': 10,
+            'RANGER 5': 11, 'RANGER5': 11, 'R5': 11,
+            'DASHER 3': 12, 'DASHER3': 12, 'DASH3': 12, 'DA3': 12,
+            'DASHER 4': 13, 'DASHER4': 13, 'DASH4': 13, 'DA4': 13,
+            'DASHER 5': 14, 'DASHER5': 14, 'DASH5': 14, 'DA5': 14,
+            'DASHER 6': 15, 'DASHER6': 15, 'DASH6': 15, 'DA6': 15
         };
 
         // Global variables
@@ -531,6 +492,12 @@
         let summaryData = null;
         let allClassNames = [];
         let allClassSummaries = {};
+
+        // Helper function to check if entry is FEO (case-insensitive)
+        function isFeoEntry(entryType) {
+            if (!entryType) return false;
+            return entryType.toString().toLowerCase() === 'feo';
+        }
 
         // Get C-WAGS class order
         function getCWAGSClassOrder(className) {
@@ -569,6 +536,15 @@
             setTimeout(() => {
                 statusDiv.style.display = 'none';
             }, 5000);
+        }
+
+        function showDebug(content) {
+            // Debug functionality removed for cleaner UI
+            console.log('Debug:', content);
+        }
+
+        function hideDebug() {
+            // Debug functionality removed for cleaner UI
         }
 
         function showProgress(show = false, percent = 0, text = '') {
@@ -675,10 +651,8 @@
                         const option = document.createElement('option');
                         option.value = trial.id;
                         
-                        // Start with club name
                         let trialLabel = trial.clubName || 'Unnamed Trial';
                         
-                        // Add dates if available using timezone-safe formatting
                         if (trial.days && trial.days.length > 0) {
                             const dates = trial.days
                                 .filter(day => day.date)
@@ -750,7 +724,6 @@
                 classSelect.innerHTML = '<option value="">Select a class...</option>';
                 
                 if (classNames.size > 0) {
-                    // Add "Select All" option
                     const selectAllOption = document.createElement('option');
                     selectAllOption.value = 'ALL_CLASSES';
                     selectAllOption.textContent = '📊 Select All Classes';
@@ -764,7 +737,7 @@
                         return orderA - orderB;
                     });
                     
-                    allClassNames = sortedClasses; // Store for multi-class operations
+                    allClassNames = sortedClasses;
                     
                     sortedClasses.forEach(className => {
                         const option = document.createElement('option');
@@ -786,8 +759,9 @@
             }
         }
 
-        // Generate class summary for a specific class
+        // Generate class summary for a specific class (FIXED VERSION)
         async function generateSummaryForClass(className) {
+            console.log(`🎯 Generating summary for class: ${className}`);
             const trialId = currentTrial.id;
 
             // First try to get scored rounds
@@ -797,8 +771,12 @@
                 .where('className', '==', className)
                 .get();
 
+            console.log(`📊 Found ${scoresSnapshot.size} score documents for ${className}`);
+
             scoresSnapshot.forEach(doc => {
                 const scoreData = doc.data();
+                console.log(`📋 Processing score document: ${doc.id}`);
+                
                 rounds.push({
                     id: doc.id,
                     roundKey: scoreData.roundKey,
@@ -813,6 +791,8 @@
 
             // If no scored rounds, try to get from running orders
             if (rounds.length === 0) {
+                console.log(`⚠️ No scores found for ${className}, checking running orders...`);
+                
                 try {
                     const orderDoc = await db.collection('running_orders').doc(trialId).get();
                     if (orderDoc.exists) {
@@ -864,11 +844,22 @@
                                                 const [docId] = entryId.split('_');
                                                 const entry = entryMap[docId];
                                                 if (entry) {
+                                                    let entryType = 'regular';
+                                                    if (entry.selectedEntries) {
+                                                        const matchingSelectedEntry = entry.selectedEntries.find(se => 
+                                                            entryId.includes(se.className) && entryId.includes(se.roundName)
+                                                        );
+                                                        if (matchingSelectedEntry && matchingSelectedEntry.type) {
+                                                            entryType = matchingSelectedEntry.type;
+                                                        }
+                                                    }
+                                                    
                                                     participants.push({
                                                         id: entryId,
                                                         handlerName: entry.handlerName || 'Unknown Handler',
                                                         dogCallName: entry.dogCallName || 'Unknown',
-                                                        cwagsNumber: entry.cwagsNumber || 'TBD'
+                                                        cwagsNumber: entry.cwagsNumber || 'TBD',
+                                                        entryType: entryType
                                                     });
                                                 }
                                             });
@@ -895,8 +886,11 @@
             }
 
             if (rounds.length === 0) {
-                return null; // No data for this class
+                console.log(`❌ No data found for class: ${className}`);
+                return null;
             }
+
+            console.log(`✅ Found ${rounds.length} rounds for ${className}`);
 
             rounds.sort((a, b) => {
                 const aKey = a.roundKey || '';
@@ -906,20 +900,35 @@
 
             // Group participants by unique dog/handler combinations
             const participantMap = new Map();
+            let debugInfo = {
+                totalParticipants: 0,
+                feoFiltered: 0,
+                regularIncluded: 0
+            };
             
             rounds.forEach(round => {
                 if (round.hasScores) {
-                    // Handle scored rounds
+                    // Handle scored rounds with FEO filtering
                     Object.keys(round.participants).forEach(participantId => {
+                        const result = round.participants[participantId];
                         const [docId] = participantId.split('_');
                         const uniqueKey = docId;
+                        
+                        // Check if this is FEO and skip if it is
+                        if (isFeoEntry(result.entryType)) {
+                            console.log(`🚫 Filtering out FEO entry: ${participantId} (entryType: ${result.entryType})`);
+                            debugInfo.feoFiltered++;
+                            return; // Skip FEO entries
+                        }
+                        
+                        debugInfo.regularIncluded++;
                         
                         if (!participantMap.has(uniqueKey)) {
                             participantMap.set(uniqueKey, {
                                 id: uniqueKey,
-                                dogName: 'Unknown',
-                                handlerName: 'Unknown Handler',
-                                cwagsNumber: 'TBD',
+                                dogName: result.dogCallName || 'Unknown',
+                                handlerName: result.handlerName || 'Unknown Handler',
+                                cwagsNumber: result.cwagsNumber || 'TBD',
                                 participantIds: [participantId],
                                 rounds: new Map()
                             });
@@ -931,9 +940,18 @@
                         }
                     });
                 } else {
-                    // Handle unscored rounds
+                    // Handle unscored rounds with FEO filtering
                     if (round.participants && Array.isArray(round.participants)) {
                         round.participants.forEach(participant => {
+                            // Check if this is FEO and skip if it is
+                            if (isFeoEntry(participant.entryType)) {
+                                console.log(`🚫 Filtering out FEO entry: ${participant.id} (entryType: ${participant.entryType})`);
+                                debugInfo.feoFiltered++;
+                                return; // Skip FEO entries
+                            }
+                            
+                            debugInfo.regularIncluded++;
+                            
                             const [docId] = participant.id.split('_');
                             const uniqueKey = docId;
                             
@@ -995,17 +1013,25 @@
                 });
             }
 
+            debugInfo.totalParticipants = participantMap.size;
+            
+            console.log(`📊 FEO Filtering Results for ${className}:`, debugInfo);
+            console.log(`   - Regular entries included: ${debugInfo.regularIncluded}`);
+            console.log(`   - FEO entries filtered out: ${debugInfo.feoFiltered}`);
+            console.log(`   - Final participant count: ${debugInfo.totalParticipants}`);
+
             return {
                 trialName: currentTrial.clubName || 'Trial',
                 className: className,
                 rounds: rounds,
                 participants: Array.from(participantMap.values()),
                 totalParticipants: participantMap.size,
-                totalRounds: rounds.length
+                totalRounds: rounds.length,
+                debugInfo: debugInfo
             };
         }
 
-        // Generate class summary
+        // Generate class summary (FIXED VERSION)
         async function generateSummary() {
             const trialId = document.getElementById('trialSelect').value;
             const selectedClass = document.getElementById('classSelect').value;
@@ -1017,22 +1043,40 @@
 
             try {
                 if (selectedClass === 'ALL_CLASSES') {
+                    console.log('🔄 Generating summaries for all classes...');
                     showStatus('Generating summaries for all classes...', 'info');
                     
-                    // Generate summaries for all classes
+                    // Reset global variable
                     allClassSummaries = {};
+                    window.allClassSummaries = allClassSummaries; // Make it globally accessible
+                    
+                    let debugSummary = {
+                        totalClasses: allClassNames.length,
+                        processedClasses: 0,
+                        totalFeoFiltered: 0,
+                        totalRegularIncluded: 0
+                    };
                     
                     for (let i = 0; i < allClassNames.length; i++) {
                         const className = allClassNames[i];
+                        console.log(`⏳ Processing class ${i + 1}/${allClassNames.length}: ${className}`);
                         showProgress(true, Math.round((i / allClassNames.length) * 100), `Processing ${className}`);
                         
                         const classSummary = await generateSummaryForClass(className);
                         if (classSummary) {
                             allClassSummaries[className] = classSummary;
+                            debugSummary.processedClasses++;
+                            
+                            if (classSummary.debugInfo) {
+                                debugSummary.totalFeoFiltered += classSummary.debugInfo.feoFiltered;
+                                debugSummary.totalRegularIncluded += classSummary.debugInfo.regularIncluded;
+                            }
                         }
                     }
                     
                     showProgress(false);
+                    
+                    console.log('📊 Final All Classes Debug Summary:', debugSummary);
                     
                     if (Object.keys(allClassSummaries).length === 0) {
                         showStatus('No data found for any classes', 'error');
@@ -1050,7 +1094,7 @@
                     
                     // Show a simplified view for all classes
                     renderAllClassesSummary();
-                    showStatus(`Generated summaries for ${Object.keys(allClassSummaries).length} classes`, 'success');
+                    showStatus(`Generated summaries for ${Object.keys(allClassSummaries).length} classes (FEO entries filtered)`, 'success');
                     
                 } else {
                     // Generate summary for single class
@@ -1066,8 +1110,19 @@
                         return;
                     }
                     
+                    // Show debug information
+                    if (summaryData.debugInfo) {
+                        console.log(`📊 FEO Filtering Results for ${selectedClass}:`, summaryData.debugInfo);
+                    }        showDebug(`
+                            <strong>FEO Filtering Debug Info for ${selectedClass}:</strong><br>
+                            Regular entries included: ${summaryData.debugInfo.regularIncluded}<br>
+                            FEO entries filtered out: ${summaryData.debugInfo.feoFiltered}<br>
+                            Final participant count: ${summaryData.debugInfo.totalParticipants}
+                        `);
+                    }
+                    
                     renderSummary();
-                    showStatus('Summary generated successfully!', 'success');
+                    showStatus('Summary generated successfully (FEO entries filtered)!', 'success');
                 }
 
             } catch (error) {
@@ -1077,7 +1132,7 @@
             }
         }
 
-        // Render summary for all classes (simplified view)
+        // Render summary for all classes (simplified view) with FEO filtering
         function renderAllClassesSummary() {
             const thead = document.getElementById('summaryTableHead');
             const tbody = document.getElementById('summaryTableBody');
@@ -1101,11 +1156,14 @@
                 
                 let totalRuns = 0;
                 let totalPasses = 0;
-                let scheduledRuns = 0;
+                let totalScheduled = 0;
                 
                 classData.rounds.forEach(round => {
                     if (round.hasScores) {
                         Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in class summaries (double-check filtering)
+                            if (isFeoEntry(result.entryType)) return;
+                            
                             if (result.passFail && result.passFail !== '-') {
                                 totalRuns++;
                                 if (result.passFail === 'Pass') {
@@ -1114,11 +1172,20 @@
                             }
                         });
                     } else {
-                        scheduledRuns += round.participants ? round.participants.length : 0;
+                        // Count scheduled runs, excluding FEO
+                        if (round.participants) {
+                            if (Array.isArray(round.participants)) {
+                                const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                                totalScheduled += nonFeoParticipants.length;
+                            } else {
+                                const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                                totalScheduled += participantCount;
+                            }
+                        }
                     }
                 });
                 
-                const totalPossibleRuns = totalRuns + scheduledRuns;
+                const totalPossibleRuns = totalRuns + totalScheduled;
                 const completionRate = totalPossibleRuns > 0 ? ((totalRuns / totalPossibleRuns) * 100).toFixed(1) : '0';
                 const passRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
                 
@@ -1138,7 +1205,7 @@
             document.getElementById('noDataMessage').style.display = 'none';
         }
 
-        // Generate statistics for all classes
+        // Generate statistics for all classes with FEO filtering
         function generateAllClassesStatistics() {
             const statsSection = document.getElementById('statsSection');
             statsSection.innerHTML = '';
@@ -1153,21 +1220,21 @@
                 totalParticipants += classData.totalParticipants;
                 totalRounds += classData.totalRounds;
                 
-               classData.rounds.forEach(round => {
-    if (round.hasScores) {
-        Object.entries(round.participants).forEach(([participantId, result]) => {
-            // Skip FEO entries in overall statistics
-            if (result.entryType === 'feo') return;
-            
-            if (result.passFail && result.passFail !== '-') {
-                totalRuns++;
-                if (result.passFail === 'Pass') {
-                    totalPasses++;
-                }
-            }
-        });
-    }
-});
+                classData.rounds.forEach(round => {
+                    if (round.hasScores) {
+                        Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in overall statistics (double-check filtering)
+                            if (isFeoEntry(result.entryType)) return;
+                            
+                            if (result.passFail && result.passFail !== '-') {
+                                totalRuns++;
+                                if (result.passFail === 'Pass') {
+                                    totalPasses++;
+                                }
+                            }
+                        });
+                    }
+                });
             });
 
             const overallPassRate = totalRuns > 0 ? ((totalPasses / totalRuns) * 100).toFixed(1) : '0';
@@ -1192,7 +1259,7 @@
             });
         }
 
-        // Render the summary table for single class
+        // Render the summary table for single class with FEO filtering
         function renderSummary() {
             if (!summaryData) return;
 
@@ -1272,8 +1339,14 @@
                     if (round.hasScores) {
                         for (const participantId of participant.participantIds) {
                             if (round.participants[participantId]) {
-                                participatedInRound = true;
                                 const participantResult = round.participants[participantId];
+                                
+                                // Skip if this is FEO (double-check filtering)
+                                if (isFeoEntry(participantResult.entryType)) {
+                                    continue;
+                                }
+                                
+                                participatedInRound = true;
                                 if (participantResult.passFail) {
                                     if (participantResult.passFail === 'Pass') {
                                         result = 'P';
@@ -1289,7 +1362,13 @@
                     } else {
                         if (round.participants && Array.isArray(round.participants)) {
                             for (const participantId of participant.participantIds) {
-                                if (round.participants.some(p => p.id === participantId)) {
+                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                if (roundParticipant) {
+                                    // Skip if this is FEO (double-check filtering)
+                                    if (isFeoEntry(roundParticipant.entryType)) {
+                                        continue;
+                                    }
+                                    
                                     participatedInRound = true;
                                     result = '•';
                                     cssClass = 'result-absent';
@@ -1347,6 +1426,9 @@
             summaryData.rounds.forEach(round => {
                 if (round.hasScores) {
                     Object.entries(round.participants).forEach(([participantId, result]) => {
+                        // Skip FEO entries in single class statistics (double-check filtering)
+                        if (isFeoEntry(result.entryType)) return;
+                        
                         if (result.passFail && result.passFail !== '-') {
                             totalRuns++;
                             if (result.passFail === 'Pass') {
@@ -1357,7 +1439,16 @@
                         }
                     });
                 } else {
-                    totalScheduled += round.participants ? round.participants.length : 0;
+                    // Count scheduled runs, excluding FEO
+                    if (round.participants) {
+                        if (Array.isArray(round.participants)) {
+                            const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                            totalScheduled += nonFeoParticipants.length;
+                        } else {
+                            const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                            totalScheduled += participantCount;
+                        }
+                    }
                 }
             });
 
@@ -1476,6 +1567,9 @@
                         for (const participantId of participant.participantIds) {
                             if (round.participants[participantId]) {
                                 const participantResult = round.participants[participantId];
+                                // Skip FEO entries in CSV export
+                                if (isFeoEntry(participantResult.entryType)) continue;
+                                
                                 if (participantResult.passFail) {
                                     if (participantResult.passFail === 'Pass') {
                                         result = 'P';
@@ -1489,7 +1583,10 @@
                     } else {
                         if (round.participants && Array.isArray(round.participants)) {
                             for (const participantId of participant.participantIds) {
-                                if (round.participants.some(p => p.id === participantId)) {
+                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                if (roundParticipant) {
+                                    // Skip FEO entries in CSV export
+                                    if (isFeoEntry(roundParticipant.entryType)) continue;
                                     result = '•';
                                     break;
                                 }
@@ -1623,6 +1720,9 @@
                         for (const participantId of participant.participantIds) {
                             if (round.participants[participantId]) {
                                 const participantResult = round.participants[participantId];
+                                // Skip FEO entries in Excel export
+                                if (isFeoEntry(participantResult.entryType)) continue;
+                                
                                 if (participantResult.passFail) {
                                     if (participantResult.passFail === 'Pass') {
                                         result = 'P';
@@ -1636,7 +1736,10 @@
                     } else {
                         if (round.participants && Array.isArray(round.participants)) {
                             for (const participantId of participant.participantIds) {
-                                if (round.participants.some(p => p.id === participantId)) {
+                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                if (roundParticipant) {
+                                    // Skip FEO entries in Excel export
+                                    if (isFeoEntry(roundParticipant.entryType)) continue;
                                     result = '•';
                                     break;
                                 }
@@ -1834,6 +1937,9 @@
                                         for (const participantId of participant.participantIds) {
                                             if (round.participants[participantId]) {
                                                 const participantResult = round.participants[participantId];
+                                                // Skip FEO entries in PDF generation
+                                                if (isFeoEntry(participantResult.entryType)) continue;
+                                                
                                                 if (participantResult.passFail) {
                                                     if (participantResult.passFail === 'Pass') {
                                                         result = 'P';
@@ -1849,7 +1955,10 @@
                                     } else {
                                         if (round.participants && Array.isArray(round.participants)) {
                                             for (const participantId of participant.participantIds) {
-                                                if (round.participants.some(p => p.id === participantId)) {
+                                                const roundParticipant = round.participants.find(p => p.id === participantId);
+                                                if (roundParticipant) {
+                                                    // Skip FEO entries in PDF generation
+                                                    if (isFeoEntry(roundParticipant.entryType)) continue;
                                                     result = '•';
                                                     break;
                                                 }
@@ -1879,6 +1988,9 @@
                 classData.rounds.forEach(round => {
                     if (round.hasScores) {
                         Object.entries(round.participants).forEach(([participantId, result]) => {
+                            // Skip FEO entries in PDF generation
+                            if (isFeoEntry(result.entryType)) return;
+                            
                             if (result.passFail && result.passFail !== '-') {
                                 totalRuns++;
                                 if (result.passFail === 'Pass') {
@@ -1887,7 +1999,16 @@
                             }
                         });
                     } else {
-                        totalScheduled += round.participants ? round.participants.length : 0;
+                        // Count scheduled runs, excluding FEO
+                        if (round.participants) {
+                            if (Array.isArray(round.participants)) {
+                                const nonFeoParticipants = round.participants.filter(p => !isFeoEntry(p.entryType));
+                                totalScheduled += nonFeoParticipants.length;
+                            } else {
+                                const participantCount = Object.values(round.participants).filter(p => !isFeoEntry(p.entryType)).length;
+                                totalScheduled += participantCount;
+                            }
+                        }
                     }
                 });
 
@@ -1924,7 +2045,7 @@
             init();
         });
 
-        console.log('Enhanced Class Summary Sheet script loaded successfully');
+        console.log('Fixed Class Summary Sheet with FEO filtering loaded successfully');
     </script>
 </body>
 </html>
