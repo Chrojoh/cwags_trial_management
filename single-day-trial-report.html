@@ -1597,21 +1597,6 @@
             if (typeof XLSX !== 'undefined') {
                 console.log('✅ XLSX library loaded successfully');
                 console.log('📊 XLSX version:', XLSX.version);
-                
-                // Add a test button to verify Excel works
-                const testButton = document.createElement('button');
-                testButton.textContent = '🧪 Test Excel Export';
-                testButton.className = 'btn btn-excel';
-                testButton.style.margin = '10px';
-                testButton.onclick = function() {
-                    testExcelExport();
-                };
-                
-                // Add to first export buttons container
-                const firstExportContainer = document.querySelector('.export-buttons');
-                if (firstExportContainer) {
-                    firstExportContainer.appendChild(testButton);
-                }
             } else {
                 console.error('❌ XLSX library failed to load');
                 console.log('🔧 Available libraries:', Object.keys(window).filter(key => key.includes('XLS')));
@@ -1620,50 +1605,11 @@
                 setTimeout(() => {
                     const excelButtons = document.querySelectorAll('.btn-excel');
                     excelButtons.forEach(btn => {
-                        if (!btn.textContent.includes('Test')) {
-                            btn.disabled = true;
-                            btn.textContent = btn.textContent.replace('📊', '❌');
-                            btn.title = 'Excel library failed to load';
-                        }
+                        btn.disabled = true;
+                        btn.textContent = btn.textContent.replace('📊', '❌');
+                        btn.title = 'Excel library failed to load';
                     });
                 }, 500);
-            }
-        }
-
-        // Simple test Excel export
-        function testExcelExport() {
-            console.log('🧪 Testing simple Excel export...');
-            
-            if (typeof XLSX === 'undefined') {
-                alert('XLSX library not available');
-                return;
-            }
-
-            try {
-                // Create simple test data
-                const testData = [
-                    ['Test Excel Export'],
-                    ['C-WAGS #', 'Dog Name', 'Handler', 'Result'],
-                    ['TEST001', 'Test Dog', 'Test Handler', 'Pass'],
-                    ['TEST002', 'Another Dog', 'Another Handler', 'Fail']
-                ];
-
-                // Create workbook
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.aoa_to_sheet(testData);
-                
-                // Add worksheet
-                XLSX.utils.book_append_sheet(wb, ws, 'Test');
-                
-                // Save file
-                XLSX.writeFile(wb, 'test_export.xlsx');
-                
-                console.log('✅ Test Excel export successful!');
-                showStatus('Test Excel export successful!', 'success');
-                
-            } catch (error) {
-                console.error('❌ Test Excel export failed:', error);
-                showStatus('Test Excel export failed: ' + error.message, 'error');
             }
         }
 
