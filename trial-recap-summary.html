@@ -108,6 +108,8 @@
                     let classActual = 0;
                     let classQualifiers = 0;
 
+                    console.log(`📊 Processing class: ${scoreData.className}, participants: ${Object.keys(participants).length}`);
+
                     // Process each participant with enhanced filtering
                     Object.entries(participants).forEach(([participantId, participant]) => {
                         debugInfo.totalProcessed++;
@@ -170,40 +172,70 @@
 
                         debugInfo.regularIncluded++;
                         
-                        // Count regular (non-FEO, non-orphaned) participants
+                        // Count regular (non-FEO, non-orphaned) participants as "entered"
                         classEntered++;
                         
-                        // Count actual runs (not absent) - only if scores have been entered
+                        // Count actual runs - check both passFail and result fields
+                        let hasResult = false;
+                        let resultValue = null;
+                        
                         if (participant.passFail && participant.passFail !== '' && participant.passFail !== 'abs' && participant.passFail !== 'Absent') {
+                            hasResult = true;
+                            resultValue = participant.passFail;
+                        } else if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
+                            hasResult = true;
+                            resultValue = participant.result;
+                        }
+                        
+                        if (hasResult) {
                             classActual++;
                             
-                            // Count qualifiers (Pass/Q results)
-                            if (participant.passFail === 'Pass' || participant.passFail === 'Q') {
+                            // Count qualifiers - expanded list for games and scent
+                            const qualifyingResults = ['Pass', 'Q', 'P', 'BJ', 'GB', 'T', 'C', 'A', 'B'];
+                            const numericScore = parseFloat(resultValue);
+                            
+                            if (qualifyingResults.includes(resultValue) || (!isNaN(numericScore) && numericScore > 0)) {
                                 classQualifiers++;
                             }
                         }
                     });
 
-                    // Determine the trial date for this class
-                    let classDate = 'Date TBD';
+                    // Fix date handling - better date processing
+                    let classDate = null;
+                    
+                    // Try multiple date sources
                     if (scoreData.dayDate) {
-                        classDate = scoreData.dayDate;
+                        classDate = createLocalDate(scoreData.dayDate);
                     } else if (scoreData.date) {
-                        classDate = scoreData.date;
-                    } else if (currentTrial.days && scoreData.dayIndex !== undefined) {
-                        const dayData = currentTrial.days[scoreData.dayIndex];
-                        if (dayData && dayData.date) {
-                            classDate = getDateFromFirebase(dayData.date);
+                        classDate = createLocalDate(scoreData.date);
+                    } else if (currentTrial.days && scoreData.roundKey) {
+                        // Extract day index from round key
+                        const indices = getRoundKeyIndices(scoreData.roundKey);
+                        if (indices && currentTrial.days[indices.dayIndex]) {
+                            const dayData = currentTrial.days[indices.dayIndex];
+                            if (dayData && dayData.date) {
+                                classDate = createLocalDate(dayData.date);
+                            }
+                        }
+                    }
+                    
+                    // Fallback to first trial day if no specific date found
+                    if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
+                        const firstDay = currentTrial.days.find(day => day.date);
+                        if (firstDay) {
+                            classDate = createLocalDate(firstDay.date);
                         }
                     }
 
+                    console.log(`📊 Class ${scoreData.className}: Entered=${classEntered}, Actual=${classActual}, Qualifiers=${classQualifiers}, Date=${classDate}`);
+
                     classData.push({
-                        date: classDate,
+                        date: classDate || new Date(), // Use current date as fallback
                         className: scoreData.className,
                         entered: classEntered,
                         actual: classActual,
                         qualifiers: classQualifiers,
-                        hasScores: classActual > 0 || Object.values(participants).some(p => p.passFail && p.passFail !== '')
+                        hasScores: classActual > 0
                     });
 
                     totalEntered += classEntered;
@@ -212,6 +244,14 @@
                 });
 
                 console.log('🔧 Enhanced Filtering Results:', debugInfo);
+                console.log('📊 Final totals:', { totalEntered, totalActual, totalQualifiers });
+                console.log('📋 Class data summary:', classData.map(c => ({
+                    class: c.className,
+                    date: c.date,
+                    entered: c.entered,
+                    actual: c.actual,
+                    qualifiers: c.qualifiers
+                })));
 
                 // Sort classes by date and class name
                 classData.sort((a, b) => {
@@ -314,9 +354,19 @@
                 const row = document.createElement('div');
                 row.className = 'table-row';
                 
+                // Better date formatting
+                let displayDate = 'Date TBD';
+                if (classInfo.date) {
+                    if (classInfo.date instanceof Date) {
+                        displayDate = formatLocalDate(classInfo.date);
+                    } else {
+                        displayDate = formatLocalDate(createLocalDate(classInfo.date));
+                    }
+                }
+                
                 row.innerHTML = `
                     <div>${index + 1}</div>
-                    <div>${formatLocalDate(createLocalDate(classInfo.date))}</div>
+                    <div>${displayDate}</div>
                     <div><strong>${classInfo.className}</strong></div>
                     <div>${classInfo.entered}</div>
                     <div>${classInfo.actual}</div>
