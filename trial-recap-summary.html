@@ -656,7 +656,48 @@
             });
         }
 
-        // Enhanced round key utilities
+        // C-WAGS Class Ordering System
+        function getCwagsClassOrder(className) {
+            const upperClassName = className.toUpperCase();
+            
+            // Scent Work (Detective) - Levels 1-5 plus specialty
+            if (upperClassName.includes('PATROL') && upperClassName.includes('1')) return 10;
+            if (upperClassName.includes('DETECTIVE') && upperClassName.includes('2')) return 20;
+            if (upperClassName.includes('INVESTIGATOR') && upperClassName.includes('3')) return 30;
+            if (upperClassName.includes('SUPER SLEUTH') && upperClassName.includes('4')) return 40;
+            if (upperClassName.includes('PRIVATE INV')) return 50;
+            if (upperClassName.includes('DET DIVERSIONS')) return 60;
+            
+            // Games - Levels 1-4
+            if (upperClassName.includes('GAMES') && upperClassName.includes('1')) return 110;
+            if (upperClassName.includes('GAMES') && upperClassName.includes('2')) return 120;
+            if (upperClassName.includes('GAMES') && upperClassName.includes('3')) return 130;
+            if (upperClassName.includes('GAMES') && upperClassName.includes('4')) return 140;
+            
+            // Rally Obedience - Levels 1-5
+            if (upperClassName.includes('OBEDIENCE') && upperClassName.includes('1')) return 210;
+            if (upperClassName.includes('OBEDIENCE') && upperClassName.includes('2')) return 220;
+            if (upperClassName.includes('OBEDIENCE') && upperClassName.includes('3')) return 230;
+            if (upperClassName.includes('OBEDIENCE') && upperClassName.includes('4')) return 240;
+            if (upperClassName.includes('OBEDIENCE') && upperClassName.includes('5')) return 250;
+            
+            // Ranger - Levels 1-5
+            if (upperClassName.includes('RANGER') && upperClassName.includes('1')) return 310;
+            if (upperClassName.includes('RANGER') && upperClassName.includes('2')) return 320;
+            if (upperClassName.includes('RANGER') && upperClassName.includes('3')) return 330;
+            if (upperClassName.includes('RANGER') && upperClassName.includes('4')) return 340;
+            if (upperClassName.includes('RANGER') && upperClassName.includes('5')) return 350;
+            
+            // Dasher - Levels 3-6
+            if (upperClassName.includes('DASHER') && upperClassName.includes('3')) return 360;
+            if (upperClassName.includes('DASHER') && upperClassName.includes('4')) return 370;
+            if (upperClassName.includes('DASHER') && upperClassName.includes('5')) return 380;
+            if (upperClassName.includes('DASHER') && upperClassName.includes('6')) return 390;
+            
+            // Fallback for any unrecognized classes - put at end
+            console.log(`⚠️ Unrecognized class for ordering: ${className}`);
+            return 999;
+        }
         function validateRoundKey(roundKey) {
             try {
                 if (!roundKey || typeof roundKey !== 'string') return false;
@@ -1054,14 +1095,27 @@
                 console.log('🔧 Enhanced Filtering Results:', debugInfo);
                 console.log('📊 Final totals:', { totalEntered, totalActual, totalQualifiers });
 
+                // Sort classes by C-WAGS official ordering system
                 classData.sort((a, b) => {
-                    const dateA = new Date(a.date === 'Date TBD' ? '1970-01-01' : a.date);
-                    const dateB = new Date(b.date === 'Date TBD' ? '1970-01-01' : b.date);
-                    if (dateA.getTime() !== dateB.getTime()) {
-                        return dateA - dateB;
+                    const orderA = getCwagsClassOrder(a.className);
+                    const orderB = getCwagsClassOrder(b.className);
+                    
+                    // First sort by C-WAGS class order
+                    if (orderA !== orderB) {
+                        return orderA - orderB;
                     }
+                    
+                    // If same order (shouldn't happen), sort by class name
                     return a.className.localeCompare(b.className);
                 });
+
+                console.log('📋 Classes sorted by C-WAGS order:', classData.map(c => ({
+                    class: c.className,
+                    order: getCwagsClassOrder(c.className),
+                    entered: c.entered,
+                    actual: c.actual,
+                    qualifiers: c.qualifiers
+                })));
 
                 populateRecapSummary(totalEntered, totalActual, totalQualifiers, true);
                 populateClassesTable();
