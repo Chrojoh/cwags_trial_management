@@ -1106,13 +1106,16 @@
                 classData.rounds.forEach(round => {
                     if (round.hasScores) {
                         Object.entries(round.participants).forEach(([participantId, result]) => {
-                            if (result.passFail && result.passFail !== '-') {
-                                totalRuns++;
-                                if (result.passFail === 'Pass') {
-                                    totalPasses++;
-                                }
-                            }
-                        });
+    // Skip FEO entries in class summaries
+    if (result && result.entryType === 'feo') return;
+    
+    if (result.passFail && result.passFail !== '-') {
+        totalRuns++;
+        if (result.passFail === 'Pass') {
+            totalPasses++;
+        }
+    }
+});
                     } else {
                         scheduledRuns += round.participants ? round.participants.length : 0;
                     }
