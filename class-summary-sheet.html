@@ -1164,11 +1164,10 @@
                 }
 
             } catch (error) {
-                console.error('Error generating summary:', error);
-                showStatus('Error generating summary: ' + error.message, 'error');
-                showProgress(false);
-            }
-        }
+    console.error('Error generating summary:', error);
+    showStatus('Error generating summary: ' + error.message, 'error');
+    showProgress(false);
+}
 
         // Render summary for all classes (simplified view) with FEO filtering
         function renderAllClassesSummary() {
