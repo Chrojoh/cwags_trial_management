@@ -1,13 +1,1032 @@
-<!DOCTYPE html>
+// Process scores data with enhanced FEO and orphaned entry filtering
+                // Group by CLASS NAME rather than individual rounds
+                const classMap = new Map();
+                let totalEntered = 0;
+                let totalActual = 0;
+                let totalQualifiers = 0;
+                let debugInfo = {
+                    totalProcessed: 0,
+                    feoFiltered: 0,
+                    orphanedFiltered: 0,
+                    regularIncluded: 0
+                };
+
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const participants = scoreData.participants || {};
+                    const className = scoreData.className;
+                    
+                    console.log(`📊 Processing class: ${className}, participants: ${Object.keys(participants).length}`);
+
+                    // Initialize class data if not exists
+                    if (!classMap.has(className)) {
+                        // Fix date handling - better date processing
+                        let classDate = null;
+                        
+                        // Try multiple date sources
+                        if (scoreData.dayDate) {
+                            classDate = createLocalDate(scoreData.dayDate);
+                        } else if (scoreData.date) {
+                            classDate = createLocalDate(scoreData.date);
+                        } else if (currentTrial.days && scoreData.roundKey) {
+                            // Extract day index from round key
+                            const indices = getRoundKeyIndices(scoreData.roundKey);
+                            if (indices && currentTrial.days[indices.dayIndex]) {
+                                const dayData = currentTrial.days[indices.dayIndex];
+                                if (dayData && dayData.date) {
+                                    classDate = createLocalDate(dayData.date);
+                                }
+                            }
+                        }
+                        
+                        // Fallback to first trial day if no specific date found
+                        if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
+                            const firstDay = currentTrial.days.find(day => day.date);
+                            if (firstDay) {
+                                classDate = createLocalDate(firstDay.date);
+                            }
+                        }
+
+                        classMap.set(className, {
+                            date: classDate || new Date(),
+                            className: className,
+                            entered: 0,
+                            actual: 0,
+                            qualifiers: 0,
+                            participants: new Set() // Track unique participants across rounds
+                        });
+                    }
+
+                    const classInfo = classMap.get(className);
+
+                    // Process each participant with enhanced filtering
+                    Object.entries(participants).forEach(([participantId, participant]) => {
+                        debugInfo.totalProcessed++;
+
+                        // Check for orphaned scores (deleted entries)
+                        const [docId] = participantId.split('_');
+                        const originalEntry = entriesData[docId];
+                        
+                        if (!originalEntry) {
+                            console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
+                            debugInfo.orphanedFiltered++;
+                            return; // Skip orphaned scores
+                        }
+
+                        // Check for FEO entries                        // Add dates if available
+                        if (trial.days && trial.days.length > 0) {
+                            const dates = trial.days
+                                .filter(day => day.date)
+                                .map(day => {
+                                    const localDate = createLocalDate(day.date);
+                                    return localDate ? localDate.toLocaleDateString('en-US', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                                    }) : '';
+                                })
+                                .filter(date => date)
+                                .join(', ');
+                            if (dates) {
+                                trialLabel += ` (${dates})`;
+                            }
+                        }
+                        
+                        option.textContent = trialLabel;
+                        trialSelect.appendChild(option);
+                    });
+                    
+                    showStatus(`Found ${trials.length} trials`, 'success');
+                } else {
+                    trialSelect.innerHTML = '<option value="">No trials found</option>';
+                    showStatus('No trials found. Create a trial first.', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading trials:', error);
+                showStatus('Error loading trials: ' + error.message, 'error');
+            }
+        }
+
+        // FIXED Load trial recap data
+        async function loadTrialRecap() {
+            console.log('🚀 loadTrialRecap() called');
+            
+            const trialId = document.getElementById('trialSelect').value;
+            console.log('📋 Selected trial ID:', trialId);
+            
+            if (!trialId) {
+                console.log('❌ No trial selected');
+                document.getElementById('recapContainer').style.display = 'none';
+                return;
+            }
+
+            try {
+                console.log('⏳ Starting trial recap load process...');
+                document.getElementById('loadingState').style.display = 'block';
+                document.getElementById('recapContainer').style.display = 'none';
+                document.getElementById('noDataState').style.display = 'none';
+
+                // Load trial data
+                console.log('📄 Loading trial document...');
+                const trialDoc = await db.collection('trials').doc(trialId).get();
+                if (!trialDoc.exists) {
+                    throw new Error('Trial not found');
+                }
+
+                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
+                console.log('✅ Trial loaded:', currentTrial.clubName);
+                
+                // Load entries data for enhanced filtering
+                console.log('📂 Loading entries data for enhanced filtering...');
+                const entriesSnapshot = await db.collection('entries')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                entriesData = {};
+                entriesSnapshot.forEach(doc => {
+                    entriesData[doc.id] = doc.data();
+                });
+                console.log(`📊 Loaded ${Object.keys(entriesData).length} entry documents for filtering`);
+                
+                // Load all scores for this trial with enhanced filtering
+                console.log('🔍 Looking for trial ID:', trialId);
+                const scoresSnapshot = await db.collection('scores')
+                    .where('trialId', '==', trialId)
+                    .get();
+
+                console.log('📊 Found score documents:', scoresSnapshot.size);
+                
+                if (scoresSnapshot.empty) {
+                    console.log('❌ No scores found');
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('noDataState').style.display = 'block';
+                    return;
+                }
+
+                // Process scores data with enhanced FEO and orphaned entry filtering
+                // Group by CLASS NAME rather than individual rounds
+                const classMap = new Map();
+                let debugInfo = {
+                    totalProcessed: 0,
+                    feoFiltered: 0,
+                    orphanedFiltered: 0,
+                    regularIncluded: 0
+                };
+
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    const participants = scoreData.participants || {};
+                    const className = scoreData.className;
+                    
+                    console.log(`📊 Processing class: ${className}, participants: ${Object.keys(participants).length}`);
+
+                    // Initialize class data if not exists
+                    if (!classMap.has(className)) {
+                        // Fix date handling - better date processing
+                        let classDate = null;
+                        
+                        // Try multiple date sources
+                        if (scoreData.dayDate) {
+                            classDate = createLocalDate(scoreData.dayDate);
+                        } else if (scoreData.date) {
+                            classDate = createLocalDate(scoreData.date);
+                        } else if (currentTrial.days && scoreData.roundKey) {
+                            // Extract day index from round key
+                            const indices = getRoundKeyIndices(scoreData.roundKey);
+                            if (indices && currentTrial.days[indices.dayIndex]) {
+                                const dayData = currentTrial.days[indices.dayIndex];
+                                if (dayData && dayData.date) {
+                                    classDate = createLocalDate(dayData.date);
+                                }
+                            }
+                        }
+                        
+                        // Fallback to first trial day if no specific date found
+                        if (!classDate && currentTrial.days && currentTrial.days.length > 0) {
+                            const firstDay = currentTrial.days.find(day => day.date);
+                            if (firstDay) {
+                                classDate = createLocalDate(firstDay.date);
+                            }
+                        }
+
+                        classMap.set(className, {
+                            date: classDate || new Date(),
+                            className: className,
+                            entered: 0,
+                            actual: 0,
+                            qualifiers: 0,
+                            participants: new Set() // Track unique participants across rounds
+                        });
+                    }
+
+                    const classInfo = classMap.get(className);
+
+                    // Process each participant with enhanced filtering
+                    Object.entries(participants).forEach(([participantId, participant]) => {
+                        debugInfo.totalProcessed++;
+
+                        // Skip if we've already processed this participant for this class
+                        if (classInfo.participants.has(participantId)) {
+                            return;
+                        }
+
+                        // Check for orphaned scores (deleted entries)
+                        const [docId] = participantId.split('_');
+                        const originalEntry = entriesData[docId];
+                        
+                        if (!originalEntry) {
+                            console.log(`🚫 ORPHANED SCORE detected (entry deleted): ${participantId}`);
+                            debugInfo.orphanedFiltered++;
+                            return; // Skip orphaned scores
+                        }
+
+                        // Check for FEO entries
+                        let isFeo = false;
+                        
+                        // Check participant data for FEO indicators
+                        if (participant.entryType && isFeoEntry(participant.entryType)) {
+                            isFeo = true;
+                        } else if (participant.type && isFeoEntry(participant.type)) {
+                            isFeo = true;
+                        } else if (participantId && participantId.toLowerCase().includes('feo')) {
+                            isFeo = true;
+                        } else if (participant.comments && participant.comments.toLowerCase().includes('feo')) {
+                            isFeo = true;
+                        }
+                        
+                        // Check original entries data for FEO status
+                        if (!isFeo && originalEntry.selectedEntries) {
+                            const parts = participantId.split('_');
+                            if (parts.length > 1) {
+                                const entryDetails = parts[1];
+                                const classNames = [
+                                    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',
+                                    'Private Inv', 'Det Diversions', 'Ranger 1', 'Ranger 2', 
+                                    'Ranger 3', 'Ranger 4', 'Ranger 5', 'Dasher 3', 'Dasher 4', 
+                                    'Dasher 5', 'Dasher 6'
+                                ];
+                                
+                                for (const className of classNames) {
+                                    if (entryDetails.includes(className)) {
+                                        const matchingEntry = originalEntry.selectedEntries.find(se => 
+                                            se.className === className
+                                        );
+                                        if (matchingEntry && matchingEntry.type && isFeoEntry(matchingEntry.type)) {
+                                            isFeo = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (isFeo) {
+                            console.log(`🚫 FEO detected: ${participantId}`);
+                            debugInfo.feoFiltered++;
+                            return; // Skip FEO entries
+                        }
+
+                        debugInfo.regularIncluded++;
+                        
+                        // Add to participants set to avoid double counting
+                        classInfo.participants.add(participantId);
+                        
+                        // Count regular (non-FEO, non-orphaned) participants as "entered"
+                        classInfo.entered++;
+                        
+                        // Count actual runs - check both passFail and result fields
+                        let hasResult = false;
+                        let resultValue = null;
+                        
+                        if (participant.passFail && participant.passFail !== '' && participant.passFail !== 'abs' && participant.passFail !== 'Absent') {
+                            hasResult = true;
+                            resultValue = participant.passFail;
+                        } else if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
+                            hasResult = true;
+                            resultValue = participant.result;
+                        }
+                        
+                        if (hasResult) {
+                            classInfo.actual++;
+                            
+                            // Count qualifiers - expanded list for games and scent
+                            const qualifyingResults = ['Pass', 'Q', 'P', 'BJ', 'GB', 'T', 'C', 'A', 'B'];
+                            const numericScore = parseFloat(resultValue);
+                            
+                            if (qualifyingResults.includes(resultValue) || (!isNaN(numericScore) && numericScore > 0)) {
+                                classInfo.qualifiers++;
+                            }
+                        }
+                    });
+
+                    console.log(`📊 Class ${className}: Entered=${classInfo.entered}, Actual=${classInfo.actual}, Qualifiers=${classInfo.qualifiers}`);
+                });
+
+                // Convert classMap to classData array
+                classData = Array.from(classMap.values()).map(classInfo => ({
+                    date: classInfo.date,
+                    className: classInfo.className,
+                    entered: classInfo.entered,
+                    actual: classInfo.actual,
+                    qualifiers: classInfo.qualifiers,
+                    hasScores: classInfo.actual > 0
+                }));
+
+                // Calculate totals
+                let totalEntered = 0;
+                let totalActual = 0;
+                let totalQualifiers = 0;
+                
+                classData.forEach(classInfo => {
+                    totalEntered += classInfo.entered;
+                    totalActual += classInfo.actual;
+                    totalQualifiers += classInfo.qualifiers;
+                });
+
+                console.log('🔧 Enhanced Filtering Results:', debugInfo);
+                console.log('📊 Final totals:', { totalEntered, totalActual, totalQualifiers });
+                console.log('📋 Class data summary:', classData.map(c => ({
+                    class: c.className,
+                    date: c.date,
+                    entered: c.entered,
+                    actual: c.actual,
+                    qualifiers: c.qualifiers
+                })));
+
+                // Sort classes by date and class name
+                classData.sort((a, b) => {
+                    const dateA = new Date(a.date === 'Date TBD' ? '1970-01-01' : a.date);
+                    const dateB = new Date(b.date === 'Date TBD' ? '1970-01-01' : b.date);
+                    if (dateA.getTime() !== dateB.getTime()) {
+                        return dateA - dateB;
+                    }
+                    return a.className.localeCompare(b.className);
+                });
+
+                // Update UI with filtered data
+                populateRecapSummary(totalEntered, totalActual, totalQualifiers, true);
+                populateClassesTable();
+                
+                // Load existing recap data if available
+                await loadExistingRecap();
+                
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('recapContainer').style.display = 'block';
+                
+                let statusMessage = 'Trial recap loaded successfully!';
+                if (debugInfo.feoFiltered > 0) statusMessage += ` (${debugInfo.feoFiltered} FEO entries filtered)`;
+                if (debugInfo.orphanedFiltered > 0) statusMessage += ` (${debugInfo.orphanedFiltered} orphaned scores filtered)`;
+                showStatus(statusMessage, 'success');
+
+            } catch (error) {
+                console.error('Error loading trial recap:', error);
+                showStatus('Error loading trial recap: ' + error.message, 'error');
+                document.getElementById('loadingState').style.display = 'none';
+            }
+        }
+
+        // Populate recap summary with better location handling
+        function populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores) {
+            // Trial info
+            document.getElementById('trialTitle').textContent = `${currentTrial.clubName} Trial Recap`;
+            document.getElementById('hostClub').textContent = currentTrial.clubName;
+            
+            // Better location handling - check multiple possible location fields
+            let location = 'Location TBD';
+            if (currentTrial.location && currentTrial.location.trim() !== '') {
+                location = currentTrial.location.trim();
+            } else if (currentTrial.venue && currentTrial.venue.trim() !== '') {
+                location = currentTrial.venue.trim();
+            } else if (currentTrial.address && currentTrial.address.trim() !== '') {
+                location = currentTrial.address.trim();
+            } else if (currentTrial.city && currentTrial.city.trim() !== '') {
+                location = currentTrial.city.trim();
+            }
+            
+            document.getElementById('trialLocation').textContent = location;
+            document.getElementById('totalClasses').textContent = classData.length;
+
+            // Trial dates
+            let dateRange = 'Date TBD';
+            if (currentTrial.days && currentTrial.days.length > 0) {
+                const dates = currentTrial.days
+                    .map(day => day.date ? createLocalDate(day.date) : null)
+                    .filter(date => date !== null)
+                    .sort((a, b) => a - b);
+                
+                if (dates.length > 0) {
+                    if (dates.length === 1) {
+                        dateRange = formatLocalDate(dates[0]);
+                    } else {
+                        dateRange = `${formatLocalDate(dates[0])} - ${formatLocalDate(dates[dates.length - 1])}`;
+                    }
+                }
+            }
+            document.getElementById('trialDates').textContent = dateRange;
+
+            // Statistics
+            document.getElementById('totalEntered').textContent = totalEntered;
+            
+            if (hasScores) {
+                document.getElementById('totalActual').textContent = totalActual;
+                document.getElementById('totalQualifiers').textContent = totalQualifiers;
+                
+                const qualifyingRate = totalActual > 0 ? Math.round((totalQualifiers / totalActual) * 100) : 0;
+                document.getElementById('qualifyingRate').textContent = `${qualifyingRate}%`;
+            } else {
+                document.getElementById('totalActual').textContent = 'Pending*';
+                document.getElementById('totalQualifiers').textContent = 'Pending*';
+                document.getElementById('qualifyingRate').textContent = 'Pending*';
+            }
+
+            // Payment calculation (always based on entered runs)
+            const payment = totalEntered * 1.50;
+            document.getElementById('paymentRuns').textContent = totalEntered;
+            document.getElementById('totalPayment').textContent = `${payment.toFixed(2)}`;
+        }
+
+        // Populate classes table
+        function populateClassesTable() {
+            const tbody = document.getElementById('classesTableBody');
+            tbody.innerHTML = '';
+
+            classData.forEach((classInfo, index) => {
+                const row = document.createElement('div');
+                row.className = 'table-row';
+                
+                // Better date formatting
+                let displayDate = 'Date TBD';
+                if (classInfo.date) {
+                    if (classInfo.date instanceof Date) {
+                        displayDate = formatLocalDate(classInfo.date);
+                    } else {
+                        displayDate = formatLocalDate(createLocalDate(classInfo.date));
+                    }
+                }
+                
+                row.innerHTML = `
+                    <div>${index + 1}</div>
+                    <div>${displayDate}</div>
+                    <div><strong>${classInfo.className}</strong></div>
+                    <div>${classInfo.entered}</div>
+                    <div>${classInfo.actual}</div>
+                    <div>${classInfo.qualifiers}</div>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Save recap as draft
+        async function saveRecapDraft() {
+            try {
+                const recapData = {
+                    trialId: currentTrial.id,
+                    judgeSubstitutions: document.getElementById('judgeSubstitutions').value,
+                    incidents: document.getElementById('incidents').value,
+                    complaints: document.getElementById('complaints').value,
+                    cwagsComments: document.getElementById('cwagsComments').value,
+                    submittedBy: document.getElementById('submittedBy').value,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'draft'
+                };
+
+                await db.collection('trialRecaps').doc(currentTrial.id).set(recapData, { merge: true });
+                showStatus('Draft saved successfully!', 'success');
+            } catch (error) {
+                console.error('Error saving draft:', error);
+                showStatus('Error saving draft: ' + error.message, 'error');
+            }
+        }
+
+        // ENHANCED Generate recap PDF
+        async function generateRecapPDF() {
+            try {
+                showStatus('Generating PDF...', 'info');
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                
+                // Header
+                pdf.setFontSize(20);
+                pdf.text('C-WAGS Trial Recap', 105, 30, { align: 'center' });
+                
+                // Trial info
+                let yPos = 50;
+                pdf.setFontSize(12);
+                pdf.text(`Trial Dates: ${document.getElementById('trialDates').textContent}`, 20, yPos);
+                yPos += 10;
+                pdf.text(`Host: ${document.getElementById('hostClub').textContent}`, 20, yPos);
+                yPos += 10;
+                pdf.text(`Location: ${document.getElementById('trialLocation').textContent}`, 20, yPos);
+                yPos += 20;
+
+                // Summary statistics
+                pdf.text(`Total Entered: ${document.getElementById('totalEntered').textContent}`, 20, yPos);
+                yPos += 8;
+                pdf.text(`Total Actual: ${document.getElementById('totalActual').textContent}`, 20, yPos);
+                yPos += 8;
+                pdf.text(`Total Qualifiers: ${document.getElementById('totalQualifiers').textContent}`, 20, yPos);
+                yPos += 8;
+                pdf.text(`Qualifying Rate: ${document.getElementById('qualifyingRate').textContent}`, 20, yPos);
+                yPos += 20;
+
+                // Classes table header
+                pdf.setFontSize(10);
+                pdf.text('#', 20, yPos);
+                pdf.text('Date', 35, yPos);
+                pdf.text('Class', 70, yPos);
+                pdf.text('# Entered', 120, yPos);
+                pdf.text('# Actual', 150, yPos);
+                pdf.text('# Q\'s', 175, yPos);
+                yPos += 5;
+                
+                // Draw line
+                pdf.line(20, yPos, 190, yPos);
+                yPos += 10;
+
+                // Classes data
+                classData.forEach((classInfo, index) => {
+                    if (yPos > 250) {
+                        pdf.addPage();
+                        yPos = 30;
+                    }
+                    
+                    pdf.text((index + 1).toString(), 20, yPos);
+                    pdf.text(formatLocalDate(createLocalDate(classInfo.date)), 35, yPos);
+                    pdf.text(classInfo.className, 70, yPos);
+                    pdf.text(classInfo.entered.toString(), 120, yPos);
+                    pdf.text(classInfo.actual.toString(), 150, yPos);
+                    pdf.text(classInfo.qualifiers.toString(), 175, yPos);
+                    yPos += 8;
+                });
+
+                // Payment calculation
+                yPos += 20;
+                const totalEntered = parseInt(document.getElementById('totalEntered').textContent);
+                const totalPayment = document.getElementById('totalPayment').textContent;
+                
+                pdf.text(`Total entered: ${totalEntered} x $1.50 = ${totalPayment}`, 20, yPos);
+                yPos += 20;
+
+                // Incident reports
+                if (yPos > 200) {
+                    pdf.addPage();
+                    yPos = 30;
+                }
+
+                pdf.setFontSize(12);
+                pdf.text('Incident Reports:', 20, yPos);
+                yPos += 15;
+
+                pdf.setFontSize(10);
+                const judgeSubstitutions = document.getElementById('judgeSubstitutions').value;
+                if (judgeSubstitutions) {
+                    pdf.text('Judge Substitutions:', 20, yPos);
+                    yPos += 10;
+                    const lines = pdf.splitTextToSize(judgeSubstitutions, 170);
+                    pdf.text(lines, 20, yPos);
+                    yPos += lines.length * 5 + 10;
+                }
+
+                const incidents = document.getElementById('incidents').value;
+                if (incidents) {
+                    pdf.text('Incidents:', 20, yPos);
+                    yPos += 10;
+                    const lines = pdf.splitTextToSize(incidents, 170);
+                    pdf.text(lines, 20, yPos);
+                    yPos += lines.length * 5 + 10;
+                }
+
+                const complaints = document.getElementById('complaints').value;
+                if (complaints) {
+                    pdf.text('Complaints:', 20, yPos);
+                    yPos += 10;
+                    const lines = pdf.splitTextToSize(complaints, 170);
+                    pdf.text(lines, 20, yPos);
+                    yPos += lines.length * 5 + 10;
+                }
+
+                const cwagsComments = document.getElementById('cwagsComments').value;
+                if (cwagsComments) {
+                    pdf.text('C-WAGS Comments:', 20, yPos);
+                    yPos += 10;
+                    const lines = pdf.splitTextToSize(cwagsComments, 170);
+                    pdf.text(lines, 20, yPos);
+                    yPos += lines.length * 5 + 10;
+                }
+
+                // Footer
+                const submittedBy = document.getElementById('submittedBy').value;
+                if (submittedBy) {
+                    pdf.text(`Submitted by: ${submittedBy}`, 20, yPos + 10);
+                }
+
+                // Save PDF
+                const filename = `${currentTrial.clubName}_Trial_Recap_${new Date().toISOString().split('T')[0]}.pdf`;
+                pdf.save(filename);
+                
+                showStatus('PDF generated successfully!', 'success');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                showStatus('Error generating PDF: ' + error.message, 'error');
+            }
+        }
+
+        // NEW Excel export function
+        function exportRecapExcel() {
+            console.log('📊 Exporting Trial Recap to Excel');
+            
+            if (classData.length === 0) {
+                showStatus('No trial data to export', 'error');
+                return;
+            }
+
+            // Check if XLSX library is available
+            if (typeof XLSX === 'undefined') {
+                console.error('XLSX library not loaded');
+                showStatus('Excel library not available. Generate PDF instead.', 'error');
+                return;
+            }
+
+            try {
+                console.log('📊 XLSX library found, creating recap workbook...');
+                
+                const trialName = currentTrial?.clubName || 'Trial';
+                const trialDates = document.getElementById('trialDates').textContent;
+                const trialLocation = document.getElementById('trialLocation').textContent;
+                
+                // Prepare data for Excel
+                const excelData = [];
+                
+                // Add title and summary info
+                excelData.push([`${trialName} - Trial Recap Summary`]);
+                excelData.push([`Dates: ${trialDates}`]);
+                excelData.push([`Location: ${trialLocation}`]);
+                excelData.push([`Total Classes: ${classData.length}`]);
+                excelData.push([]); // Empty row
+                
+                // Add statistics
+                excelData.push(['Summary Statistics']);
+                excelData.push(['Total Entered Runs:', document.getElementById('totalEntered').textContent]);
+                excelData.push(['Total Actual Runs:', document.getElementById('totalActual').textContent]);
+                excelData.push(['Total Qualifiers:', document.getElementById('totalQualifiers').textContent]);
+                excelData.push(['Qualifying Rate:', document.getElementById('qualifyingRate').textContent]);
+                excelData.push([]); // Empty row
+                
+                // Add payment calculation
+                excelData.push(['Payment Calculation']);
+                excelData.push(['Total Entered Runs:', document.getElementById('paymentRuns').textContent]);
+                excelData.push(['Rate per run:', '$1.50']);
+                excelData.push(['Amount Due to C-WAGS:', document.getElementById('totalPayment').textContent]);
+                excelData.push([]); // Empty row
+                
+                // Add table headers
+                excelData.push(['Class Details']);
+                excelData.push(['#', 'Date', 'Class Name', '# Entered', '# Actual', '# Qualifiers']);
+                
+                // Add class data
+                classData.forEach((classInfo, index) => {
+                    excelData.push([
+                        index + 1,
+                        formatLocalDate(createLocalDate(classInfo.date)),
+                        classInfo.className,
+                        classInfo.entered,
+                        classInfo.actual,
+                        classInfo.qualifiers
+                    ]);
+                });
+
+                // Add incident reports if any
+                excelData.push([]); // Empty row
+                excelData.push(['Incident Reports']);
+                
+                const judgeSubstitutions = document.getElementById('judgeSubstitutions').value;
+                if (judgeSubstitutions) {
+                    excelData.push(['Judge Substitutions:', judgeSubstitutions]);
+                }
+                
+                const incidents = document.getElementById('incidents').value;
+                if (incidents) {
+                    excelData.push(['Incidents:', incidents]);
+                }
+                
+                const complaints = document.getElementById('complaints').value;
+                if (complaints) {
+                    excelData.push(['Complaints:', complaints]);
+                }
+                
+                const cwagsComments = document.getElementById('cwagsComments').value;
+                if (cwagsComments) {
+                    excelData.push(['C-WAGS Comments:', cwagsComments]);
+                }
+                
+                const submittedBy = document.getElementById('submittedBy').value;
+                if (submittedBy) {
+                    excelData.push(['Submitted By:', submittedBy]);
+                }
+
+                console.log('📊 Creating worksheet with', excelData.length, 'rows...');
+                
+                // Create workbook and worksheet
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+                
+                // Set column widths
+                ws['!cols'] = [
+                    {wch: 5},  // #
+                    {wch: 12}, // Date
+                    {wch: 30}, // Class Name
+                    {wch: 12}, // # Entered
+                    {wch: 12}, // # Actual
+                    {wch: 12}  // # Qualifiers
+                ];
+
+                // Add worksheet to workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Trial Recap');
+                
+                console.log('📊 Workbook created, attempting to save...');
+
+                // Generate filename and save
+                const filename = `${trialName}_Trial_Recap_${new Date().toISOString().split('T')[0]}.xlsx`;
+                
+                // Try to write the file
+                XLSX.writeFile(wb, filename);
+                
+                console.log('✅ Excel file created successfully:', filename);
+                showStatus(`Excel file exported: ${filename}`, 'success');
+                
+            } catch (error) {
+                console.error('❌ Error creating Excel file:', error);
+                showStatus('Excel export failed. Try PDF export instead.', 'error');
+            }
+        }
+
+        // Submit recap to C-WAGS
+        async function submitRecapToWags() {
+            try {
+                // Validate required fields
+                const submittedBy = document.getElementById('submittedBy').value.trim();
+                if (!submittedBy) {
+                    showStatus('Please enter who is submitting this recap', 'error');
+                    return;
+                }
+
+                const recapData = {
+                    trialId: currentTrial.id,
+                    trialName: currentTrial.clubName,
+                    trialLocation: currentTrial.location,
+                    trialDates: document.getElementById('trialDates').textContent,
+                    totalEntered: parseInt(document.getElementById('totalEntered').textContent),
+                    totalActual: parseInt(document.getElementById('totalActual').textContent) || 0,
+                    totalQualifiers: parseInt(document.getElementById('totalQualifiers').textContent) || 0,
+                    amountDue: document.getElementById('totalPayment').textContent,
+                    classData: classData,
+                    judgeSubstitutions: document.getElementById('judgeSubstitutions').value,
+                    incidents: document.getElementById('incidents').value,
+                    complaints: document.getElementById('complaints').value,
+                    cwagsComments: document.getElementById('cwagsComments').value,
+                    submittedBy: submittedBy,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'submitted'
+                };
+
+                await db.collection('trialRecaps').doc(currentTrial.id).set(recapData);
+                await db.collection('submissions').add({
+                    type: 'trialRecap',
+                    trialId: currentTrial.id,
+                    submittedBy: currentUser.uid,
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    data: recapData
+                });
+
+                showStatus('Trial recap submitted to C-WAGS successfully! Remember to mail payment within 15 days.', 'success');
+            } catch (error) {
+                console.error('Error submitting recap:', error);
+                showStatus('Error submitting recap: ' + error.message, 'error');
+            }
+        }
+
+        // Generate judge evaluations
+        async function generateJudgeEvaluations() {
+            try {
+                showStatus('Generating judge evaluation forms...', 'info');
+                
+                // Get unique judges from class data
+                const judges = new Set();
+                const scoresSnapshot = await db.collection('scores')
+                    .where('trialId', '==', currentTrial.id)
+                    .get();
+
+                scoresSnapshot.forEach(doc => {
+                    const scoreData = doc.data();
+                    if (scoreData.judgeName) {
+                        judges.add(scoreData.judgeName);
+                    }
+                });
+
+                if (judges.size === 0) {
+                    showStatus('No judges found for this trial', 'error');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF();
+                let isFirstPage = true;
+
+                judges.forEach(judgeName => {
+                    if (!isFirstPage) {
+                        pdf.addPage();
+                    }
+                    isFirstPage = false;
+
+                    // Judge evaluation form
+                    let yPos = 30;
+                    
+                    // Header
+                    pdf.setFontSize(18);
+                    pdf.text('Judge\'s Evaluation', 105, yPos, { align: 'center' });
+                    yPos += 20;
+
+                    // Judge info
+                    pdf.setFontSize(12);
+                    pdf.text(`Judge: ${judgeName}`, 20, yPos);
+                    yPos += 10;
+                    pdf.text(`Dates: ${document.getElementById('trialDates').textContent}`, 20, yPos);
+                    yPos += 10;
+                    pdf.text(`Trial Host: ${currentTrial.clubName}`, 20, yPos);
+                    yPos += 20;
+
+                    // Instructions
+                    pdf.setFontSize(10);
+                    pdf.text('Please give an honest response to each question so that we may help our judges improve.', 20, yPos);
+                    yPos += 8;
+                    pdf.text('Select from 1 to 5, with 1 being the poorest to 5 being the best.', 20, yPos);
+                    yPos += 20;
+
+                    // Questions
+                    const questions = [
+                        'Did the judge\'s behavior reflect positively on: dog sports, your organization, and Canine-Work and Games?',
+                        'Did the judge appear comfortable with ring procedures?',
+                        'Did the judge appear to have a working knowledge of scoring rules – or able to find the answer efficiently?',
+                        'Did the judge appear to apply judging criteria consistently and according to the rules as written?',
+                        'Would your organization bring this judge back again?'
+                    ];
+
+                    questions.forEach((question, index) => {
+                        if (yPos > 250) {
+                            pdf.addPage();
+                            yPos = 30;
+                        }
+
+                        pdf.setFontSize(10);
+                        const lines = pdf.splitTextToSize(`${index + 1}. ${question}`, 170);
+                        pdf.text(lines, 20, yPos);
+                        yPos += lines.length * 5 + 5;
+
+                        // Rating boxes
+                        for (let i = 1; i <= 5; i++) {
+                            pdf.rect(20 + (i - 1) * 15, yPos, 10, 10);
+                            pdf.text(i.toString(), 23 + (i - 1) * 15, yPos + 7);
+                        }
+                        yPos += 20;
+
+                        // Why line
+                        pdf.text('Why?:', 20, yPos);
+                        pdf.line(35, yPos, 190, yPos);
+                        yPos += 15;
+                    });
+
+                    // Additional sections
+                    if (yPos > 220) {
+                        pdf.addPage();
+                        yPos = 30;
+                    }
+
+                    pdf.text('Any complaints received:', 20, yPos);
+                    yPos += 10;
+                    pdf.line(20, yPos, 190, yPos);
+                    yPos += 15;
+                    pdf.line(20, yPos, 190, yPos);
+                    yPos += 20;
+
+                    pdf.text('Comments:', 20, yPos);
+                    yPos += 10;
+                    pdf.line(20, yPos, 190, yPos);
+                    yPos += 15;
+                    pdf.line(20, yPos, 190, yPos);
+                    yPos += 15;
+                    pdf.line(20, yPos, 190, yPos);
+                    yPos += 20;
+
+                    pdf.text('Completed by: ________________________', 20, yPos);
+                });
+
+                // Save PDF
+                const filename = `${currentTrial.clubName}_Judge_Evaluations_${new Date().toISOString().split('T')[0]}.pdf`;
+                pdf.save(filename);
+                
+                showStatus('Judge evaluation forms generated successfully!', 'success');
+            } catch (error) {
+                console.error('Error generating judge evaluations:', error);
+                showStatus('Error generating judge evaluations: ' + error.message, 'error');
+            }
+        }
+
+        // Load existing recap data if available
+        async function loadExistingRecap() {
+            try {
+                const recapDoc = await db.collection('trialRecaps').doc(currentTrial.id).get();
+                if (recapDoc.exists) {
+                    const data = recapDoc.data();
+                    document.getElementById('judgeSubstitutions').value = data.judgeSubstitutions || '';
+                    document.getElementById('incidents').value = data.incidents || '';
+                    document.getElementById('complaints').value = data.complaints || '';
+                    document.getElementById('cwagsComments').value = data.cwagsComments || '';
+                    document.getElementById('submittedBy').value = data.submittedBy || '';
+                    
+                    if (data.status === 'submitted') {
+                        showStatus('This recap has already been submitted to C-WAGS', 'info');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading existing recap:', error);
+            }
+        }
+
+        // Test XLSX library on page load
+        function testExcelLibrary() {
+            if (typeof XLSX !== 'undefined') {
+                console.log('✅ XLSX library loaded successfully');
+                console.log('📊 XLSX version:', XLSX.version);
+            } else {
+                console.error('❌ XLSX library failed to load');
+                console.log('🔧 Available libraries:', Object.keys(window).filter(key => key.includes('XLS')));
+                
+                // Disable Excel button if library didn't load
+                setTimeout(() => {
+                    const excelButton = document.querySelector('.btn-excel');
+                    if (excelButton) {
+                        excelButton.disabled = true;
+                        excelButton.textContent = excelButton.textContent.replace('📊', '❌');
+                        excelButton.title = 'Excel library failed to load';
+                    }
+                }, 500);
+            }
+        }
+
+        // Start the application when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📋 Fixed Trial Recap Summary page loaded');
+            
+            // Test Excel library
+            setTimeout(() => {
+                testExcelLibrary();
+            }, 1000);
+            
+            init().catch(error => {
+                console.error('❌ Failed to initialize app:', error);
+                showStatus('Failed to initialize application', 'error');
+            });
+        });
+
+        console.log('📋 FIXED Trial Recap script setup complete, waiting for DOM...');
+    </script>
+</body>
+</html><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C-WAGS Trial Recap Summary</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <title>C-WAGS Trial Recap Summary (Fixed)</title>
+    
+    <!-- Firebase SDKs - Updated to match working version -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <!-- jsPDF for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- SheetJS for Excel export - trying multiple CDN sources -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="loadBackupXLSX()"></script>
+    <script>
+        function loadBackupXLSX() {
+            console.log('Primary XLSX CDN failed, trying backup...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+            script.onerror = function() {
+                console.log('Backup XLSX CDN also failed, trying third option...');
+                const script2 = document.createElement('script');
+                script2.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                script2.onerror = function() {
+                    console.error('All XLSX CDN sources failed');
+                };
+                document.head.appendChild(script2);
+            };
+            document.head.appendChild(script);
+        }
+    </script>
+    
     <style>
         * {
             margin: 0;
@@ -355,6 +1374,15 @@
             color: white;
         }
 
+        .btn-excel {
+            background: #217346;
+            color: white;
+        }
+
+        .btn-excel:hover {
+            background: #1e5f3a;
+        }
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
@@ -436,7 +1464,7 @@
         <!-- Header -->
         <div class="header">
             <a href="trial-secretary-dashboard.html" class="back-button">← Back to Dashboard</a>
-            <h1>📋 Trial Recap Summary</h1>
+            <h1>📋 Trial Recap Summary (Fixed)</h1>
             <p>Complete post-trial reporting and C-WAGS submission</p>
         </div>
 
@@ -587,6 +1615,9 @@
                     <button class="btn btn-warning" onclick="generateRecapPDF()">
                         📄 Generate PDF
                     </button>
+                    <button class="btn btn-excel" onclick="exportRecapExcel()">
+                        📊 Export Excel
+                    </button>
                     <button class="btn btn-success" onclick="submitRecapToWags()">
                         📤 Submit to C-WAGS
                     </button>
@@ -599,6 +1630,8 @@
     </div>
 
     <script>
+        console.log('🎯 Fixed Trial Recap Summary starting...');
+
         // Firebase Configuration
         const firebaseConfig = {
             apiKey: "AIzaSyBWpyM_lEpqdQWuKuLLZiW1SlloWsWkJCs",
@@ -610,16 +1643,102 @@
             measurementId: "G-EMLX58Y278"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        // Initialize Firebase immediately
+        let auth, db, currentUser = null, currentTrial = null;
+        let recapData = {}, classData = [];
+        let entriesData = {};
 
-        // Global variables
-        let currentUser = null;
-        let currentTrial = null;
-        let recapData = {};
-        let classData = [];
+        // Enhanced round key utilities (from fixed version)
+        function validateRoundKey(roundKey) {
+            try {
+                if (!roundKey || typeof roundKey !== 'string') return false;
+                if (roundKey.includes('--')) return false;
+                if (roundKey.includes('_')) return false;
+                if (roundKey.includes('.')) return false;
+                if (roundKey.includes(' ')) return false;
+                
+                const parts = roundKey.split('-');
+                if (parts.length !== 3) return false;
+                
+                return parts.every(part => {
+                    const num = parseInt(part);
+                    return !isNaN(num) && num >= 0 && part === num.toString();
+                });
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function fixRoundKey(malformedKey) {
+            if (!malformedKey || typeof malformedKey !== 'string') {
+                return null;
+            }
+            
+            console.log(`🔧 Attempting to fix round key: "${malformedKey}"`);
+            
+            let fixed = malformedKey;
+            fixed = fixed.replace(/--+/g, '-');
+            fixed = fixed.replace(/_/g, '-');
+            fixed = fixed.replace(/\./g, '-');
+            fixed = fixed.replace(/\s/g, '');
+            
+            const parts = fixed.split('-');
+            const cleanParts = parts.filter(part => part !== '');
+            
+            if (cleanParts.length === 3) {
+                fixed = cleanParts.join('-');
+            }
+            
+            if (validateRoundKey(fixed)) {
+                console.log(`✅ Fixed round key: "${malformedKey}" -> "${fixed}"`);
+                return fixed;
+            }
+            
+            console.log(`❌ Unable to fix round key: "${malformedKey}"`);
+            return null;
+        }
+
+        function getRoundKeyIndices(roundKey) {
+            if (validateRoundKey(roundKey)) {
+                try {
+                    const parts = roundKey.split('-');
+                    return {
+                        dayIndex: parseInt(parts[0]),
+                        classIndex: parseInt(parts[1]),
+                        roundIndex: parseInt(parts[2]),
+                        standardKey: roundKey
+                    };
+                } catch (error) {
+                    console.error('Error parsing valid round key:', error);
+                }
+            }
+            
+            const fixed = fixRoundKey(roundKey);
+            if (fixed) {
+                console.warn(`⚠️ Using fixed round key: "${roundKey}" -> "${fixed}"`);
+                try {
+                    const parts = fixed.split('-');
+                    return {
+                        dayIndex: parseInt(parts[0]),
+                        classIndex: parseInt(parts[1]),
+                        roundIndex: parseInt(parts[2]),
+                        standardKey: fixed
+                    };
+                } catch (error) {
+                    console.error('Error parsing fixed round key:', error);
+                }
+            }
+            
+            console.error(`❌ Invalid round key: "${roundKey}"`);
+            return null;
+        }
+
+        // FEO detection
+        function isFeoEntry(entryType) {
+            if (!entryType) return false;
+            const typeStr = entryType.toString().toLowerCase().trim();
+            return typeStr === 'feo' || typeStr === 'for exhibition only' || typeStr === 'exhibition';
+        }
 
         // Utility functions
         function showStatus(message, type = 'info') {
@@ -651,656 +1770,98 @@
             });
         }
 
-        // Initialize authentication and load trials
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                try {
-                    const userDoc = await db.collection('users').doc(user.uid).get();
-                    if (userDoc.exists) {
-                        currentUser = { uid: user.uid, ...userDoc.data() };
-                        await loadTrials();
-                    } else {
-                        showStatus('User profile not found. Please register first.', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error loading user profile:', error);
-                    showStatus('Error loading user profile: ' + error.message, 'error');
-                }
+        function getDateFromFirebase(firebaseDate) {
+            if (!firebaseDate) return '';
+            let date;
+            if (firebaseDate.toDate) {
+                date = firebaseDate.toDate();
+            } else if (firebaseDate instanceof Date) {
+                date = firebaseDate;
+            } else if (typeof firebaseDate === 'string') {
+                date = createLocalDate(firebaseDate);
             } else {
-                window.location.href = 'index.html';
+                return '';
             }
-        });
-
-       // Load available trials with enhanced display names
-async function loadTrials() {
-    try {
-        showStatus('Loading your trials...', 'info');
-        
-        const trialsSnapshot = await db.collection("trials")
-            .where("createdBy", "==", currentUser.uid)
-            .get();
-        
-        const trialSelect = document.getElementById('trialSelect');
-        trialSelect.innerHTML = '<option value="">Select a trial...</option>';
-        
-        if (!trialsSnapshot.empty) {
-            const trials = [];
-            trialsSnapshot.forEach(doc => {
-                trials.push({ id: doc.id, ...doc.data() });
-            });
-            
-            // Sort by creation date (newest first)
-            trials.sort((a, b) => {
-                const aTime = a.createdAt ? a.createdAt.seconds : 0;
-                const bTime = b.createdAt ? b.createdAt.seconds : 0;
-                return bTime - aTime;
-            });
-            
-            trials.forEach(trial => {
-                const option = document.createElement('option');
-                option.value = trial.id;
-                
-                // Enhanced trial name with dates
-                let trialLabel = trial.clubName || 'Unnamed Trial';
-                
-                // Add dates if available
-                if (trial.days && trial.days.length > 0) {
-                    const dates = trial.days
-                        .filter(day => day.date)
-                        .map(day => {
-                            const localDate = createLocalDate(day.date);
-                            return localDate.toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric',
-                                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-                            });
-                        })
-                        .join(', ');
-                    if (dates) {
-                        trialLabel += ` (${dates})`;
-                    }
-                }
-                
-                option.textContent = trialLabel;
-                trialSelect.appendChild(option);
-            });
-            
-            showStatus(`Found ${trials.length} trials`, 'success');
-        } else {
-            trialSelect.innerHTML = '<option value="">No trials found</option>';
-            showStatus('No trials found. Create a trial first.', 'error');
+            return date;
         }
-    } catch (error) {
-        console.error('Error loading trials:', error);
-        showStatus('Error loading trials: ' + error.message, 'error');
-    }
-}
 
-        // Load trial recap data
-        async function loadTrialRecap() {
-            console.log('🚀 loadTrialRecap() called');
-            
-            const trialId = document.getElementById('trialSelect').value;
-            console.log('📋 Selected trial ID:', trialId);
-            
-            if (!trialId) {
-                console.log('❌ No trial selected');
-                document.getElementById('recapContainer').style.display = 'none';
-                return;
-            }
-
+        // Initialize Firebase and start the application
+        async function init() {
             try {
-                console.log('⏳ Starting trial recap load process...');
-                document.getElementById('loadingState').style.display = 'block';
-                document.getElementById('recapContainer').style.display = 'none';
-                document.getElementById('noDataState').style.display = 'none';
-
-                // Load trial data
-                console.log('📄 Loading trial document...');
-                const trialDoc = await db.collection('trials').doc(trialId).get();
-                if (!trialDoc.exists) {
-                    throw new Error('Trial not found');
-                }
-
-                currentTrial = { id: trialDoc.id, ...trialDoc.data() };
-                console.log('✅ Trial loaded:', currentTrial.clubName);
+                console.log('🚀 Starting FIXED Trial Recap initialization...');
                 
-                // Load all scores for this trial (from League Class Summaries)
-                console.log('🔍 Looking for trial ID:', trialId);
-                const scoresSnapshot = await db.collection('scores')
-                    .where('trialId', '==', trialId)
-                    .get();
-
-                console.log('📊 Found score documents:', scoresSnapshot.size);
+                // Initialize Firebase
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                console.log('✅ Firebase initialized');
                 
-                if (scoresSnapshot.empty) {
-                    console.log('❌ No scores found - checking if documents exist in scores collection...');
-                    
-                    // Let's see what's actually in the scores collection
-                    const allScoresSnapshot = await db.collection('scores').limit(5).get();
-                    console.log('📋 Sample scores documents:');
-                    allScoresSnapshot.forEach(doc => {
-                        console.log('Document ID:', doc.id);
-                        console.log('Document data:', doc.data());
-                    });
-                    
-                    document.getElementById('loadingState').style.display = 'none';
-                    document.getElementById('noDataState').style.display = 'block';
-                    return;
-                }
-
-                // Process scores data from League Class Summaries
-                classData = [];
-                let totalEntered = 0;
-                let totalActual = 0;
-                let totalQualifiers = 0;
-
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    const participants = scoreData.participants || {};
-                    
-                    let classEntered = 0;
-                    let classActual = 0;
-                    let classQualifiers = 0;
-
-                    // Count all participants (these are scheduled participants from Class Summary)
-                    Object.values(participants).forEach(participant => {
-                        classEntered++;
+                // Wait for authentication
+                await new Promise((resolve, reject) => {
+                    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+                        unsubscribe();
                         
-                        // Count actual runs (not absent) - only if scores have been entered
-                        if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
-                            classActual++;
-                            
-                            // Count qualifiers (Pass/Q results)
-                            if (participant.result === 'Pass' || participant.result === 'Q') {
-                                classQualifiers++;
+                        if (user) {
+                            try {
+                                const userDoc = await db.collection('users').doc(user.uid).get();
+                                if (userDoc.exists) {
+                                    currentUser = { uid: user.uid, ...userDoc.data() };
+                                    console.log('✅ User authenticated:', currentUser.uid);
+                                    resolve();
+                                } else {
+                                    reject(new Error('User profile not found'));
+                                }
+                            } catch (error) {
+                                reject(error);
                             }
-                        } else if (!participant.result || participant.result === '') {
-                            // If no result yet, count as "pending actual run"
-                            // For payment purposes, they're still entered
+                        } else {
+                            console.log('🔄 Redirecting to login...');
+                            window.location.href = 'index.html';
                         }
                     });
-
-                    // Determine the trial date for this class
-                    let classDate = 'Date TBD';
-                    if (scoreData.dayDate) {
-                        classDate = scoreData.dayDate;
-                    } else if (scoreData.date) {
-                        classDate = scoreData.date;
-                    } else if (currentTrial.days && scoreData.dayIndex !== undefined) {
-                        const dayData = currentTrial.days[scoreData.dayIndex];
-                        if (dayData && dayData.date) {
-                            classDate = dayData.date;
-                        }
-                    }
-
-                    classData.push({
-                        date: classDate,
-                        className: scoreData.className,
-                        entered: classEntered,
-                        actual: classActual,
-                        qualifiers: classQualifiers,
-                        hasScores: classActual > 0 || Object.values(participants).some(p => p.result && p.result !== '')
-                    });
-
-                    totalEntered += classEntered;
-                    totalActual += classActual;
-                    totalQualifiers += classQualifiers;
                 });
 
-                // Sort classes by date and class name
-                classData.sort((a, b) => {
-                    const dateA = new Date(a.date === 'Date TBD' ? '1970-01-01' : a.date);
-                    const dateB = new Date(b.date === 'Date TBD' ? '1970-01-01' : b.date);
-                    if (dateA.getTime() !== dateB.getTime()) {
-                        return dateA - dateB;
-                    }
-                    return a.className.localeCompare(b.className);
-                });
-
-                // Update UI with actual data
-                populateRecapSummary(totalEntered, totalActual, totalQualifiers, true);
-                populateClassesTable();
+                console.log('📊 Loading trials...');
+                await loadTrials();
+                console.log('✅ FIXED Trial Recap initialization complete');
                 
-                // Load existing recap data if available
-                await loadExistingRecap();
-                
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('recapContainer').style.display = 'block';
-                
-                showStatus('Trial recap loaded successfully from class summaries!', 'success');
-
             } catch (error) {
-                console.error('Error loading trial recap:', error);
-                showStatus('Error loading trial recap: ' + error.message, 'error');
-                document.getElementById('loadingState').style.display = 'none';
+                console.error('❌ Error initializing:', error);
+                showStatus('Error initializing application: ' + error.message, 'error');
             }
         }
 
-        // Populate recap summary with better location handling
-        function populateRecapSummary(totalEntered, totalActual, totalQualifiers, hasScores) {
-            // Trial info
-            document.getElementById('trialTitle').textContent = `${currentTrial.clubName} Trial Recap`;
-            document.getElementById('hostClub').textContent = currentTrial.clubName;
-            
-            // Better location handling - check multiple possible location fields
-            let location = 'Location TBD';
-            if (currentTrial.location && currentTrial.location.trim() !== '') {
-                location = currentTrial.location.trim();
-            } else if (currentTrial.venue && currentTrial.venue.trim() !== '') {
-                location = currentTrial.venue.trim();
-            } else if (currentTrial.address && currentTrial.address.trim() !== '') {
-                location = currentTrial.address.trim();
-            } else if (currentTrial.city && currentTrial.city.trim() !== '') {
-                location = currentTrial.city.trim();
-            }
-            
-            document.getElementById('trialLocation').textContent = location;
-            document.getElementById('totalClasses').textContent = classData.length;
-
-            // Trial dates
-            let dateRange = 'Date TBD';
-            if (currentTrial.days && currentTrial.days.length > 0) {
-                const dates = currentTrial.days
-                    .map(day => day.date ? createLocalDate(day.date) : null)
-                    .filter(date => date !== null)
-                    .sort((a, b) => a - b);
-                
-                if (dates.length > 0) {
-                    if (dates.length === 1) {
-                        dateRange = formatLocalDate(dates[0]);
-                    } else {
-                        dateRange = `${formatLocalDate(dates[0])} - ${formatLocalDate(dates[dates.length - 1])}`;
-                    }
-                }
-            }
-            document.getElementById('trialDates').textContent = dateRange;
-
-            // Statistics
-            document.getElementById('totalEntered').textContent = totalEntered;
-            
-            if (hasScores) {
-                document.getElementById('totalActual').textContent = totalActual;
-                document.getElementById('totalQualifiers').textContent = totalQualifiers;
-                
-                const qualifyingRate = totalActual > 0 ? Math.round((totalQualifiers / totalActual) * 100) : 0;
-                document.getElementById('qualifyingRate').textContent = `${qualifyingRate}%`;
-            } else {
-                // Show placeholder for data not yet available
-                document.getElementById('totalActual').textContent = 'Pending*';
-                document.getElementById('totalQualifiers').textContent = 'Pending*';
-                document.getElementById('qualifyingRate').textContent = 'Pending*';
-            }
-
-            // Payment calculation (always based on entered runs)
-            const payment = totalEntered * 1.50;
-            document.getElementById('paymentRuns').textContent = totalEntered;
-            document.getElementById('totalPayment').textContent = `${payment.toFixed(2)}`;
-        }
-
-        // Populate classes table
-        function populateClassesTable() {
-            const tbody = document.getElementById('classesTableBody');
-            tbody.innerHTML = '';
-
-            classData.forEach((classInfo, index) => {
-                const row = document.createElement('div');
-                row.className = 'table-row';
-                
-                row.innerHTML = `
-                    <div>${index + 1}</div>
-                    <div>${formatLocalDate(createLocalDate(classInfo.date))}</div>
-                    <div><strong>${classInfo.className}</strong></div>
-                    <div>${classInfo.entered}</div>
-                    <div>${classInfo.actual}</div>
-                    <div>${classInfo.qualifiers}</div>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        // Save recap as draft
-        async function saveRecapDraft() {
+        // Load available trials with enhanced display names
+        async function loadTrials() {
             try {
-                const recapData = {
-                    trialId: currentTrial.id,
-                    judgeSubstitutions: document.getElementById('judgeSubstitutions').value,
-                    incidents: document.getElementById('incidents').value,
-                    complaints: document.getElementById('complaints').value,
-                    cwagsComments: document.getElementById('cwagsComments').value,
-                    submittedBy: document.getElementById('submittedBy').value,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-                    status: 'draft'
-                };
-
-                await db.collection('trialRecaps').doc(currentTrial.id).set(recapData, { merge: true });
-                showStatus('Draft saved successfully!', 'success');
-            } catch (error) {
-                console.error('Error saving draft:', error);
-                showStatus('Error saving draft: ' + error.message, 'error');
-            }
-        }
-
-        // Generate recap PDF
-        async function generateRecapPDF() {
-            try {
-                showStatus('Generating PDF...', 'info');
+                showStatus('Loading your trials...', 'info');
                 
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF();
-                
-                // Header
-                pdf.setFontSize(20);
-                pdf.text('C-WAGS Trial Recap', 105, 30, { align: 'center' });
-                
-                // Trial info
-                let yPos = 50;
-                pdf.setFontSize(12);
-                pdf.text(`Trial Dates: ${document.getElementById('trialDates').textContent}`, 20, yPos);
-                yPos += 10;
-                pdf.text(`Host: ${document.getElementById('hostClub').textContent}`, 20, yPos);
-                yPos += 10;
-                pdf.text(`Location: ${document.getElementById('trialLocation').textContent}`, 20, yPos);
-                yPos += 20;
-
-                // Classes table header
-                pdf.setFontSize(10);
-                pdf.text('#', 20, yPos);
-                pdf.text('Date', 35, yPos);
-                pdf.text('Class', 70, yPos);
-                pdf.text('# Entered', 120, yPos);
-                pdf.text('# Actual', 150, yPos);
-                pdf.text('# Q\'s', 175, yPos);
-                yPos += 5;
-                
-                // Draw line
-                pdf.line(20, yPos, 190, yPos);
-                yPos += 10;
-
-                // Classes data
-                classData.forEach((classInfo, index) => {
-                    if (yPos > 250) {
-                        pdf.addPage();
-                        yPos = 30;
-                    }
-                    
-                    pdf.text((index + 1).toString(), 20, yPos);
-                    pdf.text(formatLocalDate(createLocalDate(classInfo.date)), 35, yPos);
-                    pdf.text(classInfo.className, 70, yPos);
-                    pdf.text(classInfo.entered.toString(), 120, yPos);
-                    pdf.text(classInfo.actual.toString(), 150, yPos);
-                    pdf.text(classInfo.qualifiers.toString(), 175, yPos);
-                    yPos += 8;
-                });
-
-                // Payment calculation
-                yPos += 20;
-                const totalEntered = parseInt(document.getElementById('totalEntered').textContent);
-                const totalPayment = document.getElementById('totalPayment').textContent;
-                
-                pdf.text(`Total entered: ${totalEntered} x $1.50 = ${totalPayment}`, 20, yPos);
-                yPos += 20;
-
-                // Incident reports
-                if (yPos > 200) {
-                    pdf.addPage();
-                    yPos = 30;
-                }
-
-                pdf.setFontSize(12);
-                pdf.text('Incident Reports:', 20, yPos);
-                yPos += 15;
-
-                pdf.setFontSize(10);
-                const judgeSubstitutions = document.getElementById('judgeSubstitutions').value;
-                if (judgeSubstitutions) {
-                    pdf.text('Judge Substitutions:', 20, yPos);
-                    yPos += 10;
-                    const lines = pdf.splitTextToSize(judgeSubstitutions, 170);
-                    pdf.text(lines, 20, yPos);
-                    yPos += lines.length * 5 + 10;
-                }
-
-                const incidents = document.getElementById('incidents').value;
-                if (incidents) {
-                    pdf.text('Incidents:', 20, yPos);
-                    yPos += 10;
-                    const lines = pdf.splitTextToSize(incidents, 170);
-                    pdf.text(lines, 20, yPos);
-                    yPos += lines.length * 5 + 10;
-                }
-
-                const complaints = document.getElementById('complaints').value;
-                if (complaints) {
-                    pdf.text('Complaints:', 20, yPos);
-                    yPos += 10;
-                    const lines = pdf.splitTextToSize(complaints, 170);
-                    pdf.text(lines, 20, yPos);
-                    yPos += lines.length * 5 + 10;
-                }
-
-                const cwagsComments = document.getElementById('cwagsComments').value;
-                if (cwagsComments) {
-                    pdf.text('C-WAGS Comments:', 20, yPos);
-                    yPos += 10;
-                    const lines = pdf.splitTextToSize(cwagsComments, 170);
-                    pdf.text(lines, 20, yPos);
-                    yPos += lines.length * 5 + 10;
-                }
-
-                // Footer
-                const submittedBy = document.getElementById('submittedBy').value;
-                if (submittedBy) {
-                    pdf.text(`Submitted by: ${submittedBy}`, 20, yPos + 10);
-                }
-
-                // Save PDF
-                const filename = `${currentTrial.clubName}_Trial_Recap_${new Date().toISOString().split('T')[0]}.pdf`;
-                pdf.save(filename);
-                
-                showStatus('PDF generated successfully!', 'success');
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                showStatus('Error generating PDF: ' + error.message, 'error');
-            }
-        }
-
-        // Submit recap to C-WAGS
-        async function submitRecapToWags() {
-            try {
-                // Validate required fields
-                const submittedBy = document.getElementById('submittedBy').value.trim();
-                if (!submittedBy) {
-                    showStatus('Please enter who is submitting this recap', 'error');
-                    return;
-                }
-
-                const recapData = {
-                    trialId: currentTrial.id,
-                    trialName: currentTrial.clubName,
-                    trialLocation: currentTrial.location,
-                    trialDates: document.getElementById('trialDates').textContent,
-                    totalEntered: parseInt(document.getElementById('totalEntered').textContent),
-                    totalActual: parseInt(document.getElementById('totalActual').textContent),
-                    totalQualifiers: parseInt(document.getElementById('totalQualifiers').textContent),
-                    amountDue: document.getElementById('totalPayment').textContent,
-                    classData: classData,
-                    judgeSubstitutions: document.getElementById('judgeSubstitutions').value,
-                    incidents: document.getElementById('incidents').value,
-                    complaints: document.getElementById('complaints').value,
-                    cwagsComments: document.getElementById('cwagsComments').value,
-                    submittedBy: submittedBy,
-                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    status: 'submitted'
-                };
-
-                await db.collection('trialRecaps').doc(currentTrial.id).set(recapData);
-                await db.collection('submissions').add({
-                    type: 'trialRecap',
-                    trialId: currentTrial.id,
-                    submittedBy: currentUser.uid,
-                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    data: recapData
-                });
-
-                showStatus('Trial recap submitted to C-WAGS successfully! Remember to mail payment within 15 days.', 'success');
-            } catch (error) {
-                console.error('Error submitting recap:', error);
-                showStatus('Error submitting recap: ' + error.message, 'error');
-            }
-        }
-
-        // Generate judge evaluations
-        async function generateJudgeEvaluations() {
-            try {
-                showStatus('Generating judge evaluation forms...', 'info');
-                
-                // Get unique judges from class data
-                const judges = new Set();
-                const scoresSnapshot = await db.collection('scores')
-                    .where('trialId', '==', currentTrial.id)
+                const trialsSnapshot = await db.collection("trials")
+                    .where("createdBy", "==", currentUser.uid)
                     .get();
-
-                scoresSnapshot.forEach(doc => {
-                    const scoreData = doc.data();
-                    if (scoreData.judgeName) {
-                        judges.add(scoreData.judgeName);
-                    }
-                });
-
-                if (judges.size === 0) {
-                    showStatus('No judges found for this trial', 'error');
-                    return;
-                }
-
-                const { jsPDF } = window.jspdf;
-                const pdf = new jsPDF();
-                let isFirstPage = true;
-
-                judges.forEach(judgeName => {
-                    if (!isFirstPage) {
-                        pdf.addPage();
-                    }
-                    isFirstPage = false;
-
-                    // Judge evaluation form
-                    let yPos = 30;
-                    
-                    // Header
-                    pdf.setFontSize(18);
-                    pdf.text('Judge\'s Evaluation', 105, yPos, { align: 'center' });
-                    yPos += 20;
-
-                    // Judge info
-                    pdf.setFontSize(12);
-                    pdf.text(`Judge: ${judgeName}`, 20, yPos);
-                    yPos += 10;
-                    pdf.text(`Dates: ${document.getElementById('trialDates').textContent}`, 20, yPos);
-                    yPos += 10;
-                    pdf.text(`Trial Host: ${currentTrial.clubName}`, 20, yPos);
-                    yPos += 20;
-
-                    // Instructions
-                    pdf.setFontSize(10);
-                    pdf.text('Please give an honest response to each question so that we may help our judges improve.', 20, yPos);
-                    yPos += 8;
-                    pdf.text('Select from 1 to 5, with 1 being the poorest to 5 being the best.', 20, yPos);
-                    yPos += 20;
-
-                    // Questions
-                    const questions = [
-                        'Did the judge\'s behavior reflect positively on: dog sports, your organization, and Canine-Work and Games?',
-                        'Did the judge appear comfortable with ring procedures?',
-                        'Did the judge appear to have a working knowledge of scoring rules – or able to find the answer efficiently?',
-                        'Did the judge appear to apply judging criteria consistently and according to the rules as written?',
-                        'Would your organization bring this judge back again?'
-                    ];
-
-                    questions.forEach((question, index) => {
-                        if (yPos > 250) {
-                            pdf.addPage();
-                            yPos = 30;
-                        }
-
-                        pdf.setFontSize(10);
-                        const lines = pdf.splitTextToSize(`${index + 1}. ${question}`, 170);
-                        pdf.text(lines, 20, yPos);
-                        yPos += lines.length * 5 + 5;
-
-                        // Rating boxes
-                        for (let i = 1; i <= 5; i++) {
-                            pdf.rect(20 + (i - 1) * 15, yPos, 10, 10);
-                            pdf.text(i.toString(), 23 + (i - 1) * 15, yPos + 7);
-                        }
-                        yPos += 20;
-
-                        // Why line
-                        pdf.text('Why?:', 20, yPos);
-                        pdf.line(35, yPos, 190, yPos);
-                        yPos += 15;
-                    });
-
-                    // Additional sections
-                    if (yPos > 220) {
-                        pdf.addPage();
-                        yPos = 30;
-                    }
-
-                    pdf.text('Any complaints received:', 20, yPos);
-                    yPos += 10;
-                    pdf.line(20, yPos, 190, yPos);
-                    yPos += 15;
-                    pdf.line(20, yPos, 190, yPos);
-                    yPos += 20;
-
-                    pdf.text('Comments:', 20, yPos);
-                    yPos += 10;
-                    pdf.line(20, yPos, 190, yPos);
-                    yPos += 15;
-                    pdf.line(20, yPos, 190, yPos);
-                    yPos += 15;
-                    pdf.line(20, yPos, 190, yPos);
-                    yPos += 20;
-
-                    pdf.text('Completed by: ________________________', 20, yPos);
-                });
-
-                // Save PDF
-                const filename = `${currentTrial.clubName}_Judge_Evaluations_${new Date().toISOString().split('T')[0]}.pdf`;
-                pdf.save(filename);
                 
-                showStatus('Judge evaluation forms generated successfully!', 'success');
-            } catch (error) {
-                console.error('Error generating judge evaluations:', error);
-                showStatus('Error generating judge evaluations: ' + error.message, 'error');
-            }
-        }
-
-        // Load existing recap data if available
-        async function loadExistingRecap() {
-            try {
-                const recapDoc = await db.collection('trialRecaps').doc(currentTrial.id).get();
-                if (recapDoc.exists) {
-                    const data = recapDoc.data();
-                    document.getElementById('judgeSubstitutions').value = data.judgeSubstitutions || '';
-                    document.getElementById('incidents').value = data.incidents || '';
-                    document.getElementById('complaints').value = data.complaints || '';
-                    document.getElementById('cwagsComments').value = data.cwagsComments || '';
-                    document.getElementById('submittedBy').value = data.submittedBy || '';
+                const trialSelect = document.getElementById('trialSelect');
+                trialSelect.innerHTML = '<option value="">Select a trial...</option>';
+                
+                if (!trialsSnapshot.empty) {
+                    const trials = [];
+                    trialsSnapshot.forEach(doc => {
+                        trials.push({ id: doc.id, ...doc.data() });
+                    });
                     
-                    if (data.status === 'submitted') {
-                        showStatus('This recap has already been submitted to C-WAGS', 'info');
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading existing recap:', error);
-            }
-        }
-
-        // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('Trial Recap Summary page loaded');
-        });
-    </script>
-</body>
-</html>
+                    // Sort by creation date (newest first)
+                    trials.sort((a, b) => {
+                        const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                        const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                        return bTime - aTime;
+                    });
+                    
+                    trials.forEach(trial => {
+                        const option = document.createElement('option');
+                        option.value = trial.id;
+                        
+                        // Enhanced trial name with dates
+                        let trialLabel = trial.clubName || 'Unnamed Trial';
+                        
+                        // Add dates if available
+                        if (trial.days && trial.days.length > 0) {
