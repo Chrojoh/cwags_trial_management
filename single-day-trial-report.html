@@ -10,8 +10,25 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
     
-    <!-- SheetJS for Excel export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- SheetJS for Excel export - trying multiple CDN sources -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="loadBackupXLSX()"></script>
+    <script>
+        function loadBackupXLSX() {
+            console.log('Primary XLSX CDN failed, trying backup...');
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+            script.onerror = function() {
+                console.log('Backup XLSX CDN also failed, trying third option...');
+                const script2 = document.createElement('script');
+                script2.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                script2.onerror = function() {
+                    console.error('All XLSX CDN sources failed');
+                };
+                document.head.appendChild(script2);
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     
     <style>
         * {
@@ -103,6 +120,10 @@
         .btn-warning {
             background: #ffc107;
             color: #212529;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
         }
 
         .btn-excel {
@@ -403,8 +424,9 @@
             </div>
 
             <div class="export-buttons">
-                <button class="btn btn-success" onclick="exportDisciplineCSV('scent')">📄 Export Scent CSV</button>
-                <button class="btn btn-warning" onclick="exportDisciplinePDF('scent')">📑 Export Scent PDF</button>
+                <button class="btn btn-success" onclick="exportDisciplineCSV('scent')">📄 Export CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('scent')">📑 Export PDF</button>
+                <button class="btn btn-excel" onclick="exportDisciplineExcel('scent')">📊 Export Excel</button>
             </div>
         </div>
 
@@ -438,8 +460,9 @@
             </div>
 
             <div class="export-buttons">
-                <button class="btn btn-success" onclick="exportDisciplineCSV('games')">📄 Export Games CSV</button>
-                <button class="btn btn-warning" onclick="exportDisciplinePDF('games')">📑 Export Games PDF</button>
+                <button class="btn btn-success" onclick="exportDisciplineCSV('games')">📄 Export CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('games')">📑 Export PDF</button>
+                <button class="btn btn-excel" onclick="exportDisciplineExcel('games')">📊 Export Excel</button>
             </div>
         </div>
 
@@ -473,8 +496,9 @@
             </div>
 
             <div class="export-buttons">
-                <button class="btn btn-success" onclick="exportDisciplineCSV('obedience')">📄 Export Obedience CSV</button>
-                <button class="btn btn-warning" onclick="exportDisciplinePDF('obedience')">📑 Export Obedience PDF</button>
+                <button class="btn btn-success" onclick="exportDisciplineCSV('obedience')">📄 Export CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('obedience')">📑 Export PDF</button>
+                <button class="btn btn-excel" onclick="exportDisciplineExcel('obedience')">📊 Export Excel</button>
             </div>
         </div>
 
@@ -508,8 +532,9 @@
             </div>
 
             <div class="export-buttons">
-                <button class="btn btn-success" onclick="exportDisciplineCSV('ranger')">📄 Export Ranger CSV</button>
-                <button class="btn btn-warning" onclick="exportDisciplinePDF('ranger')">📑 Export Ranger PDF</button>
+                <button class="btn btn-success" onclick="exportDisciplineCSV('ranger')">📄 Export CSV</button>
+                <button class="btn btn-warning" onclick="exportDisciplinePDF('ranger')">📑 Export PDF</button>
+                <button class="btn btn-excel" onclick="exportDisciplineExcel('ranger')">📊 Export Excel</button>
             </div>
         </div>
 
@@ -1462,7 +1487,7 @@
         }
 
         function exportDisciplineExcel(discipline) {
-            console.log('📊 Exporting Excel for', discipline);
+            console.log('📊 Attempting Excel export for', discipline);
             
             const runs = reportData[discipline] || [];
             if (runs.length === 0) {
@@ -1470,9 +1495,16 @@
                 return;
             }
 
+            // Check if XLSX library is available
+            if (typeof XLSX === 'undefined') {
+                console.error('XLSX library not loaded');
+                showStatus('Excel library not available. Using CSV export instead.', 'error');
+                exportDisciplineCSV(discipline);
+                return;
+            }
+
             try {
-                // Create workbook and worksheet
-                const wb = XLSX.utils.book_new();
+                console.log('📊 XLSX library found, creating workbook...');
                 
                 const trialName = currentTrial?.clubName || 'Trial';
                 const dayDate = currentTrial?.days[currentDay]?.date || 'Date TBD';
@@ -1484,29 +1516,22 @@
                 const fails = runs.filter(r => r.result === 'Fail' || r.result === 'F').length;
                 const passRate = totalRuns > 0 ? ((passes / totalRuns) * 100).toFixed(1) : '0';
 
-                // Create summary data
-                const summaryData = [
-                    ['Trial Report Summary'],
-                    ['Trial Name:', trialName],
-                    ['Date:', formattedDate],
-                    ['Discipline:', discipline.charAt(0).toUpperCase() + discipline.slice(1)],
-                    [''],
-                    ['Statistics'],
-                    ['Total Entries:', totalRuns],
-                    ['Passes:', passes],
-                    ['Fails:', fails],
-                    ['Pass Rate:', passRate + '%'],
-                    [''],
-                    ['Detailed Results']
-                ];
-
-                // Add headers for detailed data
-                const headers = ['C-WAGS #', 'Call Name', 'Handler', 'Date', 'Class', 'Round', 'Result', 'Judge', 'Comments'];
-                summaryData.push(headers);
-
-                // Add run data
+                // Prepare data for Excel
+                const excelData = [];
+                
+                // Add title and summary
+                excelData.push([`${trialName} - ${discipline.charAt(0).toUpperCase() + discipline.slice(1)} Report`]);
+                excelData.push([`Date: ${formattedDate}`]);
+                excelData.push([`Total Entries: ${totalRuns}`]);
+                excelData.push([`Passes: ${passes} | Fails: ${fails} | Pass Rate: ${passRate}%`]);
+                excelData.push([]); // Empty row
+                
+                // Add table headers
+                excelData.push(['C-WAGS #', 'Call Name', 'Handler', 'Date', 'Class', 'Round', 'Result', 'Judge', 'Comments']);
+                
+                // Add data rows
                 runs.forEach(run => {
-                    summaryData.push([
+                    excelData.push([
                         run.cwagsNumber,
                         run.dogName,
                         run.handlerName,
@@ -1519,61 +1544,138 @@
                     ]);
                 });
 
-                // Create worksheet
-                const ws = XLSX.utils.aoa_to_sheet(summaryData);
+                console.log('📊 Creating worksheet with', excelData.length, 'rows...');
+                
+                // Create workbook and worksheet
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
                 
                 // Set column widths
-                const colWidths = [
+                ws['!cols'] = [
                     {wch: 12}, // C-WAGS #
                     {wch: 15}, // Call Name
                     {wch: 20}, // Handler
                     {wch: 12}, // Date
-                    {wch: 20}, // Class
+                    {wch: 25}, // Class
                     {wch: 8},  // Round
                     {wch: 10}, // Result
                     {wch: 15}, // Judge
                     {wch: 30}  // Comments
                 ];
-                ws['!cols'] = colWidths;
-
-                // Style the header row (row 13 in our case, where detailed results start)
-                const headerRowIndex = 12; // 0-based index
-                for (let col = 0; col < headers.length; col++) {
-                    const cellRef = XLSX.utils.encode_cell({r: headerRowIndex, c: col});
-                    if (!ws[cellRef]) ws[cellRef] = {};
-                    ws[cellRef].s = {
-                        font: { bold: true },
-                        fill: { fgColor: { rgb: "F2F2F2" } },
-                        border: {
-                            top: { style: "thin" },
-                            bottom: { style: "thin" },
-                            left: { style: "thin" },
-                            right: { style: "thin" }
-                        }
-                    };
-                }
 
                 // Add worksheet to workbook
                 const sheetName = discipline.charAt(0).toUpperCase() + discipline.slice(1);
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                
+                console.log('📊 Workbook created, attempting to save...');
 
                 // Generate filename and save
-                const filename = `${trialName}_${discipline}_${dayDate}.xlsx`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const filename = `${trialName}_${discipline}_${formattedDate}`.replace(/[^a-zA-Z0-9_-]/g, '_') + '.xlsx';
+                
+                // Try to write the file
                 XLSX.writeFile(wb, filename);
                 
+                console.log('✅ Excel file created successfully:', filename);
                 showStatus(`Excel file exported: ${filename}`, 'success');
                 
             } catch (error) {
-                console.error('Error creating Excel file:', error);
-                showStatus('Error creating Excel file. Using fallback CSV export.', 'error');
-                // Fallback to CSV if Excel fails
-                exportDisciplineCSV(discipline);
+                console.error('❌ Error creating Excel file:', error);
+                console.error('Error details:', error.message);
+                console.error('Error stack:', error.stack);
+                
+                showStatus('Excel export failed. Using CSV export instead.', 'error');
+                
+                // Fallback to CSV
+                setTimeout(() => {
+                    exportDisciplineCSV(discipline);
+                }, 1000);
+            }
+        }
+
+        // Test XLSX library on page load
+        function testExcelLibrary() {
+            if (typeof XLSX !== 'undefined') {
+                console.log('✅ XLSX library loaded successfully');
+                console.log('📊 XLSX version:', XLSX.version);
+                
+                // Add a test button to verify Excel works
+                const testButton = document.createElement('button');
+                testButton.textContent = '🧪 Test Excel Export';
+                testButton.className = 'btn btn-excel';
+                testButton.style.margin = '10px';
+                testButton.onclick = function() {
+                    testExcelExport();
+                };
+                
+                // Add to first export buttons container
+                const firstExportContainer = document.querySelector('.export-buttons');
+                if (firstExportContainer) {
+                    firstExportContainer.appendChild(testButton);
+                }
+            } else {
+                console.error('❌ XLSX library failed to load');
+                console.log('🔧 Available libraries:', Object.keys(window).filter(key => key.includes('XLS')));
+                
+                // Disable Excel buttons if library didn't load
+                setTimeout(() => {
+                    const excelButtons = document.querySelectorAll('.btn-excel');
+                    excelButtons.forEach(btn => {
+                        if (!btn.textContent.includes('Test')) {
+                            btn.disabled = true;
+                            btn.textContent = btn.textContent.replace('📊', '❌');
+                            btn.title = 'Excel library failed to load';
+                        }
+                    });
+                }, 500);
+            }
+        }
+
+        // Simple test Excel export
+        function testExcelExport() {
+            console.log('🧪 Testing simple Excel export...');
+            
+            if (typeof XLSX === 'undefined') {
+                alert('XLSX library not available');
+                return;
+            }
+
+            try {
+                // Create simple test data
+                const testData = [
+                    ['Test Excel Export'],
+                    ['C-WAGS #', 'Dog Name', 'Handler', 'Result'],
+                    ['TEST001', 'Test Dog', 'Test Handler', 'Pass'],
+                    ['TEST002', 'Another Dog', 'Another Handler', 'Fail']
+                ];
+
+                // Create workbook
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(testData);
+                
+                // Add worksheet
+                XLSX.utils.book_append_sheet(wb, ws, 'Test');
+                
+                // Save file
+                XLSX.writeFile(wb, 'test_export.xlsx');
+                
+                console.log('✅ Test Excel export successful!');
+                showStatus('Test Excel export successful!', 'success');
+                
+            } catch (error) {
+                console.error('❌ Test Excel export failed:', error);
+                showStatus('Test Excel export failed: ' + error.message, 'error');
             }
         }
 
         // Start the application when page loads
         document.addEventListener('DOMContentLoaded', function() {
             console.log('📋 DOM loaded, starting FIXED app...');
+            
+            // Test Excel library
+            setTimeout(() => {
+                testExcelLibrary();
+            }, 1000);
+            
             init().catch(error => {
                 console.error('❌ Failed to initialize app:', error);
                 showStatus('Failed to initialize application', 'error');
