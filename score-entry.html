@@ -1232,23 +1232,41 @@
 
                 // Initialize entry types for all participants
                 round.participants.forEach(participant => {
-                    const [docId] = participant.id.split('_');
-                    const entry = entryMap[docId];
-                    
-                    if (entry && entry.selectedEntries) {
-                        // Find matching selectedEntry for this participant
-                        const matchingEntry = entry.selectedEntries.find(se => {
-                            return se.className === round.className || 
-                                   se[STANDARD_FIELDS.CLASS_NAME] === round.className;
-                        });
+                    // Handle different participant object structures
+                    let participantId;
+                    if (typeof participant === 'string') {
+                        participantId = participant;
+                    } else if (participant.id) {
+                        participantId = participant.id;
+                    } else {
+                        // Generate ID from participant data if needed
+                        participantId = `${participant.handlerName || 'unknown'}_${participant.dogCallName || 'unknown'}_${Date.now()}`;
+                        console.log(`Generated participant ID: ${participantId}`);
+                    }
+
+                    if (participantId && participantId.includes('_')) {
+                        const [docId] = participantId.split('_');
+                        const entry = entryMap[docId];
                         
-                        if (matchingEntry) {
-                            participantEntryTypes[participant.id] = matchingEntry.type || 'regular';
+                        if (entry && entry.selectedEntries) {
+                            // Find matching selectedEntry for this participant
+                            const matchingEntry = entry.selectedEntries.find(se => {
+                                return se.className === round.className || 
+                                       se[STANDARD_FIELDS.CLASS_NAME] === round.className;
+                            });
+                            
+                            if (matchingEntry) {
+                                participantEntryTypes[participantId] = matchingEntry.type || 'regular';
+                            } else {
+                                participantEntryTypes[participantId] = 'regular';
+                            }
                         } else {
-                            participantEntryTypes[participant.id] = 'regular';
+                            participantEntryTypes[participantId] = 'regular';
                         }
                     } else {
-                        participantEntryTypes[participant.id] = 'regular';
+                        // For participants without proper ID format, default to regular
+                        participantEntryTypes[participantId] = 'regular';
+                        console.log(`⚠️ Participant without proper ID format: ${participantId}`);
                     }
                 });
 
@@ -1280,62 +1298,77 @@
 
             round.participants.forEach((participant) => {
                 const row = document.createElement('tr');
-                const participantScores = currentScores.participants?.[participant.id] || {};
-                const entryType = participantEntryTypes[participant.id] || 'regular';
+                
+                // Handle different participant object structures
+                let participantId, handlerName, dogCallName;
+                
+                if (typeof participant === 'object') {
+                    participantId = participant.id || `participant_${Math.random().toString(36).substr(2, 9)}`;
+                    handlerName = participant.handlerName || participant.handler || 'Unknown Handler';
+                    dogCallName = participant.dogCallName || participant.dog || 'Unknown Dog';
+                } else {
+                    // If participant is just a string ID
+                    participantId = participant;
+                    handlerName = 'Unknown Handler';
+                    dogCallName = 'Unknown Dog';
+                }
+                
+                const participantScores = currentScores.participants?.[participantId] || {};
+                const entryType = participantEntryTypes[participantId] || 'regular';
                 
                 // Set row class based on entry type
                 row.className = `entry-${entryType}`;
-                row.setAttribute('data-participant-id', participant.id);
+                row.setAttribute('data-participant-id', participantId);
                 
                 row.innerHTML = `
-                    <td class="team-name">${participant.handlerName} - ${participant.dogCallName}</td>
+                    <td class="team-name">${handlerName} - ${dogCallName}</td>
                     <td class="entry-type-cell">
                         <div class="entry-type-controls">
                             <span class="status-indicator status-${entryType}">${entryType === 'feo' ? 'FEO' : 'Regular'}</span>
-                            <button class="feo-toggle-btn ${entryType === 'regular' ? 'regular' : ''}" onclick="toggleEntryType('${participant.id}')">
+                            <button class="feo-toggle-btn ${entryType === 'regular' ? 'regular' : ''}" onclick="toggleEntryType('${participantId}')">
                                 Switch to ${entryType === 'feo' ? 'Regular' : 'FEO'}
                             </button>
                         </div>
                     </td>
                     <td class="scent-cell">
-                        <select onchange="updateScore('${participant.id}', 'scent1', this.value)">
+                        <select onchange="updateScore('${participantId}', 'scent1', this.value)">
                             <option value="" ${participantScores.scent1 === '' || !participantScores.scent1 ? 'selected' : ''}>-</option>
                             <option value="✓" ${participantScores.scent1 === '✓' ? 'selected' : ''}>✓</option>
                             <option value="X" ${participantScores.scent1 === 'X' ? 'selected' : ''}>X</option>
                         </select>
                     </td>
                     <td class="scent-cell">
-                        <select onchange="updateScore('${participant.id}', 'scent2', this.value)">
+                        <select onchange="updateScore('${participantId}', 'scent2', this.value)">
                             <option value="" ${participantScores.scent2 === '' || !participantScores.scent2 ? 'selected' : ''}>-</option>
                             <option value="✓" ${participantScores.scent2 === '✓' ? 'selected' : ''}>✓</option>
                             <option value="X" ${participantScores.scent2 === 'X' ? 'selected' : ''}>X</option>
                         </select>
                     </td>
                     <td class="scent-cell">
-                        <select onchange="updateScore('${participant.id}', 'scent3', this.value)">
+                        <select onchange="updateScore('${participantId}', 'scent3', this.value)">
                             <option value="" ${participantScores.scent3 === '' || !participantScores.scent3 ? 'selected' : ''}>-</option>
                             <option value="✓" ${participantScores.scent3 === '✓' ? 'selected' : ''}>✓</option>
                             <option value="X" ${participantScores.scent3 === 'X' ? 'selected' : ''}>X</option>
                         </select>
                     </td>
                     <td class="scent-cell">
-                        <select onchange="updateScore('${participant.id}', 'scent4', this.value)">
+                        <select onchange="updateScore('${participantId}', 'scent4', this.value)">
                             <option value="" ${participantScores.scent4 === '' || !participantScores.scent4 ? 'selected' : ''}>-</option>
                             <option value="✓" ${participantScores.scent4 === '✓' ? 'selected' : ''}>✓</option>
                             <option value="X" ${participantScores.scent4 === 'X' ? 'selected' : ''}>X</option>
                         </select>
                     </td>
                     <td class="fault-cell">
-                        <input type="text" value="${participantScores.fault1 || ''}" onchange="updateScore('${participant.id}', 'fault1', this.value)" placeholder="Fault description">
+                        <input type="text" value="${participantScores.fault1 || ''}" onchange="updateScore('${participantId}', 'fault1', this.value)" placeholder="Fault description">
                     </td>
                     <td class="fault-cell">
-                        <input type="text" value="${participantScores.fault2 || ''}" onchange="updateScore('${participant.id}', 'fault2', this.value)" placeholder="Fault description">
+                        <input type="text" value="${participantScores.fault2 || ''}" onchange="updateScore('${participantId}', 'fault2', this.value)" placeholder="Fault description">
                     </td>
                     <td class="time-cell">
-                        <input type="text" value="${participantScores.time || ''}" onchange="updateScore('${participant.id}', 'time', this.value)" placeholder="0:00">
+                        <input type="text" value="${participantScores.time || ''}" onchange="updateScore('${participantId}', 'time', this.value)" placeholder="0:00">
                     </td>
                     <td class="passfail-cell">
-                        <select onchange="updateScore('${participant.id}', 'passFail', this.value)">
+                        <select onchange="updateScore('${participantId}', 'passFail', this.value)">
                             <option value="" ${participantScores.passFail === '' || !participantScores.passFail ? 'selected' : ''}>-</option>
                             <option value="Pass" ${participantScores.passFail === 'Pass' ? 'selected' : ''}>Pass</option>
                             <option value="Fail" ${participantScores.passFail === 'Fail' ? 'selected' : ''}>Fail</option>
@@ -1573,8 +1606,61 @@
             hideLookupStatus();
         }
 
+        // Enhanced C-WAGS number formatting with smart cleanup
+        function formatCwagsNumber(input) {
+            if (!input) return '';
+            
+            // Remove all non-digit characters first
+            let cleaned = input.replace(/[^0-9]/g, '');
+            
+            // Ensure we have at least some digits to work with
+            if (cleaned.length === 0) return '';
+            
+            // Smart formatting based on length
+            let formatted = '';
+            
+            if (cleaned.length >= 1) {
+                // First 2 digits
+                formatted = cleaned.substring(0, 2);
+                
+                if (cleaned.length > 2) {
+                    // Add dash and next 4 digits
+                    formatted += '-' + cleaned.substring(2, 6);
+                    
+                    if (cleaned.length > 6) {
+                        // Add dash and last part (usually 2 digits, but could be more)
+                        let lastPart = cleaned.substring(6);
+                        
+                        // If last part is only 1 digit, pad with 0 at the beginning
+                        if (lastPart.length === 1) {
+                            lastPart = '0' + lastPart;
+                        }
+                        
+                        formatted += '-' + lastPart;
+                    }
+                }
+            }
+            
+            return formatted;
+        }
+
         async function lookupCwagsInfo(cwagsNumber) {
-            if (!cwagsNumber || cwagsNumber.length < 8) {
+            // Don't lookup until we have a reasonable length
+            if (!cwagsNumber || cwagsNumber.length < 6) {
+                hideLookupStatus();
+                clearParticipantInfo();
+                return;
+            }
+
+            // Auto-format the number as they type
+            const formatted = formatCwagsNumber(cwagsNumber);
+            const inputElement = document.getElementById('cwagsNumberInput');
+            if (inputElement && inputElement.value !== formatted) {
+                inputElement.value = formatted;
+            }
+
+            // Only lookup if we have a complete number (at least 8 characters with dashes)
+            if (formatted.length < 8) {
                 hideLookupStatus();
                 clearParticipantInfo();
                 return;
@@ -1583,12 +1669,17 @@
             showLookupStatus('🔍 Looking up registration...', 'info');
             
             try {
-                // Search in registration data
+                // Search in registration data with flexible matching
                 const registration = registrationData.find(reg => {
                     const regCwags = String(reg.cwagsNumber || '').trim();
-                    const searchCwags = String(cwagsNumber).trim();
+                    const searchCwags = formatted.trim();
+                    const searchOriginal = cwagsNumber.trim();
+                    
+                    // Try multiple matching strategies
                     return regCwags === searchCwags || 
-                           regCwags.replace(/-/g, '') === searchCwags.replace(/-/g, '');
+                           regCwags === searchOriginal ||
+                           regCwags.replace(/-/g, '') === searchCwags.replace(/-/g, '') ||
+                           regCwags.replace(/-/g, '') === searchOriginal.replace(/-/g, '');
                 });
                 
                 if (registration) {
@@ -1596,7 +1687,7 @@
                     populateParticipantInfo(registration);
                     document.getElementById('addParticipantBtn').disabled = false;
                 } else {
-                    showLookupStatus('❌ Registration not found', 'error');
+                    showLookupStatus('❌ Registration not found - you can still add manually', 'warning');
                     clearParticipantInfo();
                     // Still allow manual entry
                     document.getElementById('handlerNameInput').readOnly = false;
