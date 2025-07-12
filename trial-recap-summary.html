@@ -803,23 +803,26 @@ async function loadTrials() {
                     let classActual = 0;
                     let classQualifiers = 0;
 
-                    // Count all participants (these are scheduled participants from Class Summary)
-                    Object.values(participants).forEach(participant => {
-                        classEntered++;
-                        
-                        // Count actual runs (not absent) - only if scores have been entered
-                        if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
-                            classActual++;
-                            
-                            // Count qualifiers (Pass/Q results)
-                            if (participant.result === 'Pass' || participant.result === 'Q') {
-                                classQualifiers++;
-                            }
-                        } else if (!participant.result || participant.result === '') {
-                            // If no result yet, count as "pending actual run"
-                            // For payment purposes, they're still entered
-                        }
-                    });
+                   // Count all participants (these are scheduled participants from Class Summary)
+Object.values(participants).forEach(participant => {
+    // Skip FEO entries in trial recap
+    if (participant.entryType === 'feo') return;
+    
+    classEntered++;
+    
+    // Count actual runs (not absent) - only if scores have been entered
+    if (participant.result && participant.result !== '' && participant.result !== 'abs' && participant.result !== 'Absent') {
+        classActual++;
+        
+        // Count qualifiers (Pass/Q results)
+        if (participant.result === 'Pass' || participant.result === 'Q') {
+            classQualifiers++;
+        }
+    } else if (!participant.result || participant.result === '') {
+        // If no result yet, count as "pending actual run"
+        // For payment purposes, they're still entered
+    }
+});
 
                     // Determine the trial date for this class
                     let classDate = 'Date TBD';
