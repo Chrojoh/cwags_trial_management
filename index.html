@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dog Trialing System - Login</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐕</text></svg>">
     
     <!-- Firebase SDKs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
@@ -178,6 +178,39 @@
             background: #5a6268;
         }
 
+        .btn-primary {
+            background: #007bff;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+        }
+
+        .btn-info:hover {
+            background: #138496;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
         .toggle-auth {
             text-align: center;
             color: #666;
@@ -199,6 +232,8 @@
             padding: 1rem;
             background: #f8f9fa;
             border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
         .admin-panel.active {
@@ -207,18 +242,41 @@
 
         .password-reset {
             margin-bottom: 1rem;
+            padding: 1rem;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            background: #fff3cd;
         }
 
         .excel-upload {
-            margin-top: 1rem;
+            margin: 1rem 0;
             padding: 1rem;
-            border: 2px dashed #ccc;
+            border: 1px solid #28a745;
             border-radius: 8px;
-            text-align: center;
+            background: #d4edda;
         }
 
         .file-input {
             margin: 0.5rem 0;
+        }
+
+        .admin-section, .admin-actions {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .admin-section h5, .admin-actions h5 {
+            margin-bottom: 1rem;
+            color: #0066cc;
+            font-weight: 600;
+        }
+
+        .admin-section .btn, .admin-actions .btn {
+            margin: 0.25rem;
+            min-width: 140px;
         }
 
         .back-btn {
@@ -272,104 +330,201 @@
             <a href="#" onclick="showPermissionsHelp()" style="color: #721c24; text-decoration: underline;">Click here for instructions</a>
         </div>
 
-        <!-- Role Selection -->
-        <div class="role-selection" id="roleSelection">
-            <h3>Select Your Role</h3>
-            <div class="role-buttons">
-                <div class="role-btn" onclick="selectRole('administrator')">
-                    <h4>🔑 Administrator</h4>
-                    <p>Full system access & user management</p>
-                </div>
-                <div class="role-btn" onclick="selectRole('trial_secretary')">
-                    <h4>📋 Trial Secretary</h4>
-                    <p>Create & manage trials for your club</p>
-                </div>
-                <div class="role-btn" onclick="selectRole('participant')">
-                    <h4>🏆 Participant</h4>
-                    <p>View trials & track your progress</p>
-                </div>
-            </div>
+       <!-- Role Selection -->
+<div class="role-selection" id="roleSelection">
+    <h3>Select Your Role</h3>
+    <div class="role-buttons">
+        <div class="role-btn" onclick="selectRole('trial_secretary')">
+            <h4>📋 Trial Secretary</h4>
+            <p>Create & manage trials for your club</p>
+        </div>
+        <div class="role-btn" onclick="selectRole('participant')">
+            <h4>🏆 Participant</h4>
+            <p>View trials & track your progress</p>
+        </div>
+    </div>
+    
+    <!-- Admin login access (separate from registration) -->
+    <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e0e0e0; text-align: center;">
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+            System Administrator? 
+        </p>
+        <button class="btn" onclick="showAdminLogin()" style="background: #dc3545;">
+            🔑 Administrator Login
+        </button>
+    </div>
+</div>
+
+<!-- Separate Admin Login Form -->
+<div class="admin-login-form" id="adminLoginForm" style="display: none;">
+    <button class="back-btn" onclick="hideAdminLogin()">← Back to Role Selection</button>
+    
+    <div style="text-align: center; margin-bottom: 2rem;">
+        <h3 style="color: #dc3545;">🔑 Administrator Access</h3>
+        <p style="color: #666; font-size: 0.9rem;">
+            Administrator credentials are required
+        </p>
+    </div>
+    
+    <form id="adminAuthForm">
+        <div class="form-group">
+            <label for="adminUsername">Administrator Username</label>
+            <input type="text" id="adminUsername" required autocomplete="username" placeholder="Enter admin username">
+        </div>
+        
+        <div class="form-group">
+            <label for="adminPassword">Administrator Password</label>
+            <input type="password" id="adminPassword" required autocomplete="current-password" placeholder="Enter admin password">
         </div>
 
-        <!-- Login Form -->
-        <div class="login-form" id="loginForm">
-            <button class="back-btn" onclick="goBack()">← Back to Role Selection</button>
-            
-            <form id="authForm">
-                <div class="form-group">
-                    <label for="username">Username</label>
-                    <input type="text" id="username" required placeholder="Enter your username">
-                </div>
-                
-                <div class="form-group" id="emailGroup" style="display: none;">
-                    <label for="email">Email Address (for password recovery)</label>
-                    <input type="email" id="email" placeholder="your.email@example.com">
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" required>
-                </div>
+        <button type="submit" class="btn" style="background: #dc3545;">Administrator Login</button>
+    </form>
+</div>
 
-                <!-- Additional fields for trial secretary registration -->
-                <div class="form-group" id="clubNameGroup" style="display: none;">
-                    <label for="clubName">Club Name</label>
-                    <input type="text" id="clubName" placeholder="Your club or organization">
-                </div>
-
-                <div class="form-group" id="firstNameGroup" style="display: none;">
-                    <label for="firstName">First Name</label>
-                    <input type="text" id="firstName">
-                </div>
-
-                <div class="form-group" id="lastNameGroup" style="display: none;">
-                    <label for="lastName">Last Name</label>
-                    <input type="text" id="lastName">
-                </div>
-
-                <button type="submit" class="btn" id="authBtn">Log In</button>
-            </form>
-
-            <div class="toggle-auth">
-                <span id="authToggleText">Don't have an account?</span>
-                <a href="#" onclick="toggleAuthMode(); return false;">Sign Up</a>
-            </div>
-
-            <!-- Excel Data Upload -->
-            <div class="excel-upload" id="excelUpload" style="display: none;">
-                <h4>📊 Import Trial Data</h4>
-                <p>Upload Excel file with trial results</p>
-                <input type="file" accept=".xlsx,.xls" class="file-input" id="excelFile" onchange="handleExcelUpload(event)">
-                <button class="btn btn-secondary" onclick="document.getElementById('excelFile').click()">
-                    Choose Excel File
-                </button>
-            </div>
+        Login Form with proper autocomplete attributes -->
+<div class="login-form" id="loginForm">
+    <button class="back-btn" onclick="goBack()">← Back to Role Selection</button>
+    
+    <form id="authForm">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" 
+                   id="username" 
+                   required 
+                   autocomplete="username"
+                   placeholder="Enter your username">
+        </div>
+        
+        <div class="form-group" id="emailGroup" style="display: none;">
+            <label for="email">Email Address (for password recovery)</label>
+            <input type="email" 
+                   id="email" 
+                   autocomplete="email"
+                   placeholder="your.email@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" 
+                   id="password" 
+                   required 
+                   autocomplete="current-password"
+                   placeholder="Enter your password">
         </div>
 
+        <!-- Additional fields for trial secretary registration -->
+        <div class="form-group" id="clubNameGroup" style="display: none;">
+            <label for="clubName">Club Name</label>
+            <input type="text" 
+                   id="clubName" 
+                   autocomplete="organization"
+                   placeholder="Your club or organization">
+        </div>
+
+        <div class="form-group" id="firstNameGroup" style="display: none;">
+            <label for="firstName">First Name</label>
+            <input type="text" 
+                   id="firstName" 
+                   autocomplete="given-name"
+                   placeholder="Your first name">
+        </div>
+
+        <div class="form-group" id="lastNameGroup" style="display: none;">
+            <label for="lastName">Last Name</label>
+            <input type="text" 
+                   id="lastName" 
+                   autocomplete="family-name"
+                   placeholder="Your last name">
+        </div>
+
+        <button type="submit" class="btn" id="authBtn">Log In</button>
+    </form>
+
+    <div class="toggle-auth">
+        <span id="authToggleText">Don't have an account?</span>
+        <a href="#" onclick="toggleAuthMode(); return false;">Sign Up</a>
+    </div>
+</div>
         <!-- Admin Panel -->
         <div class="admin-panel" id="adminPanel">
             <h4>👑 Administrator Dashboard</h4>
             
             <div class="password-reset">
-                <h5>Password Reset</h5>
-                <input type="text" id="resetUsername" placeholder="Username">
-                <button class="btn btn-secondary" onclick="resetUserPassword()">Reset Password</button>
-                <small style="color: #666; display: block; margin-top: 0.5rem;">
-                    Note: New password will be displayed here
-                </small>
+    <h5>🔑 Password Reset</h5>
+    <input type="text" 
+           id="resetUsername" 
+           autocomplete="username"
+           placeholder="Username">
+    <button class="btn btn-warning" onclick="resetUserPassword()">Reset Password</button>
+    <small style="color: #666; display: block; margin-top: 0.5rem;">
+        Note: New password will be displayed here
+    </small>
+</div>
+            
+            <!-- System Overview Section -->
+            <div class="admin-section">
+                <h5>📊 System Overview</h5>
+                <button class="btn btn-primary" onclick="showTrialOverviewDashboard()">Trial Overview Dashboard</button>
+                <button class="btn btn-primary" onclick="viewAllTrials()">View All Trials (List)</button>
+                <button class="btn btn-info" onclick="viewAllUsersEnhanced()">View All Users</button>
+                <button class="btn btn-success" onclick="viewSystemStatistics()">System Statistics</button>
             </div>
-
+            
+            <!-- Trial Overview Dashboard -->
+            <div class="trial-overview-dashboard" id="trialOverviewDashboard" style="display: none;">
+                <div class="dashboard-header">
+                    <h5>🏆 Trial Overview Dashboard - All Secretaries</h5>
+                    <button class="btn btn-secondary btn-sm" onclick="hideTrialOverview()">← Back to Admin Panel</button>
+                </div>
+                
+                <div class="overview-tabs">
+                    <button class="tab-btn active" onclick="switchOverviewTab(event, 'all')">All Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'active')">Active Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'completed')">Completed Trials</button>
+                    <button class="tab-btn" onclick="switchOverviewTab(event, 'by-secretary')">By Secretary</button>
+                </div>
+                
+                <div class="overview-content">
+                    <div class="overview-stats">
+                        <div class="stat-card">
+                            <h6>Total Trials</h6>
+                            <span id="totalTrialsCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Active Secretaries</h6>
+                            <span id="activeSecretariesCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Total Classes</h6>
+                            <span id="totalClassesCount">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h6>Total Entries</h6>
+                            <span id="totalEntriesCount">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="trials-grid" id="trialsGrid">
+                        <!-- Trial cards will be dynamically populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Data Management Section -->
             <div class="excel-upload">
                 <h5>📊 System Data Management</h5>
                 <input type="file" accept=".xlsx,.xls" id="adminExcelFile" onchange="handleAdminExcelUpload(event)">
                 <button class="btn" onclick="document.getElementById('adminExcelFile').click()">
                     Import System Data
                 </button>
+                <button class="btn btn-secondary" onclick="exportData()">Export All Data</button>
             </div>
-
-            <button class="btn" onclick="viewAllUsers()">View All Users</button>
-            <button class="btn" onclick="exportData()">Export All Data</button>
-            <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            
+            <!-- Admin Actions -->
+            <div class="admin-actions">
+                <h5>⚙️ Admin Actions</h5>
+                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            </div>
         </div>
     </div>
 
@@ -416,80 +571,129 @@ function showStatus(message, isError = false) {
     }
 }
 
-        // Role selection
-        function selectRole(role) {
-            selectedRole = role;
-            
-            // Update visual selection
-            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
-            event.currentTarget.classList.add('selected');
-            
-            // Show login form after short delay
-            setTimeout(() => {
-                document.getElementById('roleSelection').style.display = 'none';
-                document.getElementById('loginForm').classList.add('active');
-                
-                // Show additional fields for registration
-                if (role === 'trial_secretary') {
-                    document.getElementById('clubNameGroup').style.display = 'block';
-                }
-                
-                // Show admin features
-                if (role === 'administrator') {
-                    document.getElementById('excelUpload').style.display = 'block';
-                }
-                
-                // Ensure we start in login mode when role is selected
-                if (!isLoginMode) {
-                    toggleAuthMode(); // Switch to login mode
-                }
-                
-                // Show email field for registration only
-                if (!isLoginMode) {
-                    document.getElementById('emailGroup').style.display = 'block';
-                }
-            }, 300);
+function selectRole(role) {
+    selectedRole = role;
+    
+    // Update visual selection
+    document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    
+    // SECURITY: Block admin registration for public users
+    if (role === 'administrator') {
+        showStatus('Administrator access is restricted. Please contact system administrator.', true);
+        
+        // Reset selection
+        selectedRole = null;
+        document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+        return;
+    }
+    
+    // Show login form after short delay for non-admin roles
+    setTimeout(() => {
+        document.getElementById('roleSelection').style.display = 'none';
+        document.getElementById('loginForm').classList.add('active');
+        
+        // Show additional fields for registration
+        if (role === 'trial_secretary') {
+            document.getElementById('clubNameGroup').style.display = 'block';
         }
-
-        function goBack() {
-            document.getElementById('loginForm').classList.remove('active');
-            document.getElementById('roleSelection').style.display = 'block';
-            document.getElementById('adminPanel').classList.remove('active');
-            selectedRole = null;
-            
-            // Reset form
-            document.getElementById('authForm').reset();
-            document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
-            document.getElementById('statusMessage').style.display = 'none';
+        
+        // Ensure we start in login mode when role is selected
+        if (!isLoginMode) {
+            toggleAuthMode(); // Switch to login mode
         }
+        
+        // Show email field for registration only
+        if (!isLoginMode) {
+            document.getElementById('emailGroup').style.display = 'block';
+        }
+    }, 300);
+}
+       function goBack() {
+    // Hide login form and show role selection
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) {
+        loginForm.classList.remove('active');
+    }
+    
+    const roleSelection = document.getElementById('roleSelection');
+    if (roleSelection) {
+        roleSelection.style.display = 'block';
+    }
+    
+    const adminPanel = document.getElementById('adminPanel');
+    if (adminPanel) {
+        adminPanel.classList.remove('active');
+    }
+    
+    selectedRole = null;
+    
+    // Reset form
+    const authForm = document.getElementById('authForm');
+    if (authForm) {
+        authForm.reset();
+    }
+    
+    // Remove selected class from role buttons
+    document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('selected'));
+    
+    // Hide status message with null check
+    const statusMessage = document.getElementById('statusMessage');
+    if (statusMessage) {
+        statusMessage.style.display = 'none';
+    }
+}
 
-        function toggleAuthMode() {
-            isLoginMode = !isLoginMode;
-            const authBtn = document.getElementById('authBtn');
-            const authToggleText = document.getElementById('authToggleText');
-            const additionalFields = ['firstNameGroup', 'lastNameGroup', 'emailGroup'];
+       // Safe toggleAuthMode function
+function toggleAuthMode() {
+    isLoginMode = !isLoginMode;
+    const authBtn = document.getElementById('authBtn');
+    const authToggleText = document.getElementById('authToggleText');
+    const additionalFields = ['firstNameGroup', 'lastNameGroup', 'emailGroup'];
+    
+    if (authBtn && authToggleText) {
+        if (isLoginMode) {
+            authBtn.textContent = 'Log In';
+            authToggleText.textContent = "Don't have an account?";
             
-            if (isLoginMode) {
-                authBtn.textContent = 'Log In';
-                authToggleText.textContent = "Don't have an account?";
-                document.querySelector('.toggle-auth a').textContent = 'Sign Up';
-                additionalFields.forEach(id => {
-                    document.getElementById(id).style.display = 'none';
-                });
-            } else {
-                authBtn.textContent = 'Sign Up';
-                authToggleText.textContent = 'Already have an account?';
-                document.querySelector('.toggle-auth a').textContent = 'Log In';
-                additionalFields.forEach(id => {
-                    document.getElementById(id).style.display = 'block';
-                });
-                
-                // Show club name for trial secretary
-                if (selectedRole === 'trial_secretary') {
-                    document.getElementById('clubNameGroup').style.display = 'block';
+            const toggleLink = document.querySelector('.toggle-auth a');
+            if (toggleLink) {
+                toggleLink.textContent = 'Sign Up';
+            }
+            
+            additionalFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = 'none';
+                }
+            });
+        } else {
+            authBtn.textContent = 'Sign Up';
+            authToggleText.textContent = 'Already have an account?';
+            
+            const toggleLink = document.querySelector('.toggle-auth a');
+            if (toggleLink) {
+                toggleLink.textContent = 'Log In';
+            }
+            
+            additionalFields.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.style.display = 'block';
+                }
+            });
+            
+            // Show club name for trial secretary
+            if (selectedRole === 'trial_secretary') {
+                const clubNameGroup = document.getElementById('clubNameGroup');
+                if (clubNameGroup) {
+                    clubNameGroup.style.display = 'block';
                 }
             }
         }
+    }
+}
+
 
         // Helper function to generate temporary email for Firebase Auth
         function generateTempEmail(username) {
@@ -528,6 +732,7 @@ This allows full access for testing. Later you can secure it properly!`;
             }
             return true;
         }
+
         async function checkUsernameExists(username) {
             const usersSnapshot = await db.collection('users').where('username', '==', username).get();
             return !usersSnapshot.empty;
@@ -542,6 +747,7 @@ This allows full access for testing. Later you can secure it properly!`;
             }
             return null;
         }
+
         async function processExcelData(data) {
             const workbook = XLSX.read(data, {type: 'array', cellDates: true});
             const dataSheet = workbook.Sheets['Data'] || workbook.Sheets[workbook.SheetNames[0]];
@@ -661,15 +867,14 @@ This allows full access for testing. Later you can secure it properly!`;
                     showStatus(`Welcome back, ${userData.firstName || userData.username}!`);
                     
                     if (userData.role === 'administrator') {
-                        setTimeout(() => {
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('adminPanel').classList.add('active');
-                        }, 1500);
-                    } else {
-                        setTimeout(() => {
-                            redirectToDashboard(userData.role);
-                        }, 1500);
-                    }
+    setTimeout(() => {
+        redirectToDashboard(userData.role);  // <-- Changed this line
+    }, 1500);
+} else {
+    setTimeout(() => {
+        redirectToDashboard(userData.role);
+    }, 1500);
+}
                 } else {
                     // Registration logic with username
                     const email = document.getElementById('email').value;
@@ -733,16 +938,10 @@ This allows full access for testing. Later you can secure it properly!`;
                         role: selectedRole 
                     };
                     
-                    if (selectedRole === 'administrator') {
-                        setTimeout(() => {
-                            document.getElementById('loginForm').style.display = 'none';
-                            document.getElementById('adminPanel').classList.add('active');
-                        }, 1500);
-                    } else {
-                        setTimeout(() => {
-                            redirectToDashboard(selectedRole);
-                        }, 1500);
-                    }
+     // All roles now redirect to their respective dashboards
+setTimeout(() => {
+    redirectToDashboard(userData.role);
+}, 1500);
                 }
             } catch (error) {
                 console.error('Authentication error:', error);
@@ -761,29 +960,24 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         });
 
-        // Redirect to appropriate dashboard
-        function redirectToDashboard(role) {
-            switch(role) {
-                case 'administrator':
-                    // Stay on current page with admin panel
-                    break;
-                case 'trial_secretary':
-                    showStatus('Redirecting to Trial Secretary Dashboard...');
-                    setTimeout(() => {
-                        window.location.href = 'trial-secretary-dashboard.html';
-                    }, 1500);
-                    break;
-                case 'participant':
-                    showStatus('Redirecting to Participant Dashboard...');
-                    setTimeout(() => {
-                        window.location.href = 'participant-dashboard.html';
-                    }, 1500);
-                    break;
-                default:
-                    showStatus('Unknown role', true);
-            }
-        }
-
+     function redirectToDashboard(role) {
+    switch(role) {
+        case 'trial_secretary':
+            showStatus('Redirecting to Trial Secretary Dashboard...');
+            setTimeout(() => {
+                window.location.href = 'trial-secretary-dashboard.html';
+            }, 1500);
+            break;
+        case 'participant':
+            showStatus('Redirecting to Participant Dashboard...');
+            setTimeout(() => {
+                window.location.href = 'participant-dashboard.html';
+            }, 1500);
+            break;
+        default:
+            showStatus('Unknown role', true);
+    }
+}
         // Admin functions
         async function resetUserPassword() {
             const username = document.getElementById('resetUsername').value.toLowerCase().trim();
@@ -818,36 +1012,469 @@ This allows full access for testing. Later you can secure it properly!`;
             }
         }
 
-        async function viewAllUsers() {
+        // Trial Overview Dashboard Functions
+        let currentOverviewTab = 'all';
+        let allTrialsData = [];
+        let allUsersData = {};
+
+        async function showTrialOverviewDashboard() {
             try {
-                console.log('Fetching all users...');
-                showStatus('Loading users...');
+                showStatus('Loading trial overview dashboard...');
                 
+                // Hide admin panel and show overview dashboard
+                document.getElementById('adminPanel').style.display = 'none';
+                document.getElementById('trialOverviewDashboard').style.display = 'block';
+                
+                // Load all data
+                await loadOverviewData();
+                
+                // Switch to default tab
+                switchOverviewTab(null, 'all');
+                
+                showStatus('Trial overview dashboard loaded successfully');
+            } catch (error) {
+                console.error('Error loading trial overview:', error);
+                showStatus('Error loading trial overview: ' + error.message, true);
+            }
+        }
+
+        function hideTrialOverview() {
+            document.getElementById('trialOverviewDashboard').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+        }
+
+        async function loadOverviewData() {
+            try {
+                // Load trials
+                const trialsSnapshot = await db.collection('trials').get();
+                allTrialsData = [];
+                trialsSnapshot.forEach(doc => {
+                    allTrialsData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Load users
+                const usersSnapshot = await db.collection('users').get();
+                allUsersData = {};
+                usersSnapshot.forEach(doc => {
+                    allUsersData[doc.id] = doc.data();
+                });
+
+                // Update stats
+                updateOverviewStats();
+            } catch (error) {
+                console.error('Error loading overview data:', error);
+                throw error;
+            }
+        }
+
+        function updateOverviewStats() {
+            const totalTrials = allTrialsData.length;
+            const activeSecretaries = new Set(allTrialsData.map(t => t.createdBy).filter(Boolean)).size;
+            
+            let totalClasses = 0;
+            let totalEntries = 0;
+            
+            allTrialsData.forEach(trial => {
+                if (trial.days) {
+                    trial.days.forEach(day => {
+                        if (day.classes) {
+                            totalClasses += day.classes.length;
+                            day.classes.forEach(cls => {
+                                if (cls.entries) {
+                                    totalEntries += cls.entries.length;
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+
+            document.getElementById('totalTrialsCount').textContent = totalTrials;
+            document.getElementById('activeSecretariesCount').textContent = activeSecretaries;
+            document.getElementById('totalClassesCount').textContent = totalClasses;
+            document.getElementById('totalEntriesCount').textContent = totalEntries;
+        }
+
+        function switchOverviewTab(event, tabType) {
+            currentOverviewTab = tabType;
+            
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // If no event (programmatic call), find and activate the correct button
+                const buttons = document.querySelectorAll('.tab-btn');
+                const tabIndex = ['all', 'active', 'completed', 'by-secretary'].indexOf(tabType);
+                if (tabIndex >= 0 && buttons[tabIndex]) {
+                    buttons[tabIndex].classList.add('active');
+                }
+            }
+            
+            // Filter and display trials based on tab
+            let filteredTrials = [];
+            
+            switch(tabType) {
+                case 'all':
+                    filteredTrials = allTrialsData;
+                    break;
+                case 'active':
+                    filteredTrials = allTrialsData.filter(trial => {
+                        if (!trial.days || trial.days.length === 0) return false;
+                        const firstDay = trial.days[0];
+                        if (!firstDay.date) return true; // No date set, consider active
+                        const trialDate = new Date(firstDay.date);
+                        const today = new Date();
+                        return trialDate >= today;
+                    });
+                    break;
+                case 'completed':
+                    filteredTrials = allTrialsData.filter(trial => {
+                        if (!trial.days || trial.days.length === 0) return false;
+                        const lastDay = trial.days[trial.days.length - 1];
+                        if (!lastDay.date) return false;
+                        const trialDate = new Date(lastDay.date);
+                        const today = new Date();
+                        return trialDate < today;
+                    });
+                    break;
+                case 'by-secretary':
+                    displayTrialsBySecretary();
+                    return;
+            }
+            
+            displayTrialsGrid(filteredTrials);
+        }
+
+        function displayTrialsGrid(trials) {
+            const grid = document.getElementById('trialsGrid');
+            
+            if (trials.length === 0) {
+                grid.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No trials found for this category.</div>';
+                return;
+            }
+            
+            // Sort trials by creation date (newest first)
+            trials.sort((a, b) => {
+                const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                return bTime - aTime;
+            });
+            
+            grid.innerHTML = trials.map(trial => createTrialCard(trial)).join('');
+        }
+
+        function createTrialCard(trial) {
+            const creator = allUsersData[trial.createdBy] || {};
+            const creatorName = creator.firstName && creator.lastName ? 
+                `${creator.firstName} ${creator.lastName}` : 
+                creator.username || 'Unknown User';
+            
+            const createdDate = trial.createdAt ? 
+                new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
+                'Unknown Date';
+            
+            const trialDate = trial.days && trial.days[0] && trial.days[0].date ?
+                trial.days[0].date : 
+                'Date TBD';
+            
+            let totalClasses = 0;
+            let totalEntries = 0;
+            let totalRounds = 0;
+            
+            if (trial.days) {
+                trial.days.forEach(day => {
+                    if (day.classes) {
+                        totalClasses += day.classes.length;
+                        day.classes.forEach(cls => {
+                            if (cls.entries) {
+                                totalEntries += cls.entries.length;
+                            }
+                            if (cls.rounds) {
+                                totalRounds += cls.rounds.length;
+                            }
+                        });
+                    }
+                });
+            }
+            
+            return `
+                <div class="trial-card">
+                    <h6>${trial.clubName || 'Unnamed Trial'}</h6>
+                    <div class="trial-meta">
+                        <div><strong>Secretary:</strong> ${creatorName}</div>
+                        <div><strong>Created:</strong> ${createdDate}</div>
+                        <div><strong>Trial Date:</strong> ${trialDate}</div>
+                        <div><strong>Location:</strong> ${trial.location || 'TBD'}</div>
+                    </div>
+                    <div class="trial-stats">
+                        <span>Days: ${trial.days?.length || 0}</span>
+                        <span>Classes: ${totalClasses}</span>
+                        <span>Entries: ${totalEntries}</span>
+                        <span>Rounds: ${totalRounds}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function displayTrialsBySecretary() {
+            const grid = document.getElementById('trialsGrid');
+            
+            // Group trials by secretary
+            const trialsBySecretary = {};
+            allTrialsData.forEach(trial => {
+                const creatorId = trial.createdBy || 'unknown';
+                if (!trialsBySecretary[creatorId]) {
+                    trialsBySecretary[creatorId] = [];
+                }
+                trialsBySecretary[creatorId].push(trial);
+            });
+            
+            // Create secretary sections
+            let html = '';
+            Object.entries(trialsBySecretary).forEach(([creatorId, trials]) => {
+                const creator = allUsersData[creatorId] || {};
+                const secretaryName = creator.firstName && creator.lastName ? 
+                    `${creator.firstName} ${creator.lastName} (${creator.username})` : 
+                    creator.username || 'Unknown Secretary';
+                
+                const clubName = creator.clubName ? ` - ${creator.clubName}` : '';
+                
+                html += `
+                    <div class="secretary-section">
+                        <h6>📋 ${secretaryName}${clubName}</h6>
+                        <div style="font-size: 0.9rem; color: #666; margin-bottom: 1rem;">
+                            ${trials.length} trial${trials.length !== 1 ? 's' : ''}
+                        </div>
+                        <div style="display: grid; gap: 0.5rem;">
+                            ${trials.map(trial => `
+                                <div style="background: white; padding: 0.75rem; border-radius: 5px; border: 1px solid #dee2e6;">
+                                    <strong>${trial.clubName || 'Unnamed Trial'}</strong><br>
+                                    <small style="color: #666;">
+                                        Date: ${trial.days && trial.days[0] && trial.days[0].date ? trial.days[0].date : 'TBD'} | 
+                                        Days: ${trial.days?.length || 0} | 
+                                        Location: ${trial.location || 'TBD'}
+                                    </small>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            grid.innerHTML = html;
+        }
+        async function viewAllTrials() {
+            try {
+                console.log('Fetching all trials...');
+                showStatus('Loading all trials from all secretaries...');
+                
+                // Get all trials (no user filter for admin)
+                const trialsSnapshot = await db.collection('trials').get();
+                
+                if (trialsSnapshot.empty) {
+                    showStatus('No trials found in the system');
+                    return;
+                }
+                
+                const trials = [];
+                trialsSnapshot.forEach(doc => {
+                    trials.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort by creation date (newest first)
+                trials.sort((a, b) => {
+                    const aTime = a.createdAt ? a.createdAt.seconds : 0;
+                    const bTime = b.createdAt ? b.createdAt.seconds : 0;
+                    return bTime - aTime;
+                });
+                
+                // Get creator information for each trial
+                const creatorIds = [...new Set(trials.map(t => t.createdBy).filter(Boolean))];
+                const creators = {};
+                
+                if (creatorIds.length > 0) {
+                    const usersSnapshot = await db.collection('users').get();
+                    usersSnapshot.forEach(doc => {
+                        if (creatorIds.includes(doc.id)) {
+                            creators[doc.id] = doc.data();
+                        }
+                    });
+                }
+                
+                // Create detailed trial list
+                let trialList = `📊 ALL TRIALS IN SYSTEM (${trials.length} total)\n`;
+                trialList += '='.repeat(60) + '\n\n';
+                
+                trials.forEach((trial, index) => {
+                    const creator = creators[trial.createdBy];
+                    const creatorName = creator ? 
+                        `${creator.firstName} ${creator.lastName} (${creator.username})` : 
+                        'Unknown User';
+                    
+                    const createdDate = trial.createdAt ? 
+                        new Date(trial.createdAt.seconds * 1000).toLocaleDateString() : 
+                        'Unknown Date';
+                    
+                    const firstDayDate = trial.days && trial.days[0] && trial.days[0].date ?
+                        trial.days[0].date : 
+                        'Date TBD';
+                    
+                    let totalClasses = 0;
+                    let totalRounds = 0;
+                    if (trial.days) {
+                        trial.days.forEach(day => {
+                            if (day.classes) {
+                                totalClasses += day.classes.length;
+                                day.classes.forEach(cls => {
+                                    if (cls.rounds) {
+                                        totalRounds += cls.rounds.length;
+                                    }
+                                });
+                            }
+                        });
+                    }
+                    
+                    trialList += `${index + 1}. ${trial.clubName}\n`;
+                    trialList += `   Trial ID: ${trial.id}\n`;
+                    trialList += `   Created by: ${creatorName}\n`;
+                    trialList += `   Created: ${createdDate}\n`;
+                    trialList += `   Trial Date: ${firstDayDate}\n`;
+                    trialList += `   Days: ${trial.days?.length || 0}\n`;
+                    trialList += `   Classes: ${totalClasses}\n`;
+                    trialList += `   Rounds: ${totalRounds}\n`;
+                    trialList += `   Location: ${trial.location || 'TBD'}\n\n`;
+                });
+                
+                alert(trialList);
+                showStatus(`Loaded ${trials.length} trials from ${creatorIds.length} different secretaries`);
+                
+            } catch (error) {
+                console.error('Error fetching all trials:', error);
+                showStatus('Error loading trials: ' + error.message, true);
+            }
+        }
+
+        async function viewAllUsersEnhanced() {
+            try {
+                console.log('Fetching all users with trial statistics...');
+                showStatus('Loading users and trial statistics...');
+                
+                // Get all users
                 const usersSnapshot = await db.collection('users').get();
                 const users = [];
-                
                 usersSnapshot.forEach(doc => {
                     users.push({ id: doc.id, ...doc.data() });
                 });
                 
-                console.log('All users:', users);
-                
-                // Create a simple display of users
-                let userList = 'System Users:\n\n';
-                users.forEach(user => {
-                    userList += `${user.firstName} ${user.lastName}\n`;
-                    userList += `Username: ${user.username}\n`;
-                    userList += `Role: ${user.role}\n`;
-                    userList += `Club: ${user.clubName || 'N/A'}\n`;
-                    userList += `Email: ${user.email || 'Not provided'}\n\n`;
+                // Get all trials to count by creator
+                const trialsSnapshot = await db.collection('trials').get();
+                const trialCounts = {};
+                trialsSnapshot.forEach(doc => {
+                    const trial = doc.data();
+                    const creatorId = trial.createdBy;
+                    if (creatorId) {
+                        trialCounts[creatorId] = (trialCounts[creatorId] || 0) + 1;
+                    }
                 });
                 
-                showStatus('User list generated');
+                // Create enhanced user list
+                let userList = `👥 ALL SYSTEM USERS (${users.length} total)\n`;
+                userList += '='.repeat(50) + '\n\n';
+                
+                users.forEach((user, index) => {
+                    const trialCount = trialCounts[user.id] || 0;
+                    const createdDate = user.createdAt ? 
+                        new Date(user.createdAt.seconds * 1000).toLocaleDateString() : 
+                        'Unknown';
+                    
+                    userList += `${index + 1}. ${user.firstName} ${user.lastName}\n`;
+                    userList += `   Username: ${user.username}\n`;
+                    userList += `   Role: ${user.role}\n`;
+                    userList += `   Club: ${user.clubName || 'N/A'}\n`;
+                    userList += `   Email: ${user.email || 'Not provided'}\n`;
+                    userList += `   Trials Created: ${trialCount}\n`;
+                    userList += `   Joined: ${createdDate}\n`;
+                    userList += `   Status: ${user.isActive ? 'Active' : 'Inactive'}\n\n`;
+                });
+                
                 alert(userList);
+                showStatus(`Loaded ${users.length} users. Total trials in system: ${trialsSnapshot.size}`);
+                
             } catch (error) {
                 console.error('Error fetching users:', error);
-                showStatus('Error fetching users: ' + error.message, true);
+                showStatus('Error loading users: ' + error.message, true);
             }
+        }
+
+        async function viewSystemStatistics() {
+            try {
+                showStatus('Generating system statistics...');
+                
+                const [usersSnapshot, trialsSnapshot, entriesSnapshot, scoresSnapshot] = await Promise.all([
+                    db.collection('users').get(),
+                    db.collection('trials').get(),
+                    db.collection('entries').get(),
+                    db.collection('scores').get()
+                ]);
+                
+                const stats = {
+                    totalUsers: usersSnapshot.size,
+                    totalTrials: trialsSnapshot.size,
+                    totalEntries: entriesSnapshot.size,
+                    totalScores: scoresSnapshot.size,
+                    usersByRole: {},
+                    trialsByMonth: {},
+                    mostActiveSecretaries: {}
+                };
+                
+                // Analyze users by role
+                usersSnapshot.forEach(doc => {
+                    const user = doc.data();
+                    stats.usersByRole[user.role] = (stats.usersByRole[user.role] || 0) + 1;
+                });
+                
+                // Analyze trials by month
+                trialsSnapshot.forEach(doc => {
+                    const trial = doc.data();
+                    if (trial.createdAt) {
+                        const date = new Date(trial.createdAt.seconds * 1000);
+                        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                        stats.trialsByMonth[monthKey] = (stats.trialsByMonth[monthKey] || 0) + 1;
+                    }
+                });
+                
+                let statsText = `📈 SYSTEM STATISTICS\n`;
+                statsText += '='.repeat(40) + '\n\n';
+                statsText += `Total Users: ${stats.totalUsers}\n`;
+                statsText += `Total Trials: ${stats.totalTrials}\n`;
+                statsText += `Total Entries: ${stats.totalEntries}\n`;
+                statsText += `Total Scores: ${stats.totalScores}\n\n`;
+                
+                statsText += `Users by Role:\n`;
+                Object.entries(stats.usersByRole).forEach(([role, count]) => {
+                    statsText += `  ${role}: ${count}\n`;
+                });
+                
+                statsText += `\nTrials by Month:\n`;
+                Object.entries(stats.trialsByMonth)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .forEach(([month, count]) => {
+                        statsText += `  ${month}: ${count}\n`;
+                    });
+                
+                alert(statsText);
+                showStatus('System statistics generated successfully');
+                
+            } catch (error) {
+                console.error('Error generating statistics:', error);
+                showStatus('Error generating statistics: ' + error.message, true);
+            }
+        }
+
+        // Keep the existing viewAllUsers for backward compatibility
+        async function viewAllUsers() {
+            await viewAllUsersEnhanced();
         }
 
         async function exportData() {
@@ -950,6 +1577,80 @@ This allows full access for testing. Later you can secure it properly!`;
                 ]
             }
         };
+
+        // Admin login functions - ADD THESE AT THE END OF YOUR SCRIPT
+function showAdminLogin() {
+    document.getElementById('roleSelection').style.display = 'none';
+    document.getElementById('adminLoginForm').style.display = 'block';
+}
+
+function hideAdminLogin() {
+    document.getElementById('adminLoginForm').style.display = 'none';
+    document.getElementById('roleSelection').style.display = 'block';
+    
+    // Clear admin form
+    document.getElementById('adminAuthForm').reset();
+    document.getElementById('statusMessage').style.display = 'none';
+}
+
+// Admin authentication form handler
+document.getElementById('adminAuthForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!checkFirebaseConnection()) return;
+    
+    const username = document.getElementById('adminUsername').value.toLowerCase().trim();
+    const password = document.getElementById('adminPassword').value;
+    
+    if (!username || !password) {
+        showStatus('Please enter both username and password', true);
+        return;
+    }
+    
+    try {
+        console.log('Attempting admin login for username:', username);
+        showStatus('Verifying administrator credentials...');
+        
+        // Find user by username
+        const userData = await findUserByUsername(username);
+        if (!userData) {
+            throw new Error('Administrator not found. Please check your credentials.');
+        }
+        
+        // Verify user is actually an admin
+        if (userData.role !== 'administrator') {
+            throw new Error('Access denied. Administrator privileges required.');
+        }
+        
+        // Use the temporary email for Firebase auth
+        const tempEmail = generateTempEmail(username);
+        const userCredential = await auth.signInWithEmailAndPassword(tempEmail, password);
+        const user = userCredential.user;
+        
+        currentUser = { ...user, ...userData };
+        
+        console.log('Admin login successful:', userData);
+        showStatus(`Welcome, Administrator ${userData.firstName || userData.username}!`);
+        
+        // Redirect to admin dashboard
+        setTimeout(() => {
+            window.location.href = 'admin-dashboard.html';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Admin authentication error:', error);
+        if (error.code === 'auth/user-not-found') {
+            showStatus('Administrator not found. Please check your credentials.', true);
+        } else if (error.code === 'auth/wrong-password') {
+            showStatus('Incorrect password. Please try again.', true);
+        } else if (error.code === 'auth/invalid-email') {
+            showStatus('Invalid credentials format. Please try again.', true);
+        } else {
+            showStatus('Error: ' + error.message, true);
+        }
+    }
+});
+        
     </script>
 </body>
 </html>
