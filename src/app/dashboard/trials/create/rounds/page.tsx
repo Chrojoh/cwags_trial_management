@@ -75,7 +75,6 @@ export default function CreateTrialRoundsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
-  const [allJudges, setAllJudges] = useState<Judge[]>([]);
   const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: Judge[] }>({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [rounds, setRounds] = useState<{ [classId: string]: RoundData[] }>({});
@@ -114,13 +113,14 @@ export default function CreateTrialRoundsPage() {
   };
 
   // Load initial data
-  useEffect(() => {
-    if (trialId) {
-      loadTrialData();
-    } else {
-      setInitialLoading(false);
-    }
-  }, [trialId]);
+useEffect(() => {
+  if (trialId) {
+    loadTrialData();
+  } else {
+    setInitialLoading(false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [trialId]);
 
   const loadTrialData = async () => {
     if (!trialId) return;
@@ -151,7 +151,17 @@ export default function CreateTrialRoundsPage() {
         try {
           const dayClassesResult = await simpleTrialOperations.getTrialClasses(day.id);
           if (dayClassesResult.success && dayClassesResult.data) {
-            const dayClasses = dayClassesResult.data.map((cls: any) => ({
+           interface ClassData {
+  id: string;
+  class_name: string;
+  class_level: string;
+  class_type: string;
+  subclass: string;
+  max_entries: number;
+  [key: string]: any;
+}
+
+const dayClasses = dayClassesResult.data.map((cls: ClassData) => ({
               id: cls.id,
               class_name: cls.class_name || '',
               class_level: cls.class_level || '',
@@ -177,7 +187,7 @@ export default function CreateTrialRoundsPage() {
       const judgesResult = await simpleTrialOperations.getAllJudges();
       if (judgesResult.success) {
         const allJudgesData = judgesResult.data || [];
-        setAllJudges(allJudgesData);
+     
         
         // Sort judges by proximity to trial location and initialize qualified judges
         const qualifiedMap: { [classId: string]: Judge[] } = {};
@@ -193,7 +203,22 @@ export default function CreateTrialRoundsPage() {
       for (const cls of allClasses) {
         const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
         if (roundsResult.success && roundsResult.data && roundsResult.data.length > 0) {
-          roundsData[cls.id] = roundsResult.data.map((round: any) => ({
+         interface RoundResult {
+  id: string;
+  round_number: number;
+  judge_name: string;
+  judge_email: string;
+  start_time: string;
+  estimated_duration: string;
+  max_entries: number;
+  has_reset: boolean;
+  reset_judge_name: string;
+  reset_judge_email: string;
+  notes: string;
+  [key: string]: any;
+}
+
+roundsData[cls.id] = roundsResult.data.map((round: RoundResult) => ({
             id: round.id,
             round_number: round.round_number || 1,
             judge_name: round.judge_name || '',
@@ -299,7 +324,7 @@ export default function CreateTrialRoundsPage() {
   };
 
   // Update round field
-  const updateRoundField = (classId: string, roundIndex: number, field: keyof RoundData, value: any) => {
+const updateRoundField = (classId: string, roundIndex: number, field: keyof RoundData, value: string | number | boolean) => {
     setRounds(prev => ({
       ...prev,
       [classId]: (prev[classId] || []).map((round, idx) => 

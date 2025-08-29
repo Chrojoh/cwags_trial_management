@@ -82,8 +82,8 @@ export default function AuthErrorPage() {
             <div className="text-center text-sm text-blue-700">
               <p className="font-medium mb-2">Need Help?</p>
               <p>
-                If you continue to experience issues, please contact your system administrator 
-                or check that you're using the correct credentials.
+              If you continue to experience issues, please contact your system administrator 
+or check that you&apos;re using the correct credentials.
               </p>
             </div>
           </CardContent>

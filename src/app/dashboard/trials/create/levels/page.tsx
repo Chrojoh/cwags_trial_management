@@ -138,7 +138,13 @@ export default function TrialLevelsPage() {
           // Create full level list with existing selections marked
           initialSelections[day.id] = Object.entries(CWAGS_LEVELS).flatMap(([category, levels]) =>
             levels.map(levelName => {
-              const existing = existingLevels.find((e: any) => e.levelName === levelName && e.category === category);
+             interface ExistingLevel {
+  levelName: string;
+  category: string;
+  [key: string]: any;
+}
+
+const existing = existingLevels.find((e: ExistingLevel) => e.levelName === levelName && e.category === category);
               return existing || {
                 levelName,
                 category,
@@ -190,7 +196,7 @@ export default function TrialLevelsPage() {
     setLevelSelections(initialSelections);
   };
 
-  const updateLevelSelection = (dayId: string, levelIndex: number, field: keyof LevelSelection, value: any) => {
+  const updateLevelSelection = (dayId: string, levelIndex: number, field: keyof LevelSelection, value: string | number | boolean) => {
     setLevelSelections(prev => ({
       ...prev,
       [dayId]: prev[dayId]?.map((level, index) => 
@@ -210,13 +216,13 @@ export default function TrialLevelsPage() {
     const newErrors: string[] = [];
     
     // Check if at least one level is selected across all days
-    const hasAnySelection = Object.values(levelSelections).some(dayLevels => 
-      dayLevels.some(level => level.selected)
-    );
-    
-    if (!hasAnySelection) {
-      newErrors.push('You must select at least one level for at least one day.');
-    }
+   const hasSelection = Object.values(levelSelections).some(dayLevels => 
+  dayLevels.some(level => level.selected)
+);
+
+if (!hasSelection) {
+  newErrors.push('You must select at least one level for at least one day.');
+}
 
     // Check for valid entry fees and max entries
     Object.entries(levelSelections).forEach(([, dayLevels]) => {
@@ -598,10 +604,10 @@ export default function TrialLevelsPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {levelSelections[day.id]
                   ?.filter(level => level.category === selectedCategory)
-                  .map((level, levelIndex) => {
-                    const actualIndex = levelSelections[day.id]?.findIndex(l => 
-                      l.levelName === level.levelName && l.category === level.category
-                    ) || 0;
+                  .map((level) => {
+  const actualIndex = levelSelections[day.id]?.findIndex(l => 
+    l.levelName === level.levelName && l.category === level.category
+  ) || 0;
                     
                     return (
                       <div

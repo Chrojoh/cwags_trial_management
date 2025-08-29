@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MainLayout from '@/components/layout/main-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +36,7 @@ export default function TrialDaysPage() {
   const trialId = searchParams.get('trial');
   const isEditMode = searchParams.get('mode') === 'edit';
   
-  const [trial, setTrial] = useState<any | null>(null);
+  const [trial, setTrial] = useState<any>(null);
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,13 @@ export default function TrialDaysPage() {
   }, [trialId]);
 
   // Generate the available days based on start and end date
-  const generateAvailableDays = async (trialData: any) => {
+  interface TrialData {
+  start_date: string;
+  end_date: string;
+  max_entries_per_day?: number;
+}
+
+const generateAvailableDays = useCallback(async (trialData: TrialData) => {
     if (trialData.start_date && trialData.end_date) {
       const start = new Date(trialData.start_date);
       const end = new Date(trialData.end_date);
@@ -108,7 +114,7 @@ export default function TrialDaysPage() {
           
           // Mark existing days as selected
           days.forEach(day => {
-            const existingDay = existingDays.find((existing: any) => 
+           const existingDay = existingDays.find((existing: { trial_date: string }) =>
               existing.trial_date === day.trial_date
             );
             if (existingDay) {
@@ -124,7 +130,7 @@ export default function TrialDaysPage() {
 
       setTrialDays(days);
     }
-  };
+ }, [trialId]);
 
   const handleDayToggle = (dayIndex: number) => {
     setTrialDays(prev => 

@@ -5,7 +5,7 @@
 // BASIC FORM STATE TYPES
 // =============================================================================
 
-export interface FormState<T = Record<string, any>> {
+export interface FormState<T = Record<string, unknown>> {
   data: T;
   errors: Record<string, string>;
   isValid: boolean;

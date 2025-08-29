@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   FileSpreadsheet,
-  Download,
   Users,
   Trophy,
   CheckCircle,

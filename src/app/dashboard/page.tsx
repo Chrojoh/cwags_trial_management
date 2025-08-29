@@ -14,9 +14,7 @@ import {
   Trophy,
   Clock,
   Plus,
-  FileText,
   Settings,
-  BarChart3,
   CheckCircle,
   AlertCircle,
   Eye
@@ -41,7 +39,7 @@ interface Trial {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, getDisplayInfo } = useAuth();
+  const { getDisplayInfo } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
     totalTrials: 0,
     activeTrials: 0,

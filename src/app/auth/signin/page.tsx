@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, User, Lock } from "lucide-react"
+import { Loader2, Lock } from "lucide-react"
 
 export default function SignIn() {
   const [username, setUsername] = useState("")
