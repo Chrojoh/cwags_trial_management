@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MainLayout from '@/components/layout/main-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,7 +49,7 @@ interface Trial {
   end_date: string;
 }
 
-export default function TrialLevelsPage() {
+function TrialLevelsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trialId = searchParams.get('trial');
@@ -782,4 +782,19 @@ if (!hasSelection) {
       </div>
     </MainLayout>
   );
+}
+// Add this at the very end of the file:
+export default function TrialLevelsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <TrialLevelsPageContent />
+    </Suspense>
+  )
 }

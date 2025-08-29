@@ -2,6 +2,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
+import React, { Suspense } from 'react';
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
@@ -16,7 +17,7 @@ const errorMessages: Record<string, string> = {
   Default: 'An error occurred during authentication.',
 }
 
-export default function AuthErrorPage() {
+function AuthErrorPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error') || 'Default'
   const message = errorMessages[error] || errorMessages.Default
@@ -90,5 +91,20 @@ or check that you&apos;re using the correct credentials.
         </Card>
       </div>
     </div>
+  )
+}
+// Add this RIGHT AFTER the closing brace above:
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AuthErrorPageContent />
+    </Suspense>
   )
 }

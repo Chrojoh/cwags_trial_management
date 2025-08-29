@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/main-layout';
@@ -63,7 +63,7 @@ interface Trial {
   end_date: string;
 }
 
-export default function CreateTrialRoundsPage() {
+function CreateRoundsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -849,4 +849,19 @@ const updateRoundField = (classId: string, roundIndex: number, field: keyof Roun
       </div>
     </MainLayout>
   );
+}
+// Add this at the very end of the file:
+export default function CreateRoundsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CreateRoundsPageContent />
+    </Suspense>
+  )
 }

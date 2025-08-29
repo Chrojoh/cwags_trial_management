@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MainLayout from '@/components/layout/main-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,7 @@ interface TrialDay {
   day_number?: number;
 }
 
-export default function TrialDaysPage() {
+function TrialDaysPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trialId = searchParams.get('trial');
@@ -652,5 +652,19 @@ const generateAvailableDays = useCallback(async (trialData: TrialData) => {
         </div>
       </div>
     </MainLayout>
-  );
+   );
+}
+export default function TrialDaysPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <TrialDaysPageContent />
+    </Suspense>
+  )
 }

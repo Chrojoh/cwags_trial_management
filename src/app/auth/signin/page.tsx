@@ -1,7 +1,6 @@
-// src/app/auth/signin/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Lock } from "lucide-react"
 
-export default function SignIn() {
+// Component that uses useSearchParams - wrapped in Suspense
+function SignInForm() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -153,8 +153,6 @@ export default function SignIn() {
               )}
             </Button>
           </form>
-
-          
         </CardContent>
 
         <CardFooter>
@@ -169,5 +167,14 @@ export default function SignIn() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+// Main component with Suspense boundary
+export default function SignIn() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div><p className="mt-4 text-gray-600">Loading...</p></div></div>}>
+      <SignInForm />
+    </Suspense>
   )
 }

@@ -1,15 +1,13 @@
 {
   "extends": ["next/core-web-vitals"],
   "rules": {
-    // Disable the rules causing build failures
-    "@typescript-eslint/no-explicit-any": "warn",
+     "@typescript-eslint/no-explicit-any": "warn",
     "@typescript-eslint/no-unused-vars": "warn", 
     "react-hooks/exhaustive-deps": "warn",
     "react/no-unescaped-entities": "warn",
     "@typescript-eslint/no-empty-object-type": "warn",
     "react/jsx-no-undef": "warn",
     
-    // Keep important rules as errors
     "@typescript-eslint/no-unsafe-assignment": "off",
     "@typescript-eslint/no-unsafe-member-access": "off",
     "@typescript-eslint/no-unsafe-call": "off"
