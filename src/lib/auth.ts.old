@@ -1,0 +1,93 @@
+// src/lib/auth.ts - Step 2: Authentication System
+import NextAuth from "next-auth"
+import EmailProvider from "next-auth/providers/email"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  providers: [
+    EmailProvider({
+      server: {
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT),
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD,
+        },
+      },
+      from: process.env.EMAIL_FROM,
+    }),
+  ],
+  pages: {
+    signIn: '/auth/signin',
+    verifyRequest: '/auth/verify-request',
+    error: '/auth/error',
+  },
+  callbacks: {
+    async session({ session, token }) {
+      if (session?.user?.email) {
+        // Get user role from C-WAGS users table
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role, club_name, is_active, first_name, last_name')
+          .eq('email', session.user.email)
+          .single()
+
+        if (userData) {
+          session.user.role = userData.role
+          session.user.clubName = userData.club_name
+          session.user.isActive = userData.is_active
+          session.user.name = `${userData.first_name} ${userData.last_name}`
+        }
+      }
+      return session
+    },
+    async signIn({ user, email }) {
+      // Only allow trial_secretary and administrator roles
+      if (user.email) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role, is_active')
+          .eq('email', user.email)
+          .single()
+
+        // Deny access if user doesn't exist or isn't active
+        if (!userData || !userData.is_active) {
+          return false
+        }
+
+        // Only allow proper roles (matching blueprint requirements)
+        if (!['trial_secretary', 'administrator'].includes(userData.role)) {
+          return false
+        }
+      }
+      return true
+    },
+    async jwt({ token, user }) {
+      // Persist user info in JWT token
+      if (user?.email) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role, club_name, is_active, first_name, last_name')
+          .eq('email', user.email)
+          .single()
+
+        if (userData) {
+          token.role = userData.role
+          token.clubName = userData.club_name
+          token.isActive = userData.is_active
+          token.name = `${userData.first_name} ${userData.last_name}`
+        }
+      }
+      return token
+    }
+  },
+  session: {
+    strategy: 'jwt', // Using JWT instead of database sessions for simplicity
+  },
+  debug: process.env.NODE_ENV === 'development',
+})
