@@ -1,0 +1,362 @@
+// src/lib/trial-operations.ts
+import { supabase } from './supabase';
+
+export interface TrialData {
+  id?: string;
+  trial_name: string;
+  club_name: string;
+  location: string;
+  start_date: string;
+  end_date: string;
+  created_by: string;
+  trial_status: string;
+  premium_published: boolean;
+  entries_open: boolean;
+  entries_close_date: string | null;
+  max_entries_per_day: number;
+  trial_secretary: string;
+  secretary_email: string;
+  secretary_phone: string | null;
+  waiver_text: string;
+  fee_configuration: any | null;
+  notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TrialDay {
+  id?: string;
+  trial_id: string;
+  day_number: number;
+  trial_date: string;
+  day_status: string;
+  notes: string | null;
+  created_at?: string;
+}
+
+export interface TrialClass {
+  id?: string;
+  trial_day_id: string;
+  class_name: string;
+  class_type: string;
+  subclass?: string;
+  class_level: string;
+  entry_fee: number;
+  max_entries: number;
+  class_order: number;
+  class_status: string;
+  notes?: string;
+}
+
+export interface TrialRound {
+  id?: string;
+  trial_class_id: string;
+  round_number: number;
+  judge_name: string;
+  judge_email: string;
+  feo_available: boolean;
+  round_status: string;
+  start_time?: string;
+  estimated_duration?: string;
+  max_entries: number;
+  has_reset: boolean;
+  reset_judge_name?: string;
+  reset_judge_email?: string;
+  notes?: string;
+}
+
+// Trial Operations
+export const trialOperations = {
+  // Create new trial (Step 1-2)
+  async createTrial(trialData: Omit<TrialData, 'id'>) {
+    try {
+      // Don't include id, created_at, updated_at - let database handle these
+      const insertData = {
+        trial_name: trialData.trial_name,
+        club_name: trialData.club_name,
+        location: trialData.location,
+        start_date: trialData.start_date,
+        end_date: trialData.end_date,
+        created_by: trialData.created_by,
+        trial_status: trialData.trial_status,
+        premium_published: trialData.premium_published || false,
+        entries_open: trialData.entries_open || false,
+        entries_close_date: trialData.entries_close_date,
+        max_entries_per_day: trialData.max_entries_per_day,
+        trial_secretary: trialData.trial_secretary,
+        secretary_email: trialData.secretary_email,
+        secretary_phone: trialData.secretary_phone,
+        waiver_text: trialData.waiver_text,
+        fee_configuration: trialData.fee_configuration,
+        notes: trialData.notes
+      };
+
+      console.log('Insert data:', insertData); // Debug log
+
+      const { data, error } = await supabase
+        .from('trials')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error creating trial:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Update trial (any step)
+  async updateTrial(trialId: string, updates: Partial<TrialData>) {
+    try {
+      const { data, error } = await supabase
+        .from('trials')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', trialId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating trial:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get trial by ID
+  async getTrial(trialId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trials')
+        .select('*')
+        .eq('id', trialId)
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting trial:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Trial Days Operations (Step 3)
+  async saveTrialDays(trialId: string, days: { trial_date: string; day_status: string; notes: string; max_entries: number; }[]) {
+    try {
+      // First, delete existing days for this trial
+      await supabase
+        .from('trial_days')
+        .delete()
+        .eq('trial_id', trialId);
+
+      // Insert new days
+      const trialDays = days.map((day, index) => ({
+        trial_id: trialId,
+        day_number: index + 1,
+        trial_date: day.trial_date,
+        day_status: day.day_status,
+        notes: day.notes,
+        created_at: new Date().toISOString()
+      }));
+
+      const { data, error } = await supabase
+        .from('trial_days')
+        .insert(trialDays)
+        .select();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error saving trial days:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get trial days
+  async getTrialDays(trialId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trial_days')
+        .select('*')
+        .eq('trial_id', trialId)
+        .order('day_number');
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting trial days:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Trial Classes Operations (Step 4)
+  async saveTrialClasses(classes: Omit<TrialClass, 'id'>[]) {
+    try {
+      const trialClasses = classes.map((cls, index) => ({
+        ...cls,
+        class_order: index + 1,
+        class_status: 'planned',
+        created_at: new Date().toISOString()
+      }));
+
+      const { data, error } = await supabase
+        .from('trial_classes')
+        .insert(trialClasses)
+        .select();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error saving trial classes:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get trial classes for a trial
+  async getTrialClasses(trialId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trial_classes')
+        .select(`
+          *,
+          trial_days!inner (
+            trial_id,
+            trial_date,
+            day_number
+          )
+        `)
+        .eq('trial_days.trial_id', trialId)
+        .order('trial_days.day_number');
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting trial classes:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Trial Rounds Operations (Step 5)
+  async saveTrialRounds(rounds: Omit<TrialRound, 'id'>[]) {
+    try {
+      const trialRounds = rounds.map(round => ({
+        ...round,
+        round_status: 'planned',
+        created_at: new Date().toISOString()
+      }));
+
+      const { data, error } = await supabase
+        .from('trial_rounds')
+        .insert(trialRounds)
+        .select();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error saving trial rounds:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get trial rounds for a trial
+  async getTrialRounds(trialId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trial_rounds')
+        .select(`
+          *,
+          trial_classes!inner (
+            class_name,
+            trial_day_id,
+            trial_days!inner (
+              trial_id,
+              trial_date
+            )
+          )
+        `)
+        .eq('trial_classes.trial_days.trial_id', trialId);
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting trial rounds:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Publish trial (Step 6)
+  async publishTrial(trialId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trials')
+        .update({
+          trial_status: 'published',
+          premium_published: true,
+          entries_open: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', trialId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error publishing trial:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get judges by level qualification
+  async getQualifiedJudges(level: string) {
+    try {
+      let query = supabase
+        .from('judges')
+        .select('*')
+        .eq('is_active', true);
+
+      // Handle special cases for Ranger/Dasher levels
+      if (level.includes('Ranger') || (level.includes('Dasher') && !level.includes('6'))) {
+        query = query.in('level', ['Detective Diversions', 'Private Investigator']);
+      } else if (level.includes('Dasher 6')) {
+        query = query.eq('level', 'Private Investigator');
+      } else {
+        query = query.eq('level', level);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting qualified judges:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get all trials for listing
+  async getAllTrials() {
+    try {
+      const { data, error } = await supabase
+        .from('trials')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error getting trials:', error);
+      return { success: false, error };
+    }
+  }
+};
+
+export default trialOperations;
