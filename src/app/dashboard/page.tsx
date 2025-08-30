@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import MainLayout from '@/components/layout/main-layout';
+import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
-import { simpleTrialOperations } from '@/lib/trial-operations-simple';
+import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { 
   Calendar,
   Users,

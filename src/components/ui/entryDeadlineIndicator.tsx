@@ -3,7 +3,7 @@
 // PURPOSE: Show entry deadline status with alerts
 // ============================================================================
 import { AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
-import { calculateEntryDeadline, calculateLateEntryDeadline } from '@/lib/cwags-business';
+import { calculateEntryDeadline, calculateLateEntryDeadline } from '@/lib/cwagsBusiness';
 import { formatDateForDisplay } from '@/lib/timezone';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import MainLayout from '@/components/layout/main-layout';
+import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,7 @@ import {
   Info,
   Edit
 } from 'lucide-react';
-import { simpleTrialOperations, CWAGS_LEVELS } from '@/lib/trial-operations-simple';
+import { simpleTrialOperations, CWAGS_LEVELS } from '@/lib/trialOperationsSimple';
 
 interface LevelSelection {
   levelName: string;

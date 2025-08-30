@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Header } from './header';
 import { Breadcrumbs } from './breadcrumbs';
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { LoadingSpinner } from '@/components/ui/loadingSpinner';
 
 export interface MainLayoutProps {
   children: React.ReactNode;

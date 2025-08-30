@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import MainLayout from '@/components/layout/main-layout';
+import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,7 @@ import {
   Loader2,
   AlertTriangle
 } from 'lucide-react';
-import { simpleTrialOperations } from '@/lib/trial-operations-simple';
+import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
 interface TrialSummaryData {
   trial: any;

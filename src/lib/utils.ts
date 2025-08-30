@@ -20,7 +20,7 @@ import {
   calculateEntryDeadline,
   calculateLateFee,
   getEntryWindowStatus
-} from './cwags-business';
+} from './cwagsBusiness';
 
 // Utility function for merging Tailwind classes
 export function cn(...inputs: ClassValue[]) {
@@ -371,4 +371,4 @@ export {
   calculateEntryDeadline,
   calculateLateFee,
   getEntryWindowStatus,
-} from './cwags-business';
+} from './cwagsBusiness';

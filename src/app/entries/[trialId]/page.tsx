@@ -28,7 +28,7 @@ import {
   FileText,
   Edit
 } from 'lucide-react';
-import { simpleTrialOperations } from '@/lib/trial-operations-simple';
+import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { supabase } from '@/lib/supabase';
 
 interface Trial {

@@ -1,12 +1,12 @@
 // src/hooks/useTrialTimezone.ts
 // PURPOSE: Custom hook for trial-specific timezone operations
 import { useState, useEffect, useMemo } from 'react';
-import { useTimezoneContext } from '@/contexts/timezone-context';
+import { useTimezoneContext } from '@/contexts/timezoneContext';
 import { 
   formatTrialSchedule, 
   getEntryWindowStatus, 
   calculateLateFee 
-} from '@/lib/cwags-business';
+} from '@/lib/cwagsBusiness';
 
 interface UseTrialTimezoneProps {
   trialDate: string;
