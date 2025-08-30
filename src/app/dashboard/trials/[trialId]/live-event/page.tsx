@@ -126,7 +126,7 @@ export default function LiveEventManagementPage() {
   const params = useParams();
   const { user } = useAuth();
   const trialId = params.trialId as string;
-
+  const [selectedRound, setSelectedRound] = useState<number>(1);
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<TrialClass | null>(null);
@@ -744,22 +744,35 @@ const loadClassEntries = async () => {
     }
   };
 
-  const addNewEntry = async () => {
+ const addNewEntry = async () => {
     if (!selectedClass || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number) {
-      alert('Please fill in all required fields');
+      setError('All entry fields are required');
       return;
     }
 
     try {
       setSaving(true);
+      setError(null);
 
-      // Get the trial round ID for this class
-      const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
-      if (!roundsResult.success || !roundsResult.data.length) {
-        throw new Error('No round found for this class');
+      console.log('Adding new entry to class:', selectedClass.class_name, 'Round:', selectedRound);
+
+      // Get all rounds for this class
+     // Fixed code:
+const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
+if (!roundsResult.success || !roundsResult.data) {
+  throw new Error('Failed to get class rounds');
+}
+
+const classRounds = roundsResult.data; // ← Add this line!
+console.log('Available rounds for class:', classRounds.map((r: any) => `Round ${r.round_number} (ID: ${r.id})`));
+
+// Find the specific round the user selected
+const targetRound = classRounds.find((round: any) => round.round_number === selectedRound);
+      if (!targetRound) {
+        throw new Error(`Round ${selectedRound} not found for this class`);
       }
 
-      const trialRoundId = roundsResult.data[0].id;
+      console.log('Target round found:', targetRound.id, 'for round number:', selectedRound);
 
       // Create the main entry record
       const entryResult = await simpleTrialOperations.createEntry({
@@ -782,12 +795,17 @@ const loadClassEntries = async () => {
         throw new Error(entryResult.error as string);
       }
 
-      // Calculate next running position
-      const nextPosition = Math.max(...classEntries.map(e => e.running_position), 0) + 1;
+      // Calculate next running position for the SELECTED round (not all rounds)
+      const roundEntries = classEntries.filter(e => e.round_number === selectedRound);
+      const nextPosition = roundEntries.length > 0 
+        ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
+        : 1;
 
-      // Create entry selection for this class
+      console.log('Next running position for round', selectedRound, ':', nextPosition);
+
+      // Create entry selection for the selected round
       const selectionResult = await simpleTrialOperations.createEntrySelections(entryResult.data.id, [{
-        trial_round_id: trialRoundId,
+        trial_round_id: targetRound.id, // Use the targetRound.id instead of trialRoundId
         entry_type: newEntryData.entry_type,
         fee: 0,
         running_position: nextPosition,
@@ -809,9 +827,10 @@ const loadClassEntries = async () => {
         cwags_number: '',
         entry_type: 'regular'
       });
+      setSelectedRound(1); // Reset to round 1
       setShowAddEntryModal(false);
 
-      alert('Entry added successfully!');
+      alert(`Entry added successfully to Round ${selectedRound}!`);
 
     } catch (error) {
       console.error('Error adding entry:', error);
@@ -1906,7 +1925,38 @@ const printRunningOrder = async (dayId: string) => {
                   Enter C-WAGS number to auto-fill handler and dog name
                 </p>
               </div>
-
+                {/* Add this new field AFTER the C-WAGS Number input */}
+              <div>
+                <Label htmlFor="round_selection">Select Round *</Label>
+                <select
+                  id="round_selection"
+                  value={selectedRound}
+                  onChange={(e) => setSelectedRound(parseInt(e.target.value))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                >
+                  {/* Show all available rounds for this class */}
+                  {(() => {
+                    const availableRounds = classEntries
+                      .map(entry => entry.round_number)
+                      .filter((round, index, arr) => arr.indexOf(round) === index)
+                      .sort((a, b) => a - b);
+                    
+                    // If no entries exist yet, default to showing Round 1
+                    if (availableRounds.length === 0) {
+                      availableRounds.push(1);
+                    }
+                    
+                    return availableRounds.map(roundNum => (
+                      <option key={roundNum} value={roundNum}>
+                        Round {roundNum}
+                      </option>
+                    ));
+                  })()}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose which round to add this entry to
+                </p>
+              </div>
               <div>
                 <Label htmlFor="handler_name">Handler Name *</Label>
                 <Input

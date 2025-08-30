@@ -410,14 +410,7 @@ export default function TrialEntriesPage() {
           </div>
 
           <div className="flex space-x-2">
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export Entries
-            </Button>
-            <Button variant="outline">
-              <List className="h-4 w-4 mr-2" />
-              Running Order
-            </Button>
+            
            <Button onClick={() => {
   const entryLink = `${window.location.origin}/entries/${trialId}`;
   navigator.clipboard.writeText(entryLink).then(() => {
