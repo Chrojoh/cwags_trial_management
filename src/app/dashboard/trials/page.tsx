@@ -360,7 +360,7 @@ export default function TrialsPage() {
             </Card>
           ) : (
             filteredTrials.map((trial) => (
-              <Card key={trial.id} className="hover:shadow-lg transition-shadow">
+              <Card key={trial.id} className="hover:shadow-lg transition-shadow bg-white">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">

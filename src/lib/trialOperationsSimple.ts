@@ -629,28 +629,57 @@ async getTrial(trialId: string): Promise<OperationResult> {
     }
   },
 
-  async getTrialRounds(trialClassId: string): Promise<OperationResult> {
-    try {
-      console.log('Getting trial rounds for class ID:', trialClassId);
+ // FIXED getTrialRounds function - matches getAllTrialRounds structure
+async getTrialRounds(trialClassId: string): Promise<OperationResult> {
+  try {
+    console.log('Getting trial rounds for class ID:', trialClassId);
 
-      const { data, error } = await supabase
-        .from('trial_rounds')
-        .select('*')
-        .eq('trial_class_id', trialClassId)
-        .order('round_number');
+    const { data, error } = await supabase
+      .from('trial_rounds')
+      .select(`
+        *,
+        trial_classes!inner(
+          class_name,
+          games_subclass,
+          trial_day_id,
+          class_level,
+          class_type,
+          entry_fee,
+          feo_available,
+          feo_price,
+          trial_days!inner(
+            trial_id,
+            trial_date,
+            day_number
+          )
+        )
+      `)
+      .eq('trial_class_id', trialClassId)
+      .order('round_number');
 
-      if (error) {
-        console.error('Error getting trial rounds:', error);
-        return { success: false, error: error.message || error };
-      }
-
-      console.log(`Found ${data?.length || 0} trial rounds`);
-      return { success: true, data: data || [] };
-    } catch (error) {
+    if (error) {
       console.error('Error getting trial rounds:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+      return { success: false, error: error.message || error };
     }
-  },
+
+    console.log(`Found ${data?.length || 0} trial rounds with pricing data`);
+    
+    // Debug: Log the pricing data for each round
+    data?.forEach(round => {
+      console.log(`Round ${round.round_number} pricing:`, {
+        entry_fee: round.trial_classes?.entry_fee,
+        feo_price: round.trial_classes?.feo_price,
+        feo_available: round.trial_classes?.feo_available,
+        round_feo_available: round.feo_available
+      });
+    });
+    
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error('Error getting trial rounds:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
 
   // Enhanced method from original
   async getAllTrialRounds(trialId: string): Promise<OperationResult> {
@@ -1583,39 +1612,47 @@ async createRegistryEntry(registryData: {
 },
 
   // Entry Statistics Operations
-  async getTrialEntryStats(trialId: string): Promise<OperationResult> {
-    try {
-      console.log('Getting entry statistics for trial ID:', trialId);
+async getTrialEntryStats(trialId: string): Promise<OperationResult> {
+  try {
+    console.log('Getting entry statistics for trial ID (excluding FEO):', trialId);
 
-      const { data, error } = await supabase
-        .from('entries')
-        .select('entry_status, payment_status')
-        .eq('trial_id', trialId);
-
-      if (error) {
-        console.error('Error getting entry stats:', error);
-        return { success: false, error: error.message || error };
-      }
-
-      const stats = {
-        total: data.length,
-        byStatus: data.reduce((acc: any, entry: any) => {
-          acc[entry.entry_status] = (acc[entry.entry_status] || 0) + 1;
-          return acc;
-        }, {}),
-        byPayment: data.reduce((acc: any, entry: any) => {
-          acc[entry.payment_status] = (acc[entry.payment_status] || 0) + 1;
-          return acc;
-        }, {})
-      };
-
-      console.log('Entry statistics:', stats);
-      return { success: true, data: stats };
-    } catch (error) {
-      console.error('Error getting entry stats:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    // Get all entries with their selections
+    const entriesResult = await this.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) {
+      return { success: false, error: entriesResult.error };
     }
-  },
+
+    // Filter out FEO entries from statistics
+    const nonFeoEntries: any[] = [];
+    (entriesResult.data || []).forEach((entry: any) => {
+      const hasNonFeoSelections = entry.entry_selections?.some((selection: any) => 
+        selection.entry_type?.toLowerCase() !== 'feo'
+      );
+      
+      if (hasNonFeoSelections) {
+        nonFeoEntries.push(entry);
+      }
+    });
+
+    const stats = {
+      total: nonFeoEntries.length,
+      byStatus: nonFeoEntries.reduce((acc: any, entry: any) => {
+        acc[entry.entry_status] = (acc[entry.entry_status] || 0) + 1;
+        return acc;
+      }, {}),
+      byPayment: nonFeoEntries.reduce((acc: any, entry: any) => {
+        acc[entry.payment_status] = (acc[entry.payment_status] || 0) + 1;
+        return acc;
+      }, {})
+    };
+
+    console.log('Entry statistics (excluding FEO):', stats);
+    return { success: true, data: stats };
+  } catch (error) {
+    console.error('Error getting entry stats:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
 
   // Utility Functions
   getLevelsForCategory(category: string): string[] {
@@ -1722,44 +1759,48 @@ async createRegistryEntry(registryData: {
   }, // <-- ADD THIS COMMA
 
   // Enhanced function to get trial summary with Games subclass support
-  async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
-    try {
-      console.log('Getting complete trial summary with scores for ID:', trialId);
+  // 1. Update getTrialSummaryWithScores in simpleTrialOperations.ts
+async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
+  try {
+    console.log('Getting complete trial summary with scores for ID:', trialId);
 
-      // Get trial basic info
-      const trialResult = await this.getTrial(trialId);
-      if (!trialResult.success) {
-        return trialResult;
-      }
+    // Get trial basic info
+    const trialResult = await this.getTrial(trialId);
+    if (!trialResult.success) {
+      return trialResult;
+    }
 
-      // Get all classes with Games subclass info
-      const classesResult = await this.getAllTrialClasses(trialId);
-      if (!classesResult.success) {
-        return classesResult;
-      }
+    // Get all classes with Games subclass info
+    const classesResult = await this.getAllTrialClasses(trialId);
+    if (!classesResult.success) {
+      return classesResult;
+    }
 
-      // Get all entries with selections and scores
-      const entriesResult = await this.getTrialEntriesWithSelections(trialId);
-      if (!entriesResult.success) {
-        return { success: true, data: { trial: trialResult.data, classes: [], entries: [], summary: [] } };
-      }
+    // Get all entries with selections and scores
+    const entriesResult = await this.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) {
+      return { success: true, data: { trial: trialResult.data, classes: [], entries: [], summary: [] } };
+    }
 
-      // Process each class to calculate statistics
-      const classesWithStats = await Promise.all(
-        (classesResult.data || []).map(async (cls: any) => {
-          try {
-            // Get judge info
-            const roundsResult = await this.getTrialRounds(cls.id);
-            const judge = roundsResult.success && roundsResult.data.length > 0 
-              ? roundsResult.data[0].judge_name 
-              : 'No Judge Assigned';
+    // Process each class to calculate statistics (EXCLUDING FEO)
+    const classesWithStats = await Promise.all(
+      (classesResult.data || []).map(async (cls: any) => {
+        try {
+          // Get judge info
+          const roundsResult = await this.getTrialRounds(cls.id);
+          const judge = roundsResult.success && roundsResult.data.length > 0 
+            ? roundsResult.data[0].judge_name 
+            : 'No Judge Assigned';
 
-            // Filter entries for this class
-            const classEntries: any[] = [];
-            (entriesResult.data || []).forEach((entry: any) => {
-              const selections = entry.entry_selections || [];
-              selections.forEach((selection: any) => {
-                if (selection.trial_rounds?.trial_class_id === cls.id) {
+          // Filter entries for this class - EXCLUDE FEO ENTRIES
+          const classEntries: any[] = [];
+          (entriesResult.data || []).forEach((entry: any) => {
+            const selections = entry.entry_selections || [];
+            selections.forEach((selection: any) => {
+              if (selection.trial_rounds?.trial_class_id === cls.id) {
+                // EXCLUDE FEO ENTRIES FROM SUMMARY STATISTICS
+                const isFeo = selection.entry_type?.toLowerCase() === 'feo';
+                if (!isFeo) {
                   classEntries.push({
                     id: selection.id,
                     entry_id: entry.id,
@@ -1774,254 +1815,248 @@ async createRegistryEntry(registryData: {
                     scores: [] // Will be populated with actual scores
                   });
                 }
-              });
+              }
             });
+          });
 
-            // Get actual scores for class entries
-            const entriesWithScores = await Promise.all(
-              classEntries.map(async (entry) => {
-                try {
-                  const { data: scores, error } = await supabase
-                    .from('scores')
-                    .select('*')
-                    .eq('entry_selection_id', entry.id);
+          // Get actual scores for class entries (non-FEO only)
+          const entriesWithScores = await Promise.all(
+            classEntries.map(async (entry) => {
+              try {
+                const { data: scores, error } = await supabase
+                  .from('scores')
+                  .select('*')
+                  .eq('entry_selection_id', entry.id);
 
-                  if (!error && scores) {
-                    entry.scores = scores;
-                  }
-                  return entry;
-                } catch (error) {
-                  console.error('Error loading scores for entry:', entry.id, error);
-                  return entry;
+                if (!error && scores) {
+                  entry.scores = scores;
                 }
-              })
-            );
+                return entry;
+              } catch (error) {
+                console.error('Error loading scores for entry:', entry.id, error);
+                return entry;
+              }
+            })
+          );
 
-            // Calculate statistics
-            const passCount = entriesWithScores.filter(entry => 
-              entry.scores?.some((score: any) => score.pass_fail === 'Pass')
-            ).length;
-            
-            const failCount = entriesWithScores.filter(entry => 
-              entry.scores?.some((score: any) => score.pass_fail === 'Fail')
-            ).length;
+          // Calculate statistics (ONLY for non-FEO entries)
+          const passCount = entriesWithScores.filter(entry => 
+            entry.scores?.some((score: any) => score.pass_fail === 'Pass')
+          ).length;
+          
+          const failCount = entriesWithScores.filter(entry => 
+            entry.scores?.some((score: any) => score.pass_fail === 'Fail')
+          ).length;
 
-            const completedRuns = entriesWithScores.filter(entry => 
-              entry.scores?.some((score: any) => score.pass_fail !== null)
-            ).length;
+          const completedRuns = entriesWithScores.filter(entry => 
+            entry.scores?.some((score: any) => score.pass_fail !== null)
+          ).length;
 
-            return {
-              id: cls.id,
-              class_name: cls.class_name,
-              class_type: cls.class_type || 'scent',
-              games_subclass: cls.games_subclass || null,
-              judge_name: judge,
-              trial_date: cls.trial_days?.trial_date || '',
-              trial_day_id: cls.trial_day_id,
-              participant_count: classEntries.length,
-              pass_count: passCount,
-              fail_count: failCount,
-              completed_runs: completedRuns,
-              entries: entriesWithScores
-            };
-          } catch (error) {
-            console.error(`Error processing class ${cls.id}:`, error);
-            return {
-              id: cls.id,
-              class_name: cls.class_name,
-              class_type: cls.class_type || 'scent',
-              games_subclass: cls.games_subclass || null,
-              judge_name: 'Error Loading',
-              trial_date: cls.trial_days?.trial_date || '',
-              trial_day_id: cls.trial_day_id,
-              participant_count: 0,
-              pass_count: 0,
-              fail_count: 0,
-              completed_runs: 0,
-              entries: []
-            };
-          }
-        })
-      );
+          return {
+            id: cls.id,
+            class_name: cls.class_name,
+            class_type: cls.class_type || 'scent',
+            games_subclass: cls.games_subclass || null,
+            judge_name: judge,
+            trial_date: cls.trial_days?.trial_date || '',
+            trial_day_id: cls.trial_day_id,
+            participant_count: classEntries.length, // Only non-FEO
+            pass_count: passCount,
+            fail_count: failCount,
+            completed_runs: completedRuns,
+            entries: entriesWithScores
+          };
+        } catch (error) {
+          console.error(`Error processing class ${cls.id}:`, error);
+          return {
+            id: cls.id,
+            class_name: cls.class_name,
+            class_type: cls.class_type || 'scent',
+            games_subclass: cls.games_subclass || null,
+            judge_name: 'Error Loading',
+            trial_date: cls.trial_days?.trial_date || '',
+            trial_day_id: cls.trial_day_id,
+            participant_count: 0,
+            pass_count: 0,
+            fail_count: 0,
+            completed_runs: 0,
+            entries: []
+          };
+        }
+      })
+    );
 
-      // Filter classes that have entries OR have configured rounds
-const classesWithEntries = classesWithStats.filter(cls => 
-  cls.participant_count > 0 || cls.total_rounds > 0
-);
+    // Filter classes that have entries OR have configured rounds
+    const classesWithEntries = classesWithStats.filter(cls => 
+      cls.participant_count > 0 || cls.total_rounds > 0
+    );
 
-      // Calculate overall trial statistics
-      const totalParticipants = classesWithEntries.reduce((sum, cls) => sum + cls.participant_count, 0);
-      const totalPasses = classesWithEntries.reduce((sum, cls) => sum + cls.pass_count, 0);
-      const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
-      const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
+    // Calculate overall trial statistics (EXCLUDING FEO)
+    const totalParticipants = classesWithEntries.reduce((sum, cls) => sum + cls.participant_count, 0);
+    const totalPasses = classesWithEntries.reduce((sum, cls) => sum + cls.pass_count, 0);
+    const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
+    const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
 
-      // ADD THE CONSOLIDATION CODE HERE (right before the console.log and return)
-const normalizeClassName = (className: string): string => {
-  const corrections: Record<string, string> = {
-    'Patrol': 'Patrol 1',
-    'Detective': 'Detective 2', 
-    'Investigator': 'Investigator 3',
-    'Private Inv': 'Private Investigator',
-    'Det Diversions': 'Detective Diversions'
-  };
-  return corrections[className] || className;
-};
+    // Consolidate classes by normalized name AND count actual rounds
+    const normalizeClassName = (className: string): string => {
+      const corrections: Record<string, string> = {
+        'Patrol': 'Patrol 1',
+        'Detective': 'Detective 2', 
+        'Investigator': 'Investigator 3',
+        'Private Inv': 'Private Investigator',
+        'Det Diversions': 'Detective Diversions'
+      };
+      return corrections[className] || className;
+    };
 
-// In src/lib/trial-operations-simple.ts
-// Replace the consolidation section in getTrialSummaryWithScores with this:
+    const consolidatedClasses = new Map();
+    const allRoundsResult = await this.getAllTrialRounds(trialId);
+    const allRounds = allRoundsResult.success ? allRoundsResult.data : [];
 
-// Consolidate classes by normalized name AND count actual rounds
-const consolidatedClasses = new Map();
-
-// First, get all trial rounds for round counting
-const allRoundsResult = await this.getAllTrialRounds(trialId);
-const allRounds = allRoundsResult.success ? allRoundsResult.data : [];
-
-classesWithEntries.forEach(cls => {
-  const normalizedName = normalizeClassName(cls.class_name);
-  
-  if (!consolidatedClasses.has(normalizedName)) {
-    // Count actual rounds from trial_rounds table for this normalized class name
-    const roundsForThisClass = allRounds.filter((round: any) => {
-      const roundClassName = round.trial_classes?.class_name || '';
-      const roundNormalizedName = normalizeClassName(roundClassName);
-      return roundNormalizedName === normalizedName;
-    });
-    
-    consolidatedClasses.set(normalizedName, {
-      id: cls.id,
-      class_name: normalizedName,
-      class_type: cls.class_type,
-      games_subclass: cls.games_subclass,
-      judge_name: cls.judge_name,
-      trial_date: cls.trial_date,
-      trial_day_id: cls.trial_day_id,
-      participant_count: 0,
-      pass_count: 0,
-      fail_count: 0,
-      completed_runs: 0,
-      total_rounds: roundsForThisClass.length, // COUNT ACTUAL ROUNDS FROM DATABASE
-      entries: []
-    });
-  }
-  
-  const consolidated = consolidatedClasses.get(normalizedName);
-  consolidated.participant_count += cls.participant_count;
-  consolidated.pass_count += cls.pass_count;
-  consolidated.fail_count += cls.fail_count;
-  consolidated.completed_runs += cls.completed_runs;
-  consolidated.entries = consolidated.entries.concat(cls.entries);
-});
-
-// Convert back to array
-const finalClassesWithEntries = Array.from(consolidatedClasses.values());
-
-// Update the summary object to use consolidated classes
-const summary = {
-  trial: trialResult.data,
-  classes: finalClassesWithEntries, // Use consolidated classes
-  statistics: {
-    total_classes: finalClassesWithEntries.length, // Use consolidated count
-    total_participants: totalParticipants,
-    total_passes: totalPasses,
-    total_fails: totalFails,
-    total_completed: totalCompleted,
-    overall_pass_rate: totalParticipants > 0 ? (totalPasses / totalParticipants) * 100 : 0,
-    completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0
-  }
-};
-
-      console.log('Trial summary with scores compiled successfully');
-      return { success: true, data: summary };
-
-    } catch (error) {
-      console.error('Error getting trial summary with scores:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  },
-
-  // Generate Excel workbook with proper formatting for Games subclass
-  async generateClassSummaryExcel(trialId: string): Promise<OperationResult> {
-    try {
-      console.log('Generating class summary Excel for trial:', trialId);
-
-      const summaryResult = await this.getTrialSummaryWithScores(trialId);
-      if (!summaryResult.success) {
-        return summaryResult;
-      }
-
-      const { trial, classes, statistics } = summaryResult.data;
-
-      // Class ordering based on your requirements
-      const CLASS_ORDER = [
-        'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4', 'Private Inv',
-        'Det Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-        'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-        'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-        'Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-        'Games 1', 'Games 2', 'Games 3', 'Games 4'
-      ];
-
-      // Sort classes according to the specified order
-      const sortedClasses = [...classes].sort((a, b) => {
-        const aIndex = CLASS_ORDER.findIndex(order => a.class_name.includes(order));
-        const bIndex = CLASS_ORDER.findIndex(order => b.class_name.includes(order));
-        const aPos = aIndex >= 0 ? aIndex : 999;
-        const bPos = bIndex >= 0 ? bIndex : 999;
-        if (aPos !== bPos) return aPos - bPos;
-        return a.trial_date.localeCompare(b.trial_date);
-      });
-
-      // Create workbook structure
-      const workbookData = {
-        summary: {
-          trial_name: trial.trial_name,
-          club_name: trial.club_name,
-          location: trial.location,
-          start_date: trial.start_date,
-          end_date: trial.end_date,
-          classes: sortedClasses.map(cls => ({
-            class_name: cls.class_type === 'games' && cls.games_subclass 
-              ? `${cls.class_name} - ${cls.games_subclass}` 
-              : cls.class_name,
-            judge_name: cls.judge_name,
-            participant_count: cls.participant_count,
-            pass_count: cls.pass_count,
-            fail_count: cls.fail_count,
-            pass_rate: cls.participant_count > 0 ? Math.round((cls.pass_count / cls.participant_count) * 100) : 0
-          })),
-          statistics
-        },
-        class_sheets: sortedClasses.map(cls => ({
-          class_id: cls.id,
-          class_name: cls.class_type === 'games' && cls.games_subclass 
-            ? `${cls.class_name} - ${cls.games_subclass}` 
-            : cls.class_name,
+    classesWithEntries.forEach(cls => {
+      const normalizedName = normalizeClassName(cls.class_name);
+      
+      if (!consolidatedClasses.has(normalizedName)) {
+        const roundsForThisClass = allRounds.filter((round: any) => {
+          const roundClassName = round.trial_classes?.class_name || '';
+          const roundNormalizedName = normalizeClassName(roundClassName);
+          return roundNormalizedName === normalizedName;
+        });
+        
+        consolidatedClasses.set(normalizedName, {
+          id: cls.id,
+          class_name: normalizedName,
           class_type: cls.class_type,
           games_subclass: cls.games_subclass,
           judge_name: cls.judge_name,
           trial_date: cls.trial_date,
-          entries: cls.entries.map((entry: any) => ({
-            cwags_number: entry.entries.cwags_number,
-            dog_call_name: entry.entries.dog_call_name,
-            handler_name: entry.entries.handler_name,
-            running_position: entry.running_position,
-            entry_type: entry.entry_type,
-            entry_status: entry.entry_status,
-            result: this.formatResultForExport(entry, cls),
-            scores: entry.scores || []
-          }))
-        }))
-      };
+          trial_day_id: cls.trial_day_id,
+          participant_count: 0,
+          pass_count: 0,
+          fail_count: 0,
+          completed_runs: 0,
+          total_rounds: roundsForThisClass.length,
+          entries: []
+        });
+      }
+      
+      const consolidated = consolidatedClasses.get(normalizedName);
+      consolidated.participant_count += cls.participant_count;
+      consolidated.pass_count += cls.pass_count;
+      consolidated.fail_count += cls.fail_count;
+      consolidated.completed_runs += cls.completed_runs;
+      consolidated.entries = consolidated.entries.concat(cls.entries);
+    });
 
-      console.log('Excel data structure prepared successfully');
-      return { success: true, data: workbookData };
+    const finalClassesWithEntries = Array.from(consolidatedClasses.values());
 
-    } catch (error) {
-      console.error('Error generating class summary Excel:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    const summary = {
+      trial: trialResult.data,
+      classes: finalClassesWithEntries,
+      statistics: {
+        total_classes: finalClassesWithEntries.length,
+        total_participants: totalParticipants, // Excludes FEO
+        total_passes: totalPasses, // Excludes FEO
+        total_fails: totalFails, // Excludes FEO
+        total_completed: totalCompleted, // Excludes FEO
+        overall_pass_rate: totalParticipants > 0 ? (totalPasses / totalParticipants) * 100 : 0,
+        completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0
+      }
+    };
+
+    console.log('Trial summary with scores compiled successfully (FEO excluded from statistics)');
+    return { success: true, data: summary };
+
+  } catch (error) {
+    console.error('Error getting trial summary with scores:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
+
+  // Generate Excel workbook with proper formatting for Games subclass
+  async generateClassSummaryExcel(trialId: string): Promise<OperationResult> {
+  try {
+    console.log('Generating class summary Excel for trial (excluding FEO):', trialId);
+
+    const summaryResult = await this.getTrialSummaryWithScores(trialId);
+    if (!summaryResult.success) {
+      return summaryResult;
     }
-  },
+
+    const { trial, classes, statistics } = summaryResult.data;
+
+    // Class ordering based on your requirements
+    const CLASS_ORDER = [
+      'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4', 'Private Inv',
+      'Det Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
+      'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
+      'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
+      'Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2',
+      'Games 1', 'Games 2', 'Games 3', 'Games 4'
+    ];
+
+    // Sort classes according to the specified order
+    const sortedClasses = [...classes].sort((a, b) => {
+      const aIndex = CLASS_ORDER.findIndex(order => a.class_name.includes(order));
+      const bIndex = CLASS_ORDER.findIndex(order => b.class_name.includes(order));
+      const aPos = aIndex >= 0 ? aIndex : 999;
+      const bPos = bIndex >= 0 ? bIndex : 999;
+      if (aPos !== bPos) return aPos - bPos;
+      return a.trial_date.localeCompare(b.trial_date);
+    });
+
+    // Create workbook structure (FEO already excluded from classes data)
+    const workbookData = {
+      summary: {
+        trial_name: trial.trial_name,
+        club_name: trial.club_name,
+        location: trial.location,
+        start_date: trial.start_date,
+        end_date: trial.end_date,
+        classes: sortedClasses.map(cls => ({
+          class_name: cls.class_type === 'games' && cls.games_subclass 
+            ? `${cls.class_name} - ${cls.games_subclass}` 
+            : cls.class_name,
+          judge_name: cls.judge_name,
+          participant_count: cls.participant_count, // Already excludes FEO
+          pass_count: cls.pass_count, // Already excludes FEO
+          fail_count: cls.fail_count, // Already excludes FEO
+          pass_rate: cls.participant_count > 0 ? Math.round((cls.pass_count / cls.participant_count) * 100) : 0
+        })),
+        statistics, // Already excludes FEO
+        note: "FEO (For Exhibition Only) entries are excluded from all statistics and counts."
+      },
+      class_sheets: sortedClasses.map(cls => ({
+        class_id: cls.id,
+        class_name: cls.class_type === 'games' && cls.games_subclass 
+          ? `${cls.class_name} - ${cls.games_subclass}` 
+          : cls.class_name,
+        class_type: cls.class_type,
+        games_subclass: cls.games_subclass,
+        judge_name: cls.judge_name,
+        trial_date: cls.trial_date,
+        note: "FEO entries excluded from this summary",
+        entries: cls.entries.map((entry: any) => ({
+          cwags_number: entry.entries.cwags_number,
+          dog_call_name: entry.entries.dog_call_name,
+          handler_name: entry.entries.handler_name,
+          running_position: entry.running_position,
+          entry_type: entry.entry_type, // Will only be 'regular' since FEO is excluded
+          entry_status: entry.entry_status,
+          result: this.formatResultForExport(entry, cls),
+          scores: entry.scores || []
+        }))
+      }))
+    };
+
+    console.log('Excel data structure prepared successfully (FEO excluded)');
+    return { success: true, data: workbookData };
+
+  } catch (error) {
+    console.error('Error generating class summary Excel:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
 async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     try {
       console.log('Fetching running order data for day:', dayId);

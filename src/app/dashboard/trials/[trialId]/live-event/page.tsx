@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,7 @@ import {
 import { 
   Users, 
   FileText,
+  FileDown,
   Printer,
   Edit,
   Save,
@@ -120,7 +122,32 @@ interface ClassEntry {
     judge_notes?: string | null;
   }>;
 }
+// Add this function near the top of your live event page component, 
+// after the interfaces and before the component export
 
+const getClassOrder = (className: string): number => {
+  const classOrder = [
+    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 'Private Inv',
+    'Detective Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
+    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
+    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
+    'Starter', 'Advanced', 'Pro', 'ARF',
+    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
+    'Games 1', 'Games 2', 'Games 3', 'Games 4'
+  ];
+  
+  const index = classOrder.findIndex(order => {
+    if (className.includes('Games')) {
+      return className.startsWith(order);
+    }
+    return className === order;
+  });
+  
+  return index === -1 ? 999 : index;
+};
+
+// Place this function right after your interface definitions and before:
+// export default function LiveEventManagementPage() {
 export default function LiveEventManagementPage() {
   const router = useRouter();
   const params = useParams();
@@ -744,101 +771,133 @@ const loadClassEntries = async () => {
     }
   };
 
- const addNewEntry = async () => {
-    if (!selectedClass || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number) {
-      setError('All entry fields are required');
-      return;
+// FIXED addNewEntry function for live event page
+const addNewEntry = async () => {
+  if (!selectedClass || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number) {
+    setError('All entry fields are required');
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setError(null);
+
+    console.log('Adding new entry to class:', selectedClass.class_name, 'Round:', selectedRound);
+
+    // Get all rounds for this class
+    const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
+    if (!roundsResult.success || !roundsResult.data) {
+      throw new Error('Failed to get class rounds');
     }
 
-    try {
-      setSaving(true);
-      setError(null);
+    const classRounds = roundsResult.data;
+    console.log('Available rounds for class:', classRounds.map((r: any) => `Round ${r.round_number} (ID: ${r.id})`));
 
-      console.log('Adding new entry to class:', selectedClass.class_name, 'Round:', selectedRound);
-
-      // Get all rounds for this class
-     // Fixed code:
-const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
-if (!roundsResult.success || !roundsResult.data) {
-  throw new Error('Failed to get class rounds');
-}
-
-const classRounds = roundsResult.data; // ← Add this line!
-console.log('Available rounds for class:', classRounds.map((r: any) => `Round ${r.round_number} (ID: ${r.id})`));
-
-// Find the specific round the user selected
-const targetRound = classRounds.find((round: any) => round.round_number === selectedRound);
-      if (!targetRound) {
-        throw new Error(`Round ${selectedRound} not found for this class`);
-      }
-
-      console.log('Target round found:', targetRound.id, 'for round number:', selectedRound);
-
-      // Create the main entry record
-      const entryResult = await simpleTrialOperations.createEntry({
-        trial_id: trialId,
-        handler_name: newEntryData.handler_name,
-        dog_call_name: newEntryData.dog_call_name,
-        cwags_number: newEntryData.cwags_number,
-        dog_breed: '',
-        dog_sex: '',
-        handler_email: '',
-        handler_phone: '',
-        is_junior_handler: false,
-        waiver_accepted: true,
-        total_fee: 0,
-        payment_status: 'pending',
-        entry_status: 'submitted'
-      });
-
-      if (!entryResult.success) {
-        throw new Error(entryResult.error as string);
-      }
-
-      // Calculate next running position for the SELECTED round (not all rounds)
-      const roundEntries = classEntries.filter(e => e.round_number === selectedRound);
-      const nextPosition = roundEntries.length > 0 
-        ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
-        : 1;
-
-      console.log('Next running position for round', selectedRound, ':', nextPosition);
-
-      // Create entry selection for the selected round
-      const selectionResult = await simpleTrialOperations.createEntrySelections(entryResult.data.id, [{
-        trial_round_id: targetRound.id, // Use the targetRound.id instead of trialRoundId
-        entry_type: newEntryData.entry_type,
-        fee: 0,
-        running_position: nextPosition,
-        entry_status: 'entered'
-      }]);
-
-      if (!selectionResult.success) {
-        throw new Error(selectionResult.error as string);
-      }
-
-      // Reload the class entries to show the new entry
-      await loadClassEntries();
-      await loadAllClassCounts();
-
-      // Reset form and close modal
-      setNewEntryData({
-        handler_name: '',
-        dog_call_name: '',
-        cwags_number: '',
-        entry_type: 'regular'
-      });
-      setSelectedRound(1); // Reset to round 1
-      setShowAddEntryModal(false);
-
-      alert(`Entry added successfully to Round ${selectedRound}!`);
-
-    } catch (error) {
-      console.error('Error adding entry:', error);
-      setError(error instanceof Error ? error.message : 'Failed to add entry');
-    } finally {
-      setSaving(false);
+    // Find the specific round the user selected
+    const targetRound = classRounds.find((round: any) => round.round_number === selectedRound);
+    if (!targetRound) {
+      throw new Error(`Round ${selectedRound} not found for this class`);
     }
-  };
+
+    console.log('Target round found:', targetRound.id, 'for round number:', selectedRound);
+
+    // CALCULATE PROPER FEE BASED ON ENTRY TYPE - THIS IS THE KEY FIX!
+    let calculatedFee = 0;
+    const isFeO = newEntryData.entry_type.toLowerCase() === 'feo';
+    
+    console.log('Fee calculation debug:', {
+      entry_type: newEntryData.entry_type,
+      isFeO: isFeO,
+      feo_available: targetRound.feo_available,
+      trial_classes: targetRound.trial_classes
+    });
+
+    if (isFeO) {
+      // Check if FEO pricing is available for this round
+      if (targetRound.feo_available && targetRound.trial_classes?.feo_price !== undefined) {
+        calculatedFee = targetRound.trial_classes.feo_price;
+        console.log('Using FEO pricing from database:', calculatedFee);
+      } else if (targetRound.trial_classes?.entry_fee) {
+        // Fallback: some trials offer FEO at reduced rate (e.g., 50% of regular)
+        calculatedFee = Math.round(targetRound.trial_classes.entry_fee * 0.5);
+        console.log('Using 50% of regular fee for FEO:', calculatedFee);
+      } else {
+        calculatedFee = 0; // Some trials offer FEO for free
+        console.log('FEO entry set to free');
+      }
+    } else {
+      // Regular entry
+      calculatedFee = targetRound.trial_classes?.entry_fee || 0;
+      console.log('Using regular pricing:', calculatedFee);
+    }
+
+    console.log('Final calculated fee:', calculatedFee);
+
+    // Create the main entry record WITH the calculated total fee
+    const entryResult = await simpleTrialOperations.createEntry({
+      trial_id: trialId,
+      handler_name: newEntryData.handler_name,
+      dog_call_name: newEntryData.dog_call_name,
+      cwags_number: newEntryData.cwags_number,
+      dog_breed: '',
+      dog_sex: '',
+      handler_email: '',
+      handler_phone: '',
+      is_junior_handler: false,
+      waiver_accepted: true,
+      total_fee: calculatedFee, // ← SET THE CORRECT TOTAL FEE HERE
+      payment_status: 'pending',
+      entry_status: 'submitted'
+    });
+
+    if (!entryResult.success) {
+      throw new Error(entryResult.error as string);
+    }
+
+    // Calculate next running position for the SELECTED round (not all rounds)
+    const roundEntries = classEntries.filter(e => e.round_number === selectedRound);
+    const nextPosition = roundEntries.length > 0 
+      ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
+      : 1;
+
+    console.log('Next running position for round', selectedRound, ':', nextPosition);
+
+    // Create entry selection with the SAME calculated fee
+    const selectionResult = await simpleTrialOperations.createEntrySelections(entryResult.data.id, [{
+      trial_round_id: targetRound.id,
+      entry_type: newEntryData.entry_type,
+      fee: calculatedFee, // ← USE THE SAME CALCULATED FEE HERE
+      running_position: nextPosition,
+      entry_status: 'entered'
+    }]);
+
+    if (!selectionResult.success) {
+      throw new Error(selectionResult.error as string);
+    }
+
+    // Reload the class entries to show the new entry
+    await loadClassEntries();
+    await loadAllClassCounts();
+
+    // Reset form and close modal
+    setNewEntryData({
+      handler_name: '',
+      dog_call_name: '',
+      cwags_number: '',
+      entry_type: 'regular'
+    });
+    setSelectedRound(1); // Reset to round 1
+    setShowAddEntryModal(false);
+
+    alert(`Entry added successfully to Round ${selectedRound} with fee: $${calculatedFee}!`);
+
+  } catch (error) {
+    console.error('Error adding entry:', error);
+    setError(error instanceof Error ? error.message : 'Failed to add entry');
+  } finally {
+    setSaving(false);
+  }
+};
 
   const removeEntry = async (entryId: string, entryName: string) => {
     if (!confirm(`Remove ${entryName} from this class? This cannot be undone.`)) {
@@ -891,213 +950,215 @@ const targetRound = classRounds.find((round: any) => round.round_number === sele
   };
 
 
-const printRunningOrder = async (dayId: string) => {
-  if (!dayId || !trial) return;
-  
+const exportRunningOrderToExcel = async (selectedDayId: string) => {
+  if (!selectedClass || !trial) return;
+
   try {
-    console.log('Generating day-based running order for day:', dayId);
-    
-    // Get the selected day info
-    const selectedDay = availableDays.find(day => day.id === dayId);
+    const selectedDay = availableDays.find(day => day.id === selectedDayId);
     if (!selectedDay) {
       alert('Selected day not found');
       return;
     }
 
-    // Fetch all data for the selected day
-    const dayDataResult = await simpleTrialOperations.getDayRunningOrderData(dayId);
-    if (!dayDataResult.success) {
-      throw new Error('Failed to load day data');
+    // Get all classes and rounds for the selected day
+    const dayClasses = trialClasses.filter(cls => 
+      cls.trial_date === selectedDay.trial_date
+    );
+
+    // Get all rounds for all classes on this day
+    const classRounds: any[] = [];
+    for (const cls of dayClasses) {
+      const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
+      if (roundsResult.success && roundsResult.data) {
+        roundsResult.data.forEach((round: any) => {
+          classRounds.push({
+            className: cls.class_name,
+            roundNumber: round.round_number,
+            judgeName: round.judge_name,
+            classId: cls.id,
+            roundId: round.id,
+            columnHeader: `${cls.class_name} Round ${round.round_number}`,
+            entries: []
+          });
+        });
+      }
     }
 
-    const dayData = dayDataResult.data;
+    // Sort columns - First by class order, then by round number within each class
+    classRounds.sort((a, b) => {
+      const aClassName = a.className || '';
+      const bClassName = b.className || '';
+      
+      // First sort by class order
+      const classOrderA = getClassOrder(aClassName);
+      const classOrderB = getClassOrder(bClassName);
+      
+      if (classOrderA !== classOrderB) {
+        return classOrderA - classOrderB;
+      }
+      
+      // Then sort by round number within the same class
+      return a.roundNumber - b.roundNumber;
+    });
+
+   // Populate entries for each column
+const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+if (entriesResult.success) {
+  classRounds.forEach(col => {
+    const entries: any[] = [];
+    (entriesResult.data || []).forEach((entry: any) => {
+      (entry.entry_selections || []).forEach((selection: any) => {
+        if (selection.trial_round_id === col.roundId) {
+          const isFeo = selection.entry_type === 'feo';
+          const handlerName = entry.handler_name; // Always use clean handler name
+          
+          // Add "feo" suffix to dog name if it's an FEO entry
+          const dogName = isFeo 
+            ? `${entry.dog_call_name} FEO`
+            : entry.dog_call_name;
+          
+          entries.push({
+            position: selection.running_position,
+            handlerName: handlerName, 
+            dogName: dogName, // Now includes "feo" suffix when applicable
+            status: selection.entry_status
+          });
+        }
+      });
+    });
+    col.entries = entries.sort((a, b) => a.position - b.position);
+  });
+}
+
+    // Create workbook first
+    const workbook = XLSX.utils.book_new();
     
-    // Blueprint class ordering
-    const blueprintOrder = [
-      'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
-      'Private Investigator', 'Detective Diversions',
-      'Ranger', 'Dasher', 'Obedience', 'Starter', 'Advanced', 'Pro', 'ARF',
-      'Zoom', 'Games'
-    ];
+    // Create worksheet with cell objects that include values and styles
+    const worksheet: any = {};
+    const numColumns = classRounds.length;
 
-    const getClassOrder = (className: string): number => {
-      // Extract base class name for ordering
-      const baseClass = className.replace(/\s+\d+(\.\d+)?$/, '').replace(/\s+Rnd\s+\d+/, '').trim();
-      const index = blueprintOrder.findIndex(blueprint => 
-        baseClass.toLowerCase().includes(blueprint.toLowerCase()) || 
-        blueprint.toLowerCase().includes(baseClass.toLowerCase())
-      );
-      return index === -1 ? 999 : index;
+    // Row 1: Trial name with full date (merged)
+    const titleText = `${trial.trial_name} - ${selectedDay.formatted_date}`;
+    worksheet['A1'] = {
+      v: titleText,
+      s: {
+        font: { bold: true, sz: 16, name: 'Calibri' },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      }
     };
 
-    // Organize data by class and round
-    const classRoundData = new Map<string, Array<{
-      className: string;
-      roundNumber: number;
-      judgeInfo: string;
-      sortOrder: number;
-      classOrder: number;
-      entries: Array<{
-        runningPosition: number;
-        handlerName: string;
-        dogName: string;
-      }>;
-    }>>();
-
-    // Process the day data
-    dayData.classes.forEach((classData: any) => {
-      classData.rounds.forEach((round: any) => {
-        const key = `${classData.class_name}_${round.round_number}`;
-        const className = classData.class_name;
-        const classOrder = getClassOrder(className);
-        
-        // Sort entries by running position
-        const sortedEntries = (round.entries || [])
-          .sort((a: any, b: any) => a.running_position - b.running_position)
-          .map((entry: any) => ({
-            runningPosition: entry.running_position,
-            handlerName: entry.handler_name,
-            dogName: entry.dog_call_name
-          }));
-
-        if (!classRoundData.has(className)) {
-          classRoundData.set(className, []);
+    // Fill empty cells for merge
+    for (let col = 1; col < numColumns; col++) {
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: 0 });
+      worksheet[cellRef] = {
+        v: '',
+        s: {
+          font: { bold: true, sz: 16, name: 'Calibri' },
+          alignment: { horizontal: 'center', vertical: 'center' }
         }
-
-        classRoundData.get(className)!.push({
-          className: className,
-          roundNumber: round.round_number,
-          judgeInfo: round.judge_name || 'TBD',
-          sortOrder: classOrder * 100 + round.round_number,
-          classOrder: classOrder,
-          entries: sortedEntries
-        });
-      });
-    });
-
-    // Sort classes by blueprint order, then rounds by number
-    const sortedClassRounds: Array<{
-      columnHeader: string;
-      judgeInfo: string;
-      entries: Array<{ handlerName: string; dogName: string }>;
-    }> = [];
-
-    // Get all classes and sort them
-    const allClasses = Array.from(classRoundData.keys())
-      .sort((a, b) => getClassOrder(a) - getClassOrder(b));
-
-    // Add rounds for each class in order
-    allClasses.forEach(className => {
-      const rounds = classRoundData.get(className)!;
-      rounds.sort((a, b) => a.roundNumber - b.roundNumber);
-      
-      rounds.forEach(round => {
-        sortedClassRounds.push({
-          columnHeader: `${className} Rnd ${round.roundNumber}`,
-          judgeInfo: round.judgeInfo,
-          entries: round.entries.map(entry => ({
-            handlerName: entry.handlerName,
-            dogName: entry.dogName
-          }))
-        });
-      });
-    });
-
-    // Find the maximum number of entries in any round for grid height
-    const maxEntries = Math.max(...sortedClassRounds.map(col => col.entries.length), 1);
-
-    // FIX: Apply the same timezone conversion that works everywhere else in the system
-    // The database stores dates shifted forward by 1 day due to UTC conversion during save
-    // We need to convert back to local time to get the intended display date
-    const formatDateForHeader = (dateString: string): string => {
-      // Create Date object from the UTC-shifted database date
-      // This will be parsed as UTC midnight and then converted to local time
-      const date = new Date(dateString);
-      
-      // Use the same formatting approach that works in formatted_date creation
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric'
-      });
-    };
-
-    // Generate the print content with FIXED date formatting
-    const printContent = `
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .grid-container { display: table; width: 100%; border-collapse: collapse; }
-        .grid-row { display: table-row; }
-        .grid-cell { 
-          display: table-cell; 
-          border: 1px solid #000; 
-          padding: 8px; 
-          text-align: center; 
-          vertical-align: top;
-          min-width: 150px;
-          font-size: 11px;
-        }
-        .header-date { background-color: #4472C4; color: white; font-weight: bold; }
-        .header-judge { background-color: #E7E6E6; font-weight: bold; }
-        .header-class { background-color: #D9E1F2; font-weight: bold; }
-        .entry-cell { height: 30px; }
-        .title { text-align: center; font-size: 18px; font-weight: bold; margin-bottom: 20px; }
-        @media print { 
-          body { margin: 10px; } 
-          .grid-cell { font-size: 10px; padding: 4px; }
-        }
-      </style>
-      <div class="title">${trial.trial_name} - ${selectedDay.formatted_date}</div>
-      <div class="grid-container">
-        <!-- Date Header Row -->
-        <div class="grid-row">
-          ${sortedClassRounds.map(() => 
-            `<div class="grid-cell header-date">${formatDateForHeader(selectedDay.trial_date)}</div>`
-          ).join('')}
-        </div>
-        
-        <!-- Judge Header Row -->
-        <div class="grid-row">
-          ${sortedClassRounds.map(col => 
-            `<div class="grid-cell header-judge">${col.judgeInfo}</div>`
-          ).join('')}
-        </div>
-        
-        <!-- Class Header Row -->
-        <div class="grid-row">
-          ${sortedClassRounds.map(col => 
-            `<div class="grid-cell header-class">${col.columnHeader}</div>`
-          ).join('')}
-        </div>
-        
-        <!-- Entry Rows -->
-        ${Array.from({ length: maxEntries }, (_, rowIndex) => `
-          <div class="grid-row">
-            ${sortedClassRounds.map(col => {
-              const entry = col.entries[rowIndex];
-              const content = entry ? `${entry.handlerName} - ${entry.dogName}` : '';
-              return `<div class="grid-cell entry-cell">${content}</div>`;
-            }).join('')}
-          </div>
-        `).join('')}
-      </div>
-    `;
-
-    // Open print window
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.print();
+      };
     }
 
-    // Close the day selector
+    // Row 2: Short date format
+    const shortDate = new Date(selectedDay.trial_date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+
+    for (let col = 0; col < numColumns; col++) {
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: 1 });
+      worksheet[cellRef] = {
+        v: shortDate,
+        s: {
+          font: { bold: true, sz: 14, name: 'Calibri' },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        }
+      };
+    }
+
+    // Row 3: Judge names
+    for (let col = 0; col < numColumns; col++) {
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: 2 });
+      worksheet[cellRef] = {
+        v: classRounds[col].judgeName,
+        s: {
+          font: { bold: true, sz: 14, name: 'Calibri' },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        }
+      };
+    }
+
+    // Row 4: Class headers
+    for (let col = 0; col < numColumns; col++) {
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: 3 });
+      worksheet[cellRef] = {
+        v: classRounds[col].columnHeader,
+        s: {
+          font: { bold: true, sz: 14, name: 'Calibri' },
+          alignment: { horizontal: 'center', vertical: 'center' }
+        }
+      };
+    }
+
+    // Entry rows
+    const maxEntries = Math.max(...classRounds.map(col => col.entries.length));
+
+    for (let entryIndex = 0; entryIndex < maxEntries; entryIndex++) {
+      for (let col = 0; col < numColumns; col++) {
+        const cellRef = XLSX.utils.encode_cell({ c: col, r: 4 + entryIndex });
+        const entry = classRounds[col].entries[entryIndex];
+        let cellValue = '';
+        
+        if (entry) {
+          const firstName = entry.handlerName.split(' ')[0];
+          cellValue = `${firstName} - ${entry.dogName}`; // Now dogName includes "feo" suffix if applicable
+          
+          console.log('Excel Cell Creation:', {
+            originalHandlerName: entry.handlerName,
+            firstName: firstName,
+            dogName: entry.dogName,
+            finalCellValue: cellValue
+          });
+        }
+
+        worksheet[cellRef] = {
+          v: cellValue,
+          s: {
+            font: { sz: 10, name: 'Calibri' },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          }
+        };
+      }
+    }
+
+    // Set worksheet range
+    const lastCol = numColumns - 1;
+    const lastRow = 3 + maxEntries;
+    worksheet['!ref'] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow + 1}`;
+
+    // Set column widths
+    const columnWidths = Array(numColumns).fill({ width: 25 });
+    worksheet['!cols'] = columnWidths;
+
+    // Merge Row 1
+    worksheet['!merges'] = [{ s: { c: 0, r: 0 }, e: { c: numColumns - 1, r: 0 } }];
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Running Order');
+
+    // Download as Excel file
+    const fileName = `Running-Order-${selectedDay.formatted_date.replace(/[,\/]/g, '')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
     setShowDaySelector(false);
     setSelectedPrintDay(null);
 
+    alert('Running order exported successfully as Excel file!');
+
   } catch (error) {
-    console.error('Error generating running order:', error);
-    alert('Failed to generate running order: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    console.error('Error exporting running order:', error);
+    alert('Error exporting running order. Please try again.');
   }
 };
 
@@ -1123,7 +1184,7 @@ const printRunningOrder = async (dayId: string) => {
   const getEntryStatusColor = (status: string) => {
     switch (status) {
       case 'entered': return 'bg-green-100 border-green-200';
-      case 'scratched': return 'bg-red-100 border-red-200';
+      case 'withdrawn': return 'bg-red-100 border-red-200'; 
       case 'absent': return 'bg-gray-100 border-gray-200';
       case 'withdrawn': return 'bg-orange-100 border-orange-200';
       default: return 'bg-blue-100 border-blue-200';
@@ -1362,9 +1423,9 @@ const printRunningOrder = async (dayId: string) => {
             </CardTitle>
             <div className="flex items-center space-x-2">
              <Button onClick={() => setShowDaySelector(true)} variant="outline">
-  <Printer className="h-4 w-4 mr-2" />
-  Print Running Order
-</Button>
+              <FileDown className="h-4 w-4 mr-2" />
+                Export to Excel
+              </Button>
               <Button onClick={() => setShowAddEntryModal(true)} variant="outline">
                 <Users className="h-4 w-4 mr-2" />
                 Add Entry
@@ -1435,8 +1496,8 @@ const printRunningOrder = async (dayId: string) => {
                                 <div className="flex items-center space-x-4">
                                   <div className="flex items-center space-x-2">
                                     {mode === 'setup' && <GripVertical className="h-4 w-4 text-gray-400" />}
-                                    <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
-                                      #{entry.entry_status === 'scratched' ? 'X' : entry.running_position}
+                                   <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+                                      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
                                     </span>
                                   </div>
                                   
@@ -1501,7 +1562,7 @@ const printRunningOrder = async (dayId: string) => {
                                     <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
                                       Mark Present
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'scratched')}>
+                                    <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
                                       Scratch Entry
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'absent')}>
@@ -1789,7 +1850,7 @@ const printRunningOrder = async (dayId: string) => {
                                       </SelectTrigger>
                                      <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
                                         <SelectItem value="entered">Present</SelectItem>
-                                        <SelectItem value="scratched">Scratched</SelectItem>
+                                        <SelectItem value="withdrawn">Scratched</SelectItem>
                                         <SelectItem value="absent">Absent</SelectItem>
                                       </SelectContent>
                                     </Select>
@@ -2022,7 +2083,7 @@ const printRunningOrder = async (dayId: string) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Select Day to Print</h3>
+              <h3 className="text-lg font-semibold">Select Day to Export</h3>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -2038,10 +2099,10 @@ const printRunningOrder = async (dayId: string) => {
                   key={day.id}
                   variant="outline"
                   className="w-full text-left justify-start"
-                  onClick={() => {
-                    setSelectedPrintDay(day.id);
-                    printRunningOrder(day.id);
-                  }}
+                 onClick={() => {
+                  setSelectedPrintDay(day.id);
+                  exportRunningOrderToExcel(day.id);
+                }}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
                   Day {day.day_number} - {day.formatted_date}

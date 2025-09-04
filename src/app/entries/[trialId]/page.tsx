@@ -501,10 +501,16 @@ export default function PublicEntryForm() {
     try {
       await saveToRegistry();
 
-      const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
-        const round = trialRounds.find(r => r.id === roundId);
-        return sum + (round?.trial_classes?.entry_fee || 0);
-      }, 0);
+     const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
+  const round = trialRounds.find(r => r.id === roundId);
+  const isFeo = formData.feo_selections.includes(roundId);
+  
+  if (isFeo && round?.trial_classes?.feo_price) {
+    return sum + round.trial_classes.feo_price;
+  } else {
+    return sum + (round?.trial_classes?.entry_fee || 0);
+  }
+}, 0);
 
       let entryResult;
       
@@ -553,18 +559,26 @@ export default function PublicEntryForm() {
       }
 
       // Create/update entry selections - directly to rounds
-      const selections = formData.selected_rounds.map((roundId, index) => {
-        const round = trialRounds.find(r => r.id === roundId);
-        const entryFee = round?.trial_classes?.entry_fee || 0;
-        
-        return {
-          trial_round_id: roundId,
-          entry_type: 'regular',
-          fee: entryFee,
-          running_position: index + 1,
-          entry_status: 'entered'
-        };
-      });
+     const selections = formData.selected_rounds.map((roundId, index) => {
+  const round = trialRounds.find(r => r.id === roundId);
+  const isFeo = formData.feo_selections.includes(roundId);
+  
+  let entryFee = round?.trial_classes?.entry_fee || 0;
+  let entryType = 'regular';
+  
+  if (isFeo && round?.trial_classes?.feo_price) {
+    entryFee = round.trial_classes.feo_price;
+    entryType = 'feo';
+  }
+  
+  return {
+    trial_round_id: roundId,
+    entry_type: entryType,
+    fee: entryFee,
+    running_position: index + 1,
+    entry_status: 'entered'
+  };
+});
 
       if (selections.length > 0) {
         const selectionsResult = await simpleTrialOperations.createEntrySelections(
@@ -632,12 +646,18 @@ const handleRoundSelection = (roundId: string, type: 'regular' | 'feo') => {
     }).format(amount);
   };
 
-  const calculateTotalFee = () => {
-    return formData.selected_rounds.reduce((sum, roundId) => {
-      const round = trialRounds.find(r => r.id === roundId);
+const calculateTotalFee = () => {
+  return formData.selected_rounds.reduce((sum, roundId) => {
+    const round = trialRounds.find(r => r.id === roundId);
+    const isFeo = formData.feo_selections.includes(roundId);
+    
+    if (isFeo && round?.trial_classes?.feo_price) {
+      return sum + round.trial_classes.feo_price;
+    } else {
       return sum + (round?.trial_classes?.entry_fee || 0);
-    }, 0);
-  };
+    }
+  }, 0);
+};
 
  const roundsByDay = trialRounds
   .sort((a, b) => {
