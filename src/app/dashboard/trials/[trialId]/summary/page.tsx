@@ -518,18 +518,18 @@ const generateExcelReport = async () => {
                   Select Class:
                 </label>
                 <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">📊 Select All Classes</SelectItem>
-                    {summaryData.classes.map(cls => (
-                      <SelectItem key={cls.id} value={cls.id}>
-                        {getDisplayClassName(cls)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+  <SelectTrigger>
+    <SelectValue placeholder="Select a class" />
+  </SelectTrigger>
+  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+    <SelectItem value="all">📊 Select All Classes</SelectItem>
+    {summaryData.classes.map(cls => (
+      <SelectItem key={cls.id} value={cls.id}>
+        {getDisplayClassName(cls)}
+      </SelectItem>
+    ))}
+  </SelectContent>
+</Select>
               </div>
               <div className="flex items-end">
                 <Button 
