@@ -1792,32 +1792,36 @@ async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
             ? roundsResult.data[0].judge_name 
             : 'No Judge Assigned';
 
-          // Filter entries for this class - EXCLUDE FEO ENTRIES
-          const classEntries: any[] = [];
-          (entriesResult.data || []).forEach((entry: any) => {
-            const selections = entry.entry_selections || [];
-            selections.forEach((selection: any) => {
-              if (selection.trial_rounds?.trial_class_id === cls.id) {
-                // EXCLUDE FEO ENTRIES FROM SUMMARY STATISTICS
-                const isFeo = selection.entry_type?.toLowerCase() === 'feo';
-                if (!isFeo) {
-                  classEntries.push({
-                    id: selection.id,
-                    entry_id: entry.id,
-                    running_position: selection.running_position || 1,
-                    entry_type: selection.entry_type || 'regular',
-                    entry_status: selection.entry_status || 'entered',
-                    entries: {
-                      handler_name: entry.handler_name,
-                      dog_call_name: entry.dog_call_name,
-                      cwags_number: entry.cwags_number
-                    },
-                    scores: [] // Will be populated with actual scores
-                  });
-                }
-              }
-            });
-          });
+          // Filter entries for this class - EXCLUDE FEO AND WITHDRAWN ENTRIES
+const classEntries: any[] = [];
+(entriesResult.data || []).forEach((entry: any) => {
+  const selections = entry.entry_selections || [];
+  selections.forEach((selection: any) => {
+    if (selection.trial_rounds?.trial_class_id === cls.id) {
+      // EXCLUDE BOTH FEO ENTRIES AND WITHDRAWN ENTRIES FROM SUMMARY STATISTICS
+      const isFeo = selection.entry_type?.toLowerCase() === 'feo';
+      const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
+      
+      if (!isFeo && !isWithdrawn) {
+        classEntries.push({
+          id: selection.id,
+          entry_id: entry.id,
+          running_position: selection.running_position || 1,
+          entry_type: selection.entry_type || 'regular',
+          entry_status: selection.entry_status || 'entered',
+          entries: {
+            handler_name: entry.handler_name,
+            dog_call_name: entry.dog_call_name,
+            cwags_number: entry.cwags_number
+          },
+          scores: [] // Will be populated with actual scores
+        });
+      } else {
+        console.log(`Excluding ${isFeo ? 'FEO' : 'withdrawn'} entry from summary:`, entry.handler_name, entry.dog_call_name);
+      }
+    }
+  });
+});
 
           // Get actual scores for class entries (non-FEO only)
           const entriesWithScores = await Promise.all(

@@ -361,6 +361,7 @@ const renderClassesByDay = () => {
     }
   };
 
+// Update the loadClassEntries function in your live event page
 const loadClassEntries = async () => {
   if (!selectedClass) return;
 
@@ -393,34 +394,40 @@ const loadClassEntries = async () => {
         // Check if this selection is for any round in our selected class
         const roundForSelection = classRounds.find((r: TrialRound) => r.id === selection.trial_round_id);
         if (roundForSelection) {
-          classEntriesData.push({
-            id: selection.id,
-            entry_id: entry.id,
-            running_position: selection.running_position || 1,
-            entry_type: selection.entry_type || 'regular',
-            entry_status: selection.entry_status || 'entered',
-            round_number: roundForSelection.round_number,
-            round_id: roundForSelection.id,
-            entries: {
-              handler_name: entry.handler_name,
-              dog_call_name: entry.dog_call_name,
-              cwags_number: entry.cwags_number
-            },
-            trial_rounds: {
-              judge_name: roundForSelection.judge_name,
-              trial_classes: {
-                class_name: selectedClass.class_name,
-                class_type: selectedClass.class_type,
-                games_subclass: selectedClass.games_subclass
-              }
-            },
-            scores: []
-          });
+          // FILTER OUT WITHDRAWN ENTRIES - DON'T ADD THEM TO THE LIST
+          const entryStatus = selection.entry_status || 'entered';
+if (entryStatus.toLowerCase() !== 'withdrawn') {
+  classEntriesData.push({
+    id: selection.id,
+    entry_id: entry.id,
+    running_position: selection.running_position || 1,
+    entry_type: selection.entry_type || 'regular',
+    entry_status: entryStatus, // Use the checked status
+    round_number: roundForSelection.round_number,
+    round_id: roundForSelection.id,
+    entries: {
+      handler_name: entry.handler_name,
+      dog_call_name: entry.dog_call_name,
+      cwags_number: entry.cwags_number
+    },
+    trial_rounds: {
+      judge_name: roundForSelection.judge_name,
+      trial_classes: {
+        class_name: selectedClass.class_name,
+        class_type: selectedClass.class_type,
+        games_subclass: selectedClass.games_subclass
+      }
+    },
+    scores: []
+  });
+} else {
+  console.log('Excluding withdrawn entry:', entry.handler_name, entry.dog_call_name);
+}
         }
       });
     });
 
-    // IMPORTANT: Sort by round number first, THEN by running position within each round
+    // Sort by round number first, THEN by running position within each round
     classEntriesData.sort((a, b) => {
       if (a.round_number !== b.round_number) {
         return a.round_number - b.round_number;
@@ -428,14 +435,15 @@ const loadClassEntries = async () => {
       return a.running_position - b.running_position;
     });
 
-    // FIX RUNNING POSITIONS: Reset positions to be consecutive within each round
+    // IMPORTANT: Fix running positions after filtering out withdrawn entries
+    // Reset positions to be consecutive within each round (1, 2, 3, 4...)
     const entriesByRound = classEntriesData.reduce((acc, entry) => {
       if (!acc[entry.round_number]) acc[entry.round_number] = [];
       acc[entry.round_number].push(entry);
       return acc;
     }, {} as Record<number, ClassEntry[]>);
 
-    // Reassign running positions within each round (1, 2, 3... for each round separately)
+    // Reassign running positions within each round to be consecutive
     Object.values(entriesByRound).forEach(roundEntries => {
       roundEntries.forEach((entry, index) => {
         entry.running_position = index + 1; // Reset to 1, 2, 3, 4... within each round
@@ -448,11 +456,58 @@ const loadClassEntries = async () => {
       .flatMap(roundNum => entriesByRound[parseInt(roundNum)]);
 
     setClassEntries(correctedEntries);
-    console.log(`Loaded ${correctedEntries.length} entries for class with corrected round positions`);
+    console.log(`Loaded ${correctedEntries.length} active entries for class (withdrawn entries excluded)`);
 
   } catch (err) {
     console.error('Error loading class entries:', err);
     setError(err instanceof Error ? err.message : 'Failed to load class entries');
+  }
+};
+
+// Also update the updateEntryField function to reload entries when status changes to withdrawn
+const updateEntryField = async (entryId: string, field: string, value: string | number) => {
+  // Update local state immediately
+  setClassEntries(prev =>
+    prev.map(entry =>
+      entry.id === entryId
+        ? { ...entry, [field]: value }
+        : entry
+    )
+  );
+
+  // Update database based on field type
+  try {
+    if (field === 'dog_call_name') {
+      // Update the main entry record
+      const entry = classEntries.find(e => e.id === entryId);
+      if (entry) {
+        await simpleTrialOperations.updateEntry(entry.entry_id, { dog_call_name: value as string });
+      }
+    } else {
+      // Update entry selection record
+      const updates: Record<string, any> = {};
+      if (field === 'entry_type') updates.entry_type = value;
+      if (field === 'entry_status') updates.entry_status = value;
+      
+      // Use updateEntrySelection function
+      const result = await simpleTrialOperations.updateEntrySelection(entryId, updates);
+      if (!result.success) {
+        console.error('Failed to update entry selection:', result.error);
+        loadClassEntries(); // Reload on error
+        return;
+      }
+    }
+
+    // If the status was changed to withdrawn, reload to remove from list
+    if (field === 'entry_status' && value === 'withdrawn') {
+  console.log('Entry withdrawn, reloading class entries to update running order');
+  await loadClassEntries();
+  await loadAllClassCounts();
+}
+  } catch (error) {
+    console.error('Error updating entry field:', error);
+    // Reload to get correct data
+    loadClassEntries();
   }
 };
     const loadAvailableDays = async () => {
@@ -569,45 +624,7 @@ const loadClassEntries = async () => {
   }
 };
 
-  const updateEntryField = async (entryId: string, field: string, value: string | number) => {
-    // Update local state immediately
-    setClassEntries(prev =>
-      prev.map(entry =>
-        entry.id === entryId
-          ? { ...entry, [field]: value }
-          : entry
-      )
-    );
-
-    // Update database based on field type
-    try {
-      if (field === 'dog_call_name') {
-        // Update the main entry record
-        const entry = classEntries.find(e => e.id === entryId);
-        if (entry) {
-          await simpleTrialOperations.updateEntry(entry.entry_id, { dog_call_name: value as string });
-        }
-      } else {
-        // Update entry selection record
-        const updates: Record<string, any> = {};
-        if (field === 'entry_type') updates.entry_type = value;
-        if (field === 'entry_status') updates.entry_status = value;
-        
-        // Use updateEntrySelection function
-        const result = await simpleTrialOperations.updateEntrySelection(entryId, updates);
-        if (!result.success) {
-          console.error('Failed to update entry selection:', result.error);
-          loadClassEntries(); // Reload on error
-        }
-      }
-    } catch (error) {
-      console.error('Error updating entry field:', error);
-      // Reload to get correct data
-      loadClassEntries();
-    }
-  };
-
-  const updateScore = (entryId: string, scoreField: string, value: string | number | null) => {
+   const updateScore = (entryId: string, scoreField: string, value: string | number | null) => {
     // Update local state immediately
     setClassEntries(prev =>
       prev.map(entry => {
@@ -1002,33 +1019,46 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     });
 
    // Populate entries for each column
-const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
-if (entriesResult.success) {
-  classRounds.forEach(col => {
-    const entries: any[] = [];
-    (entriesResult.data || []).forEach((entry: any) => {
-      (entry.entry_selections || []).forEach((selection: any) => {
-        if (selection.trial_round_id === col.roundId) {
-          const isFeo = selection.entry_type === 'feo';
-          const handlerName = entry.handler_name; // Always use clean handler name
-          
-          // Add "feo" suffix to dog name if it's an FEO entry
-          const dogName = isFeo 
-            ? `${entry.dog_call_name} FEO`
-            : entry.dog_call_name;
-          
-          entries.push({
-            position: selection.running_position,
-            handlerName: handlerName, 
-            dogName: dogName, // Now includes "feo" suffix when applicable
-            status: selection.entry_status
+    const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    if (entriesResult.success) {
+      classRounds.forEach(col => {
+        const entries: any[] = [];
+        (entriesResult.data || []).forEach((entry: any) => {
+          (entry.entry_selections || []).forEach((selection: any) => {
+            if (selection.trial_round_id === col.roundId) {
+              // FILTER OUT WITHDRAWN ENTRIES FROM EXCEL EXPORT
+              const entryStatus = selection.entry_status?.toLowerCase() || 'entered';
+              if (entryStatus !== 'withdrawn') {
+                const isFeo = selection.entry_type === 'feo';
+                const handlerName = entry.handler_name; // Always use clean handler name
+                
+                // Add "feo" suffix to dog name if it's an FEO entry
+                const dogName = isFeo 
+                  ? `${entry.dog_call_name} FEO`
+                  : entry.dog_call_name;
+                
+                entries.push({
+                  position: selection.running_position,
+                  handlerName: handlerName, 
+                  dogName: dogName, // Now includes "feo" suffix when applicable
+                  status: selection.entry_status
+                });
+              } else {
+                console.log('Excluding withdrawn entry from Excel:', entry.handler_name, entry.dog_call_name);
+              }
+            }
           });
-        }
+        });
+        
+        // Sort entries and renumber positions to be consecutive (1, 2, 3, 4...)
+        const sortedEntries = entries.sort((a, b) => a.position - b.position);
+        sortedEntries.forEach((entry, index) => {
+          entry.position = index + 1; // Renumber to be consecutive after filtering out withdrawn
+        });
+        
+        col.entries = sortedEntries;
       });
-    });
-    col.entries = entries.sort((a, b) => a.position - b.position);
-  });
-}
+    }
 
     // Create workbook first
     const workbook = XLSX.utils.book_new();
@@ -1559,16 +1589,16 @@ if (entriesResult.success) {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
-                                      Mark Present
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
-                                      Scratch Entry
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'absent')}>
-                                      Mark Absent
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
+    Mark Present
+  </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
+    Withdraw Entry (Remove from running order)
+  </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'absent')}>
+    Mark Absent (Keep in running order)
+  </DropdownMenuItem>
+</DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
                             </div>
