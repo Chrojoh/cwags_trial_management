@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/lib/supabase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,9 +123,9 @@ interface ClassEntry {
     judge_notes?: string | null;
   }>;
 }
+
 // Add this function near the top of your live event page component, 
 // after the interfaces and before the component export
-
 const getClassOrder = (className: string): number => {
   const classOrder = [
     'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 'Private Inv',
@@ -158,7 +159,6 @@ export default function LiveEventManagementPage() {
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<TrialClass | null>(null);
   const [classEntries, setClassEntries] = useState<ClassEntry[]>([]);
-  const [mode, setMode] = useState<'setup' | 'scoring'>('setup');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,19 +167,20 @@ export default function LiveEventManagementPage() {
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
-const [availableDays, setAvailableDays] = useState<Array<{
-  id: string;
-  day_number: number;
-  trial_date: string;
-  formatted_date: string;
-}>>([]);
-const [selectedPrintDay, setSelectedPrintDay] = useState<string | null>(null);
+  const [availableDays, setAvailableDays] = useState<Array<{
+    id: string;
+    day_number: number;
+    trial_date: string;
+    formatted_date: string;
+  }>>([]);
+  const [selectedPrintDay, setSelectedPrintDay] = useState<string | null>(null);
   const [newEntryData, setNewEntryData] = useState({
     handler_name: '',
     dog_call_name: '',
     cwags_number: '',
     entry_type: 'regular'
   });
+
 const renderClassesByDay = () => {
   if (trialClasses.length === 0) {
     return (
@@ -273,6 +274,7 @@ const renderClassesByDay = () => {
     );
   }
 };
+
  useEffect(() => {
   if (trialId) {
     loadTrialData();
@@ -361,7 +363,6 @@ const renderClassesByDay = () => {
     }
   };
 
-// Update the loadClassEntries function in your live event page
 const loadClassEntries = async () => {
   if (!selectedClass) return;
 
@@ -396,33 +397,33 @@ const loadClassEntries = async () => {
         if (roundForSelection) {
           // FILTER OUT WITHDRAWN ENTRIES - DON'T ADD THEM TO THE LIST
           const entryStatus = selection.entry_status || 'entered';
-if (entryStatus.toLowerCase() !== 'withdrawn') {
-  classEntriesData.push({
-    id: selection.id,
-    entry_id: entry.id,
-    running_position: selection.running_position || 1,
-    entry_type: selection.entry_type || 'regular',
-    entry_status: entryStatus, // Use the checked status
-    round_number: roundForSelection.round_number,
-    round_id: roundForSelection.id,
-    entries: {
-      handler_name: entry.handler_name,
-      dog_call_name: entry.dog_call_name,
-      cwags_number: entry.cwags_number
-    },
-    trial_rounds: {
-      judge_name: roundForSelection.judge_name,
-      trial_classes: {
-        class_name: selectedClass.class_name,
-        class_type: selectedClass.class_type,
-        games_subclass: selectedClass.games_subclass
-      }
-    },
-    scores: []
-  });
-} else {
-  console.log('Excluding withdrawn entry:', entry.handler_name, entry.dog_call_name);
-}
+          if (entryStatus.toLowerCase() !== 'withdrawn') {
+            classEntriesData.push({
+              id: selection.id,
+              entry_id: entry.id,
+              running_position: selection.running_position || 1,
+              entry_type: selection.entry_type || 'regular',
+              entry_status: entryStatus, // Use the checked status
+              round_number: roundForSelection.round_number,
+              round_id: roundForSelection.id,
+              entries: {
+                handler_name: entry.handler_name,
+                dog_call_name: entry.dog_call_name,
+                cwags_number: entry.cwags_number
+              },
+              trial_rounds: {
+                judge_name: roundForSelection.judge_name,
+                trial_classes: {
+                  class_name: selectedClass.class_name,
+                  class_type: selectedClass.class_type,
+                  games_subclass: selectedClass.games_subclass
+                }
+              },
+              scores: []
+            });
+          } else {
+            console.log('Excluding withdrawn entry:', entry.handler_name, entry.dog_call_name);
+          }
         }
       });
     });
@@ -455,8 +456,28 @@ if (entryStatus.toLowerCase() !== 'withdrawn') {
       .sort((a, b) => parseInt(a) - parseInt(b))
       .flatMap(roundNum => entriesByRound[parseInt(roundNum)]);
 
-    setClassEntries(correctedEntries);
-    console.log(`Loaded ${correctedEntries.length} active entries for class (withdrawn entries excluded)`);
+    // Load existing scores for all entries
+    const entriesWithScores = await Promise.all(
+      correctedEntries.map(async (entry) => {
+        try {
+          const { data: scores, error } = await supabase
+            .from('scores')
+            .select('*')
+            .eq('entry_selection_id', entry.id);
+
+          if (!error && scores && scores.length > 0) {
+            entry.scores = scores;
+          }
+          return entry;
+        } catch (error) {
+          console.error('Error loading scores for entry:', entry.id, error);
+          return entry;
+        }
+      })
+    );
+
+    setClassEntries(entriesWithScores);
+    console.log(`Loaded ${entriesWithScores.length} active entries for class (withdrawn entries excluded)`);
 
   } catch (err) {
     console.error('Error loading class entries:', err);
@@ -464,7 +485,6 @@ if (entryStatus.toLowerCase() !== 'withdrawn') {
   }
 };
 
-// Also update the updateEntryField function to reload entries when status changes to withdrawn
 const updateEntryField = async (entryId: string, field: string, value: string | number) => {
   // Update local state immediately
   setClassEntries(prev =>
@@ -500,23 +520,50 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
 
     // If the status was changed to withdrawn, reload to remove from list
     if (field === 'entry_status' && value === 'withdrawn') {
-  console.log('Entry withdrawn, reloading class entries to update running order');
-  await loadClassEntries();
-  await loadAllClassCounts();
-}
+      console.log('Entry withdrawn, reloading class entries to update running order');
+      await loadClassEntries();
+      await loadAllClassCounts();
+    }
   } catch (error) {
     console.error('Error updating entry field:', error);
     // Reload to get correct data
     loadClassEntries();
   }
 };
-    const loadAvailableDays = async () => {
+    
+const loadAllClassCounts = async () => {
+  if (trialClasses.length === 0) return;
+  
+  try {
+    console.log('Loading entry counts for', trialClasses.length, 'classes');
+    const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) return;
+
+    const counts: Record<string, number> = {};
+    
+    trialClasses.forEach(cls => {
+      const classEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
+        const selectionsForClass = entry.entry_selections?.filter((selection: any) => 
+          selection.trial_rounds?.trial_class_id === cls.id
+        ) || [];
+        return count + selectionsForClass.length;
+      }, 0);
+      
+      counts[cls.id] = classEntryCount;
+    });
+    
+    setClassCounts(counts);
+  } catch (error) {
+    console.error('Error loading class counts:', error);
+  }
+};
+
+const loadAvailableDays = async () => {
   if (!trialId) return;
 
   try {
     console.log('Loading available days for trial:', trialId);
     
-    // You'll need to add this function to simpleTrialOperations
     const result = await simpleTrialOperations.getTrialDays(trialId);
     
     if (result.success) {
@@ -537,35 +584,6 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
     console.error('Error loading trial days:', error);
   }
 };
-
-  const loadAllClassCounts = async () => {
-    if (trialClasses.length === 0) return;
-    
-    try {
-      console.log('Loading entry counts for', trialClasses.length, 'classes');
-      const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
-      if (!entriesResult.success) return;
-
-      const counts: Record<string, number> = {};
-      
-      trialClasses.forEach(cls => {
-        const classEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
-          const selectionsForClass = entry.entry_selections?.filter((selection: any) => 
-            selection.trial_rounds?.trial_class_id === cls.id
-          ) || [];
-          return count + selectionsForClass.length;
-        }, 0);
-        
-        counts[cls.id] = classEntryCount;
-        console.log(`Class ${cls.class_name}: ${classEntryCount} entries`);
-      });
-      
-      setClassCounts(counts);
-      console.log('Class counts loaded:', counts);
-    } catch (error) {
-      console.error('Error loading class counts:', error);
-    }
-  };
 
   const updateRunningPosition = async (entryId: string, newPosition: number) => {
   const entry = classEntries.find(e => e.id === entryId);
@@ -657,9 +675,19 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
 
       const trialRoundId = roundsResult.data[0].id;
 
-      // Prepare scores to update
+      // Prepare scores to update - only include entries with meaningful scoring data
       const scoresToUpdate = classEntries
-        .filter(entry => entry.scores && entry.scores.length > 0)
+        .filter(entry => {
+          // Only save if there are scores AND they have at least pass_fail or other scoring fields
+          if (!entry.scores || entry.scores.length === 0) return false;
+          
+          const score = entry.scores[0];
+          // Check if any meaningful scoring data exists
+          return score.pass_fail || 
+                 score.scent1 || score.scent2 || score.scent3 || score.scent4 ||
+                 score.time_seconds !== null || score.numerical_score !== null ||
+                 score.fault1 || score.judge_notes;
+        })
         .map(entry => ({
           entry_selection_id: entry.id,
           trial_round_id: trialRoundId,
@@ -710,7 +738,7 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
         }
 
         return [
-          entry.entry_status === 'scratched' ? 'X' : entry.running_position,
+          entry.entry_status === 'withdrawn' ? 'X' : entry.running_position,
           entry.entries.handler_name,
           entry.entries.dog_call_name,
           entry.entry_type,
@@ -966,7 +994,6 @@ const addNewEntry = async () => {
     }
   };
 
-
 const exportRunningOrderToExcel = async (selectedDayId: string) => {
   if (!selectedClass || !trial) return;
 
@@ -1167,8 +1194,11 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     const lastRow = 3 + maxEntries;
     worksheet['!ref'] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow + 1}`;
 
-    // Set column widths
-    const columnWidths = Array(numColumns).fill({ width: 25 });
+    // Set column widths - 15 for all columns, except column C (index 2) which is 25
+    const columnWidths = Array(numColumns).fill(null).map((_, index) => ({
+      wch: index === 2 ? 25 : 15
+    }));
+    
     worksheet['!cols'] = columnWidths;
 
     // Merge Row 1
@@ -1193,7 +1223,6 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 };
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, entry: ClassEntry) => {
-    if (mode === 'scoring') return;
     setDraggedEntry(entry);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -1205,7 +1234,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetEntry: ClassEntry) => {
     e.preventDefault();
-    if (draggedEntry && targetEntry && draggedEntry.id !== targetEntry.id && mode === 'setup') {
+    if (draggedEntry && targetEntry && draggedEntry.id !== targetEntry.id) {
       updateRunningPosition(draggedEntry.id, targetEntry.running_position);
     }
     setDraggedEntry(null);
@@ -1214,9 +1243,9 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   const getEntryStatusColor = (status: string) => {
     switch (status) {
       case 'entered': return 'bg-green-100 border-green-200';
+      case 'confirmed': return 'bg-blue-100 border-blue-200';
       case 'withdrawn': return 'bg-red-100 border-red-200'; 
-      case 'absent': return 'bg-gray-100 border-gray-200';
-      case 'withdrawn': return 'bg-orange-100 border-orange-200';
+      case 'no_show': return 'bg-gray-100 border-gray-200';
       default: return 'bg-blue-100 border-blue-200';
     }
   };
@@ -1287,15 +1316,6 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Live Event Management</h1>
             <p className="text-gray-600">{trial.trial_name} • {trial.location}</p>
-          </div>
-          <div className="flex space-x-3">
-            <Button 
-              variant="outline"
-              onClick={() => setMode(mode === 'setup' ? 'scoring' : 'setup')}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              {mode === 'setup' ? 'Switch to Scoring' : 'Back to Setup'}
-            </Button>
           </div>
         </div>
 
@@ -1509,24 +1529,43 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                         </div>
                         
                         <div className="space-y-2">
-                          {roundEntries.map((entry) => (
+                          {roundEntries.map((entry) => {
+                            const score = entry.scores?.[0];
+                            let resultDisplay = '';
+                            let resultClass = 'bg-gray-100 text-gray-600 border-gray-200';
+                            
+                            if (score?.pass_fail) {
+                              if (selectedClass.class_type === 'games' && score.pass_fail === 'Pass' && selectedClass.games_subclass) {
+                                resultDisplay = selectedClass.games_subclass;
+                                resultClass = 'bg-purple-100 text-purple-700 border-purple-200';
+                              } else if (score.pass_fail === 'Pass') {
+                                resultDisplay = 'Pass';
+                                resultClass = 'bg-green-100 text-green-700 border-green-200';
+                              } else if (score.pass_fail === 'Fail') {
+                                resultDisplay = 'Fail';
+                                resultClass = 'bg-red-100 text-red-700 border-red-200';
+                              } else {
+                                resultDisplay = score.pass_fail;
+                                resultClass = 'bg-blue-100 text-blue-700 border-blue-200';
+                              }
+                            }
+
+                            return (
                             <div
                               key={entry.id}
-                              draggable={mode === 'setup'}
+                              draggable={true}
                               onDragStart={(e) => handleDragStart(e, entry)}
                               onDragOver={handleDragOver}
                               onDrop={(e) => handleDrop(e, entry)}
-                              className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white ${
-                                mode === 'setup' ? 'cursor-move' : 'cursor-default'
-                              } ${getEntryStatusColor(entry.entry_status)} ${
+                              className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-move ${getEntryStatusColor(entry.entry_status)} ${
                                 draggedEntry?.id === entry.id ? 'opacity-50' : ''
                               }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center space-x-4">
                                   <div className="flex items-center space-x-2">
-                                    {mode === 'setup' && <GripVertical className="h-4 w-4 text-gray-400" />}
-                                   <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+                                    <GripVertical className="h-4 w-4 text-gray-400" />
+                                    <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
                                       #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
                                     </span>
                                   </div>
@@ -1579,6 +1618,11 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                     <Badge variant="outline">
                                       {entry.entry_status}
                                     </Badge>
+                                    {resultDisplay && (
+                                      <Badge className={`border ${resultClass}`}>
+                                        {resultDisplay}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
 
@@ -1592,17 +1636,21 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
     Mark Present
   </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'confirmed')}>
+    Mark Confirmed
+  </DropdownMenuItem>
   <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
     Withdraw Entry (Remove from running order)
   </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'absent')}>
-    Mark Absent (Keep in running order)
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'no_show')}>
+    Mark No Show
   </DropdownMenuItem>
 </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -1708,7 +1756,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                 <div className="flex items-center justify-between mb-4">
                                   <div className="flex items-center space-x-4">
                                     <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
-                                      #{entry.entry_status === 'scratched' ? 'X' : entry.running_position}
+                                      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
                                     </span>
                                     <div>
                                       <p className="font-semibold text-gray-900">
@@ -1729,7 +1777,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                   </div>
                                 </div>
 
-                               {/* Scoring fields based on class type */}
+{/* Scoring fields based on class type */}
 {selectedClass.class_type === 'scent' && (
   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
     <div className="space-y-1">
@@ -1742,8 +1790,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <SelectValue placeholder="-" />
         </SelectTrigger>
         <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="pass">Pass</SelectItem>
-          <SelectItem value="fail">Fail</SelectItem>
+          <SelectItem value="Pass">Pass</SelectItem>
+          <SelectItem value="Fail">Fail</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -1757,8 +1805,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <SelectValue placeholder="-" />
         </SelectTrigger>
         <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="pass">Pass</SelectItem>
-          <SelectItem value="fail">Fail</SelectItem>
+          <SelectItem value="Pass">Pass</SelectItem>
+          <SelectItem value="Fail">Fail</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -1772,8 +1820,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <SelectValue placeholder="-" />
         </SelectTrigger>
         <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="pass">Pass</SelectItem>
-          <SelectItem value="fail">Fail</SelectItem>
+          <SelectItem value="Pass">Pass</SelectItem>
+          <SelectItem value="Fail">Fail</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -1787,8 +1835,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <SelectValue placeholder="-" />
         </SelectTrigger>
         <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="pass">Pass</SelectItem>
-          <SelectItem value="fail">Fail</SelectItem>
+          <SelectItem value="Pass">Pass</SelectItem>
+          <SelectItem value="Fail">Fail</SelectItem>
         </SelectContent>
       </Select>
     </div>
@@ -1850,6 +1898,21 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                   <div className="space-y-1">
+    <Label className="text-xs">Entry Type</Label>
+    <Select
+      value={entry.entry_type || 'regular'}
+      onValueChange={(value) => updateEntryField(entry.id, 'entry_type', value)}
+    >
+      <SelectTrigger className="h-8">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+        <SelectItem value="regular">Regular</SelectItem>
+        <SelectItem value="feo">FEO</SelectItem>
+      </SelectContent>
+    </Select>
+  </div>
+                                  <div className="space-y-1">
                                     <Label className="text-xs">Result</Label>
                                     <Select
   value={score.pass_fail || ''}
@@ -1859,8 +1922,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     <SelectValue placeholder="Select result..." />
   </SelectTrigger>
   <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-    <SelectItem value="pass">Pass</SelectItem>
-    <SelectItem value="fail">Fail</SelectItem>
+    <SelectItem value="Pass">Pass</SelectItem>
+    <SelectItem value="Fail">Fail</SelectItem>
     {selectedClass.class_type === 'games' && selectedClass.games_subclass && (
       <SelectItem value={selectedClass.games_subclass.toLowerCase()}>
         {selectedClass.games_subclass}
@@ -1872,16 +1935,17 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                   <div className="space-y-1">
                                     <Label className="text-xs">Status</Label>
                                     <Select
-                                      value={score.entry_status || entry.entry_status}
-                                      onValueChange={(value) => updateScore(entry.id, 'entry_status', value)}
+                                      value={entry.entry_status}
+                                      onValueChange={(value) => updateEntryField(entry.id, 'entry_status', value)}
                                     >
                                       <SelectTrigger className="h-8">
                                         <SelectValue />
                                       </SelectTrigger>
                                      <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
                                         <SelectItem value="entered">Present</SelectItem>
-                                        <SelectItem value="withdrawn">Scratched</SelectItem>
-                                        <SelectItem value="absent">Absent</SelectItem>
+                                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                                        <SelectItem value="withdrawn">Withdrawn</SelectItem>
+                                        <SelectItem value="no_show">No Show</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -1929,7 +1993,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">{classEntries.length}</div>
                   <div className="text-sm text-gray-600">Total Entries</div>
@@ -1941,10 +2005,22 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   <div className="text-sm text-gray-600">Present</div>
                 </div>
                 <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {classEntries.filter(e => e.entry_status === 'confirmed').length}
+                  </div>
+                  <div className="text-sm text-gray-600">Confirmed</div>
+                </div>
+                <div className="text-center">
                   <div className="text-2xl font-bold text-red-600">
                     {classEntries.filter(e => e.entry_status === 'withdrawn').length}
                   </div>
                   <div className="text-sm text-gray-600">Withdrawn</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-gray-600">
+                    {classEntries.filter(e => e.entry_status === 'no_show').length}
+                  </div>
+                  <div className="text-sm text-gray-600">No Show</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">

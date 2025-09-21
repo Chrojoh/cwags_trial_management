@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/lib/supabase';
 import {
   FileSpreadsheet,
   Users,
@@ -137,6 +138,25 @@ const generateExcelReport = async () => {
     }
     const allTrialRounds = allRoundsResult.data || [];
 
+    // Get all entries with selections
+    const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) {
+      throw new Error('Failed to load entries');
+    }
+
+    // Get all scores at once
+    const { data: allScores } = await supabase
+      .from('scores')
+      .select('*');
+    
+    const scoresMap = new Map();
+    if (allScores) {
+      allScores.forEach(score => {
+        scoresMap.set(score.entry_selection_id, score);
+      });
+    }
+    console.log('Loaded scores for lookup:', allScores?.length || 0);
+
     // Step 1: Normalize class names for display and define blueprint order
     const normalizeClassName = (className: string): string => {
       const corrections: Record<string, string> = {
@@ -230,52 +250,70 @@ const generateExcelReport = async () => {
     });
 
     // Step 5: Process actual entries and scores
-    summaryData.classes.forEach(cls => {
-      const normalizedName = normalizeClassName(cls.class_name);
-      const classData = classesByName.get(normalizedName);
-      if (!classData) return;
+    (entriesResult.data || []).forEach((entry: any) => {
+      (entry.entry_selections || []).forEach((selection: any) => {
+        // Skip FEO entries
+        if (selection.entry_type?.toLowerCase() === 'feo') {
+          return;
+        }
+           // Skip withdrawn entries
+    if (selection.entry_status?.toLowerCase() === 'withdrawn') {
+      console.log(`Excluding withdrawn entry: ${entry.handler_name} - ${entry.dog_call_name}`);
+      return;
+    }
+        const roundId = selection.trial_round_id;
+        const cwagsNumber = entry.cwags_number;
 
-      cls.entries.forEach(entry => {
-        const cwagsNumber = entry.entries.cwags_number;
-        
+        // Find which class this round belongs to
+        let targetClassData: any = null;
+        let targetRound: any = null;
+
+        classesByName.forEach(classData => {
+          const round = classData.allRounds.find(r => r.roundId === roundId);
+          if (round) {
+            targetClassData = classData;
+            targetRound = round;
+          }
+        });
+
+        if (!targetClassData || !targetRound) {
+          return;
+        }
+
         // Add participant to class
-        if (!classData.allParticipants.has(cwagsNumber)) {
-          classData.allParticipants.set(cwagsNumber, {
-            cwagsNumber: entry.entries.cwags_number,
-            dogName: entry.entries.dog_call_name,
-            handlerName: entry.entries.handler_name
+        if (!targetClassData.allParticipants.has(cwagsNumber)) {
+          targetClassData.allParticipants.set(cwagsNumber, {
+            cwagsNumber: entry.cwags_number,
+            dogName: entry.dog_call_name,
+            handlerName: entry.handler_name
           });
         }
 
-        // Process scores for each round
-        if (entry.scores && entry.scores.length > 0) {
-          entry.scores.forEach((score, roundIndex) => {
-            // Find the matching round by date and round number
-            const targetRound = classData.allRounds.find(r => 
-              r.trialDate === cls.trial_date && 
-              r.roundNumber === (roundIndex + 1)
-            );
-
-            if (targetRound) {
-              // Determine result based on score
-              let result = '-';
-              if (score.entry_status === 'entered' && !score.pass_fail) {
-                result = '*'; // Entered but not scored yet
-              } else if (score.pass_fail === 'Pass') {
-                result = cls.class_type === 'games' && cls.games_subclass ? cls.games_subclass : 'P';
-                classData.totalPasses++;
-              } else if (score.pass_fail === 'Fail') {
-                result = 'F';
-              }
-
-              if (result !== '-') {
-                classData.totalRuns++;
-              }
-
-              targetRound.results.set(cwagsNumber, result);
-            }
-          });
+        // Get score for this entry selection
+        const score = scoresMap.get(selection.id);
+        let result = '-';
+        
+        if (score) {
+          if (score.pass_fail === 'Pass') {
+            // Check for Games subclass
+            const classInfo = selection.trial_rounds?.trial_classes;
+            const isGamesClass = classInfo?.class_type === 'games';
+            const gamesSubclass = classInfo?.games_subclass;
+            result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'P';
+            targetClassData.totalPasses++;
+          } else if (score.pass_fail === 'Fail') {
+            result = 'F';
+          } else if (score.entry_status === 'scratched') {
+            result = 'X';
+          }
+          
+          if (result !== '-') {
+            targetClassData.totalRuns++;
+          }
         }
+
+        targetRound.results.set(cwagsNumber, result);
+        console.log(`Set result for ${cwagsNumber} in ${targetClassData.className} Round ${targetRound.roundNumber}: ${result}`);
       });
     });
 
@@ -333,7 +371,7 @@ const generateExcelReport = async () => {
       sheetData[2] = ['', '', '', '', '', classData.className];
       
       // Row 4: Class (Round #) headers starting from column D
-      const row4Headers = ['', '', '']; // A, B, C, D columns
+      const row4Headers = ['', '', '']; // A, B, C columns
       classData.allRounds.forEach(round => {
         row4Headers.push(`Round ${round.roundNumber}`);
       });
@@ -376,6 +414,7 @@ const generateExcelReport = async () => {
         });
         
         sheetData.push(row);
+        console.log(`Added participant row: ${participant.handlerName} - ${participant.dogName}`);
       });
 
       // Create worksheet
@@ -388,6 +427,7 @@ const generateExcelReport = async () => {
       }
       
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      console.log(`Created sheet: ${sheetName} with ${participantEntries.length} participants and ${classData.allRounds.length} rounds`);
     });
 
     // Step 9: Download the file

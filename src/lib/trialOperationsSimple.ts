@@ -1775,7 +1775,7 @@ async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
     if (!classesResult.success) {
       return classesResult;
     }
-
+console.log('Raw classes with round data:', classesResult.data);
     // Get all entries with selections and scores
     const entriesResult = await this.getTrialEntriesWithSelections(trialId);
     if (!entriesResult.success) {
@@ -1796,31 +1796,45 @@ async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
 const classEntries: any[] = [];
 (entriesResult.data || []).forEach((entry: any) => {
   const selections = entry.entry_selections || [];
-  selections.forEach((selection: any) => {
-    if (selection.trial_rounds?.trial_class_id === cls.id) {
-      // EXCLUDE BOTH FEO ENTRIES AND WITHDRAWN ENTRIES FROM SUMMARY STATISTICS
+  
+  // Get all selections for this specific class
+  const classSelections = selections.filter((selection: any) => 
+    selection.trial_rounds?.trial_class_id === cls.id
+  );
+  
+  // Check if this entry has any valid (non-FEO, non-withdrawn) selections for this class
+  const hasValidSelections = classSelections.some((selection: any) => {
+    const isFeo = selection.entry_type?.toLowerCase() === 'feo';
+    const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
+    return !isFeo && !isWithdrawn;
+  });
+  
+  // Only include entries that have at least one valid selection
+  if (hasValidSelections) {
+    classSelections.forEach((selection: any) => {
       const isFeo = selection.entry_type?.toLowerCase() === 'feo';
       const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
       
+      // Only add non-FEO, non-withdrawn selections
       if (!isFeo && !isWithdrawn) {
         classEntries.push({
           id: selection.id,
           entry_id: entry.id,
           running_position: selection.running_position || 1,
           entry_type: selection.entry_type || 'regular',
-          entry_status: selection.entry_status || 'entered',
+          entry_status: selection.entry_status, // Use actual status, no default
           entries: {
             handler_name: entry.handler_name,
             dog_call_name: entry.dog_call_name,
             cwags_number: entry.cwags_number
           },
-          scores: [] // Will be populated with actual scores
+          scores: []
         });
-      } else {
-        console.log(`Excluding ${isFeo ? 'FEO' : 'withdrawn'} entry from summary:`, entry.handler_name, entry.dog_call_name);
       }
-    }
-  });
+    });
+  } else {
+    console.log(`Excluding entry (all selections FEO/withdrawn): ${entry.handler_name} - ${entry.dog_call_name}`);
+  }
 });
 
           // Get actual scores for class entries (non-FEO only)
@@ -1978,86 +1992,93 @@ const classEntries: any[] = [];
 },
 
   // Generate Excel workbook with proper formatting for Games subclass
-  async generateClassSummaryExcel(trialId: string): Promise<OperationResult> {
+ async generateClassSummaryExcel(trialId: string): Promise<OperationResult> {
   try {
     console.log('Generating class summary Excel for trial (excluding FEO):', trialId);
 
+    // Use the existing function that already loads scores
     const summaryResult = await this.getTrialSummaryWithScores(trialId);
     if (!summaryResult.success) {
       return summaryResult;
     }
 
-    const { trial, classes, statistics } = summaryResult.data;
+    const { trial, classes } = summaryResult.data;
+    console.log('Classes with scores loaded:', classes);
 
-    // Class ordering based on your requirements
-    const CLASS_ORDER = [
-      'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4', 'Private Inv',
-      'Det Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-      'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-      'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-      'Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-      'Games 1', 'Games 2', 'Games 3', 'Games 4'
-    ];
+    // Create Excel workbook
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.utils.book_new();
 
-    // Sort classes according to the specified order
-    const sortedClasses = [...classes].sort((a, b) => {
-      const aIndex = CLASS_ORDER.findIndex(order => a.class_name.includes(order));
-      const bIndex = CLASS_ORDER.findIndex(order => b.class_name.includes(order));
-      const aPos = aIndex >= 0 ? aIndex : 999;
-      const bPos = bIndex >= 0 ? bIndex : 999;
-      if (aPos !== bPos) return aPos - bPos;
-      return a.trial_date.localeCompare(b.trial_date);
+    // Process each class to create individual sheets
+    classes.forEach((cls: any) => {
+      const sheetData = [];
+      
+      // Row 1: Trial name
+      sheetData[0] = [trial.trial_name];
+      
+      // Row 3: Class name  
+      sheetData[2] = ['', '', '', '', '', cls.class_name];
+      
+      // Row 4: Headers
+      sheetData[3] = ['', '', '', 'C-WAGS Number', 'Dog Name', 'Handler Name', 'Result'];
+      
+      // Row 5: Judge name
+      sheetData[4] = ['', '', '', '', '', '', cls.judge_name];
+      
+      // Row 6: Date
+      const date = new Date(cls.trial_date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric'
+      });
+      sheetData[5] = ['', '', '', '', '', '', date];
+
+      // Add participant data with scores
+      cls.entries.forEach((entry: any) => {
+        const score = entry.scores?.[0]; // Get first score
+        let result = '-';
+        
+        if (score) {
+          if (score.pass_fail === 'Pass') {
+            result = cls.class_type === 'games' && cls.games_subclass ? cls.games_subclass : 'P';
+          } else if (score.pass_fail === 'Fail') {
+            result = 'F';
+          }
+        }
+        
+        const row = [
+          '', '', '', // Empty columns A, B, C
+          entry.entries.cwags_number,
+          entry.entries.dog_call_name,
+          entry.entries.handler_name,
+          result
+        ];
+        
+        sheetData.push(row);
+        console.log(`Adding entry: ${entry.entries.handler_name} - ${entry.entries.dog_call_name} - Result: ${result}`);
+      });
+
+      // Create worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      
+      // Create clean sheet name
+      let sheetName = cls.class_name.replace(/[:\\/?*[\]]/g, '');
+      if (sheetName.length > 31) {
+        sheetName = sheetName.substring(0, 31);
+      }
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
 
-    // Create workbook structure (FEO already excluded from classes data)
-    const workbookData = {
-      summary: {
-        trial_name: trial.trial_name,
-        club_name: trial.club_name,
-        location: trial.location,
-        start_date: trial.start_date,
-        end_date: trial.end_date,
-        classes: sortedClasses.map(cls => ({
-          class_name: cls.class_type === 'games' && cls.games_subclass 
-            ? `${cls.class_name} - ${cls.games_subclass}` 
-            : cls.class_name,
-          judge_name: cls.judge_name,
-          participant_count: cls.participant_count, // Already excludes FEO
-          pass_count: cls.pass_count, // Already excludes FEO
-          fail_count: cls.fail_count, // Already excludes FEO
-          pass_rate: cls.participant_count > 0 ? Math.round((cls.pass_count / cls.participant_count) * 100) : 0
-        })),
-        statistics, // Already excludes FEO
-        note: "FEO (For Exhibition Only) entries are excluded from all statistics and counts."
-      },
-      class_sheets: sortedClasses.map(cls => ({
-        class_id: cls.id,
-        class_name: cls.class_type === 'games' && cls.games_subclass 
-          ? `${cls.class_name} - ${cls.games_subclass}` 
-          : cls.class_name,
-        class_type: cls.class_type,
-        games_subclass: cls.games_subclass,
-        judge_name: cls.judge_name,
-        trial_date: cls.trial_date,
-        note: "FEO entries excluded from this summary",
-        entries: cls.entries.map((entry: any) => ({
-          cwags_number: entry.entries.cwags_number,
-          dog_call_name: entry.entries.dog_call_name,
-          handler_name: entry.entries.handler_name,
-          running_position: entry.running_position,
-          entry_type: entry.entry_type, // Will only be 'regular' since FEO is excluded
-          entry_status: entry.entry_status,
-          result: this.formatResultForExport(entry, cls),
-          scores: entry.scores || []
-        }))
-      }))
-    };
+    // Download the file
+    const fileName = `${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
+    XLSX.writeFile(workbook, fileName);
 
-    console.log('Excel data structure prepared successfully (FEO excluded)');
-    return { success: true, data: workbookData };
+    console.log('Excel report generated successfully with scores');
+    return { success: true, data: 'Excel export completed' };
 
   } catch (error) {
-    console.error('Error generating class summary Excel:', error);
+    console.error('Error generating Excel report:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 },
