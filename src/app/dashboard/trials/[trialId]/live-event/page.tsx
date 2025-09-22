@@ -147,6 +147,99 @@ const getClassOrder = (className: string): number => {
   return index === -1 ? 999 : index;
 };
 
+// New helper functions for rally/obedience scoring
+const getPassingScore = (className: string): number => {
+  if (className.toLowerCase().includes('obedience 5')) {
+    return 120;
+  }
+  return 70;
+};
+
+const isRallyOrObedienceClass = (classType: string, className: string): boolean => {
+  return classType === 'rally' || className.toLowerCase().includes('obedience');
+};
+
+// Updated display result function
+const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): string => {
+  const score = entry.scores?.[0];
+  
+  // Check if dog is marked as No Show or Absent - show "Abs"
+  if (entry.entry_status === 'no_show' || 
+      entry.entry_status === 'absent' || 
+      score?.entry_status === 'no_show' ||
+      score?.entry_status === 'absent' ||
+      score?.pass_fail === 'Abs') {
+    return 'Abs';
+  }
+  
+  // CHECK FOR FEO FIRST - regardless of class type or score
+  if (entry.entry_type === 'feo' || score?.pass_fail === 'FEO') {
+    return 'FEO';
+  }
+  
+  // Note: Withdrawn entries are filtered out entirely, so we don't handle them here
+  
+  // Handle Rally and Obedience scoring
+  if (selectedClass && isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name)) {
+    if (score?.numerical_score !== null && score?.numerical_score !== undefined) {
+      const passingScore = getPassingScore(selectedClass.class_name);
+      
+      // Regular entries that pass show the score
+      if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+        return score.numerical_score.toString();
+      }
+      // Regular entries that don't pass show "NQ"
+      else {
+        return 'NQ';
+      }
+    }
+    return '-'; // No score yet
+  }
+  
+  // Normal scoring logic for other class types (scent, games)
+  if (score?.pass_fail === 'Pass') {
+    // Handle Games subclass results
+    if (selectedClass?.class_type === 'games' && selectedClass?.games_subclass) {
+      return selectedClass.games_subclass; // GB, BJ, C, T, P
+    }
+    return 'Pass';
+  } else if (score?.pass_fail === 'Fail') {
+    return 'Fail';
+  }
+  
+  // No score yet
+  return '-';
+};
+
+const canScore = (entry: ClassEntry): boolean => {
+  const isNoShow = entry.entry_status === 'no_show' || 
+                   entry.entry_status === 'absent' ||
+                   entry.entry_status === 'withdrawn';
+  return !isNoShow;
+};
+
+const getResultBadgeClass = (result: string): string => {
+  switch (result) {
+    case 'Pass':
+      return 'bg-green-100 text-green-700 border-green-200';
+    case 'Fail':
+    case 'NQ':
+      return 'bg-red-100 text-red-700 border-red-200';
+    case 'Abs':
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+    case 'FEO':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    case 'GB': case 'BJ': case 'C': case 'T': case 'P':
+      return 'bg-purple-100 text-purple-700 border-purple-200';
+    default:
+      // Check if it's a numerical score (for rally/obedience)
+      if (!isNaN(Number(result)) && result !== '-') {
+        return 'bg-green-100 text-green-700 border-green-200';
+      }
+      return 'bg-gray-100 text-gray-600 border-gray-200';
+  }
+};
+
 // Place this function right after your interface definitions and before:
 // export default function LiveEventManagementPage() {
 export default function LiveEventManagementPage() {
@@ -642,17 +735,41 @@ const loadAvailableDays = async () => {
   }
 };
 
-   const updateScore = (entryId: string, scoreField: string, value: string | number | null) => {
+  // Updated updateScore function with rally/obedience logic
+  const updateScore = (entryId: string, scoreField: string, value: string | number | null) => {
     // Update local state immediately
     setClassEntries(prev =>
       prev.map(entry => {
         if (entry.id === entryId) {
           const updatedScores = entry.scores || [{}];
           if (updatedScores.length === 0) updatedScores.push({});
+          
+          // Update the specific field
           updatedScores[0] = {
             ...updatedScores[0],
             [scoreField]: value
           };
+
+          // Auto-calculate pass/fail for rally and obedience when numerical_score changes
+          if (scoreField === 'numerical_score' && value !== null && selectedClass) {
+            const isRallyObedience = isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name);
+            
+            if (isRallyObedience && typeof value === 'number') {
+              const passingScore = getPassingScore(selectedClass.class_name);
+              
+              // Check entry status and type to determine proper pass_fail value
+              if (entry.entry_status === 'no_show' || entry.entry_status === 'absent') {
+                updatedScores[0].pass_fail = 'Abs';
+              } else if (entry.entry_type === 'feo') {
+                // FEO entries: ALWAYS "FEO" regardless of score
+                updatedScores[0].pass_fail = 'FEO';
+              } else {
+                // Regular entries: "Pass" if passing score, "Fail" if not
+                updatedScores[0].pass_fail = value >= passingScore ? 'Pass' : 'Fail';
+              }
+            }
+          }
+          
           return { ...entry, scores: updatedScores };
         }
         return entry;
@@ -729,13 +846,8 @@ const loadAvailableDays = async () => {
       const csvRows = classEntries.map(entry => {
         const score = entry.scores?.[0];
         
-        // Handle Games subclass results
-        let result = '';
-        if (selectedClass.class_type === 'games' && score?.pass_fail === 'Pass' && selectedClass.games_subclass) {
-          result = selectedClass.games_subclass;
-        } else {
-          result = score?.pass_fail || '';
-        }
+        // Use the new display result function
+        const result = getDisplayResult(entry, selectedClass);
 
         return [
           entry.entry_status === 'withdrawn' ? 'X' : entry.running_position,
@@ -1045,7 +1157,20 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       return a.roundNumber - b.roundNumber;
     });
 
-   // Populate entries for each column
+    // Get all scores at once
+    const { data: allScores } = await supabase
+      .from('scores')
+      .select('*');
+    
+    const scoresMap = new Map();
+    if (allScores) {
+      allScores.forEach(score => {
+        scoresMap.set(score.entry_selection_id, score);
+      });
+    }
+    console.log('Loaded scores for lookup:', allScores?.length || 0);
+
+   // Populate entries for each column with updated result logic
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
     if (entriesResult.success) {
       classRounds.forEach(col => {
@@ -1057,18 +1182,67 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
               const entryStatus = selection.entry_status?.toLowerCase() || 'entered';
               if (entryStatus !== 'withdrawn') {
                 const isFeo = selection.entry_type === 'feo';
-                const handlerName = entry.handler_name; // Always use clean handler name
+                const handlerName = entry.handler_name;
                 
                 // Add "feo" suffix to dog name if it's an FEO entry
                 const dogName = isFeo 
                   ? `${entry.dog_call_name} FEO`
                   : entry.dog_call_name;
                 
+                // UPDATED: Get the score data and determine proper result display
+                let resultDisplay = '';
+                
+                // Get score for this entry selection
+                const score = scoresMap?.get(selection.id);
+                console.log('Excel Debug:', {
+  handlerName: entry.handler_name,
+  className: col.className,
+  score: score,
+  entryType: selection.entry_type,
+  entryStatus: entryStatus
+});
+                if (entryStatus === 'no_show' || entryStatus === 'absent') {
+                  resultDisplay = 'Abs';
+                } else if (isFeo) {
+                  resultDisplay = 'FEO';
+                } else if (score) {
+                  // Check if this is a rally or obedience class
+                  const className = col.className || '';
+                 const isRallyOrObedience = className.toLowerCase().includes('starter') || 
+                          className.toLowerCase().includes('advanced') || 
+                          className.toLowerCase().includes('pro') ||
+                          className.toLowerCase().includes('obedience') ||
+                          className.toLowerCase().includes('zoom') ||
+                          className.toLowerCase().includes('rally');
+                  
+                  if (isRallyOrObedience && score.numerical_score !== null && score.numerical_score !== undefined) {
+                    // Rally/Obedience: show score or NQ
+                    const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
+                    if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+                      resultDisplay = score.numerical_score.toString(); // Show actual score
+                    } else {
+                      resultDisplay = 'NQ'; // Not Qualified
+                    }
+                  } else {
+                    // Other class types (scent, games)
+                    if (score.pass_fail === 'Pass') {
+                      resultDisplay = 'P';
+                    } else if (score.pass_fail === 'Fail') {
+                      resultDisplay = 'F';
+                    } else if (score.pass_fail === 'FEO') {
+                      resultDisplay = 'FEO';
+                    }
+                  }
+                } else {
+                  resultDisplay = '-'; // No score
+                }
+                
                 entries.push({
                   position: selection.running_position,
                   handlerName: handlerName, 
-                  dogName: dogName, // Now includes "feo" suffix when applicable
-                  status: selection.entry_status
+                  dogName: dogName,
+                  status: selection.entry_status,
+                  result: resultDisplay  // Add result to entry data
                 });
               } else {
                 console.log('Excluding withdrawn entry from Excel:', entry.handler_name, entry.dog_call_name);
@@ -1169,12 +1343,14 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
         
         if (entry) {
           const firstName = entry.handlerName.split(' ')[0];
-          cellValue = `${firstName} - ${entry.dogName}`; // Now dogName includes "feo" suffix if applicable
+          const resultPart = entry.result && entry.result !== '-' ? ` (${entry.result})` : '';
+          cellValue = `${firstName} - ${entry.dogName}${resultPart}`;
           
           console.log('Excel Cell Creation:', {
             originalHandlerName: entry.handlerName,
             firstName: firstName,
             dogName: entry.dogName,
+            result: entry.result,
             finalCellValue: cellValue
           });
         }
@@ -1530,25 +1706,9 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                         
                         <div className="space-y-2">
                           {roundEntries.map((entry) => {
-                            const score = entry.scores?.[0];
-                            let resultDisplay = '';
-                            let resultClass = 'bg-gray-100 text-gray-600 border-gray-200';
-                            
-                            if (score?.pass_fail) {
-                              if (selectedClass.class_type === 'games' && score.pass_fail === 'Pass' && selectedClass.games_subclass) {
-                                resultDisplay = selectedClass.games_subclass;
-                                resultClass = 'bg-purple-100 text-purple-700 border-purple-200';
-                              } else if (score.pass_fail === 'Pass') {
-                                resultDisplay = 'Pass';
-                                resultClass = 'bg-green-100 text-green-700 border-green-200';
-                              } else if (score.pass_fail === 'Fail') {
-                                resultDisplay = 'Fail';
-                                resultClass = 'bg-red-100 text-red-700 border-red-200';
-                              } else {
-                                resultDisplay = score.pass_fail;
-                                resultClass = 'bg-blue-100 text-blue-700 border-blue-200';
-                              }
-                            }
+                            // FIXED: Use the new display result function
+                            const resultDisplay = getDisplayResult(entry, selectedClass);
+                            const resultClass = getResultBadgeClass(resultDisplay);
 
                             return (
                             <div
@@ -1618,7 +1778,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                     <Badge variant="outline">
                                       {entry.entry_status}
                                     </Badge>
-                                    {resultDisplay && (
+                                    {resultDisplay && resultDisplay !== '-' && (
                                       <Badge className={`border ${resultClass}`}>
                                         {resultDisplay}
                                       </Badge>
@@ -1639,11 +1799,11 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'confirmed')}>
     Mark Confirmed
   </DropdownMenuItem>
+  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'no_show')}>
+    Mark No Show (Absent)
+  </DropdownMenuItem>
   <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
     Withdraw Entry (Remove from running order)
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'no_show')}>
-    Mark No Show
   </DropdownMenuItem>
 </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1785,6 +1945,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       <Select
         value={score.scent1 || ''}
         onValueChange={(value) => updateScore(entry.id, 'scent1', value)}
+        disabled={!canScore(entry)}
       >
         <SelectTrigger className="h-8">
           <SelectValue placeholder="-" />
@@ -1800,6 +1961,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       <Select
         value={score.scent2 || ''}
         onValueChange={(value) => updateScore(entry.id, 'scent2', value)}
+        disabled={!canScore(entry)}
       >
         <SelectTrigger className="h-8">
           <SelectValue placeholder="-" />
@@ -1815,6 +1977,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       <Select
         value={score.scent3 || ''}
         onValueChange={(value) => updateScore(entry.id, 'scent3', value)}
+        disabled={!canScore(entry)}
       >
         <SelectTrigger className="h-8">
           <SelectValue placeholder="-" />
@@ -1830,6 +1993,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       <Select
         value={score.scent4 || ''}
         onValueChange={(value) => updateScore(entry.id, 'scent4', value)}
+        disabled={!canScore(entry)}
       >
         <SelectTrigger className="h-8">
           <SelectValue placeholder="-" />
@@ -1843,7 +2007,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   </div>
 )}
 
-                                {selectedClass.class_type === 'rally' && (
+                                {(selectedClass.class_type === 'rally' || isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name)) && (
                                   <div className="grid grid-cols-2 gap-4 mb-4">
                                     <div className="space-y-1">
                                       <Label className="text-xs">Time (seconds)</Label>
@@ -1853,6 +2017,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                         value={score.time_seconds || ''}
                                         onChange={(e) => updateScore(entry.id, 'time_seconds', parseFloat(e.target.value) || null)}
                                         placeholder="0"
+                                        disabled={!canScore(entry)}
                                       />
                                     </div>
                                     <div className="space-y-1">
@@ -1863,6 +2028,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                         value={score.numerical_score || ''}
                                         onChange={(e) => updateScore(entry.id, 'numerical_score', parseFloat(e.target.value) || null)}
                                         placeholder="0"
+                                        disabled={!canScore(entry)}
                                       />
                                     </div>
                                   </div>
@@ -1880,6 +2046,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                           value={score.time_seconds || ''}
                                           onChange={(e) => updateScore(entry.id, 'time_seconds', parseFloat(e.target.value) || null)}
                                           placeholder="0.00"
+                                          disabled={!canScore(entry)}
                                         />
                                       </div>
                                       <div className="space-y-1">
@@ -1890,6 +2057,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                           value={score.fault1 || ''}
                                           onChange={(e) => updateScore(entry.id, 'fault1', e.target.value)}
                                           placeholder="0"
+                                          disabled={!canScore(entry)}
                                         />
                                       </div>
                                     </div>
@@ -1914,23 +2082,60 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   </div>
                                   <div className="space-y-1">
                                     <Label className="text-xs">Result</Label>
-                                    <Select
-  value={score.pass_fail || ''}
-  onValueChange={(value) => updateScore(entry.id, 'pass_fail', value)}
->
-  <SelectTrigger className="h-8">
-    <SelectValue placeholder="Select result..." />
-  </SelectTrigger>
-  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-    <SelectItem value="Pass">Pass</SelectItem>
-    <SelectItem value="Fail">Fail</SelectItem>
-    {selectedClass.class_type === 'games' && selectedClass.games_subclass && (
-      <SelectItem value={selectedClass.games_subclass.toLowerCase()}>
-        {selectedClass.games_subclass}
-      </SelectItem>
-    )}
-  </SelectContent>
-</Select>
+                                    {canScore(entry) ? (
+                                      (() => {
+                                        const isRallyObedience = selectedClass && isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name);
+                                        
+                                        if (isRallyObedience) {
+                                          // For rally/obedience, show calculated result based on score
+                                          const score = entry.scores?.[0];
+                                          let displayResult = '-';
+                                          
+                                          if (score?.numerical_score !== null && score?.numerical_score !== undefined) {
+                                            const passingScore = getPassingScore(selectedClass.class_name);
+                                            displayResult = score.numerical_score >= passingScore 
+                                              ? score.numerical_score.toString() 
+                                              : 'NQ';
+                                          }
+                                          
+                                          return (
+                                            <div className="h-8 px-3 py-2 bg-gray-100 border rounded text-sm text-gray-700 flex items-center">
+                                              {displayResult} 
+                                              {score?.numerical_score !== null && score?.numerical_score !== undefined && (
+                                                <span className="ml-2 text-xs text-gray-500">
+                                                  (Passing: {getPassingScore(selectedClass.class_name)}+)
+                                                </span>
+                                              )}
+                                            </div>
+                                          );
+                                        } else {
+                                          // For other class types, show dropdown
+                                          return (
+                                            <Select
+                                              value={score.pass_fail || ''}
+                                              onValueChange={(value) => updateScore(entry.id, 'pass_fail', value)}
+                                            >
+                                              <SelectTrigger className="h-8">
+                                                <SelectValue placeholder="Select result..." />
+                                              </SelectTrigger>
+                                              <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+                                                <SelectItem value="Pass">Pass</SelectItem>
+                                                <SelectItem value="Fail">Fail</SelectItem>
+                                                {selectedClass.class_type === 'games' && selectedClass.games_subclass && (
+                                                  <SelectItem value={selectedClass.games_subclass.toLowerCase()}>
+                                                    {selectedClass.games_subclass}
+                                                  </SelectItem>
+                                                )}
+                                              </SelectContent>
+                                            </Select>
+                                          );
+                                        }
+                                      })()
+                                    ) : (
+                                      <div className="h-8 px-3 py-2 bg-gray-100 border rounded text-sm text-gray-500 flex items-center">
+                                        Abs (No Show)
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="space-y-1">
                                     <Label className="text-xs">Status</Label>
@@ -1944,8 +2149,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                      <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
                                         <SelectItem value="entered">Present</SelectItem>
                                         <SelectItem value="confirmed">Confirmed</SelectItem>
+                                        <SelectItem value="no_show">No Show (Absent)</SelectItem>
                                         <SelectItem value="withdrawn">Withdrawn</SelectItem>
-                                        <SelectItem value="no_show">No Show</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
@@ -1958,6 +2163,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                     value={score.judge_notes || ''}
                                     onChange={(e) => updateScore(entry.id, 'judge_notes', e.target.value)}
                                     placeholder="Optional notes..."
+                                    disabled={!canScore(entry)}
                                   />
                                 </div>
                               </div>

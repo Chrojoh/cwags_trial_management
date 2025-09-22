@@ -131,6 +131,7 @@ interface OperationResult<T = any> {
   success: boolean;
   data?: T;
   error?: DatabaseError | string;
+  warning?: string | null;
 }
 
 export const simpleTrialOperations = {
@@ -914,54 +915,163 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
     }
   },
 
-  // ENTRY SELECTIONS OPERATIONS
-
-  // Create entry selections (class/round registrations)
-  async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'id' | 'entry_id'>[]): Promise<OperationResult> {
+// FIXED: Score-aware createEntrySelections function
+async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'id' | 'entry_id'>[]): Promise<OperationResult> {
   try {
-    console.log('=== CREATEENTRYSELECTIONS FUNCTION CALLED ===');
-    console.log('Creating entry selections for entry:', entryId);
+    console.log('=== SCORE-AWARE CREATEENTRYSELECTIONS FUNCTION CALLED ===');
+    console.log('Managing entry selections for entry:', entryId);
     console.log('Raw selections received:', selections);
-    if (selections[0]) {
-      console.log('First selection structure:', JSON.stringify(selections[0], null, 2));
+    
+    // STEP 1: Get the C-WAGS number and trial for this entry
+    const { data: entryInfo, error: entryError } = await supabase
+      .from('entries')
+      .select('cwags_number, trial_id')
+      .eq('id', entryId)
+      .single();
+
+    if (entryError) {
+      console.error('❌ Failed to get entry info:', entryError);
+      return { success: false, error: `Failed to get entry info: ${entryError.message}` };
     }
 
-    // First delete existing selections for this entry
-    await supabase
-      .from('entry_selections')
-      .delete()
-      .eq('entry_id', entryId);
+    console.log('Entry info:', entryInfo);
 
-    const selectionsToInsert = selections.map((selection, index) => ({
+    // STEP 2: Get all entries for this C-WAGS number in this trial
+    const { data: allEntries, error: entriesError } = await supabase
+      .from('entries')
+      .select('id')
+      .eq('trial_id', entryInfo.trial_id)
+      .eq('cwags_number', entryInfo.cwags_number);
+
+    if (entriesError) {
+      console.error('❌ Failed to get related entries:', entriesError);
+      return { success: false, error: `Failed to get related entries: ${entriesError.message}` };
+    }
+
+    const allEntryIds = allEntries?.map(e => e.id) || [entryId];
+    console.log('All entry IDs for this C-WAGS number:', allEntryIds);
+
+    // STEP 3: Check which entry selections have scores (DON'T DELETE THESE!)
+    const { data: selectionsWithScores, error: scoresError } = await supabase
+      .from('entry_selections')
+      .select(`
+        id,
+        trial_round_id,
+        entry_type,
+        scores(id)
+      `)
+      .in('entry_id', allEntryIds);
+
+    if (scoresError) {
+      console.error('❌ Failed to check for scores:', scoresError);
+      return { success: false, error: `Failed to check for scores: ${scoresError.message}` };
+    }
+
+    // Identify which selections have scores and should be preserved
+    const selectionsWithScoreIds = selectionsWithScores
+      ?.filter(sel => sel.scores && sel.scores.length > 0)
+      ?.map(sel => sel.id) || [];
+
+    console.log(`Found ${selectionsWithScoreIds.length} entry selections with scores that will be preserved`);
+
+    if (selectionsWithScoreIds.length > 0) {
+      console.log(`⚠️ Found ${selectionsWithScoreIds.length} entry selections with scores - these will be preserved`);
+      
+      // Log which specific selections have scores
+      const scoredSelections = selectionsWithScores?.filter(sel => sel.scores && sel.scores.length > 0);
+      scoredSelections?.forEach(sel => {
+        console.log(`   - Selection ID ${sel.id} (Round: ${sel.trial_round_id}, Type: ${sel.entry_type}) has scores`);
+      });
+    }
+
+    // STEP 4: Delete only entry selections WITHOUT scores
+    const { data: allSelections, error: allSelectionsError } = await supabase
+      .from('entry_selections')
+      .select('id')
+      .in('entry_id', allEntryIds);
+
+    if (!allSelectionsError && allSelections) {
+      const selectionsToDelete = allSelections
+        .filter(sel => !selectionsWithScoreIds.includes(sel.id))
+        .map(sel => sel.id);
+
+      if (selectionsToDelete.length > 0) {
+        console.log(`🗑️ Deleting ${selectionsToDelete.length} entry selections without scores`);
+        console.log('Selection IDs to delete:', selectionsToDelete);
+        
+        const { error: deleteError } = await supabase
+          .from('entry_selections')
+          .delete()
+          .in('id', selectionsToDelete);
+
+        if (deleteError) {
+          console.error('❌ Failed to delete selections without scores:', deleteError);
+          return { success: false, error: `Failed to delete existing selections: ${deleteError.message}` };
+        }
+
+        console.log(`✅ Deleted ${selectionsToDelete.length} entry selections (preserved ${selectionsWithScoreIds.length} with scores)`);
+      } else {
+        console.log('ℹ️ No entry selections to delete (all have scores or none exist)');
+      }
+    }
+
+    // STEP 5: If no new selections, we're done
+    if (!selections || selections.length === 0) {
+      console.log('ℹ️ No new selections to add');
+      
+      // Return info about preserved selections
+      return { 
+        success: true, 
+        data: [], 
+        warning: selectionsWithScoreIds.length > 0 ? 
+          `${selectionsWithScoreIds.length} existing entries with scores were preserved and cannot be modified` : null
+      };
+    }
+
+    // STEP 6: Add new selections
+    const selectionsWithEntryId = selections.map((selection, index) => ({
       entry_id: entryId,
       trial_round_id: selection.trial_round_id,
-      entry_type: selection.entry_type,
-      fee: selection.fee,
+      entry_type: selection.entry_type || 'regular',
+      fee: selection.fee || 0,
       running_position: selection.running_position || index + 1,
       entry_status: selection.entry_status || 'entered',
       created_at: new Date().toISOString()
     }));
 
-    console.log('Data being inserted to entry_selections:', selectionsToInsert);
+    console.log(`➕ Adding ${selectionsWithEntryId.length} new selections`);
+    console.log('New selections data:', selectionsWithEntryId);
 
-    const { data, error } = await supabase
+    const { data: insertedSelections, error: insertError } = await supabase
       .from('entry_selections')
-      .insert(selectionsToInsert)
+      .insert(selectionsWithEntryId)
       .select();
 
-    console.log('Supabase response - data:', data);
-    console.log('Supabase response - error:', error);
-
-    if (error) {
-      console.error('Database error creating entry selections:', error);
-      return { success: false, error: error.message || error };
+    if (insertError) {
+      console.error('❌ Failed to insert new selections:', insertError);
+      return { success: false, error: `Failed to insert new selections: ${insertError.message}` };
     }
 
-    console.log('Entry selections created successfully:', data);
-    return { success: true, data };
+    console.log(`✅ Successfully created ${insertedSelections?.length || 0} new entry selections`);
+    
+    // Prepare warning message if scores were preserved
+    let warningMessage = null;
+    if (selectionsWithScoreIds.length > 0) {
+      warningMessage = `${selectionsWithScoreIds.length} existing entries with scores were preserved and cannot be modified. Only entries without scores were updated.`;
+    }
+    
+    return { 
+      success: true, 
+      data: insertedSelections,
+      warning: warningMessage
+    };
+
   } catch (error) {
-    console.error('Error creating entry selections:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    console.error('❌ Unexpected error in score-aware createEntrySelections:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unexpected error occurred'
+    };
   }
 },
 
@@ -1756,7 +1866,7 @@ async getTrialEntryStats(trialId: string): Promise<OperationResult> {
       console.error('Error publishing trial:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-  }, // <-- ADD THIS COMMA
+  },
 
   // Enhanced function to get trial summary with Games subclass support
   // 1. Update getTrialSummaryWithScores in simpleTrialOperations.ts
@@ -2192,4 +2302,4 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     return '-';
   }
 
-}; // <-- This is your existing closing brace at line 1717
+};

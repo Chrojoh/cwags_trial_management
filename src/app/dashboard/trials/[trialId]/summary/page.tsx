@@ -289,28 +289,96 @@ const generateExcelReport = async () => {
           });
         }
 
-        // Get score for this entry selection
-        const score = scoresMap.get(selection.id);
-        let result = '-';
-        
-        if (score) {
-          if (score.pass_fail === 'Pass') {
-            // Check for Games subclass
-            const classInfo = selection.trial_rounds?.trial_classes;
-            const isGamesClass = classInfo?.class_type === 'games';
-            const gamesSubclass = classInfo?.games_subclass;
-            result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'P';
-            targetClassData.totalPasses++;
-          } else if (score.pass_fail === 'Fail') {
-            result = 'F';
-          } else if (score.entry_status === 'scratched') {
-            result = 'X';
-          }
-          
-          if (result !== '-') {
-            targetClassData.totalRuns++;
-          }
-        }
+// Get score for this entry selection
+const score = scoresMap.get(selection.id);
+let result = '-';
+
+console.log('Excel Debug:', {
+  className: targetClassData.className,
+  entryType: selection.entry_type,
+  score: score,
+  hasNumericalScore: score?.numerical_score !== null && score?.numerical_score !== undefined,
+  numericalScore: score?.numerical_score,
+  passFail: score?.pass_fail
+});
+
+// Check if entry is marked as No Show or Absent - show "Abs"
+if (selection.entry_status === 'no_show' || 
+    selection.entry_status === 'absent' || 
+    score?.entry_status === 'no_show' ||
+    score?.entry_status === 'absent') {
+  result = 'Abs';
+  targetClassData.totalRuns++;
+} 
+// Check if entry was withdrawn - show "Wth" 
+else if (selection.entry_status === 'withdrawn' || score?.entry_status === 'withdrawn') {
+  result = 'Wth';
+} 
+// Check if entry was scratched - show "X"
+else if (score?.entry_status === 'scratched') {
+  result = 'X';
+  targetClassData.totalRuns++;
+}
+// Normal scoring logic
+else if (score) {
+  // Check if this is a rally or obedience class
+  const className = targetClassData.className || '';
+  const isRallyOrObedience = className.toLowerCase().includes('starter') || 
+                         className.toLowerCase().includes('advanced') || 
+                         className.toLowerCase().includes('pro') ||
+                         className.toLowerCase().includes('obedience') ||
+                         className.toLowerCase().includes('zoom') ||
+                         className.toLowerCase().includes('rally');
+  
+  console.log('Class check:', {
+    className: className,
+    isRallyOrObedience: isRallyOrObedience,
+    entryType: selection.entry_type,
+    passFail: score.pass_fail
+  });
+  
+  // Handle FEO entries first (always show "FEO")
+  if (selection.entry_type === 'feo' || score.pass_fail === 'FEO') {
+    result = 'FEO';
+    console.log('Setting FEO result');
+    targetClassData.totalRuns++;
+  }
+  // Handle rally/obedience scoring
+  else if (isRallyOrObedience && score.numerical_score !== null && score.numerical_score !== undefined) {
+    const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
+    console.log('Rally/Obedience logic:', {
+      numericalScore: score.numerical_score,
+      passingScore: passingScore,
+      passFail: score.pass_fail
+    });
+    
+    if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+      result = score.numerical_score.toString();
+      console.log('Setting score result:', result);
+      targetClassData.totalPasses++;
+    } else {
+      result = 'NQ';
+      console.log('Setting NQ result');
+    }
+    targetClassData.totalRuns++;
+  }
+  // Handle other class types (scent, games)
+  else if (score.pass_fail === 'Pass') {
+    console.log('Using fallback Pass logic');
+    const classInfo = selection.trial_rounds?.trial_classes;
+    const isGamesClass = classInfo?.class_type === 'games';
+    const gamesSubclass = classInfo?.games_subclass;
+    result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'P';
+    targetClassData.totalPasses++;
+    targetClassData.totalRuns++;
+  } else if (score.pass_fail === 'Fail') {
+    console.log('Using fallback Fail logic');
+    result = 'F';
+    targetClassData.totalRuns++;
+  }
+  
+  console.log('Final result:', result);
+}
 
         targetRound.results.set(cwagsNumber, result);
         console.log(`Set result for ${cwagsNumber} in ${targetClassData.className} Round ${targetRound.roundNumber}: ${result}`);
@@ -451,25 +519,47 @@ const generateExcelReport = async () => {
   };
 
   const getResultDisplay = (entry: ClassEntry, classInfo: TrialClass): { result: string; color: string } => {
-    const score = entry.scores?.[0];
-    if (!score || !score.pass_fail) {
-      return { result: '-', color: 'text-gray-500' };
-    }
-
-    // Handle Games subclass results
-    if (classInfo.class_type === 'games' && score.pass_fail === 'Pass' && classInfo.games_subclass) {
-      return { result: classInfo.games_subclass, color: 'text-purple-600 font-semibold' };
-    }
-
-    // Handle other class types
-    if (score.pass_fail === 'Pass') {
-      return { result: 'P', color: 'text-green-600 font-semibold' };
-    } else if (score.pass_fail === 'Fail') {
-      return { result: 'F', color: 'text-red-600 font-semibold' };
-    }
-
+  const score = entry.scores?.[0];
+  if (!score || !score.pass_fail) {
     return { result: '-', color: 'text-gray-500' };
-  };
+  }
+
+  // Handle Games subclass results
+  if (classInfo.class_type === 'games' && score.pass_fail === 'Pass' && classInfo.games_subclass) {
+    return { result: classInfo.games_subclass, color: 'text-purple-600 font-semibold' };
+  }
+
+  // Handle rally/obedience classes - show score or NQ
+  const isRallyOrObedience = classInfo.class_name.toLowerCase().includes('starter') || 
+                         classInfo.class_name.toLowerCase().includes('advanced') || 
+                         classInfo.class_name.toLowerCase().includes('pro') ||
+                         classInfo.class_name.toLowerCase().includes('obedience') ||
+                         classInfo.class_name.toLowerCase().includes('zoom') ||
+                         classInfo.class_type === 'rally';
+
+  if (isRallyOrObedience && score.numerical_score !== null && score.numerical_score !== undefined) {
+    const passingScore = classInfo.class_name.toLowerCase().includes('obedience 5') ? 120 : 70;
+    if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+      return { result: score.numerical_score.toString(), color: 'text-green-600 font-semibold' };
+    } else {
+      return { result: 'NQ', color: 'text-red-600 font-semibold' };
+    }
+  }
+
+  // FEO entries
+  if (score.pass_fail === 'FEO') {
+    return { result: 'FEO', color: 'text-yellow-600 font-semibold' };
+  }
+
+  // Handle other class types
+  if (score.pass_fail === 'Pass') {
+    return { result: 'P', color: 'text-green-600 font-semibold' };
+  } else if (score.pass_fail === 'Fail') {
+    return { result: 'F', color: 'text-red-600 font-semibold' };
+  }
+
+  return { result: '-', color: 'text-gray-500' };
+};
 
   const selectedClassData = selectedClassId === 'all' 
     ? null 
