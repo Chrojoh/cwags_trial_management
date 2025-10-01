@@ -402,78 +402,189 @@ export default function PublicEntryForm() {
     await handleConfirmedSubmit();
   };
 
-  // Handle the actual submission after confirmation
-  const handleConfirmedSubmit = async () => {
-    setShowConfirmDialog(false);
-    setSubmitting(true);
-    setError(null);
+// CORRECT FIX for /entries/[trialId]/page.tsx
+// This properly handles multiple rounds without creating duplicate entry records
 
-    try {
-      await saveToRegistry();
+const handleConfirmedSubmit = async () => {
+  setShowConfirmDialog(false);
+  setSubmitting(true);
+  setError(null);
 
-      const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
-        const round = trialRounds.find(r => r.id === roundId);
-        const isFeo = formData.feo_selections.includes(roundId);
-        
-        if (isFeo && round?.trial_classes?.feo_price) {
-          return sum + round.trial_classes.feo_price;
-        } else {
-          return sum + (round?.trial_classes?.entry_fee || 0);
-        }
-      }, 0);
+  try {
+    await saveToRegistry();
 
-      let entryResult;
+    const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
+      const round = trialRounds.find(r => r.id === roundId);
+      const isFeo = formData.feo_selections.includes(roundId);
       
-      if (existingEntry) {
-        // Update existing entry
-        const updateData = {
-          handler_name: formData.handler_name,
-          dog_call_name: formData.dog_call_name,
-          dog_breed: formData.dog_breed,
-          dog_sex: formData.dog_sex,
-          handler_email: formData.handler_email,
-          handler_phone: formData.handler_phone,
-          is_junior_handler: formData.is_junior_handler,
-          waiver_accepted: formData.waiver_accepted,
-          total_fee: totalFee,
-          entry_status: 'submitted'
-        };
-
-        entryResult = await simpleTrialOperations.updateEntry(existingEntry.id, updateData);
-        if (!entryResult.success) {
-          throw new Error(entryResult.error as string);
-        }
-        entryResult.data = { ...existingEntry, ...updateData };
-        
-        console.log('✅ Updated existing entry:', entryResult.data.id);
+      if (isFeo && round?.trial_classes?.feo_price) {
+        return sum + round.trial_classes.feo_price;
       } else {
-        // Create new entry
-        const entryData = {
-          trial_id: trialId,
-          handler_name: formData.handler_name,
-          dog_call_name: formData.dog_call_name,
-          cwags_number: formData.cwags_number,
-          dog_breed: formData.dog_breed,
-          dog_sex: formData.dog_sex,
-          handler_email: formData.handler_email,
-          handler_phone: formData.handler_phone,
-          is_junior_handler: formData.is_junior_handler,
-          waiver_accepted: formData.waiver_accepted,
-          total_fee: totalFee,
-          payment_status: 'pending',
-          entry_status: 'submitted'
-        };
+        return sum + (round?.trial_classes?.entry_fee || 0);
+      }
+    }, 0);
 
-        entryResult = await simpleTrialOperations.createEntry(entryData);
-        if (!entryResult.success) {
-          throw new Error(entryResult.error as string);
+    let primaryEntryId: string;
+    let isNewEntry = false;
+    
+    // Step 1: Find or create the PRIMARY entry record
+    // There should only be ONE entry record per cwags_number per trial
+    const { data: existingEntries, error: findError } = await supabase
+      .from('entries')
+      .select('id, handler_name, dog_call_name')
+      .eq('trial_id', trialId)
+      .eq('cwags_number', formData.cwags_number)
+      .order('submitted_at', { ascending: true });
+    
+    if (findError) {
+      throw new Error('Failed to find existing entries: ' + findError.message);
+    }
+    
+    if (existingEntries && existingEntries.length > 0) {
+      // Use the first (oldest) entry as the primary
+      primaryEntryId = existingEntries[0].id;
+      isNewEntry = false;
+      
+      console.log(`✅ Found existing entry record: ${primaryEntryId}`);
+      
+      // If there are multiple entry records (bug from before), clean them up
+      if (existingEntries.length > 1) {
+        console.warn(`⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. Cleaning up...`);
+        
+        const duplicateIds = existingEntries.slice(1).map(e => e.id);
+        
+        // Move all entry_selections to the primary entry
+        const { error: moveSelectionsError } = await supabase
+          .from('entry_selections')
+          .update({ entry_id: primaryEntryId })
+          .in('entry_id', duplicateIds);
+        
+        if (moveSelectionsError) {
+          console.error('Error moving selections:', moveSelectionsError);
         }
         
-        console.log('✅ Created new entry:', entryResult.data.id);
+        // Delete duplicate entry records
+        const { error: deleteError } = await supabase
+          .from('entries')
+          .delete()
+          .in('id', duplicateIds);
+        
+        if (deleteError) {
+          console.error('Error deleting duplicates:', deleteError);
+        } else {
+          console.log(`✅ Cleaned up ${duplicateIds.length} duplicate entry records`);
+        }
       }
+      
+      // Update the existing entry with latest information
+      const updateData = {
+        handler_name: formData.handler_name,
+        dog_call_name: formData.dog_call_name,
+        dog_breed: formData.dog_breed,
+        dog_sex: formData.dog_sex,
+        handler_email: formData.handler_email,
+        handler_phone: formData.handler_phone,
+        is_junior_handler: formData.is_junior_handler,
+        waiver_accepted: formData.waiver_accepted,
+        total_fee: totalFee,
+        entry_status: 'submitted'
+      };
+      
+      const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, updateData);
+      if (!updateResult.success) {
+        throw new Error(updateResult.error as string);
+      }
+      
+      console.log('✅ Updated existing entry record');
+      
+    } else {
+      // Create a new entry record - first time this person is entering
+      isNewEntry = true;
+      
+      const entryData = {
+        trial_id: trialId,
+        handler_name: formData.handler_name,
+        dog_call_name: formData.dog_call_name,
+        cwags_number: formData.cwags_number,
+        dog_breed: formData.dog_breed,
+        dog_sex: formData.dog_sex,
+        handler_email: formData.handler_email,
+        handler_phone: formData.handler_phone,
+        is_junior_handler: formData.is_junior_handler,
+        waiver_accepted: formData.waiver_accepted,
+        total_fee: totalFee,
+        payment_status: 'pending',
+        entry_status: 'submitted'
+      };
 
-      // Create/update entry selections using the FIXED function
-      const selections = formData.selected_rounds.map((roundId, index) => {
+      const createResult = await simpleTrialOperations.createEntry(entryData);
+      if (!createResult.success) {
+        throw new Error(createResult.error as string);
+      }
+      
+      primaryEntryId = createResult.data.id;
+      console.log('✅ Created new entry record:', primaryEntryId);
+    }
+    
+    // Step 2: Sync entry_selections to match the form
+    // Get all existing selections for this entry
+    const { data: existingSelections, error: selectionsError } = await supabase
+      .from('entry_selections')
+      .select('id, trial_round_id, entry_type')
+      .eq('entry_id', primaryEntryId);
+    
+    if (selectionsError) {
+      console.error('Error fetching existing selections:', selectionsError);
+    }
+    
+    const existingRoundIds = new Set(existingSelections?.map(s => s.trial_round_id) || []);
+    const newRoundIds = new Set(formData.selected_rounds);
+    
+    // Find selections to DELETE (rounds that were unselected)
+    const selectionsToDelete = existingSelections?.filter(s => 
+      !newRoundIds.has(s.trial_round_id)
+    ) || [];
+    
+    // Find selections to ADD (new rounds that were selected)
+    const roundsToAdd = formData.selected_rounds.filter(roundId => 
+      !existingRoundIds.has(roundId)
+    );
+    
+    // Find selections to UPDATE (entry type changed from regular to FEO or vice versa)
+    const selectionsToUpdate = existingSelections?.filter(s => {
+      if (!newRoundIds.has(s.trial_round_id)) return false;
+      
+      const shouldBeFeo = formData.feo_selections.includes(s.trial_round_id);
+      const isFeo = s.entry_type === 'feo';
+      
+      return shouldBeFeo !== isFeo; // Type has changed
+    }) || [];
+    
+    console.log(`📊 Sync summary:
+      - Existing selections: ${existingSelections?.length || 0}
+      - New selections from form: ${formData.selected_rounds.length}
+      - To DELETE: ${selectionsToDelete.length}
+      - To ADD: ${roundsToAdd.length}
+      - To UPDATE: ${selectionsToUpdate.length}`);
+    
+    // DELETE removed selections
+    if (selectionsToDelete.length > 0) {
+      const deleteIds = selectionsToDelete.map(s => s.id);
+      const { error: deleteError } = await supabase
+        .from('entry_selections')
+        .delete()
+        .in('id', deleteIds);
+      
+      if (deleteError) {
+        console.error('Error deleting selections:', deleteError);
+      } else {
+        console.log(`✅ Deleted ${deleteIds.length} old selections`);
+      }
+    }
+    
+    // ADD new selections
+    if (roundsToAdd.length > 0) {
+      const newSelections = roundsToAdd.map((roundId, index) => {
         const round = trialRounds.find(r => r.id === roundId);
         const isFeo = formData.feo_selections.includes(roundId);
         
@@ -489,60 +600,82 @@ export default function PublicEntryForm() {
           trial_round_id: roundId,
           entry_type: entryType,
           fee: entryFee,
-          running_position: index + 1,
+          running_position: (existingSelections?.length || 0) + index + 1,
           entry_status: 'entered'
         };
       });
+      
+     // Direct insert - don't use score-aware function for adding selections
+const { error: insertError } = await supabase
+  .from('entry_selections')
+  .insert(newSelections.map(selection => ({
+    entry_id: primaryEntryId,
+    ...selection
+  })));
 
-      if (selections.length > 0) {
-        console.log(`🔄 ${existingEntry ? 'Replacing' : 'Creating'} ${selections.length} entry selections...`);
+if (insertError) {
+  throw new Error('Failed to add new selections: ' + insertError.message);
+}
+      
+      console.log(`✅ Added ${newSelections.length} new selections`);
+    }
+    
+    // UPDATE changed selections (FEO status changed)
+    if (selectionsToUpdate.length > 0) {
+      for (const selection of selectionsToUpdate) {
+        const shouldBeFeo = formData.feo_selections.includes(selection.trial_round_id);
+        const round = trialRounds.find(r => r.id === selection.trial_round_id);
         
-        const selectionsResult = await simpleTrialOperations.createEntrySelections(
-          entryResult.data.id,
-          selections
-        );
+        let newFee = round?.trial_classes?.entry_fee || 0;
+        let newType = 'regular';
         
-        if (!selectionsResult.success) {
-          console.error('❌ Failed to handle entry selections:', selectionsResult.error);
-          throw new Error('Failed to save entry selections: ' + selectionsResult.error);
+        if (shouldBeFeo && round?.trial_classes?.feo_price) {
+          newFee = round.trial_classes.feo_price;
+          newType = 'feo';
         }
-
-        // Handle warning about preserved scores
-        if (selectionsResult.data && 'warning' in selectionsResult && selectionsResult.warning) {
-          // Show warning to user but continue with success
-          alert(`✅ Entry updated successfully!\n\n⚠️ Note: ${selectionsResult.warning}`);
-        }
         
-        console.log('✅ Entry selections handled successfully');
-      } else {
-        // User removed all selections - still need to clear existing ones
-        console.log('🗑️ Removing all class selections...');
-        const selectionsResult = await simpleTrialOperations.createEntrySelections(
-          entryResult.data.id,
-          []
-        );
+        const { error: updateError } = await supabase
+          .from('entry_selections')
+          .update({
+            entry_type: newType,
+            fee: newFee
+          })
+          .eq('id', selection.id);
         
-        if (!selectionsResult.success) {
-          console.error('❌ Failed to clear entry selections:', selectionsResult.error);
-          throw new Error('Failed to clear entry selections: ' + selectionsResult.error);
-        }
-
-        // Handle warning about preserved scores
-        if (selectionsResult.data && 'warning' in selectionsResult && selectionsResult.warning) {
-          alert(`✅ Entry updated successfully!\n\n⚠️ Note: ${selectionsResult.warning}`);
+        if (updateError) {
+          console.error('Error updating selection:', updateError);
         }
       }
-
-      setSuccess(true);
-      console.log(`✅ Entry ${existingEntry ? 'updated' : 'submitted'} successfully`);
-
-    } catch (err) {
-      console.error('❌ Error submitting entry:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit entry');
-    } finally {
-      setSubmitting(false);
+      
+      console.log(`✅ Updated ${selectionsToUpdate.length} selections`);
     }
-  };
+    
+    // Step 3: Recalculate and update total fee
+    const { data: finalSelections, error: finalSelectionsError } = await supabase
+      .from('entry_selections')
+      .select('fee')
+      .eq('entry_id', primaryEntryId);
+    
+    if (!finalSelectionsError && finalSelections) {
+      const finalTotalFee = finalSelections.reduce((sum, s) => sum + (s.fee || 0), 0);
+      
+      await simpleTrialOperations.updateEntry(primaryEntryId, {
+        total_fee: finalTotalFee
+      });
+      
+      console.log(`✅ Updated total fee: $${finalTotalFee}`);
+    }
+
+    setSuccess(true);
+    console.log(`✅ Entry ${isNewEntry ? 'submitted' : 'updated'} successfully`);
+
+  } catch (err) {
+    console.error('❌ Error submitting entry:', err);
+    setError(err instanceof Error ? err.message : 'Failed to submit entry');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleRoundSelection = (roundId: string, type: 'regular' | 'feo') => {
     setFormData(prev => {
@@ -709,14 +842,14 @@ export default function PublicEntryForm() {
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-2xl">{trial.trial_name}</CardTitle>
-                <CardDescription className="text-base mt-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
-                  </div>
-                  <div>📍 {trial.location}</div>
-                  <div>🏆 Hosted by {trial.club_name}</div>
-                </CardDescription>
+                <div className="text-base mt-2 text-gray-600">
+  <div className="flex items-center gap-2 mb-1">
+    <Calendar className="h-4 w-4" />
+    <span>{new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}</span>
+  </div>
+  <div>📍 {trial.location}</div>
+  <div>🏆 Hosted by {trial.club_name}</div>
+</div>
               </div>
               {existingEntry && (
                 <div className="flex items-center gap-2 text-blue-600">

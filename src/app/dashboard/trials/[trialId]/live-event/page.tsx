@@ -65,6 +65,13 @@ interface TrialClass {
   judge_name: string;
   trial_date: string;
   trial_day_id: string;
+  entry_fee: number;          // Regular entry fee ($21.00 in your case)
+  feo_price?: number;         // FEO entry fee ($15.00 in your case)
+  feo_available: boolean;     // Whether FEO is available for this class
+  max_entries: number;        // Maximum entries allowed
+  class_level?: string;       // Class level
+  class_order?: number;       // Display order
+  class_status?: string;      // Class status
 }
 
 interface TrialRound {
@@ -387,74 +394,95 @@ const renderClassesByDay = () => {
     }
   }, [selectedClass]);
 
-  const loadTrialData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+// FIXED loadTrialData function - Replace in src/app/dashboard/trials/[trialId]/live-event/page.tsx
 
-      console.log('Loading trial data for live event management:', trialId);
+const loadTrialData = async () => {
+  try {
+    setLoading(true);
+    setError(null);
 
-      // Load trial basic info
-      const trialResult = await simpleTrialOperations.getTrial(trialId);
-      if (!trialResult.success) {
-        throw new Error('Failed to load trial data');
-      }
+    console.log('Loading trial data for live event management:', trialId);
 
-      setTrial(trialResult.data);
-
-      // Load all trial classes with judges and Games subclass
-      const classesResult = await simpleTrialOperations.getAllTrialClasses(trialId);
-      if (!classesResult.success) {
-        throw new Error('Failed to load trial classes');
-      }
-
-      // Get judges for each class
-      const classesWithJudges = await Promise.all(
-        (classesResult.data || []).map(async (cls: any) => {
-          try {
-            const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
-            const judge = roundsResult.success && roundsResult.data.length > 0 
-              ? roundsResult.data[0].judge_name 
-              : 'No Judge Assigned';
-            
-            return {
-              id: cls.id,
-              class_name: cls.class_name,
-              class_type: cls.class_type || 'scent',
-              games_subclass: cls.games_subclass || null,
-              judge_name: judge,
-              trial_date: cls.trial_days?.trial_date || '',
-              trial_day_id: cls.trial_day_id
-            };
-          } catch (error) {
-            console.error(`Error loading judge for class ${cls.id}:`, error);
-            return {
-              id: cls.id,
-              class_name: cls.class_name,
-              class_type: cls.class_type || 'scent',
-              games_subclass: cls.games_subclass || null,
-              judge_name: 'Error Loading Judge',
-              trial_date: cls.trial_days?.trial_date || '',
-              trial_day_id: cls.trial_day_id
-            };
-          }
-        })
-      );
-
-      setTrialClasses(classesWithJudges);
-
-      if (classesWithJudges.length > 0 && !selectedClass) {
-        setSelectedClass(classesWithJudges[0]);
-      }
-
-      console.log('Trial data loaded successfully with Games subclass');
-    } catch (err) {
-      console.error('Error loading trial data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load trial data');
-    } finally {
-      setLoading(false);
+    // Load trial basic info
+    const trialResult = await simpleTrialOperations.getTrial(trialId);
+    if (!trialResult.success) {
+      throw new Error('Failed to load trial data');
     }
-  };
+
+    setTrial(trialResult.data);
+
+    // Load all trial classes with judges and Games subclass
+    const classesResult = await simpleTrialOperations.getAllTrialClasses(trialId);
+    if (!classesResult.success) {
+      throw new Error('Failed to load trial classes');
+    }
+
+    // Get judges for each class AND include the pricing information
+    const classesWithJudges = await Promise.all(
+      (classesResult.data || []).map(async (cls: any) => {
+        try {
+          const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
+          const judge = roundsResult.success && roundsResult.data.length > 0 
+            ? roundsResult.data[0].judge_name 
+            : 'No Judge Assigned';
+          
+          // 🔥 CRITICAL FIX: Include ALL pricing fields from the database
+          return {
+            id: cls.id,
+            class_name: cls.class_name,
+            class_type: cls.class_type || 'scent',
+            games_subclass: cls.games_subclass || null,
+            judge_name: judge,
+            trial_date: cls.trial_days?.trial_date || '',
+            trial_day_id: cls.trial_day_id,
+            // ✅ ADD THESE MISSING PRICING FIELDS:
+            entry_fee: cls.entry_fee || 0,           // Regular entry fee
+            feo_available: cls.feo_available || false, // Whether FEO is available
+            feo_price: cls.feo_price || 0,           // FEO entry fee
+            max_entries: cls.max_entries || 0,       // Max entries allowed
+            class_level: cls.class_level || '',      // Class level
+            class_order: cls.class_order || 999,     // Display order
+            class_status: cls.class_status || 'active' // Class status
+          };
+        } catch (error) {
+          console.error(`Error loading judge for class ${cls.id}:`, error);
+          return {
+            id: cls.id,
+            class_name: cls.class_name,
+            class_type: cls.class_type || 'scent',
+            games_subclass: cls.games_subclass || null,
+            judge_name: 'Error Loading Judge',
+            trial_date: cls.trial_days?.trial_date || '',
+            trial_day_id: cls.trial_day_id,
+            // ✅ INCLUDE PRICING FIELDS EVEN ON ERROR:
+            entry_fee: cls.entry_fee || 0,
+            feo_available: cls.feo_available || false,
+            feo_price: cls.feo_price || 0,
+            max_entries: cls.max_entries || 0,
+            class_level: cls.class_level || '',
+            class_order: cls.class_order || 999,
+            class_status: cls.class_status || 'active'
+          };
+        }
+      })
+    );
+
+    setTrialClasses(classesWithJudges);
+
+    if (classesWithJudges.length > 0 && !selectedClass) {
+      setSelectedClass(classesWithJudges[0]);
+    }
+
+    console.log('Trial data loaded successfully with pricing information');
+    console.log('Sample class with pricing:', classesWithJudges[0]); // Debug log
+    
+  } catch (err) {
+    console.error('Error loading trial data:', err);
+    setError(err instanceof Error ? err.message : 'Failed to load trial data');
+  } finally {
+    setLoading(false);
+  }
+};
 
 const loadClassEntries = async () => {
   if (!selectedClass) return;
@@ -599,15 +627,66 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
     } else {
       // Update entry selection record
       const updates: Record<string, any> = {};
-      if (field === 'entry_type') updates.entry_type = value;
-      if (field === 'entry_status') updates.entry_status = value;
       
-      // Use updateEntrySelection function
+      if (field === 'entry_type') {
+        updates.entry_type = value;
+        
+        // 🔥 FEE RECALCULATION FIX - Calculate new fee when entry type changes
+        if (selectedClass) {
+          let newFee = 0;
+          
+          if (value === 'feo') {
+            // Switching TO FEO - use FEO price if available
+            if (selectedClass.feo_available && selectedClass.feo_price !== undefined && selectedClass.feo_price !== null) {
+              newFee = selectedClass.feo_price;
+              console.log('🔄 Switching to FEO, new fee:', newFee);
+            } else {
+              // Fallback: 50% of regular fee
+              newFee = selectedClass.entry_fee ? Math.round(selectedClass.entry_fee * 0.5) : 0;
+              console.log('🔄 Switching to FEO (fallback), new fee:', newFee);
+            }
+          } else {
+            // Switching TO REGULAR - use regular entry fee
+            newFee = selectedClass.entry_fee || 0;
+            console.log('🔄 Switching to REGULAR, new fee:', newFee);
+          }
+          
+          // Update the fee in the entry_selections table
+          updates.fee = newFee;
+          
+          // Also update the local state with the new fee
+          setClassEntries(prev =>
+            prev.map(e =>
+              e.id === entryId
+                ? { ...e, fee: newFee }
+                : e
+            )
+          );
+          
+          // Update the main entry record's total_fee as well
+          const entry = classEntries.find(e => e.id === entryId);
+          if (entry && entry.entry_id) {
+            await simpleTrialOperations.updateEntry(entry.entry_id, { total_fee: newFee });
+            console.log('✅ Updated total_fee in main entry record:', newFee);
+          }
+        }
+      }
+      
+      if (field === 'entry_status') {
+        updates.entry_status = value;
+      }
+      
+      // Use updateEntrySelection function with the updates (including fee if changed)
       const result = await simpleTrialOperations.updateEntrySelection(entryId, updates);
       if (!result.success) {
         console.error('Failed to update entry selection:', result.error);
         loadClassEntries(); // Reload on error
         return;
+      }
+      
+      console.log('✅ Entry field updated successfully:', field, '=', value);
+      if (updates.fee !== undefined) {
+        console.log('✅ Fee updated to:', updates.fee);
       }
     }
 
@@ -623,6 +702,35 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
     loadClassEntries();
   }
 };
+
+// ADD this debug function to your live-event/page.tsx file
+// Add it right after the updateEntryField function
+
+const debugSelectedClassData = () => {
+  console.log('=== SELECTED CLASS DEBUG ===');
+  console.log('selectedClass object:', selectedClass);
+  
+  if (selectedClass) {
+    console.log('Class ID:', selectedClass.id);
+    console.log('Class Name:', selectedClass.class_name);
+    console.log('Entry Fee:', selectedClass.entry_fee); // Should be 21
+    console.log('FEO Price:', selectedClass.feo_price);  // Should be 15
+    console.log('FEO Available:', selectedClass.feo_available); // Should be true
+    console.log('All properties:', Object.keys(selectedClass));
+  } else {
+    console.log('❌ selectedClass is null/undefined');
+  }
+  
+  console.log('trialClasses array:', trialClasses);
+  if (trialClasses && trialClasses.length > 0) {
+    console.log('First class in array:', trialClasses[0]);
+    console.log('First class properties:', Object.keys(trialClasses[0]));
+  }
+  
+  console.log('===========================');
+};
+
+// Call this from your browser console: debugSelectedClassData()
     
 const loadAllClassCounts = async () => {
   if (trialClasses.length === 0) return;
@@ -1019,18 +1127,21 @@ const addNewEntry = async () => {
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
-    // Create entry selection with the SAME calculated fee
-    const selectionResult = await simpleTrialOperations.createEntrySelections(entryResult.data.id, [{
-      trial_round_id: targetRound.id,
-      entry_type: newEntryData.entry_type,
-      fee: calculatedFee, // ← USE THE SAME CALCULATED FEE HERE
-      running_position: nextPosition,
-      entry_status: 'entered'
-    }]);
+   // Create entry selection with direct insert (avoid score-aware function)
+const { error: insertError } = await supabase
+  .from('entry_selections')
+  .insert({
+    entry_id: entryResult.data.id,
+    trial_round_id: targetRound.id,
+    entry_type: newEntryData.entry_type,
+    fee: calculatedFee,
+    running_position: nextPosition,
+    entry_status: 'entered'
+  });
 
-    if (!selectionResult.success) {
-      throw new Error(selectionResult.error as string);
-    }
+if (insertError) {
+  throw new Error('Failed to save entry selection: ' + insertError.message);
+}
 
     // Reload the class entries to show the new entry
     await loadClassEntries();
@@ -1758,13 +1869,13 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                                               />
                                             </div>
                                           ) : (
-                                            <p 
-                                              className="text-sm text-gray-600 cursor-pointer hover:text-blue-600"
-                                              onClick={() => setEditingEntry(entry.id)}
-                                            >
-                                              {entry.entries.dog_call_name} • {entry.entries.cwags_number}
-                                              <Edit className="h-3 w-3 inline ml-1" />
-                                            </p>
+                                            <div 
+  className="text-sm text-gray-600 cursor-pointer hover:text-blue-600"
+  onClick={() => setEditingEntry(entry.id)}
+>
+  {entry.entries.dog_call_name} • {entry.entries.cwags_number}
+  <Edit className="h-3 w-3 inline ml-1" />
+</div>
                                           )}
                                         </div>
                                       </div>
