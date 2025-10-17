@@ -368,7 +368,7 @@ else if (score) {
     const classInfo = selection.trial_rounds?.trial_classes;
     const isGamesClass = classInfo?.class_type === 'games';
     const gamesSubclass = classInfo?.games_subclass;
-    result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'P';
+    result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'Pass';
     targetClassData.totalPasses++;
     targetClassData.totalRuns++;
   } else if (score.pass_fail === 'Fail') {

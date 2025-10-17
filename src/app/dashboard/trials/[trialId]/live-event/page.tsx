@@ -1337,7 +1337,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   } else {
                     // Other class types (scent, games)
                     if (score.pass_fail === 'Pass') {
-                      resultDisplay = 'P';
+                      resultDisplay = 'Pass';
                     } else if (score.pass_fail === 'Fail') {
                       resultDisplay = 'F';
                     } else if (score.pass_fail === 'FEO') {
