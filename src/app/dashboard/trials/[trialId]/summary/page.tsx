@@ -389,39 +389,95 @@ else if (score) {
     const XLSX = await import('xlsx');
     const workbook = XLSX.utils.book_new();
 
-    // Step 7: Create summary overview sheet with actual statistics
-    const summarySheetData = [
-      ['Trial Summary'],
-      ['Trial Name:', summaryData.trial.trial_name],
-      ['Club:', summaryData.trial.club_name],
-      ['Location:', summaryData.trial.location],
-      [],
-      ['Class Name', 'Total Participants', 'Total Rounds', 'Completion Rate', 'Pass Rate']
-    ];
+ // Step 7: Create summary overview sheet with new column structure
+const summarySheetData: any[][] = [
+  ['Trial Summary'],
+  ['Trial Name:', summaryData.trial.trial_name],
+  ['Club:', summaryData.trial.club_name],
+  ['Location:', summaryData.trial.location],
+  [],
+  ['Class Name', 'Total Runs', 'Actually Ran', 'Passes', 'Fails', 'Billable Runs']
+];
 
-    // Sort classes by blueprint order for summary
-    const sortedClasses = Array.from(classesByName.values()).sort((a, b) => a.classOrder - b.classOrder);
+// Sort classes by blueprint order for summary
+const sortedClasses = Array.from(classesByName.values()).sort((a, b) => a.classOrder - b.classOrder);
 
-    sortedClasses.forEach((classData) => {
-      const passRate = classData.totalRuns > 0 
-        ? `${Math.round((classData.totalPasses / classData.totalRuns) * 100)}%`
-        : '0%';
+sortedClasses.forEach((classData) => {
+  // Calculate statistics for each class
+  let totalRuns = 0;
+  let actuallyRan = 0;
+  let passes = 0;
+  let fails = 0;
+  let billableRuns = 0;
+
+  // Count results across all rounds
+  classData.allRounds.forEach(round => {
+    round.results.forEach((result, cwagsNumber) => {
+      totalRuns++; // Count every entry slot
       
-      const completionRate = classData.allParticipants.size > 0 && classData.allRounds.length > 0
-        ? `${Math.round((classData.totalRuns / (classData.allParticipants.size * classData.allRounds.length)) * 100)}%`
-        : '0%';
-
-      summarySheetData.push([
-        classData.className,
-        classData.allParticipants.size.toString(),
-        classData.allRounds.length.toString(),
-        completionRate,
-        passRate
-      ]);
+      // Actually Ran: anything with a result (not "-")
+      if (result !== '-') {
+        actuallyRan++;
+      }
+      
+      // Passes: Pass, scores ≥70/120, Games symbols
+      if (result === 'Pass' || result === 'GB' || result === 'BJ' || result === 'C' || result === 'T' || result === 'P') {
+        passes++;
+        billableRuns++;
+      } else if (!isNaN(Number(result))) {
+        // It's a numerical score
+        const score = Number(result);
+        const passingScore = classData.className.toLowerCase().includes('obedience 5') ? 120 : 70;
+        if (score >= passingScore) {
+          passes++;
+          billableRuns++;
+        }
+      }
+      // Fails: F and NQ
+      else if (result === 'F' || result === 'NQ') {
+        fails++;
+        billableRuns++;
+      }
+      // Abs: counted as billable
+      else if (result === 'Abs') {
+        billableRuns++;
+      }
     });
+  });
 
-    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheetData);
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+  summarySheetData.push([
+  classData.className,    // Object property (needs the dot)
+  totalRuns,              // Local variable (no dot)
+  actuallyRan,            // Local variable (no dot)
+  passes,                 // Local variable (no dot)
+  fails,                  // Local variable (no dot)
+  billableRuns            // Local variable (no dot)
+]);
+});
+
+// Calculate which row the totals start (header is row 6, data starts row 7)
+const lastDataRow = 6 + sortedClasses.length;
+const totalRow = lastDataRow + 1;
+const runFeeRow = totalRow + 1;
+const totalOwingRow = runFeeRow + 1;
+
+// Add total billable runs with SUM formula
+summarySheetData.push([
+  '', '', '', '', '', 
+  { f: `SUM(F7:F${lastDataRow})` } as any
+]);
+
+// Add Run Fee row (manual entry field)
+summarySheetData.push(['', '', '', '', 'Run Fee', '']);
+
+// Add Total Owing row with formula
+summarySheetData.push([
+  '', '', '', '', 'Total Owing', 
+ { f: `F${totalRow}*F${runFeeRow}` } as any
+]);
+
+const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheetData);
+XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
 
     // Step 8: Create individual class matrix sheets in blueprint order
     sortedClasses.forEach((classData) => {

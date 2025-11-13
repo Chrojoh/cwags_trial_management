@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ShareableEntryLink from '@/components/public/ShareableEntryLink';
 import { 
   Calendar,
   Edit,
@@ -743,24 +744,12 @@ export default function TrialDetailPage() {
                         <Users className="h-4 w-4 mr-2" />
                         Manage Entries (0 entries)
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        className="w-full justify-start"
-                        onClick={() => {
-                          // Generate entry link and copy to clipboard
-                          const entryLink = `${window.location.origin}/entries/${trialId}`;
-                          navigator.clipboard.writeText(entryLink).then(() => {
-                            // You could add a toast notification here later
-                            alert('Entry link copied to clipboard!');
-                          }).catch(() => {
-                            // Fallback for browsers that don't support clipboard API
-                            alert(`Entry link: ${entryLink}`);
-                          });
-                        }}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Copy Entry Link
-                      </Button>
+                      <div className="mt-4 mb-4">
+  <ShareableEntryLink 
+    trialId={trialId} 
+    trialName={trial?.trial_name || 'Trial'}
+  />
+</div>
                       <Button 
                         variant="default" 
                         className="w-full justify-start bg-blue-600 hover:bg-blue-700"
