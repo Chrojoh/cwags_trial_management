@@ -210,6 +210,22 @@ export default function PublicEntryForm() {
     }
   };
 
+// Around line 150, right after loadTrialData
+useEffect(() => {
+  if (trialId) {
+    loadTrialData().then(() => {
+      console.log('=== DEBUG TRIAL DATES ===');
+      console.log('Trial Start:', trial?.start_date);
+      console.log('Trial End:', trial?.end_date);
+      console.log('Rounds:', trialRounds.map(r => ({
+        class: r.trial_classes?.class_name,
+        dayNum: r.trial_classes?.trial_days?.day_number,
+        date: r.trial_classes?.trial_days?.trial_date
+      })));
+    });
+  }
+}, [trialId]);
+
   // FIXED: handleCwagsLookup function that handles multiple entries properly
   const handleCwagsLookup = async (cwagsNumber: string) => {
     if (!cwagsNumber || cwagsNumber.length < 8) return;

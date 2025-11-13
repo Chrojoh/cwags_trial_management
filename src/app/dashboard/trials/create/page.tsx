@@ -222,63 +222,62 @@ export default function CreateTrialPage() {
     }
   };
 
-  const saveTrialAndProceed = async () => {
-    if (!user) {
-      alert('User not found. Please log in again.');
-      return;
+ const saveTrialAndProceed = async () => {
+  if (!user) {
+    alert('User not found. Please log in again.');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const locationParts = [
+      trialData.venue_name,
+      trialData.city,
+      trialData.province,
+      trialData.country
+    ].filter(part => part.trim());
+    
+    const location = locationParts.join(', ');
+
+    const trialToSave = {
+      trial_name: trialData.trial_name,
+      club_name: trialData.club_name,
+      location: location,
+      // FIX: Ensure dates don't shift due to timezone
+      start_date: trialData.start_date, // Keep as-is, fix is in display
+      end_date: trialData.end_date,     // Keep as-is, fix is in display
+      created_by: user.id,
+      trial_status: 'draft',
+      premium_published: false,
+      entries_open: false,
+      entries_close_date: null,
+      max_entries_per_day: trialData.max_entries_per_day,
+      trial_secretary: trialData.trial_secretary,
+      secretary_email: trialData.secretary_email,
+      secretary_phone: trialData.secretary_phone || null,
+      waiver_text: trialData.waiver_text,
+      fee_configuration: {},
+      notes: trialData.notes || null
+    };
+
+    console.log('Saving trial data:', trialToSave);
+
+    const result = await simpleTrialOperations.createTrial(trialToSave);
+    
+    if (result.success && result.data) {
+      console.log('Trial created successfully:', result.data);
+      router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
+    } else {
+      console.error('Error creating trial:', result.error);
+      alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
     }
-
-    setLoading(true);
-    try {
-      // Build the location string from structured data
-      const locationParts = [
-        trialData.venue_name,
-        trialData.city,
-        trialData.province,
-        trialData.country
-      ].filter(part => part.trim());
-      
-      const location = locationParts.join(', ');
-
-      const trialToSave = {
-        trial_name: trialData.trial_name,
-        club_name: trialData.club_name,
-        location: location,
-        start_date: trialData.start_date,
-        end_date: trialData.end_date,
-        created_by: user.id,
-        trial_status: 'draft',
-        premium_published: false,
-        entries_open: false,
-        entries_close_date: null,
-        max_entries_per_day: trialData.max_entries_per_day,
-        trial_secretary: trialData.trial_secretary,
-        secretary_email: trialData.secretary_email,
-        secretary_phone: trialData.secretary_phone || null,
-        waiver_text: trialData.waiver_text,
-        fee_configuration: {}, // Empty object instead of null
-        notes: trialData.notes || null
-      };
-
-      console.log('Saving trial data:', trialToSave); // Debug log
-
-      const result = await simpleTrialOperations.createTrial(trialToSave);
-      
-      if (result.success && result.data) {
-        console.log('Trial created successfully:', result.data);
-        // Navigate to day selection with trial ID
-        router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
-      } else {
-        console.error('Error creating trial:', result.error);
-        alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error saving trial:', error);
-      alert('Error creating trial. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  } catch (error) {
+    console.error('Error saving trial:', error);
+    alert('Error creating trial. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSaveDraft = async () => {
     if (!user) return;
