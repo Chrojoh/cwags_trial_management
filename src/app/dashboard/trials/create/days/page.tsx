@@ -17,7 +17,9 @@ import {
   CheckCircle,
   Info,
   Plus,
-  Minus
+  Minus,
+  Trash2,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -29,6 +31,7 @@ interface TrialDay {
   max_entries: number;
   notes: string;
   day_number?: number;
+  isCustom?: boolean;  // Track if this is a custom-added day
 }
 
 function TrialDaysPageContent() {
@@ -42,6 +45,8 @@ function TrialDaysPageContent() {
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showAddDay, setShowAddDay] = useState(false);
+  const [newDayDate, setNewDayDate] = useState('');
 
   // Helper function to format dates WITHOUT timezone shift
   const formatDateForDisplay = (dateString: string): string => {
@@ -114,7 +119,8 @@ function TrialDaysPageContent() {
           selected: false,
           max_entries: trialData.max_entries_per_day || 50,
           notes: '',
-          day_number: dayNumber++
+          day_number: dayNumber++,
+          isCustom: false
         });
       }
 
@@ -126,6 +132,7 @@ function TrialDaysPageContent() {
         if (existingDaysResult.success && existingDaysResult.data?.length > 0) {
           const existingDays = existingDaysResult.data;
           
+          // Mark existing days as selected
           days.forEach(day => {
             const existingDay = existingDays.find((existing: { trial_date: string }) =>
               existing.trial_date === day.trial_date
@@ -134,6 +141,30 @@ function TrialDaysPageContent() {
               day.selected = true;
               console.log(`Restored selection for ${day.trial_date}`);
             }
+          });
+
+          // Add any custom days that are outside the trial date range
+          existingDays.forEach((existing: any) => {
+            const existsInGenerated = days.find(d => d.trial_date === existing.trial_date);
+            if (!existsInGenerated) {
+              // This is a custom day outside the original date range
+              days.push({
+                trial_date: existing.trial_date,
+                selected: true,
+                max_entries: trialData.max_entries_per_day || 50,
+                notes: existing.notes || '',
+                isCustom: true
+              });
+              console.log(`Added custom day: ${existing.trial_date}`);
+            }
+          });
+
+          // Sort days chronologically
+          days.sort((a, b) => a.trial_date.localeCompare(b.trial_date));
+
+          // Renumber days
+          days.forEach((day, index) => {
+            day.day_number = index + 1;
           });
         }
       } catch (error) {
@@ -210,6 +241,61 @@ function TrialDaysPageContent() {
     );
   };
 
+  const handleAddCustomDay = () => {
+    if (!newDayDate) {
+      setErrors(['Please select a date for the new day.']);
+      return;
+    }
+
+    // Check if day already exists
+    const dayExists = trialDays.find(d => d.trial_date === newDayDate);
+    if (dayExists) {
+      setErrors(['This day is already in the trial. Please select a different date.']);
+      return;
+    }
+
+    // Add new day
+    const newDay: TrialDay = {
+      trial_date: newDayDate,
+      selected: true,  // Auto-select new days
+      max_entries: trial?.max_entries_per_day || 50,
+      notes: '',
+      isCustom: true
+    };
+
+    setTrialDays(prev => {
+      const updated = [...prev, newDay];
+      // Sort chronologically
+      updated.sort((a, b) => a.trial_date.localeCompare(b.trial_date));
+      // Renumber
+      updated.forEach((day, index) => {
+        day.day_number = index + 1;
+      });
+      return updated;
+    });
+
+    // Reset form
+    setNewDayDate('');
+    setShowAddDay(false);
+    setErrors([]);
+  };
+
+  const handleRemoveDay = (dayIndex: number) => {
+    const day = trialDays[dayIndex];
+    if (!day.isCustom && !window.confirm(`Remove ${formatDate(day.trial_date)} from the trial? This will delete all classes and entries for this day.`)) {
+      return;
+    }
+
+    setTrialDays(prev => {
+      const updated = prev.filter((_, index) => index !== dayIndex);
+      // Renumber remaining days
+      updated.forEach((d, index) => {
+        d.day_number = index + 1;
+      });
+      return updated;
+    });
+  };
+
   const handleQuickSelect = (pattern: string) => {
     setTrialDays(prev => prev.map((day, index) => {
       switch (pattern) {
@@ -232,7 +318,7 @@ function TrialDaysPageContent() {
     }));
   };
 
- const handleSave = async () => {
+  const handleSave = async () => {
     const selectedDays = trialDays.filter(day => day.selected);
     
     if (selectedDays.length === 0) {
@@ -277,6 +363,7 @@ function TrialDaysPageContent() {
       setSaving(false);
     }
   };
+
   const handleBack = () => {
     if (isEditMode) {
       router.push(`/dashboard/trials/${trialId}`);
@@ -369,7 +456,7 @@ function TrialDaysPageContent() {
                 <span className="font-semibold">Editing Days</span>
               </div>
               <p className="text-sm text-orange-700 mt-2">
-                Changes will be saved immediately.
+                You can add custom days outside the original trial date range. Changes will be saved when you click "Save Changes".
               </p>
             </CardContent>
           </Card>
@@ -394,6 +481,7 @@ function TrialDaysPageContent() {
           <AlertDescription>
             Days are <strong>unselected by default</strong>. Select which days you want to include in your trial. 
             You can customize the maximum entries and add notes for each day. Use the quick selection buttons for common patterns.
+            {isEditMode && " In edit mode, you can also add custom days outside the original date range."}
           </AlertDescription>
         </Alert>
 
@@ -410,15 +498,29 @@ function TrialDaysPageContent() {
           </Alert>
         )}
 
-        {/* Quick Selection */}
+        {/* Quick Selection and Add Day */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Selection</CardTitle>
-            <CardDescription>
-              Choose common day patterns with one click
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Quick Selection</CardTitle>
+                <CardDescription>
+                  Choose common day patterns with one click
+                </CardDescription>
+              </div>
+              {isEditMode && (
+                <Button 
+                  onClick={() => setShowAddDay(!showAddDay)} 
+                  variant="outline"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Custom Day
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
               <Button 
                 onClick={() => handleQuickSelect('all')} 
@@ -459,6 +561,46 @@ function TrialDaysPageContent() {
                 Weekends
               </Button>
             </div>
+
+            {/* Add Custom Day Form */}
+            {showAddDay && (
+              <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold">Add Custom Day</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => {
+                      setShowAddDay(false);
+                      setNewDayDate('');
+                      setErrors([]);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-day-date">Select Date</Label>
+                  <Input
+                    id="new-day-date"
+                    type="date"
+                    value={newDayDate}
+                    onChange={(e) => setNewDayDate(e.target.value)}
+                  />
+                  <p className="text-xs text-gray-600">
+                    Add days outside the original trial date range (e.g., for weather makeup days)
+                  </p>
+                </div>
+                <Button 
+                  onClick={handleAddCustomDay}
+                  size="sm"
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add This Day
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -512,12 +654,27 @@ function TrialDaysPageContent() {
                     className="mt-1"
                   />
                   <div className="flex-1">
-                    <Label 
-                      htmlFor={`day-${index}`} 
-                      className="font-medium text-base cursor-pointer"
-                    >
-                      {formatDateForDisplay(day.trial_date)}
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label 
+                        htmlFor={`day-${index}`} 
+                        className="font-medium text-base cursor-pointer"
+                      >
+                        {formatDateForDisplay(day.trial_date)}
+                        {day.isCustom && (
+                          <Badge variant="secondary" className="ml-2">Custom Day</Badge>
+                        )}
+                      </Label>
+                      {isEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveDay(index)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">
                       Day {day.day_number} of {trialDays.length}
                     </p>
@@ -573,14 +730,16 @@ function TrialDaysPageContent() {
           </Button>
 
           <div className="flex space-x-3">
-            <Button
-              onClick={() => router.push('/dashboard/trials')}
-              variant="outline"
-              disabled={saving}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save Draft
-            </Button>
+            {!isEditMode && (
+              <Button
+                onClick={() => router.push('/dashboard/trials')}
+                variant="outline"
+                disabled={saving}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Draft
+              </Button>
+            )}
             <Button
               onClick={handleSave}
               disabled={saving || selectedCount === 0}

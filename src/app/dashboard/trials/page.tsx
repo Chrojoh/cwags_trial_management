@@ -34,7 +34,9 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { supabase } from '@/lib/supabase';
 
 interface Trial {
   id: string;
@@ -68,6 +70,7 @@ export default function TrialsPage() {
   const [trials, setTrials] = useState<Trial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     draft: 0,
@@ -113,6 +116,41 @@ export default function TrialsPage() {
     }
   };
 
+  const handleDeleteTrial = async (trialId: string, trialName: string) => {
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete "${trialName}"? This action cannot be undone and will delete all associated data (days, classes, rounds, etc.).`)) {
+      return;
+    }
+
+    try {
+      setDeleting(trialId);
+      setError(null);
+
+      console.log('Deleting trial:', trialId);
+
+      // Delete the trial - database CASCADE will handle related records
+      const { error: deleteError } = await supabase
+        .from('trials')
+        .delete()
+        .eq('id', trialId);
+
+      if (deleteError) {
+        throw new Error(deleteError.message || 'Failed to delete trial');
+      }
+
+      console.log('Trial deleted successfully');
+      
+      // Reload the trials list
+      await loadTrials();
+
+    } catch (err) {
+      console.error('Error deleting trial:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete trial');
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const getStatusColor = (status: TrialStatus) => {
     switch (status) {
       case 'draft':
@@ -148,12 +186,21 @@ export default function TrialsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0  // Set to noon to avoid timezone issues
+  );
+  
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
 
   const filteredTrials = trials.filter(trial => {
     const matchesSearch = 
@@ -166,21 +213,15 @@ export default function TrialsPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const breadcrumbItems = [
-    { label: 'Dashboard', href: '/dashboard' },
-    { label: 'Trials' }
-  ];
-
   if (loading) {
     return (
-      <MainLayout 
-        title="Trial Management"
-        breadcrumbItems={breadcrumbItems}
-      >
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-gray-600">Loading trials...</p>
+      <MainLayout title="Trial Management">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <p className="text-gray-600">Loading trials...</p>
+            </div>
           </div>
         </div>
       </MainLayout>
@@ -188,41 +229,26 @@ export default function TrialsPage() {
   }
 
   return (
-    <MainLayout 
-      title="Trial Management"
-      breadcrumbItems={breadcrumbItems}
-    >
-      <div className="space-y-6">
-        {/* Error Display */}
-        {error && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-2 text-red-800">
-                <AlertCircle className="h-5 w-5" />
-                <span>{error}</span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadTrials}
-                  className="ml-auto"
-                >
-                  Retry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+    <MainLayout title="Trial Management">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Trial Management</h1>
+            <p className="text-gray-600 mt-1">Manage and organize your C-WAGS trials</p>
+          </div>
+        </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Trials</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
-                <Calendar className="h-8 w-8 text-blue-600" />
+                <Calendar className="h-8 w-8 text-gray-400" />
               </div>
             </CardContent>
           </Card>
@@ -232,9 +258,9 @@ export default function TrialsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Draft</p>
-                  <p className="text-2xl font-bold text-gray-500">{stats.draft}</p>
+                  <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
                 </div>
-                <FileText className="h-8 w-8 text-gray-500" />
+                <FileText className="h-8 w-8 text-gray-400" />
               </div>
             </CardContent>
           </Card>
@@ -275,6 +301,14 @@ export default function TrialsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Actions and Filters */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -330,51 +364,42 @@ export default function TrialsPage() {
         <div className="grid gap-6">
           {filteredTrials.length === 0 ? (
             <Card>
-              <CardContent className="text-center py-12">
+              <CardContent className="p-12 text-center">
                 <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {trials.length === 0 ? 'No trials found' : 'No trials match your filters'}
-                </h3>
+                <h3 className="text-lg font-semibold mb-2">No Trials Found</h3>
                 <p className="text-gray-600 mb-4">
-                  {trials.length === 0 
-                    ? 'Get started by creating your first trial.' 
-                    : 'Try adjusting your search or filter criteria.'}
+                  {searchTerm || statusFilter !== 'all' 
+                    ? 'Try adjusting your search or filter criteria.'
+                    : 'Get started by creating your first trial.'
+                  }
                 </p>
-                {trials.length === 0 && (
+                {!searchTerm && statusFilter === 'all' && (
                   <Link href="/dashboard/trials/create">
-                    <Button>Create Your First Trial</Button>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Trial
+                    </Button>
                   </Link>
-                )}
-                {trials.length > 0 && filteredTrials.length === 0 && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('all');
-                    }}
-                  >
-                    Clear Filters
-                  </Button>
                 )}
               </CardContent>
             </Card>
           ) : (
             filteredTrials.map((trial) => (
-              <Card key={trial.id} className="hover:shadow-lg transition-shadow bg-white">
+              <Card key={trial.id} className={deleting === trial.id ? 'opacity-50' : ''}>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div>
-                        <CardTitle className="text-lg">{trial.trial_name}</CardTitle>
-                        <CardDescription className="flex items-center space-x-2 mt-1">
-                          <span>{trial.club_name}</span>
-                          <span>•</span>
-                          <span className="flex items-center space-x-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{trial.location}</span>
-                          </span>
-                        </CardDescription>
-                      </div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl mb-2">{trial.trial_name}</CardTitle>
+                      <CardDescription className="flex items-center space-x-4 text-sm">
+                        <span className="flex items-center">
+                          <Users className="h-4 w-4 mr-1" />
+                          {trial.club_name}
+                        </span>
+                        <span className="flex items-center">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          {trial.location}
+                        </span>
+                      </CardDescription>
                     </div>
                     
                     <div className="flex items-center space-x-2">
@@ -384,11 +409,11 @@ export default function TrialsPage() {
                       
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" disabled={deleting === trial.id}>
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="bg-white border shadow-lg">
                           <DropdownMenuItem onClick={() => router.push(`/dashboard/trials/${trial.id}`)}>
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
@@ -402,10 +427,15 @@ export default function TrialsPage() {
                             Duplicate Trial
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Trial
-                          </DropdownMenuItem>
+                          {trial.trial_status === 'draft' && (
+                            <DropdownMenuItem 
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                              onClick={() => handleDeleteTrial(trial.id, trial.trial_name)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Trial
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -452,21 +482,22 @@ export default function TrialsPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => router.push(`/dashboard/trials/${trial.id}/entries`)}
+                        disabled={deleting === trial.id}
                       >
-                      <Users className="h-4 w-4 mr-1" />
-Entries
-</Button>
-<Link href={`/dashboard/trials/${trial.id}/summary`}>
- <Button variant="outline" size="sm">
-   <FileText className="h-4 w-4 mr-1" />
-   Reports
- </Button>
-</Link>
-<Link href={`/dashboard/trials/${trial.id}`}>
- <Button size="sm">
-   Manage
- </Button>
-</Link>
+                        <Users className="h-4 w-4 mr-1" />
+                        Entries
+                      </Button>
+                      <Link href={`/dashboard/trials/${trial.id}/summary`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Reports
+                        </Button>
+                      </Link>
+                      <Link href={`/dashboard/trials/${trial.id}`}>
+                        <Button size="sm" disabled={deleting === trial.id}>
+                          Manage
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </CardContent>

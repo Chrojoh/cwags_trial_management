@@ -151,14 +151,22 @@ function TrialSummaryPageContent() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+ const formatDate = (dateString: string) => {
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0  // Set to noon to avoid timezone issues
+  );
+  
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
 
   const formatTime = (timeString: string) => {
     if (!timeString) return 'TBD';

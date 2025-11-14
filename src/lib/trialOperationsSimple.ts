@@ -74,8 +74,8 @@ export interface EntryData {
   handler_name: string;
   dog_call_name: string;
   cwags_number: string;
-  dog_breed: string;
-  dog_sex: string;
+  dog_breed: string | null;    // ✅ Change from: string
+  dog_sex: string | null; 
   handler_email: string;
   handler_phone: string;
   is_junior_handler: boolean;
@@ -744,8 +744,8 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
         handler_name: entryData.handler_name,
         dog_call_name: entryData.dog_call_name,
         cwags_number: entryData.cwags_number,
-        dog_breed: entryData.dog_breed,
-        dog_sex: entryData.dog_sex,
+        dog_breed: entryData.dog_breed || null,  // ✅ Add || null
+        dog_sex: entryData.dog_sex || null, 
         handler_email: entryData.handler_email,
         handler_phone: entryData.handler_phone,
         is_junior_handler: entryData.is_junior_handler,

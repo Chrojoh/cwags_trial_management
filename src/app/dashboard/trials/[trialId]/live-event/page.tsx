@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,20 +58,22 @@ interface Trial {
 }
 
 interface TrialClass {
-  id: string;
+  id: string;                    // This will be the ROUND ID
+  class_id?: string;             // Store original class ID
+  round_number?: number;         // Round number
   class_name: string;
   class_type: string;
   games_subclass?: string | null;
   judge_name: string;
   trial_date: string;
   trial_day_id: string;
-  entry_fee: number;          // Regular entry fee ($21.00 in your case)
-  feo_price?: number;         // FEO entry fee ($15.00 in your case)
-  feo_available: boolean;     // Whether FEO is available for this class
-  max_entries: number;        // Maximum entries allowed
-  class_level?: string;       // Class level
-  class_order?: number;       // Display order
-  class_status?: string;      // Class status
+  entry_fee: number;
+  feo_price?: number;
+  feo_available: boolean;
+  max_entries: number;
+  class_level?: string;
+  class_order?: number;
+  class_status?: string;
 }
 
 interface TrialRound {
@@ -135,8 +137,10 @@ interface ClassEntry {
 // after the interfaces and before the component export
 const getClassOrder = (className: string): number => {
   const classOrder = [
-    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 'Private Inv',
-    'Detective Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
+    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
+    'Private Investigator',  // ✅ CHANGED FROM 'Private Inv' to 'Private Investigator'
+    'Detective Diversions', 
+    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
     'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
     'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
     'Starter', 'Advanced', 'Pro', 'ARF',
@@ -267,6 +271,8 @@ export default function LiveEventManagementPage() {
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
+  const [isExportProcessing, setIsExportProcessing] = useState(false);
+  const [exportType, setExportType] = useState<'running-order' | 'score-sheets'>('running-order');
   const [availableDays, setAvailableDays] = useState<Array<{
     id: string;
     day_number: number;
@@ -281,6 +287,7 @@ export default function LiveEventManagementPage() {
     entry_type: 'regular'
   });
 
+
 const renderClassesByDay = () => {
   if (trialClasses.length === 0) {
     return (
@@ -294,9 +301,10 @@ const renderClassesByDay = () => {
   // Group classes by day using trial_date from the classes
   const classesByDay = trialClasses.reduce((acc, cls) => {
     const trialDate = cls.trial_date;
-    const dayKey = trialDate ? 
-      `Day ${new Date(trialDate).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}` :
-      'Day 1';
+    // Fix timezone issue for day grouping
+    const [year, month, day] = trialDate.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0);
+    const dayKey = `Day ${date.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}`;
     
     if (!acc[dayKey]) acc[dayKey] = [];
     acc[dayKey].push(cls);
@@ -304,47 +312,107 @@ const renderClassesByDay = () => {
   }, {} as Record<string, typeof trialClasses>);
 
   const dayKeys = Object.keys(classesByDay).sort((a, b) => {
-    // Sort by actual date if available
     const dateA = classesByDay[a][0]?.trial_date;
     const dateB = classesByDay[b][0]?.trial_date;
     if (dateA && dateB) {
-      return new Date(dateA).getTime() - new Date(dateB).getTime();
+      const [yearA, monthA, dayA] = dateA.split('-').map(Number);
+      const [yearB, monthB, dayB] = dateB.split('-').map(Number);
+      const dateObjA = new Date(yearA, monthA - 1, dayA);
+      const dateObjB = new Date(yearB, monthB - 1, dayB);
+      return dateObjA.getTime() - dateObjB.getTime();
     }
     return a.localeCompare(b);
   });
 
-  const renderClassCard = (cls: any) => (
-    <div
-      key={cls.id}
-      className={`p-4 rounded-lg border cursor-pointer transition-all ${
-        selectedClass?.id === cls.id
-          ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
-          : 'border-gray-200 hover:bg-gray-50'
-      }`}
-      onClick={() => setSelectedClass(cls)}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900">{cls.class_name}</h3>
-          <p className="text-sm text-gray-600">Judge: {cls.judge_name}</p>
-          <p className="text-xs text-gray-500">Type: {cls.class_type}</p>
-          {cls.class_type === 'games' && cls.games_subclass && (
-            <div className="mt-1">
-              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                <Trophy className="h-3 w-3 mr-1" />
-                {cls.games_subclass}
+  // Group classes by class name (and games_subclass for Games)
+  const groupClassesByName = (classes: typeof trialClasses) => {
+    const grouped = new Map<string, typeof trialClasses>();
+    
+    classes.forEach(cls => {
+      // Create unique key for grouping - same class name groups together
+      const key = cls.class_type === 'games' && cls.games_subclass
+        ? `${cls.class_name}-${cls.games_subclass}`
+        : cls.class_name;
+      
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)!.push(cls);
+    });
+    
+    return grouped;
+  };
+
+  const renderClassCard = (classGroup: typeof trialClasses) => {
+    const firstClass = classGroup[0];
+    const classKey = firstClass.class_type === 'games' && firstClass.games_subclass
+      ? `${firstClass.class_name}-${firstClass.games_subclass}`
+      : firstClass.class_name;
+    
+    // Calculate total entries across all rounds
+    const totalEntries = classGroup.reduce((sum, cls) => sum + (classCounts[cls.id] || 0), 0);
+    
+    // Sort rounds by round number
+    const sortedRounds = [...classGroup].sort((a, b) => {
+      return (a.round_number || 1) - (b.round_number || 1);
+    });
+    
+    return (
+      <div
+        key={classKey}
+        className={`p-4 rounded-lg border cursor-pointer transition-all ${
+          sortedRounds.some(cls => selectedClass?.id === cls.id)
+            ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+            : 'border-gray-200 hover:bg-gray-50'
+        }`}
+        onClick={() => setSelectedClass(sortedRounds[0])}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">{firstClass.class_name}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Type: {firstClass.class_type}</p>
+            {firstClass.class_type === 'games' && firstClass.games_subclass && (
+              <div className="mt-1">
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Trophy className="h-3 w-3 mr-1" />
+                  {firstClass.games_subclass}
+                </Badge>
+              </div>
+            )}
+          </div>
+          <div className="ml-2">
+            <Badge variant="outline">
+              {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
+            </Badge>
+          </div>
+        </div>
+        
+        {/* List all rounds with judges */}
+        <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200">
+          {sortedRounds.map((round) => (
+            <div 
+              key={round.id}
+              className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-blue-50 transition-colors ${
+                selectedClass?.id === round.id ? 'bg-blue-100' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedClass(round);
+              }}
+            >
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-medium text-gray-600">Round {round.round_number}:</span>
+                <span className="text-gray-700">{round.judge_name || 'No Judge Assigned'}</span>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {classCounts[round.id] || 0}
               </Badge>
             </div>
-          )}
-        </div>
-        <div className="ml-2">
-          <Badge variant="outline">
-            {classCounts[cls.id] || 0} entries
-          </Badge>
+          ))}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (dayKeys.length > 1) {
     return (
@@ -357,19 +425,23 @@ const renderClassesByDay = () => {
           ))}
         </TabsList>
         
-        {dayKeys.map((dayKey) => (
-          <TabsContent key={dayKey} value={dayKey}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {classesByDay[dayKey].map(renderClassCard)}
-            </div>
-          </TabsContent>
-        ))}
+        {dayKeys.map((dayKey) => {
+          const groupedClasses = groupClassesByName(classesByDay[dayKey]);
+          return (
+            <TabsContent key={dayKey} value={dayKey}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {Array.from(groupedClasses.values()).map(renderClassCard)}
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
     );
   } else {
+    const groupedClasses = groupClassesByName(trialClasses);
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {trialClasses.map(renderClassCard)}
+        {Array.from(groupedClasses.values()).map(renderClassCard)}
       </div>
     );
   }
@@ -411,70 +483,59 @@ const loadTrialData = async () => {
 
     setTrial(trialResult.data);
 
-    // Load all trial classes with judges and Games subclass
+    // Load all trial classes
     const classesResult = await simpleTrialOperations.getAllTrialClasses(trialId);
     if (!classesResult.success) {
       throw new Error('Failed to load trial classes');
     }
 
-    // Get judges for each class AND include the pricing information
-    const classesWithJudges = await Promise.all(
-      (classesResult.data || []).map(async (cls: any) => {
-        try {
-          const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
-          const judge = roundsResult.success && roundsResult.data.length > 0 
-            ? roundsResult.data[0].judge_name 
-            : 'No Judge Assigned';
+    // Get ALL rounds for each class - create separate entries for each round
+    const allClassRounds: TrialClass[] = [];
+    
+    for (const cls of (classesResult.data || [])) {
+      try {
+        const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
+        
+        if (roundsResult.success && roundsResult.data && roundsResult.data.length > 0) {
+          console.log(`Found ${roundsResult.data.length} rounds for class ${cls.class_name}`);
           
-          // 🔥 CRITICAL FIX: Include ALL pricing fields from the database
-          return {
-            id: cls.id,
-            class_name: cls.class_name,
-            class_type: cls.class_type || 'scent',
-            games_subclass: cls.games_subclass || null,
-            judge_name: judge,
-            trial_date: cls.trial_days?.trial_date || '',
-            trial_day_id: cls.trial_day_id,
-            // ✅ ADD THESE MISSING PRICING FIELDS:
-            entry_fee: cls.entry_fee || 0,           // Regular entry fee
-            feo_available: cls.feo_available || false, // Whether FEO is available
-            feo_price: cls.feo_price || 0,           // FEO entry fee
-            max_entries: cls.max_entries || 0,       // Max entries allowed
-            class_level: cls.class_level || '',      // Class level
-            class_order: cls.class_order || 999,     // Display order
-            class_status: cls.class_status || 'active' // Class status
-          };
-        } catch (error) {
-          console.error(`Error loading judge for class ${cls.id}:`, error);
-          return {
-            id: cls.id,
-            class_name: cls.class_name,
-            class_type: cls.class_type || 'scent',
-            games_subclass: cls.games_subclass || null,
-            judge_name: 'Error Loading Judge',
-            trial_date: cls.trial_days?.trial_date || '',
-            trial_day_id: cls.trial_day_id,
-            // ✅ INCLUDE PRICING FIELDS EVEN ON ERROR:
-            entry_fee: cls.entry_fee || 0,
-            feo_available: cls.feo_available || false,
-            feo_price: cls.feo_price || 0,
-            max_entries: cls.max_entries || 0,
-            class_level: cls.class_level || '',
-            class_order: cls.class_order || 999,
-            class_status: cls.class_status || 'active'
-          };
+          // Create a TrialClass entry for EACH round
+          roundsResult.data.forEach((round: any, index: number) => {
+            allClassRounds.push({
+              id: round.id, // Use ROUND ID as the main ID
+              class_id: cls.id, // Store original class ID
+              round_number: round.round_number || (index + 1),
+              class_name: cls.class_name,
+              class_type: cls.class_type || 'scent',
+              games_subclass: cls.games_subclass || null,
+              judge_name: round.judge_name || 'No Judge Assigned',
+              trial_date: cls.trial_days?.trial_date || '',
+              trial_day_id: cls.trial_day_id,
+              entry_fee: cls.entry_fee || 0,
+              feo_available: cls.feo_available || false,
+              feo_price: cls.feo_price || 0,
+              max_entries: cls.max_entries || 0,
+              class_level: cls.class_level || '',
+              class_order: cls.class_order || 999,
+              class_status: cls.class_status || 'active'
+            });
+          });
+        } else {
+          console.log(`No rounds found for class ${cls.class_name}`);
         }
-      })
-    );
-
-    setTrialClasses(classesWithJudges);
-
-    if (classesWithJudges.length > 0 && !selectedClass) {
-      setSelectedClass(classesWithJudges[0]);
+      } catch (error) {
+        console.error(`Error loading rounds for class ${cls.id}:`, error);
+      }
     }
 
-    console.log('Trial data loaded successfully with pricing information');
-    console.log('Sample class with pricing:', classesWithJudges[0]); // Debug log
+    console.log(`Total rounds loaded: ${allClassRounds.length}`);
+    setTrialClasses(allClassRounds);
+
+    if (allClassRounds.length > 0 && !selectedClass) {
+      setSelectedClass(allClassRounds[0]);
+    }
+
+    console.log('Trial data loaded with all rounds');
     
   } catch (err) {
     console.error('Error loading trial data:', err);
@@ -484,23 +545,13 @@ const loadTrialData = async () => {
   }
 };
 
+
 const loadClassEntries = async () => {
   if (!selectedClass) return;
 
   try {
     setError(null);
-    console.log('Loading entries for class:', selectedClass.id);
-
-    // Get all rounds for this class
-    const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
-    if (!roundsResult.success) {
-      console.error('Failed to load rounds for class:', roundsResult.error);
-      setClassEntries([]);
-      return;
-    }
-
-    const classRounds: TrialRound[] = roundsResult.data || [];
-    console.log('Found rounds for class:', classRounds);
+    console.log('Loading entries for round:', selectedClass.id, selectedClass.class_name, 'Round', selectedClass.round_number);
 
     // Get entries for this trial
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
@@ -508,101 +559,54 @@ const loadClassEntries = async () => {
       throw new Error('Failed to load entries');
     }
 
-    // Filter and structure entries for this class's rounds
+    // Filter entries for THIS SPECIFIC ROUND (selectedClass.id is the round ID)
     const classEntriesData: ClassEntry[] = [];
     (entriesResult.data || []).forEach((entry: any) => {
       const selections = entry.entry_selections || [];
       selections.forEach((selection: any) => {
-        // Check if this selection is for any round in our selected class
-        const roundForSelection = classRounds.find((r: TrialRound) => r.id === selection.trial_round_id);
-        if (roundForSelection) {
-          // FILTER OUT WITHDRAWN ENTRIES - DON'T ADD THEM TO THE LIST
+        // Check if this selection is for the selected round
+        if (selection.trial_round_id === selectedClass.id) {
+          // FILTER OUT WITHDRAWN ENTRIES
           const entryStatus = selection.entry_status || 'entered';
           if (entryStatus.toLowerCase() !== 'withdrawn') {
             classEntriesData.push({
               id: selection.id,
               entry_id: entry.id,
-              running_position: selection.running_position || 1,
+              running_position: selection.running_position || 0,
               entry_type: selection.entry_type || 'regular',
-              entry_status: entryStatus, // Use the checked status
-              round_number: roundForSelection.round_number,
-              round_id: roundForSelection.id,
+              entry_status: entryStatus,
+              round_number: selectedClass.round_number || 1,
+              round_id: selectedClass.id,
               entries: {
                 handler_name: entry.handler_name,
                 dog_call_name: entry.dog_call_name,
                 cwags_number: entry.cwags_number
               },
               trial_rounds: {
-                judge_name: roundForSelection.judge_name,
+                judge_name: selectedClass.judge_name,
                 trial_classes: {
                   class_name: selectedClass.class_name,
                   class_type: selectedClass.class_type,
                   games_subclass: selectedClass.games_subclass
                 }
               },
-              scores: []
+              scores: selection.scores || []
             });
-          } else {
-            console.log('Excluding withdrawn entry:', entry.handler_name, entry.dog_call_name);
           }
         }
       });
     });
 
-    // Sort by round number first, THEN by running position within each round
-    classEntriesData.sort((a, b) => {
-      if (a.round_number !== b.round_number) {
-        return a.round_number - b.round_number;
-      }
-      return a.running_position - b.running_position;
-    });
-
-    // IMPORTANT: Fix running positions after filtering out withdrawn entries
-    // Reset positions to be consecutive within each round (1, 2, 3, 4...)
-    const entriesByRound = classEntriesData.reduce((acc, entry) => {
-      if (!acc[entry.round_number]) acc[entry.round_number] = [];
-      acc[entry.round_number].push(entry);
-      return acc;
-    }, {} as Record<number, ClassEntry[]>);
-
-    // Reassign running positions within each round to be consecutive
-    Object.values(entriesByRound).forEach(roundEntries => {
-      roundEntries.forEach((entry, index) => {
-        entry.running_position = index + 1; // Reset to 1, 2, 3, 4... within each round
-      });
-    });
-
-    // Flatten back to single array, maintaining round grouping
-    const correctedEntries = Object.keys(entriesByRound)
-      .sort((a, b) => parseInt(a) - parseInt(b))
-      .flatMap(roundNum => entriesByRound[parseInt(roundNum)]);
-
-    // Load existing scores for all entries
-    const entriesWithScores = await Promise.all(
-      correctedEntries.map(async (entry) => {
-        try {
-          const { data: scores, error } = await supabase
-            .from('scores')
-            .select('*')
-            .eq('entry_selection_id', entry.id);
-
-          if (!error && scores && scores.length > 0) {
-            entry.scores = scores;
-          }
-          return entry;
-        } catch (error) {
-          console.error('Error loading scores for entry:', entry.id, error);
-          return entry;
-        }
-      })
-    );
-
-    setClassEntries(entriesWithScores);
-    console.log(`Loaded ${entriesWithScores.length} active entries for class (withdrawn entries excluded)`);
-
+    // Sort by running position
+    classEntriesData.sort((a, b) => a.running_position - b.running_position);
+    
+    console.log(`Loaded ${classEntriesData.length} entries for round ${selectedClass.id}`);
+    setClassEntries(classEntriesData);
+    
   } catch (err) {
     console.error('Error loading class entries:', err);
-    setError(err instanceof Error ? err.message : 'Failed to load class entries');
+    setError(err instanceof Error ? err.message : 'Failed to load entries');
+    setClassEntries([]);
   }
 };
 
@@ -736,21 +740,23 @@ const loadAllClassCounts = async () => {
   if (trialClasses.length === 0) return;
   
   try {
-    console.log('Loading entry counts for', trialClasses.length, 'classes');
+    console.log('Loading entry counts for', trialClasses.length, 'rounds');
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
     if (!entriesResult.success) return;
 
     const counts: Record<string, number> = {};
     
+    // Now cls.id is a ROUND ID, so check directly against trial_round_id
     trialClasses.forEach(cls => {
-      const classEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
-        const selectionsForClass = entry.entry_selections?.filter((selection: any) => 
-          selection.trial_rounds?.trial_class_id === cls.id
+      const roundEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
+        const selectionsForRound = entry.entry_selections?.filter((selection: any) => 
+          selection.trial_round_id === cls.id  // Check round ID directly
         ) || [];
-        return count + selectionsForClass.length;
+        return count + selectionsForRound.length;
       }, 0);
       
-      counts[cls.id] = classEntryCount;
+      counts[cls.id] = roundEntryCount;
+      console.log(`Round ${cls.id} (${cls.class_name} R${cls.round_number}): ${roundEntryCount} entries`);
     });
     
     setClassCounts(counts);
@@ -768,15 +774,21 @@ const loadAvailableDays = async () => {
     const result = await simpleTrialOperations.getTrialDays(trialId);
     
     if (result.success) {
-      const daysWithFormatting = (result.data || []).map((day: any) => ({
-        ...day,
-        formatted_date: new Date(day.trial_date).toLocaleDateString('en-US', {
-          weekday: 'long',
-          month: 'long',
-          day: 'numeric',
-          year: 'numeric'
-        })
-      })).sort((a: any, b: any) => a.day_number - b.day_number);
+     const daysWithFormatting = (result.data || []).map((day: any) => {
+  // Manual date parsing to avoid timezone shift
+  const [year, month, dayNum] = day.trial_date.split('-').map(Number);
+  const date = new Date(year, month - 1, dayNum, 12, 0, 0);
+  
+  return {
+    ...day,
+    formatted_date: date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  };
+}).sort((a: any, b: any) => a.day_number - b.day_number);
       
       setAvailableDays(daysWithFormatting);
       console.log('Loaded days:', daysWithFormatting);
@@ -1104,8 +1116,8 @@ const addNewEntry = async () => {
       handler_name: newEntryData.handler_name,
       dog_call_name: newEntryData.dog_call_name,
       cwags_number: newEntryData.cwags_number,
-      dog_breed: '',
-      dog_sex: '',
+      dog_breed: null,
+      dog_sex: null,
       handler_email: '',
       handler_phone: '',
       is_junior_handler: false,
@@ -1217,6 +1229,446 @@ if (insertError) {
     }
   };
 
+// Update the existing Export to Excel button click to set the type:
+const handleExportRunningOrder = () => {
+  setIsExportProcessing(true);
+  setExportType('running-order');
+  setShowDaySelector(true);
+};
+
+const exportScoreSheets = async () => {
+  if (!trial) return;
+  
+  try {
+    setIsExportProcessing(true);
+    setExportType('score-sheets');
+    setShowDaySelector(true);
+  } catch (error) {
+    console.error('Error initiating score sheet export:', error);
+    alert('Failed to export score sheets');
+    setIsExportProcessing(false);
+  }
+};
+
+{showDaySelector && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">
+          {exportType === 'running-order' ? 'Select Day to Export Running Order' : 'Select Day to Export Score Sheets'}
+        </h3>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => {
+            setShowDaySelector(false);
+            setIsExportProcessing(false); // ADD THIS
+          }}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="space-y-3">
+        {availableDays.map((day) => (
+          <Button
+            key={day.id}
+            variant="outline"
+            className="w-full text-left justify-start"
+            onClick={() => {
+              // Close modal and reset state immediately
+              setShowDaySelector(false);
+              setIsExportProcessing(false);
+              
+              // Then start the export
+              if (exportType === 'running-order') {
+                setSelectedPrintDay(day.id);
+                exportRunningOrderToExcel(day.id);
+              } else {
+                exportScoreSheetsForDay(day.id);
+              }
+            }}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Day {day.day_number} - {day.formatted_date}
+          </Button>
+        ))}
+      </div>
+      
+      <div className="flex justify-end mt-4">
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            setShowDaySelector(false);
+            setIsExportProcessing(false); // ADD THIS
+          }}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
+
+// COMPLETE REPLACEMENT for exportScoreSheetsForDay with FULL FORMATTING
+
+const exportScoreSheetsForDay = async (dayId: string) => {
+  if (!trial) {
+    alert('Trial data not loaded');
+    return;
+  }
+
+  try {
+    const selectedDay = availableDays.find(d => d.id === dayId);
+    if (!selectedDay) return;
+
+    const roundsForDay = trialClasses.filter(cls => cls.trial_day_id === dayId);
+    
+    if (roundsForDay.length === 0) {
+      alert('No rounds found for this day');
+      return;
+    }
+
+    const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) {
+      alert('Failed to load entries');
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    // Fix date parsing to avoid timezone bug
+    const [year, month, day] = selectedDay.trial_date.split('-').map(Number);
+    const formattedDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+
+    for (const round of roundsForDay) {
+      // Get entries for this round
+      const roundEntries: Array<{
+        runningOrder: number;
+        cwagsNumber: string;
+        dogName: string;
+        handlerName: string;
+      }> = [];
+
+      (entriesResult.data || []).forEach((entry: any) => {
+        const selections = entry.entry_selections || [];
+        selections.forEach((selection: any) => {
+          if (selection.trial_round_id === round.id && selection.entry_status !== 'withdrawn') {
+            roundEntries.push({
+              runningOrder: selection.running_position || 0,
+              cwagsNumber: entry.cwags_number || '',
+              dogName: entry.dog_call_name || '',
+              handlerName: entry.handler_name || ''
+            });
+          }
+        });
+      });
+
+      roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
+
+      // Create array - 20 columns (A-T)
+      const wsData: any[][] = [];
+      const emptyRow = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
+
+      // Row 1: Title and Date
+      wsData.push(['Scent Detection Master Score Sheet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Date:', '', formattedDate, '']);
+
+      // Row 2: CLASS (and logo area B2:D5)
+      wsData.push(['', '', '', '', 'CLASS:', "", round.class_name, '', '', '', '', '', '', '', '', '', '', '', '', '']);
+
+      // Row 3: Empty
+      wsData.push([...emptyRow]);
+
+      // Row 4: ROUND and JUDGE
+      const roundText = `Round ${round.round_number || 1}`;
+      wsData.push(['', '', '', '', 'ROUND:', '', roundText, '', '', '', '', '', '', '', 'JUDGE:', '', round.judge_name, '', '', '']);
+
+      // Row 5: Empty
+      wsData.push([...emptyRow]);
+
+      // Row 6: Scent headers
+      wsData.push(['Scent 1', '', '', '', '', 'Scent 2', '', '', '', '', 'Scent 3', '', '', '', '', 'Scent 4', '', '', '', '']);
+
+      // Row 7: Located in/on
+      wsData.push(['Located in/on', '', '', '', '', 'Located in/on', '', '', '', '', 'Located in/on', '', '', '', '', 'Located in/on', '', '', '', '']);
+
+      // Row 8: Instructions
+      wsData.push(['Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less then half.', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+
+      // Row 9: Column headers
+      wsData.push(['Registration Number', '', 'Handler / Dog', '', '', '', 'Scent 1', 'Scent 2', 'Scent 3', 'Scent 4', 'Fault 1', '', '', 'Fault 2', '', '', 'TIME', '', 'Pass / Fail', '']);
+
+      // Rows 10+: Entry data (2 rows per entry)
+      roundEntries.forEach((entry) => {
+        // First row of entry
+        wsData.push([entry.cwagsNumber, '', entry.handlerName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+        // Second row of entry
+        wsData.push(['', '', entry.dogName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+      });
+
+      // Add empty rows to reach row 57 (2-row entries until A56:B57)
+      while (wsData.length < 49) {
+        wsData.push([...emptyRow]);
+        wsData.push([...emptyRow]);
+      }
+
+      // Create worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Set ALL column widths to 8
+      worksheet['!cols'] = Array(20).fill({ wch: 8 });
+
+     // Set row heights
+worksheet['!rows'] = [];
+worksheet['!rows'][5] = { hpt: 80 };  // Row 6 double height (60 instead of 30)
+worksheet['!rows'][6] = { hpt: 80};   // Row 7 double height
+worksheet['!rows'][7] = { hpt: 40 };  // Row 8 same height
+worksheet['!rows'][8] = { hpt: 40};   // Row 9 same height
+
+// 🔥 Set row heights for rows 10 to 49 (indexes 9–48)
+for (let r = 9; r <= 48; r++) {
+  worksheet['!rows'][r] = { hpt: 22 };  // ← change height as desired
+}
+
+
+      // Set merged cells
+      const merges = [
+        // Row 1: Title merged A1:K1
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        
+        // Row 1: Date label P1:Q1, Date value S1:T1
+        { s: { r: 0, c: 15 }, e: { r: 0, c: 16 } },  // P1:Q1 "Date:"
+        { s: { r: 0, c: 17 }, e: { r: 0, c: 19 } },  // S1:T1 date value
+        
+        // Logo area B2:D5 (for image placement)
+        { s: { r: 1, c: 1 }, e: { r: 4, c: 3 } },
+
+        // Row 2: CLASS: E2:F2, Class name G2:I2
+        { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } },    // E2:F2 CLASS:
+        { s: { r: 1, c: 6 }, e: { r: 1, c: 10 } },    // G2:I2 class name
+
+        // Row 4: ROUND: E4:F4, Round name G4:I4
+        { s: { r: 3, c: 4 }, e: { r: 3, c: 5 } },    // E4:F4 ROUND:
+        { s: { r: 3, c: 6 }, e: { r: 3, c: 8 } },    // G4:I4 round name
+        
+        // Row 4: JUDGE O4:P4 (label), Q4:T4 (judge name)
+        { s: { r: 3, c: 14 }, e: { r: 3, c: 15 } },  // O4:P4 JUDGE:
+        { s: { r: 3, c: 16 }, e: { r: 3, c: 19 } },  // Q4:T4 judge name
+
+        // Row 6: Scent headers
+        { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },    // A6:E6 Scent 1
+        { s: { r: 5, c: 5 }, e: { r: 5, c: 9 } },    // F6:J6 Scent 2
+        { s: { r: 5, c: 10 }, e: { r: 5, c: 14 } },  // K6:O6 Scent 3
+        { s: { r: 5, c: 15 }, e: { r: 5, c: 19 } },  // P6:T6 Scent 4
+
+        // Row 7: Located in/on
+        { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },    // A7:E7
+        { s: { r: 6, c: 5 }, e: { r: 6, c: 9 } },    // F7:J7
+        { s: { r: 6, c: 10 }, e: { r: 6, c: 14 } },  // K7:O7
+        { s: { r: 6, c: 15 }, e: { r: 6, c: 19 } },  // P7:T7
+
+        // Row 8: Instructions
+        { s: { r: 7, c: 0 }, e: { r: 7, c: 19 } },   // A8:T8
+
+        // Row 9: Headers
+        { s: { r: 8, c: 0 }, e: { r: 8, c: 1 } },    // A9:B9 Registration Number
+        { s: { r: 8, c: 2 }, e: { r: 8, c: 5 } },    // C9:F9 Handler/Dog
+        { s: { r: 8, c: 10 }, e: { r: 8, c: 12 } },  // K9:M9 Fault 1
+        { s: { r: 8, c: 13 }, e: { r: 8, c: 15 } },  // N9:P9 Fault 2
+        { s: { r: 8, c: 16 }, e: { r: 8, c: 17 } },  // Q9:R9 TIME
+        { s: { r: 8, c: 18 }, e: { r: 8, c: 19 } },  // S9:T9 Pass/Fail
+      ];
+
+      // Add entry row merges (starting at row 10, index 9)
+      // Create merges for ALL rows from 10 to 57 (24 two-row entries total)
+      const totalEntrySlots = 20; // Rows 10-57 = 48 rows = 24 two-row entries
+      
+      for (let i = 0; i < totalEntrySlots; i++) {
+        const rowIndex = 9 + (i * 2);  // Each entry is 2 rows
+        
+        // Registration number (A:B vertical merge across 2 rows)
+        merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex + 1, c: 1 } });
+        
+        // Handler name (C:F first row)
+        merges.push({ s: { r: rowIndex, c: 2 }, e: { r: rowIndex, c: 5 } });
+        
+        // Dog name (C:F second row)
+        merges.push({ s: { r: rowIndex + 1, c: 2 }, e: { r: rowIndex + 1, c: 5 } });
+        
+        // Scent columns (G:J individual cells, merged vertically)
+        merges.push({ s: { r: rowIndex, c: 6 }, e: { r: rowIndex + 1, c: 6 } });   // G
+        merges.push({ s: { r: rowIndex, c: 7 }, e: { r: rowIndex + 1, c: 7 } });   // H
+        merges.push({ s: { r: rowIndex, c: 8 }, e: { r: rowIndex + 1, c: 8 } });   // I
+        merges.push({ s: { r: rowIndex, c: 9 }, e: { r: rowIndex + 1, c: 9 } });   // J
+        
+        // Fault 1 (K:M)
+        merges.push({ s: { r: rowIndex, c: 10 }, e: { r: rowIndex + 1, c: 12 } });
+        
+        // Fault 2 (N:P)
+        merges.push({ s: { r: rowIndex, c: 13 }, e: { r: rowIndex + 1, c: 15 } });
+        
+        // Time (Q:R)
+        merges.push({ s: { r: rowIndex, c: 16 }, e: { r: rowIndex + 1, c: 17 } });
+        
+        // Pass/Fail (S:T)
+        merges.push({ s: { r: rowIndex, c: 18 }, e: { r: rowIndex + 1, c: 19 } });
+      }
+
+      worksheet['!merges'] = merges;
+
+      // Apply cell styling
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1:T49');
+      
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!worksheet[cellAddress]) worksheet[cellAddress] = { v: '' };
+          
+          const cell = worksheet[cellAddress];
+          
+          // Determine if this is in columns C-F (2-5) and in a 2-row entry (rows 10+)
+          const isHandlerDogColumn = C >= 2 && C <= 5;
+          const isDataRow = R >= 9;
+          const entryRowIndex = isDataRow ? (R - 9) % 2 : -1;
+          
+          // NO BORDERS for rows 1-6 (R 0-5)
+          // BORDERS for rows 7-57 (R >= 6)
+          let border;
+          if (R >= 5) {
+            border = {
+              top: { style: 'thin', color: { rgb: '000000' } },
+              bottom: { style: 'thin', color: { rgb: '000000' } },
+              left: { style: 'thin', color: { rgb: '000000' } },
+              right: { style: 'thin', color: { rgb: '000000' } }
+            };
+            
+            // Special case: C-F columns in data rows - remove middle border
+            if (isHandlerDogColumn && isDataRow) {
+              if (entryRowIndex === 0) {
+                border.bottom = { style: 'thin', color: { rgb: 'FFFFFF' } };
+              } else if (entryRowIndex === 1) {
+                border.top = { style: 'thin', color: { rgb: 'FFFFFF' } };
+              }
+            }
+          }
+
+          // Rows 1-7: Font size 17, BOLD
+          if (R <= 6) {
+            if (R === 0) {
+              // Row 1: Title (size 20) and Date
+              cell.s = {
+                font: { bold: true, sz: 25, name: 'Calibri' },
+                alignment: { 
+                  horizontal: C === 0 ? 'left' : (C === 18 || C === 19 ? 'center' : (C >= 17 ? 'left' : 'right')), 
+                  vertical: 'center', 
+                  wrapText: false
+                },
+                border
+              };
+            } else if (R === 1) {
+              // Row 2: CLASS/Logo area
+              cell.s = {
+                font: { bold: true, sz: 25, name: 'Calibri' },
+                alignment: { 
+                  horizontal: (C === 4 || C === 5) ? 'right' : 'left', 
+                  vertical: 'center', 
+                  wrapText: true 
+                },
+                border
+              };
+            } else if (R === 3) {
+  cell.s = {
+    font: { 
+      bold: true, 
+      sz: 25,              // Maximum font size
+      name: 'Calibri' 
+    },
+    alignment: { 
+      horizontal: (C === 4 || C === 5 || C === 14 || C === 15) ? 'right' : 'left',
+      vertical: 'center',
+      wrapText: true,
+      shrinkToFit: (C === 6) ? true : false   // 👈 SHRINK ONLY JUDGE NAME CELL
+    },
+    border
+  };
+}
+else if (R === 5) {
+              // Row 6: Scent headers
+              cell.s = {
+                font: { bold: true, sz: 17, name: 'Calibri' },
+                alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
+                fill: { fgColor: { rgb: 'E8E8E8' } },
+                border
+              };
+            } else if (R === 6) {
+              // Row 7: Located in/on
+              cell.s = {
+                font: { bold: true, sz: 17, name: 'Calibri' },
+                alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
+                border
+              };
+            } else {
+              // Rows 3, 5
+              cell.s = {
+                font: { bold: true, sz: 17, name: 'Calibri' },
+                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+                border
+              };
+            }
+          }
+          // Rows 8-57: Font size 12
+          else {
+            cell.s = {
+              font: { sz: 14, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+              border
+            };
+            
+            if (R === 7) {
+              // Row 8: Instructions - CENTERED
+              cell.s.font.bold = false;
+              cell.s.font.italic = false;
+              cell.s.alignment.horizontal = 'center';
+            } else if (R === 8) {
+              // Row 9: Headers
+              cell.s.font.bold = true;
+              cell.s.fill = { fgColor: { rgb: 'D3D3D3' } };
+              
+              // Columns G, H, I, J: Shrink to fit
+              if (C >= 6 && C <= 9) {
+                cell.s.alignment.shrinkToFit = true;
+              }
+            }
+          }
+        }
+      }
+
+      // Add worksheet
+      let sheetName = `${round.class_name} R${round.round_number || 1}`;
+      if (sheetName.length > 31) {
+        sheetName = sheetName.substring(0, 31);
+      }
+      sheetName = sheetName.replace(/[:\\/?*[\]]/g, '');
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    }
+
+    const fileName = `Score-Sheets-${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}-${formattedDate.replace(/[,\/]/g, '')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+    setShowDaySelector(false);
+    alert(`Score sheets exported successfully with ${roundsForDay.length} rounds!`);
+
+  } catch (error) {
+    console.error('Error exporting score sheets:', error);
+    alert('Error exporting score sheets. Please try again.');
+  }
+};
+
 const exportRunningOrderToExcel = async (selectedDayId: string) => {
   if (!selectedClass || !trial) return;
 
@@ -1227,29 +1679,37 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       return;
     }
 
+    interface ClassRoundColumn {
+  className: string;
+  roundNumber: number;
+  judgeName: string;
+  classId?: string;
+  roundId: string;
+  columnHeader: string;
+  entries: Array<{
+    position: number;
+    handlerName: string;
+    dogName: string;
+    status: string;
+    result: string;
+  }>;
+}
+    
     // Get all classes and rounds for the selected day
     const dayClasses = trialClasses.filter(cls => 
       cls.trial_date === selectedDay.trial_date
     );
 
-    // Get all rounds for all classes on this day
-    const classRounds: any[] = [];
-    for (const cls of dayClasses) {
-      const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
-      if (roundsResult.success && roundsResult.data) {
-        roundsResult.data.forEach((round: any) => {
-          classRounds.push({
-            className: cls.class_name,
-            roundNumber: round.round_number,
-            judgeName: round.judge_name,
-            classId: cls.id,
-            roundId: round.id,
-            columnHeader: `${cls.class_name} Round ${round.round_number}`,
-            entries: []
-          });
-        });
-      }
-    }
+  // dayClasses already contains all round info!
+const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
+  className: cls.class_name,
+  roundNumber: cls.round_number || 1,
+  judgeName: cls.judge_name,
+  classId: cls.class_id,
+  roundId: cls.id,
+  columnHeader: `${cls.class_name} Round ${cls.round_number || 1}`,
+  entries: []
+}));
 
     // Sort columns - First by class order, then by round number within each class
     classRounds.sort((a, b) => {
@@ -1402,11 +1862,12 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     }
 
     // Row 2: Short date format
-    const shortDate = new Date(selectedDay.trial_date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    const [year, month, day] = selectedDay.trial_date.split('-').map(Number);
+const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric'
+});
 
     for (let col = 0; col < numColumns; col++) {
       const cellRef = XLSX.utils.encode_cell({ c: col, r: 1 });
@@ -1767,6 +2228,10 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                 <Users className="h-4 w-4 mr-2" />
                 Add Entry
               </Button>
+              <Button onClick={exportScoreSheets} variant="outline">
+             <FileDown className="h-4 w-4 mr-2" />
+              Export Score Sheets
+            </Button>
             </div>
           </div>
         </CardHeader>
@@ -2503,47 +2968,54 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       )}
       {/* Day Selection Modal */}
       {showDaySelector && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Select Day to Export</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowDaySelector(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            <div className="space-y-3">
-              {availableDays.map((day) => (
-                <Button
-                  key={day.id}
-                  variant="outline"
-                  className="w-full text-left justify-start"
-                 onClick={() => {
-                  setSelectedPrintDay(day.id);
-                  exportRunningOrderToExcel(day.id);
-                }}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Day {day.day_number} - {day.formatted_date}
-                </Button>
-              ))}
-            </div>
-            
-            <div className="flex justify-end mt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowDaySelector(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold">
+          {exportType === 'running-order' ? 'Select Day to Export Running Order' : 'Select Day to Export Score Sheets'}
+        </h3>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setShowDaySelector(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="space-y-3">
+        {availableDays.map((day) => (
+          <Button
+            key={day.id}
+            variant="outline"
+            className="w-full text-left justify-start"
+            onClick={() => {
+              // THIS IS THE FIX - check exportType
+              if (exportType === 'running-order') {
+                setSelectedPrintDay(day.id);
+                exportRunningOrderToExcel(day.id);
+              } else {
+                exportScoreSheetsForDay(day.id);
+              }
+            }}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Day {day.day_number} - {day.formatted_date}
+          </Button>
+        ))}
+      </div>
+      
+      <div className="flex justify-end mt-4">
+        <Button 
+          variant="outline" 
+          onClick={() => setShowDaySelector(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
       </MainLayout>
   );
 }

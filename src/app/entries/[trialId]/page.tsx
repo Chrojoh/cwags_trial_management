@@ -117,68 +117,74 @@ export default function PublicEntryForm() {
   const [confirmationData, setConfirmationData] = useState<{originalSelections: number; currentSelections: number} | null>(null);
   const [originalFormData, setOriginalFormData] = useState<EntryFormData | null>(null);
 
-  const formatCwagsNumber = (input: string): string => {
-    const numbersOnly = input.replace(/\D/g, '');
-    
-    if (numbersOnly.length === 0) return '';
-    if (numbersOnly.length <= 2) return numbersOnly;
-    if (numbersOnly.length <= 6) return `${numbersOnly.slice(0, 2)}-${numbersOnly.slice(2)}`;
-    
-    const part1 = numbersOnly.slice(0, 2);
-    const part2 = numbersOnly.slice(2, 6);
-    const part3 = numbersOnly.slice(6, 8).padStart(2, '0');
-   
-    return `${part1}-${part2}-${part3}`;
-  };
-
   const getClassOrder = (className: string): number => {
-    const classOrder = [
-      'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 'Private Inv',
-      'Detective Diversions', 'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-      'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-      'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-      'Starter', 'Advanced', 'Pro', 'ARF',
-      'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-      'Games 1', 'Games 2', 'Games 3', 'Games 4'
-    ];
-    
-    const index = classOrder.findIndex(order => {
-      if (className.includes('Games')) {
-        return className.startsWith(order);
-      }
-      return className === order;
-    });
-    
-    return index === -1 ? 999 : index;
-  };
-
-  const cleanCwagsNumber = (input: string): string => {
-    const numbersOnly = input.replace(/\D/g, '');
-    
-    if (numbersOnly.length < 6) {
-      throw new Error('C-WAGS number must be at least 6 digits');
+  const classOrder = [
+    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
+    'Private Investigator',  // ✅ CHANGED FROM 'Private Inv' to 'Private Investigator'
+    'Detective Diversions', 
+    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
+    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
+    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
+    'Starter', 'Advanced', 'Pro', 'ARF',
+    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
+    'Games 1', 'Games 2', 'Games 3', 'Games 4'
+  ];
+  
+  const index = classOrder.findIndex(order => {
+    if (className.includes('Games')) {
+      return className.startsWith(order);
     }
-    
-    const paddedNumbers = numbersOnly.padEnd(8, '0');
-    const part1 = paddedNumbers.slice(0, 2);
-    const part2 = paddedNumbers.slice(2, 6);  
-    const part3 = paddedNumbers.slice(6, 8);
-    
-    return `${part1}-${part2}-${part3}`;
-  };
+    return className === order;
+  });
+  
+  return index === -1 ? 999 : index;
+};
 
-  const handleCwagsSubmit = async () => {
-    if (!cwagsInputValue.trim()) return;
+const cleanCwagsNumber = (input: string): string => {
+  const digits = input.replace(/\D/g, "");
+  if (!digits) throw new Error("Please enter a C-WAGS registration number");
+
+  // Part 1: first 2 digits
+  const part1 = digits.slice(0, 2).padEnd(2, "0");
+
+  // Part 2: next 4 digits
+  const part2 = digits.slice(2, 6).padEnd(4, "0");
+
+  // Part 3: everything after digit 6
+  let part3 = digits.slice(6);
+
+  // Pad END block on the LEFT to 2 digits
+  part3 = part3.padStart(2, "0").slice(-2);
+
+  return `${part1}-${part2}-${part3}`;
+};
+
+
+
+// UPDATED: Handle lookup button click
+const handleCwagsSubmit = async () => {
+  if (!cwagsInputValue.trim()) {
+    setError('Please enter a C-WAGS registration number');
+    return;
+  }
+  
+  try {
+    // Clean and format the number
+    const cleanedNumber = cleanCwagsNumber(cwagsInputValue);
     
-    try {
-      const cleanedNumber = cleanCwagsNumber(cwagsInputValue);
-      setCwagsInputValue(cleanedNumber);
-      setFormData(prev => ({ ...prev, cwags_number: cleanedNumber }));
-      await handleCwagsLookup(cleanedNumber);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid C-WAGS number format');
-    }
-  };
+    // Update the input field with formatted number
+    setCwagsInputValue(cleanedNumber);
+    
+    // Update form data with cleaned number
+    setFormData(prev => ({ ...prev, cwags_number: cleanedNumber }));
+    
+    // Perform the lookup
+    await handleCwagsLookup(cleanedNumber);
+    
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Invalid C-WAGS number format');
+  }
+};
 
   const loadTrialData = async () => {
     try {
@@ -877,25 +883,62 @@ if (insertError) {
           </CardHeader>
         </Card>
 
-        {/* Disclaimer & Waiver */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              C-WAGS Disclaimer & Liability Waiver
-            </CardTitle>
-            <CardDescription>
-              Please read and accept the waiver before proceeding
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm max-w-none mb-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-amber-800 font-medium mb-2">
-                  <strong>Important:</strong> You must read and agree to the waiver to submit this form
-                </p>
-                <div className="text-xs text-amber-700 leading-relaxed">
-                  {trial.waiver_text || `
+        {/* Notice to Exhibitors */}
+<Card className="mb-6">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <FileText className="h-5 w-5" />
+      C-WAGS Notice to Exhibitors
+    </CardTitle>
+    <CardDescription>
+      Please read this important information before entering
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="text-sm text-blue-900 space-y-3 leading-relaxed">
+        <p><strong>C-WAGS Notice to Exhibitors</strong></p>
+        <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:</p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.</li>
+          <li>All judges and trial hosts are expected to show respect to all exhibitors.</li>
+          <li>This trial is open to all dogs registered with C-WAGS.</li>
+          <li>Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.</li>
+          <li>Teams may be entered in multiple levels/classes at the same trial.</li>
+          <li>Dogs must be shown by a member of the owner's immediate family.</li>
+          <li>Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.</li>
+          <li>Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.</li>
+          <li>Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.</li>
+        </ul>
+        <p className="pt-2"><strong>In addition:</strong></p>
+        <ul className="list-disc pl-5 space-y-1">
+          <li>The organizing committee may refuse any entry for any reason.</li>
+          <li>THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.</li>
+        </ul>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
+{/* Disclaimer & Waiver */}
+<Card className="mb-6">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Shield className="h-5 w-5" />
+      C-WAGS Disclaimer & Liability Waiver
+    </CardTitle>
+    <CardDescription>
+      Please read and accept the waiver before proceeding
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="prose prose-sm max-w-none mb-4">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+        <p className="text-sm text-amber-800 font-medium mb-2">
+          <strong>Important:</strong> You must read and agree to the waiver to submit this form
+        </p>
+        <div className="text-xs text-amber-700 leading-relaxed">
+          {trial.waiver_text || `
                     I/we acknowledge that I/we will be involved with the canine class along with C-WAGS (NW). 
                     I/we agree that the trial club hosting this trial has the right to refuse entry for cause which, in the case of this 
                     member and club, does not include prejudice or bias on account of race, color, religion, sex, sexual 
@@ -909,24 +952,26 @@ if (insertError) {
                     and my property and handlers, agents, employees and dogs whether such loss, injury or damage be caused by negligence 
                     while on the trial premises.
                   `}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-2">
-              <Checkbox 
-                id="waiver"
-                checked={formData.waiver_accepted}
-                onCheckedChange={(checked) => 
-                  setFormData(prev => ({ ...prev, waiver_accepted: checked as boolean }))
-                }
-              />
-              <Label htmlFor="waiver" className="text-sm leading-5">
-                I have read, understand, and agree to the complete C-WAGS disclaimer and all terms above.
-              </Label>
-            </div>
-          </CardContent>
-        </Card>
+        </div>
+      </div>
+    </div>
+    
+    {/* IMPROVED CHECKBOX WITH BETTER VISIBILITY */}
+    <div className="flex items-start space-x-3 p-4 border-2 border-gray-300 rounded-lg bg-white hover:border-blue-500 transition-colors">
+      <Checkbox 
+        id="waiver"
+        checked={formData.waiver_accepted}
+        onCheckedChange={(checked) => 
+          setFormData(prev => ({ ...prev, waiver_accepted: checked as boolean }))
+        }
+        className="mt-1 h-5 w-5 border-2 border-gray-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+      />
+      <Label htmlFor="waiver" className="text-base font-medium leading-6 cursor-pointer">
+        I have read, understand, and agree to the complete C-WAGS disclaimer and all terms above.
+      </Label>
+    </div>
+  </CardContent>
+</Card>
 
         {/* C-WAGS Registration Lookup */}
         <Card className="mb-6">
@@ -945,13 +990,12 @@ if (insertError) {
                 <Label htmlFor="cwags-lookup">C-WAGS Registration Number *</Label>
                 <div className="flex gap-2 mt-1">
                   <Input
-                    id="cwags-lookup"
-                    value={cwagsInputValue}
-                    onChange={(e) => setCwagsInputValue(formatCwagsNumber(e.target.value))}
-                    placeholder="17-1955-01"
-                    className="flex-1"
-                    maxLength={10}
-                  />
+  id="cwags-lookup"
+  value={cwagsInputValue}
+  onChange={(e) => setCwagsInputValue(e.target.value)} 
+  placeholder="XX-XXXX-XX"
+  className="flex-1"
+/>
                   <Button 
                     onClick={handleCwagsSubmit} 
                     disabled={registryLoading || !cwagsInputValue.trim()}
@@ -1075,10 +1119,10 @@ if (insertError) {
                   <SelectTrigger>
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">Male</SelectItem>
-                    <SelectItem value="female">Female</SelectItem>
-                  </SelectContent>
+                 <SelectContent>
+     <SelectItem value="Male">Male</SelectItem>     
+     <SelectItem value="Female">Female</SelectItem>  
+   </SelectContent>
                 </Select>
               </div>
               <div>
@@ -1124,7 +1168,7 @@ if (insertError) {
                   })}
                 </TabsList>
                 
-                {Object.keys(roundsByDay).sort().map(day => (
+               {Object.keys(roundsByDay).sort().map(day => (
                   <TabsContent key={day} value={day} className="mt-4">
                     <div className="space-y-3">
                       {roundsByDay[parseInt(day)].map((round) => {
@@ -1160,26 +1204,52 @@ if (insertError) {
                                   </div>
                                 </div>
                                 
-                                <div className="flex gap-2">
+                                <div className="flex gap-3">
+                                  {/* Regular Entry Button */}
                                   <Button
                                     type="button"
-                                    variant={isSelected && !isFeo ? 'default' : 'outline'}
                                     size="sm"
                                     onClick={() => handleRoundSelection(round.id, 'regular')}
-                                    className="text-xs"
+                                    className={`
+                                      relative min-w-[140px] font-semibold transition-all duration-200
+                                      ${isSelected && !isFeo
+                                        ? 'bg-green-600 hover:bg-green-700 text-white border-2 border-green-700 shadow-md' 
+                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                      }
+                                    `}
                                   >
-                                    Regular ${regularFee.toFixed(2)}
+                                    <div className="flex items-center gap-2">
+                                      {isSelected && !isFeo && (
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                      )}
+                                      <span>Regular ${regularFee.toFixed(2)}</span>
+                                    </div>
                                   </Button>
                                   
+                                  {/* FEO Entry Button */}
                                   {showFeoOptions && (
                                     <Button
                                       type="button"
-                                      variant={isSelected && isFeo ? 'default' : 'outline'}
                                       size="sm"
                                       onClick={() => handleRoundSelection(round.id, 'feo')}
-                                      className="text-xs"
+                                      className={`
+                                        relative min-w-[140px] font-semibold transition-all duration-200
+                                        ${isSelected && isFeo
+                                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-600 shadow-md' 
+                                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                        }
+                                      `}
                                     >
-                                      FEO ${feoFee.toFixed(2)}
+                                      <div className="flex items-center gap-2">
+                                        {isSelected && isFeo && (
+                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                          </svg>
+                                        )}
+                                        <span>FEO ${feoFee.toFixed(2)}</span>
+                                      </div>
                                     </Button>
                                   )}
                                 </div>

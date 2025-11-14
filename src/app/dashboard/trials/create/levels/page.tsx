@@ -373,13 +373,22 @@ if (!hasSelection) {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  // Parse date manually to avoid timezone shift
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0  // Set to noon to avoid timezone issues
+  );
+  
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
 
   const getSelectedLevelsCount = () => {
     return Object.values(levelSelections).reduce((total, dayLevels) => 
@@ -669,16 +678,20 @@ if (!hasSelection) {
 
                             {/* FEO Configuration */}
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`feo-${day.id}-${actualIndex}`}
-                                  checked={level.feoAvailable || false}
-                                  onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
-                                />
-                                <Label htmlFor={`feo-${day.id}-${actualIndex}`} className="text-xs">
-                                  FEO Available
-                                </Label>
-                              </div>
+                              <div className="flex items-center space-x-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+  <Checkbox
+    id={`feo-${day.id}-${actualIndex}`}
+    checked={level.feoAvailable || false}
+    onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
+    className="w-6 h-6" // Extra large for FEO
+  />
+  <Label 
+    htmlFor={`feo-${day.id}-${actualIndex}`} 
+    className="text-sm font-semibold text-blue-900 cursor-pointer"
+  >
+    ✓ FEO Available for this class
+  </Label>
+</div>
                               
                               {level.feoAvailable && (
                                 <div>
