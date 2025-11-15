@@ -267,12 +267,13 @@ export default function LiveEventManagementPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<ClassEntry | null>(null);
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
   const [activeTab, setActiveTab] = useState<'running-order' | 'score-entry'>('running-order');
-const [scoreEntry, setScoreEntry] = useState<{
+  const [scoreEntry, setScoreEntry] = useState<{
   scent1: string;
   scent2: string;
   scent3: string;
@@ -281,7 +282,7 @@ const [scoreEntry, setScoreEntry] = useState<{
   fault2: string;
   time_seconds: string;
   pass_fail: string;
-}>({
+  }>({
   scent1: '',
   scent2: '',
   scent3: '',
@@ -983,7 +984,33 @@ const loadAvailableDays = async () => {
     loadClassEntries();
   }
 };
-
+const handleKeyNavigation = (e: React.KeyboardEvent<HTMLDivElement>, entry: ClassEntry) => {
+  // Only handle arrow keys
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  
+  e.preventDefault(); // Prevent page scrolling
+  
+  const currentPosition = entry.running_position;
+  const sameRoundEntries = classEntries.filter(e => 
+    e.round_number === entry.round_number && 
+    e.entry_status !== 'withdrawn'
+  ).sort((a, b) => a.running_position - b.running_position);
+  
+  let newPosition: number;
+  
+  if (e.key === 'ArrowUp') {
+    // Move up (decrease position number)
+    newPosition = Math.max(1, currentPosition - 1);
+  } else {
+    // Move down (increase position number)
+    newPosition = Math.min(sameRoundEntries.length, currentPosition + 1);
+  }
+  
+  // Only update if position actually changed
+  if (newPosition !== currentPosition) {
+    updateRunningPosition(entry.id, newPosition);
+  }
+};
   // Updated updateScore function with rally/obedience logic
   const updateScore = (entryId: string, scoreField: string, value: string | number | null) => {
     // Update local state immediately
@@ -2224,9 +2251,17 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
         // Group classes by day using trial_date from the classes
         const classesByDay = trialClasses.reduce((acc, cls) => {
           const trialDate = cls.trial_date;
-          const dayKey = trialDate ? 
-            `Day ${new Date(trialDate).toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })}` :
-            'Day 1';
+          const dayKey = trialDate
+  ? (() => {
+      const [year, month, day] = trialDate.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0); // ← your snippet
+      return `Day ${date.toLocaleDateString('en-CA', {
+        weekday: 'short',
+        day: 'numeric'
+      })}`;
+    })()
+  : 'Day 1';
+
           
           if (!acc[dayKey]) acc[dayKey] = [];
           acc[dayKey].push(cls);
@@ -2412,110 +2447,88 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
                         <div className="space-y-2">
                           {roundEntries.map((entry) => {
                             // FIXED: Use the new display result function
-                            const resultDisplay = getDisplayResult(entry, selectedClass);
-                            const resultClass = getResultBadgeClass(resultDisplay);
+                           const resultDisplay = getDisplayResult(entry, selectedClass);
+  const resultClass = getResultBadgeClass(resultDisplay);
 
-                            return (
-                            <div
-                              key={entry.id}
-                              draggable={true}
-                              onDragStart={(e) => handleDragStart(e, entry)}
-                              onDragOver={handleDragOver}
-                              onDrop={(e) => handleDrop(e, entry)}
-                              className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-move ${getEntryStatusColor(entry.entry_status)} ${
-                                draggedEntry?.id === entry.id ? 'opacity-50' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center space-x-2">
-                                    <GripVertical className="h-4 w-4 text-gray-400" />
-                                    <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
-                                      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-3">
-                                      <div>
-                                        <p className="font-semibold text-gray-900">
-                                          {entry.entries.handler_name}
-                                        </p>
-                                        <div className="flex items-center space-x-2">
-                                          {editingEntry === entry.id ? (
-                                            <div className="flex items-center space-x-2">
-                                              <Input
-                                                defaultValue={entry.entries.dog_call_name}
-                                                className="w-32 h-8"
-                                                onKeyDown={(e) => {
-                                                  if (e.key === 'Enter') {
-                                                    updateEntryField(entry.id, 'dog_call_name', (e.target as HTMLInputElement).value);
-                                                    setEditingEntry(null);
-                                                  } else if (e.key === 'Escape') {
-                                                    setEditingEntry(null);
-                                                  }
-                                                }}
-                                                onBlur={(e) => {
-                                                  updateEntryField(entry.id, 'dog_call_name', e.target.value);
-                                                  setEditingEntry(null);
-                                                }}
-                                                autoFocus
-                                              />
-                                            </div>
-                                          ) : (
-                                            <div 
-  className="text-sm text-gray-600 cursor-pointer hover:text-blue-600"
-  onClick={() => setEditingEntry(entry.id)}
->
-  {entry.entries.dog_call_name} • {entry.entries.cwags_number}
-  <Edit className="h-3 w-3 inline ml-1" />
-</div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
+  return (
+    <div
+      key={entry.id}
+      draggable={true}
+      onDragStart={(e) => handleDragStart(e, entry)}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, entry)}
+      onClick={() => setSelectedEntryId(entry.id)}
+      onKeyDown={(e) => handleKeyNavigation(e, entry)}
+      tabIndex={0}
+      className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
+        draggedEntry?.id === entry.id ? 'opacity-50' : ''
+      } ${selectedEntryId === entry.id ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <GripVertical className="h-4 w-4 text-gray-400" />
+            <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+              #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
+            </span>
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center space-x-3">
+              <div>
+                <p className="font-semibold text-gray-900">
+                  {entry.entries.handler_name}
+                </p>
+                <div className="flex items-center space-x-2">
+                  {/* REMOVED THE EDIT ICON - just show the text */}
+                  <div className="text-sm text-gray-600">
+                    {entry.entries.dog_call_name} • {entry.entries.cwags_number}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                                  <div className="flex items-center space-x-2">
-                                    <Badge className={`${getEntryTypeColor(entry.entry_type)} border`}>
-                                      {entry.entry_type}
-                                    </Badge>
-                                    <Badge variant="outline">
-                                      {entry.entry_status}
-                                    </Badge>
-                                    {resultDisplay && resultDisplay !== '-' && (
-                                      <Badge className={`border ${resultClass}`}>
-                                        {resultDisplay}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
+          <div className="flex items-center space-x-2">
+            <Badge className={`${getEntryTypeColor(entry.entry_type)} border`}>
+              {entry.entry_type}
+            </Badge>
+            <Badge variant="outline">
+              {entry.entry_status}
+            </Badge>
+            {resultDisplay && resultDisplay !== '-' && (
+              <Badge className={`border ${resultClass}`}>
+                {resultDisplay}
+              </Badge>
+            )}
+          </div>
+        </div>
 
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="sm">
-                                      <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
-    Mark Present
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'confirmed')}>
-    Mark Confirmed
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'no_show')}>
-    Mark No Show (Absent)
-  </DropdownMenuItem>
-  <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
-    Withdraw Entry (Remove from running order)
-  </DropdownMenuItem>
-</DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            </div>
-                            );
-                          })}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'entered')}>
+              Mark Present
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'confirmed')}>
+              Mark Confirmed
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'no_show')}>
+              Mark No Show (Absent)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateEntryField(entry.id, 'entry_status', 'withdrawn')}>
+              Withdraw Entry
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+})}
                         </div>
                       </div>
                     );
