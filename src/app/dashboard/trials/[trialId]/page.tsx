@@ -805,21 +805,7 @@ const formatDate = (dateString: string) => {
                         Edit Rounds & Judges ({trialRounds.length} configured)
                       </Button>
                     </div>
-                  </div>
-
-       <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4">Quick Actions</h3>
-                    <div className="space-y-2">
-                      <Button variant="outline" className="w-full justify-start">
-                        <FileText className="h-4 w-4 mr-2" />
-                        View/Edit Waiver Text
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start">
-                        <Eye className="h-4 w-4 mr-2" />
-                        Preview Trial Premium
-                      </Button>
-                    </div>
-                  </div>
+                  </div>   
                 </div>
               </CardContent>
             </Card>

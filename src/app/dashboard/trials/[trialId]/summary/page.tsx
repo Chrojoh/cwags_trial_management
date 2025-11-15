@@ -563,6 +563,11 @@ const generateExcelReport = async () => {
         { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } } // A1:C1
       ];
 
+      // Merge cells F3:G3 for trial name
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 2 }, e: { r: 0, c: 3 } } // A1:C1
+      ];
+
       // Apply cell formatting to class sheet
       const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
       for (let R = range.s.r; R <= range.e.r; ++R) {
@@ -583,7 +588,7 @@ const generateExcelReport = async () => {
           else if (R === 2) {
             cell.s = {
               font: { sz: 20, bold: true, name: 'Calibri' },
-              alignment: { horizontal: 'center', vertical: 'center' }
+              alignment: { horizontal: 'left', vertical: 'center' }
             };
           }
           // Row 4 (index 3): Center aligned, bold

@@ -806,7 +806,35 @@ const saveScore = async (entrySelectionId: string) => {
     setSavingScore(false);
   }
 };
-
+const loadScoreForEditing = (entry: ClassEntry) => {
+  const score = entry.scores?.[0];
+  
+  if (score) {
+    setScoreEntry({
+      scent1: score.scent1 || '',
+      scent2: score.scent2 || '',
+      scent3: score.scent3 || '',
+      scent4: score.scent4 || '',
+      fault1: score.fault1 || '',
+      fault2: score.fault2 || '',
+      time_seconds: score.time_seconds?.toString() || '',
+      pass_fail: score.pass_fail || ''
+    });
+  } else {
+    setScoreEntry({
+      scent1: '',
+      scent2: '',
+      scent3: '',
+      scent4: '',
+      fault1: '',
+      fault2: '',
+      time_seconds: '',
+      pass_fail: ''
+    });
+  }
+  
+  setEditingEntryId(entry.id);
+};
 
 // ADD this debug function to your live-event/page.tsx file
 // Add it right after the updateEntryField function
@@ -2321,13 +2349,13 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
               <span>{selectedClass.class_name} - Running Order Setup</span>
             </CardTitle>
             <div className="flex items-center space-x-2">
-             <Button onClick={() => setShowDaySelector(true)} variant="outline">
-              <FileDown className="h-4 w-4 mr-2" />
-                Export to Excel
-              </Button>
-              <Button onClick={() => setShowAddEntryModal(true)} variant="outline">
+             <Button onClick={() => setShowAddEntryModal(true)} variant="outline">
                 <Users className="h-4 w-4 mr-2" />
                 Add Entry
+              </Button>
+             <Button onClick={() => setShowDaySelector(true)} variant="outline">
+              <FileDown className="h-4 w-4 mr-2" />
+                Export Running Order
               </Button>
               <Button onClick={exportScoreSheets} variant="outline">
              <FileDown className="h-4 w-4 mr-2" />
@@ -2499,6 +2527,7 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
         </CardContent>
       </Card>
     </TabsContent>
+    
 
     <TabsContent value="scoring" className="space-y-6">
       <Card>
