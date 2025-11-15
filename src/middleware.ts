@@ -1,47 +1,42 @@
 // src/middleware.ts
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getToken } from "next-auth/jwt"
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  
-  // Allow access to auth pages
-  if (pathname.startsWith('/auth/')) {
+
+  // --- PUBLIC ROUTES (ALWAYS allowed) ---
+  if (
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/entries") ||
+    pathname.startsWith("/api/public") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.match(/\.(png|jpg|jpeg|gif|svg)$/)
+  ) {
     return NextResponse.next()
   }
-  
-  // Allow access to API auth routes
-  if (pathname.startsWith('/api/auth/')) {
-    return NextResponse.next()
+
+  // --- PROTECTED ROUTES (require login) ---
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+
+  if (!token) {
+    // User not logged in -> redirect to signin
+    const signinUrl = new URL("/auth/signin", request.url)
+    return NextResponse.redirect(signinUrl)
   }
-  
-  // CRITICAL: Allow public access to entry forms
-  if (pathname.startsWith('/entries/')) {
-    return NextResponse.next()
-  }
-  
-  // Allow access to public API routes for entries
-  if (pathname.startsWith('/api/public/')) {
-    return NextResponse.next()
-  }
-  
-  // For all other requests, allow access (no auth check for now)
-  // TODO: Add proper authentication check once auth is working
+
+  // User IS logged in -> allow access
   return NextResponse.next()
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/auth (auth API routes)
-     * - auth (auth pages)
-     * - entries (public entry forms)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    "/((?!api/auth|auth|entries|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$).*)",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 }
