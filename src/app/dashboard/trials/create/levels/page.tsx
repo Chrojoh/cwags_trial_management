@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { simpleTrialOperations, CWAGS_LEVELS } from '@/lib/trialOperationsSimple';
 
+// UPDATED INTERFACE - Changed gamesSubclass to gamesSubclasses array
 interface LevelSelection {
   levelName: string;
   category: string;
@@ -30,7 +31,7 @@ interface LevelSelection {
   maxEntries: number;
   feoAvailable?: boolean;
   feoPrice?: number;
-  gamesSubclass?: string;
+  gamesSubclasses?: string[]; // CHANGED: Now an array instead of single string
   notes: string;
 }
 
@@ -50,8 +51,9 @@ interface ExistingClass {
   feo_price: number;
   games_subclass: string | null;
   notes: string | null;
-  [key: string]: any; // Allow other properties
+  [key: string]: any;
 }
+
 interface Trial {
   id: string;
   trial_name: string;
@@ -60,6 +62,18 @@ interface Trial {
   start_date: string;
   end_date: string;
 }
+
+// Helper function to get game names
+const getGameName = (subclass: string): string => {
+  const gameNames: { [key: string]: string } = {
+    'GB': 'Grab Bag',
+    'BJ': 'Blackjack',
+    'C': 'Colors',
+    'T': 'Teams',
+    'P': 'Pairs'
+  };
+  return gameNames[subclass] || subclass;
+};
 
 function TrialLevelsPageContent() {
   const router = useRouter();
@@ -75,7 +89,6 @@ function TrialLevelsPageContent() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Load trial data and days
   useEffect(() => {
     const loadTrialData = async () => {
       if (!trialId) {
@@ -87,7 +100,6 @@ function TrialLevelsPageContent() {
       try {
         console.log('Loading trial and days data for ID:', trialId);
         
-        // Load trial basic info
         const trialResult = await simpleTrialOperations.getTrial(trialId);
         if (!trialResult.success) {
           console.error('Error loading trial:', trialResult.error);
@@ -95,8 +107,8 @@ function TrialLevelsPageContent() {
           setLoading(false);
           return;
         }
+        setTrial(trialResult.data);
 
-        // Load trial days
         const daysResult = await simpleTrialOperations.getTrialDays(trialId);
         if (!daysResult.success) {
           console.error('Error loading trial days:', daysResult.error);
@@ -104,20 +116,15 @@ function TrialLevelsPageContent() {
           setLoading(false);
           return;
         }
-
-        console.log('Trial data:', trialResult.data);
-        console.log('Trial days:', daysResult.data);
-
-        setTrial(trialResult.data);
-        setTrialDays(daysResult.data);
         
-        // Initialize level selections for each day
-        await initializeLevelSelections(daysResult.data);
+        const days = daysResult.data || [];
+        setTrialDays(days);
         
+        await loadExistingClasses(days);
+        setLoading(false);
       } catch (error) {
         console.error('Error loading trial data:', error);
-        setErrors(['Error loading trial data. Please try again.']);
-      } finally {
+        setErrors(['An error occurred loading trial data.']);
         setLoading(false);
       }
     };
@@ -125,38 +132,83 @@ function TrialLevelsPageContent() {
     loadTrialData();
   }, [trialId]);
 
-  const initializeLevelSelections = async (days: TrialDay[]) => {
+  // UPDATED FUNCTION - Handles loading multiple Games subclasses from existing data
+  const loadExistingClasses = async (days: TrialDay[]) => {
     const initialSelections: { [dayId: string]: LevelSelection[] } = {};
     
-    // First, try to load existing classes for each day
     for (const day of days) {
       try {
-        const existingClassesResult = await simpleTrialOperations.getTrialClasses(day.id);
+        const classesResult = await simpleTrialOperations.getTrialClasses(day.id);
         
-        if (existingClassesResult.success && existingClassesResult.data && existingClassesResult.data.length > 0) {
-          // Convert existing classes back to level selections
-          const existingLevels = existingClassesResult.data.map((cls: any) => ({
-            levelName: cls.class_level || '',
-            category: cls.subclass || '',
-            selected: true,
-            entryFee: parseFloat(String(cls.entry_fee || 0)) || 25,
-            maxEntries: parseInt(String(cls.max_entries || 0)) || 20,
-            feoAvailable: cls.feo_available || false,
-            feoPrice: parseFloat(String(cls.feo_price || 0)) || 0,
-            gamesSubclass: cls.games_subclass || '',
-            notes: String(cls.notes || '')
-          }));
+        if (classesResult.success && classesResult.data) {
+          const existingClasses: ExistingClass[] = classesResult.data;
+          
+          // Group Games classes by level name to collect all subclasses
+          const gamesSubclassMap = new Map<string, string[]>();
+          const nonGamesClasses = new Map<string, ExistingClass>();
+          
+          existingClasses.forEach(cls => {
+            const category = cls.subclass || 'Scent Work';
+            
+            if (category === 'Games' && cls.games_subclass) {
+              // Collect all subclasses for each Games level
+              const key = cls.class_name;
+              if (!gamesSubclassMap.has(key)) {
+                gamesSubclassMap.set(key, []);
+              }
+              gamesSubclassMap.get(key)!.push(cls.games_subclass);
+            } else {
+              // Non-Games classes - store by level name
+              nonGamesClasses.set(cls.class_name, cls);
+            }
+          });
 
-          // Create full level list with existing selections marked
+          // Create level selections
+          const existingLevels = existingClasses.map((cls: ExistingClass) => {
+            const category = cls.subclass || 'Scent Work';
+            const levelName = cls.class_name;
+            
+            // For Games classes, collect all subclasses
+            if (category === 'Games') {
+              return {
+                levelName,
+                category,
+                selected: true,
+                entryFee: cls.entry_fee || 25,
+                maxEntries: 20,
+                feoAvailable: cls.feo_available || false,
+                feoPrice: cls.feo_price || 0,
+                gamesSubclasses: gamesSubclassMap.get(levelName) || [], // Array of subclasses
+                notes: String(cls.notes || '')
+              };
+            } else {
+              return {
+                levelName,
+                category,
+                selected: true,
+                entryFee: cls.entry_fee || 25,
+                maxEntries: 20,
+                feoAvailable: cls.feo_available || false,
+                feoPrice: cls.feo_price || 0,
+                gamesSubclasses: [],
+                notes: String(cls.notes || '')
+              };
+            }
+          });
+
+          // Remove duplicates for Games classes (since we grouped them)
+          const uniqueLevels = Array.from(
+            new Map(existingLevels.map(level => [
+              `${level.category}-${level.levelName}`, 
+              level
+            ])).values()
+          );
+
           initialSelections[day.id] = Object.entries(CWAGS_LEVELS).flatMap(([category, levels]) =>
             levels.map(levelName => {
-             interface ExistingLevel {
-  levelName: string;
-  category: string;
-  [key: string]: any;
-}
-
-const existing = existingLevels.find((e: ExistingLevel) => e.levelName === levelName && e.category === category);
+              const existing = uniqueLevels.find((e) => 
+                e.levelName === levelName && e.category === category
+              );
               return existing || {
                 levelName,
                 category,
@@ -165,13 +217,13 @@ const existing = existingLevels.find((e: ExistingLevel) => e.levelName === level
                 maxEntries: 20,
                 feoAvailable: false,
                 feoPrice: 0,
-                gamesSubclass: '',
+                gamesSubclasses: [],
                 notes: ''
               };
             })
           );
         } else {
-          // No existing classes, create default selections
+          // No existing classes
           initialSelections[day.id] = Object.entries(CWAGS_LEVELS).flatMap(([category, levels]) =>
             levels.map(levelName => ({
               levelName,
@@ -181,14 +233,13 @@ const existing = existingLevels.find((e: ExistingLevel) => e.levelName === level
               maxEntries: 20,
               feoAvailable: false,
               feoPrice: 0,
-              gamesSubclass: '',
+              gamesSubclasses: [],
               notes: ''
             }))
           );
         }
       } catch (error) {
         console.error(`Error loading existing classes for day ${day.id}:`, error);
-        // Fallback to default selections
         initialSelections[day.id] = Object.entries(CWAGS_LEVELS).flatMap(([category, levels]) =>
           levels.map(levelName => ({
             levelName,
@@ -198,7 +249,7 @@ const existing = existingLevels.find((e: ExistingLevel) => e.levelName === level
             maxEntries: 20,
             feoAvailable: false,
             feoPrice: 0,
-            gamesSubclass: '',
+            gamesSubclasses: [],
             notes: ''
           }))
         );
@@ -208,7 +259,13 @@ const existing = existingLevels.find((e: ExistingLevel) => e.levelName === level
     setLevelSelections(initialSelections);
   };
 
-  const updateLevelSelection = (dayId: string, levelIndex: number, field: keyof LevelSelection, value: string | number | boolean) => {
+  // UPDATED FUNCTION - Handles both string and array values
+  const updateLevelSelection = (
+    dayId: string, 
+    levelIndex: number, 
+    field: keyof LevelSelection, 
+    value: string | number | boolean | string[]
+  ) => {
     setLevelSelections(prev => ({
       ...prev,
       [dayId]: prev[dayId]?.map((level, index) => 
@@ -218,113 +275,141 @@ const existing = existingLevels.find((e: ExistingLevel) => e.levelName === level
       ) || []
     }));
     
-    // Clear errors when user makes changes
     if (errors.length > 0) {
       setErrors([]);
     }
   };
 
+  // UPDATED FUNCTION - Validates Games subclass selections
   const validateSelections = (): boolean => {
     const newErrors: string[] = [];
     
-    // Check if at least one level is selected across all days
-   const hasSelection = Object.values(levelSelections).some(dayLevels => 
-  dayLevels.some(level => level.selected)
-);
+    const hasSelection = Object.values(levelSelections).some(dayLevels => 
+      dayLevels.some(level => level.selected)
+    );
 
-if (!hasSelection) {
-  newErrors.push('You must select at least one level for at least one day.');
-}
+    if (!hasSelection) {
+      newErrors.push('You must select at least one level for at least one day.');
+      setErrors(newErrors);
+      return false;
+    }
 
-    // Check for valid entry fees and max entries
-    Object.entries(levelSelections).forEach(([, dayLevels]) => {
-      dayLevels.forEach((level) => {
-        if (level.selected) {
-          if (level.entryFee < 0) {
-            newErrors.push(`Entry fee for ${level.levelName} must be 0 or greater.`);
-          }
-          if (level.maxEntries < 1) {
-            newErrors.push(`Max entries for ${level.levelName} must be at least 1.`);
-          }
-          // Check if Games class has required subclass
-          if (level.category === 'Games' && (!level.gamesSubclass || level.gamesSubclass.trim() === '')) {
-            newErrors.push(`Games subclass is required for ${level.levelName}.`);
+    // Validate Games classes have at least one subclass selected
+    Object.entries(levelSelections).forEach(([dayId, dayLevels]) => {
+      const day = trialDays.find(d => d.id === dayId);
+      const dayNumber = day?.day_number || 0;
+      
+      dayLevels.forEach(level => {
+        if (level.selected && level.category === 'Games') {
+          if (!level.gamesSubclasses || level.gamesSubclasses.length === 0) {
+            newErrors.push(
+              `Day ${dayNumber} - ${level.levelName}: You must select at least one Games subclass (GB, BJ, C, T, or P)`
+            );
           }
         }
       });
     });
 
-    setErrors(newErrors);
-    return newErrors.length === 0;
+    if (newErrors.length > 0) {
+      setErrors(newErrors);
+      return false;
+    }
+
+    return true;
   };
 
+  // UPDATED FUNCTION - Creates separate trial_classes for each Games subclass
   const saveClassesForAllDays = async (): Promise<boolean> => {
-  if (!validateSelections() || !trialId) return false;
+    try {
+      for (const [dayId, dayLevels] of Object.entries(levelSelections)) {
+        const selectedLevels = dayLevels.filter(level => level.selected);
+        
+        if (selectedLevels.length > 0) {
+          const { data: existingClasses } = await supabase
+            .from('trial_classes')
+            .select('*')
+            .eq('trial_day_id', dayId);
 
-  try {
-    console.log('Starting to save classes for all days...');
-    
-    for (const [dayId, dayLevels] of Object.entries(levelSelections)) {
-      const selectedLevels = dayLevels.filter(level => level.selected);
-      
-      if (selectedLevels.length > 0) {
-        // ===== EDIT MODE: Smart save to prevent duplicates =====
-        if (isEditMode) {
-          // Get existing classes for this day
-          const existingClassesResult = await simpleTrialOperations.getTrialClasses(dayId);
-          const existingClasses: ExistingClass[] = existingClassesResult.success ? (existingClassesResult.data || []) : [];
-          
-          console.log(`Day ${dayId}: ${existingClasses.length} existing classes, ${selectedLevels.length} selected`);
-          
-          // Create a map of existing classes by class_name for quick lookup
-         const existingClassMap = new Map<string, ExistingClass>(
-  existingClasses.map((cls) => [cls.class_level, cls])
-);
-          
-          // Find classes to ADD (selected but don't exist yet)
-          const classesToAdd = selectedLevels.filter(level => 
-            !existingClassMap.has(level.levelName)
+          const existingClassMap = new Map(
+            (existingClasses || []).map(cls => [cls.class_name + (cls.games_subclass || ''), cls])
           );
-          
-          // Find classes to UPDATE (selected and exist, but settings changed)
-          const classesToUpdate = selectedLevels.filter(level => {
-            const existing = existingClassMap.get(level.levelName);
-            if (!existing) return false;
-            
-            // Check if any settings changed
-            return existing.entry_fee !== level.entryFee ||
-                   existing.feo_available !== level.feoAvailable ||
-                   existing.feo_price !== (level.feoPrice || 0) ||
-                   existing.games_subclass !== (level.gamesSubclass || null) ||
-                   existing.notes !== (level.notes || '');
+
+          const classesToUpdate: LevelSelection[] = [];
+          const classesToInsert: LevelSelection[] = [];
+
+          selectedLevels.forEach(level => {
+            if (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) {
+              // For Games, check each subclass variant
+              level.gamesSubclasses.forEach(subclass => {
+                const key = level.levelName + subclass;
+                if (existingClassMap.has(key)) {
+                  classesToUpdate.push({ ...level, gamesSubclasses: [subclass] });
+                } else {
+                  classesToInsert.push({ ...level, gamesSubclasses: [subclass] });
+                }
+              });
+            } else {
+              // Non-Games classes
+              if (existingClassMap.has(level.levelName)) {
+                classesToUpdate.push(level);
+              } else {
+                classesToInsert.push(level);
+              }
+            }
           });
-          
-          // Find classes to DELETE (exist but not selected anymore)
-          const classesToDelete = existingClasses.filter((cls: any) => 
-            !selectedLevels.some(level => level.levelName === cls.class_level)
-          );
-          
-          console.log(`Day ${dayId} - Add: ${classesToAdd.length}, Update: ${classesToUpdate.length}, Delete: ${classesToDelete.length}`);
-          
-          // DELETE unselected classes
-          if (classesToDelete.length > 0) {
-            for (const cls of classesToDelete) {
+
+          // DELETE removed classes
+          if (existingClasses && existingClasses.length > 0) {
+            const selectedKeys = new Set<string>();
+            selectedLevels.forEach(level => {
+              if (level.category === 'Games' && level.gamesSubclasses) {
+                level.gamesSubclasses.forEach(subclass => {
+                  selectedKeys.add(level.levelName + subclass);
+                });
+              } else {
+                selectedKeys.add(level.levelName);
+              }
+            });
+
+            const classesToDelete = existingClasses.filter(cls => {
+              const key = cls.class_name + (cls.games_subclass || '');
+              return !selectedKeys.has(key);
+            });
+
+            if (classesToDelete.length > 0) {
+              const deleteIds = classesToDelete.map(cls => cls.id);
               const { error: deleteError } = await supabase
                 .from('trial_classes')
                 .delete()
-                .eq('id', cls.id);
+                .in('id', deleteIds);
               
               if (deleteError) {
-                console.error(`Failed to delete class ${cls.class_name}:`, deleteError);
-              } else {
-                console.log(`Deleted class: ${cls.class_name}`);
+                throw new Error(`Failed to delete classes for day ${dayId}: ${deleteError.message}`);
               }
+              console.log(`Deleted ${classesToDelete.length} classes for day ${dayId}`);
             }
           }
-          
-          // INSERT new classes
-          if (classesToAdd.length > 0) {
-            const newClasses = classesToAdd.map((level, index) => {
+
+          // INSERT new classes - SEPARATE ENTRY FOR EACH GAMES SUBCLASS
+          if (classesToInsert.length > 0) {
+            // Define the type for our class objects
+            type TrialClassInsert = {
+              trial_day_id: string;
+              class_name: string;
+              class_type: string;
+              subclass: string;
+              class_level: string;
+              entry_fee: number;
+              max_entries: number;
+              feo_available: boolean;
+              feo_price: number;
+              games_subclass: string | null;
+              class_order: number;
+              class_status: string;
+              notes: string | null;
+            };
+
+            const newClasses: TrialClassInsert[] = classesToInsert.flatMap((level, index) => {
               const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
               const feoPrice = level.feoAvailable && level.feoPrice ? 
                 (typeof level.feoPrice === 'number' ? level.feoPrice : parseFloat(String(level.feoPrice)) || 0) : 0;
@@ -338,21 +423,41 @@ if (!hasSelection) {
               
               const classType = classTypeMapping[level.category] || 'scent';
               
-              return {
-                trial_day_id: dayId,
-                class_name: level.levelName.trim(),
-                class_type: classType,
-                subclass: level.category.trim(),
-                class_level: level.levelName.trim(),
-                entry_fee: entryFee,
-                max_entries: 50, // Default
-                feo_available: level.feoAvailable || false,
-                feo_price: feoPrice,
-                games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
-                class_order: existingClasses.length + index + 1, // Append after existing
-                class_status: 'draft',
-                notes: level.notes?.trim() || null
-              };
+              // For Games classes, create a separate entry for each subclass
+              if (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) {
+                return level.gamesSubclasses.map((subclass, subIndex): TrialClassInsert => ({
+                  trial_day_id: dayId,
+                  class_name: level.levelName.trim(),
+                  class_type: classType,
+                  subclass: level.category.trim(),
+                  class_level: level.levelName.trim(),
+                  entry_fee: entryFee,
+                  max_entries: 50,
+                  feo_available: level.feoAvailable || false,
+                  feo_price: feoPrice,
+                  games_subclass: subclass, // Each subclass gets its own row
+                  class_order: (existingClasses?.length || 0) + index * 10 + subIndex,
+                  class_status: 'draft',
+                  notes: level.notes?.trim() || null
+                }));
+              } else {
+                // Non-Games classes remain single entries
+                return [{
+                  trial_day_id: dayId,
+                  class_name: level.levelName.trim(),
+                  class_type: classType,
+                  subclass: level.category.trim(),
+                  class_level: level.levelName.trim(),
+                  entry_fee: entryFee,
+                  max_entries: 50,
+                  feo_available: level.feoAvailable || false,
+                  feo_price: feoPrice,
+                  games_subclass: null,
+                  class_order: (existingClasses?.length || 0) + index,
+                  class_status: 'draft',
+                  notes: level.notes?.trim() || null
+                }];
+              }
             });
             
             const { error: insertError } = await supabase
@@ -366,10 +471,15 @@ if (!hasSelection) {
             console.log(`Inserted ${newClasses.length} new classes for day ${dayId}`);
           }
           
-          // UPDATE existing classes with changed settings
+          // UPDATE existing classes
           if (classesToUpdate.length > 0) {
             for (const level of classesToUpdate) {
-              const existing = existingClassMap.get(level.levelName);
+              // For Games, the gamesSubclasses array will only have 1 item (the specific subclass being updated)
+              const gamesSubclass = (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) 
+                ? level.gamesSubclasses[0] 
+                : null;
+              
+              const existing = existingClassMap.get(level.levelName + (gamesSubclass || ''));
               if (!existing) continue;
               
               const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
@@ -382,79 +492,30 @@ if (!hasSelection) {
                   entry_fee: entryFee,
                   feo_available: level.feoAvailable || false,
                   feo_price: feoPrice,
-                  games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
+                  games_subclass: gamesSubclass,
                   notes: level.notes?.trim() || null
                 })
                 .eq('id', existing.id);
               
               if (updateError) {
-                console.error(`Failed to update class ${level.levelName}:`, updateError);
-              } else {
-                console.log(`Updated class: ${level.levelName}`);
+                throw new Error(`Failed to update class ${level.levelName} for day ${dayId}: ${updateError.message}`);
               }
             }
-          }
-          
-        } else {
-          // ===== CREATE MODE: Insert all classes (original logic) =====
-          const classesToSave = selectedLevels.map((level, index) => {
-            const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
-            const feoPrice = level.feoAvailable && level.feoPrice ? 
-              (typeof level.feoPrice === 'number' ? level.feoPrice : parseFloat(String(level.feoPrice)) || 0) : 0;
             
-            const classTypeMapping: { [key: string]: string } = {
-              'Scent Work': 'scent',
-              'Rally': 'rally',
-              'Obedience': 'obedience', 
-              'Games': 'games'
-            };
-            
-            const classType = classTypeMapping[level.category] || 'scent';
-
-            return {
-              class_name: level.levelName.trim(),
-              class_type: classType,
-              subclass: level.category.trim(),
-              class_level: level.levelName.trim(),
-              entry_fee: entryFee,
-              max_entries: 50,
-              feo_available: level.feoAvailable || false,
-              feo_price: feoPrice,
-              games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
-              class_order: index + 1,
-              class_status: 'draft',
-              notes: level.notes?.trim() || null
-            };
-          });
-
-          console.log(`Saving ${classesToSave.length} classes for day ${dayId}:`, classesToSave);
-          
-          const result = await simpleTrialOperations.saveTrialClasses(dayId, classesToSave);
-          
-          if (!result.success) {
-            console.error(`Error saving classes for day ${dayId}:`, result.error);
-            const errorMessage = typeof result.error === 'string' 
-              ? result.error 
-              : (result.error && typeof result.error === 'object' && 'message' in result.error)
-                ? String(result.error.message)
-                : 'Unknown error';
-            throw new Error(`Failed to save classes for day ${dayId}: ${errorMessage}`);
+            console.log(`Updated ${classesToUpdate.length} classes for day ${dayId}`);
           }
-          
-          console.log(`Successfully saved classes for day ${dayId}`);
         }
       }
-    }
 
-    console.log('All classes saved successfully');
-    return true;
-    
-  } catch (error) {
-    console.error('Error saving classes:', error);
-    setErrors([error instanceof Error ? error.message : 'Error saving trial classes. Please try again.']);
-    return false;
-  }
-};
+      console.log('All classes saved successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('Error saving classes:', error);
+      setErrors([error instanceof Error ? error.message : 'Error saving trial classes. Please try again.']);
+      return false;
+    }
+  };
 
   const handleNext = async () => {
     if (!validateSelections() || !trialId) return;
@@ -466,7 +527,6 @@ if (!hasSelection) {
       if (success) {
         console.log('Classes saved successfully');
         
-        // Navigate based on mode
         if (isEditMode) {
           console.log('Edit mode: returning to trial detail page');
           router.push(`/dashboard/trials/${trialId}`);
@@ -510,22 +570,21 @@ if (!hasSelection) {
   };
 
   const formatDate = (dateString: string) => {
-  // Parse date manually to avoid timezone shift
-  const parts = dateString.split('-');
-  const date = new Date(
-    parseInt(parts[0]),
-    parseInt(parts[1]) - 1,
-    parseInt(parts[2]),
-    12, 0, 0  // Set to noon to avoid timezone issues
-  );
-  
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12, 0, 0
+    );
+    
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
 
   const getSelectedLevelsCount = () => {
     return Object.values(levelSelections).reduce((total, dayLevels) => 
@@ -595,13 +654,12 @@ if (!hasSelection) {
       breadcrumbItems={breadcrumbItems}
     >
       <div className="max-w-6xl mx-auto space-y-6">
-        {/* Progress Steps - only show in creation mode */}
         {!isEditMode && (
           <div className="flex items-center justify-center space-x-4 mb-8 overflow-x-auto">
             {stepTitles.map((title, index) => {
               const stepNumber = index + 1;
-              const isActive = stepNumber === 4; // Current step
-              const isCompleted = stepNumber < 4; // Previous steps
+              const isActive = stepNumber === 4;
+              const isCompleted = stepNumber < 4;
               
               return (
                 <div key={stepNumber} className="flex items-center flex-shrink-0">
@@ -612,17 +670,17 @@ if (!hasSelection) {
                       isActive 
                         ? 'bg-blue-600 text-white' 
                         : isCompleted 
-                          ? 'bg-green-600 text-white' 
+                          ? 'bg-green-600 text-white'
                           : 'bg-gray-200 text-gray-600'
                     }`}>
-                      {stepNumber}
+                      {isCompleted ? <CheckCircle className="h-4 w-4" /> : stepNumber}
                     </div>
-                    <span className="text-sm font-medium hidden sm:block">{title}</span>
+                    <span className="text-sm font-medium hidden sm:inline">{title}</span>
                   </div>
                   {index < stepTitles.length - 1 && (
-                    <div className={`ml-4 w-8 sm:w-16 h-0.5 ${
-                      stepNumber < 4 ? 'bg-green-600' : 'bg-gray-200'
-                    }`} />
+                    <div className={`w-12 h-0.5 mx-2 ${
+                      isCompleted ? 'bg-green-600' : 'bg-gray-300'
+                    }`}></div>
                   )}
                 </div>
               );
@@ -630,50 +688,10 @@ if (!hasSelection) {
           </div>
         )}
 
-        {/* Edit Mode Indicator */}
-        {isEditMode && (
-          <Card className="bg-orange-50 border-orange-200">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2 text-orange-900">
-                <Edit className="h-5 w-5" />
-                <span>Editing Classes & Levels</span>
-              </CardTitle>
-              <CardDescription className="text-orange-700">
-                You are editing the classes and levels for this trial. Changes will be saved immediately.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        )}
-
-        {/* Trial Summary */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-blue-900">
-              <Calendar className="h-5 w-5" />
-              <span>{trial.trial_name}</span>
-            </CardTitle>
-            <CardDescription className="text-blue-700">
-              {trialDays.length} trial days selected
-            </CardDescription>
-          </CardHeader>
-        </Card>
-
-        {/* Instructions */}
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            {isEditMode 
-              ? 'Modify which levels/classes are offered for each trial day. Update entry fees and maximum entries as needed.'
-              : 'Select which levels/classes you want to offer for each trial day. Configure entry fees and maximum entries for each level.'
-            }
-          </AlertDescription>
-        </Alert>
-
-        {/* Errors */}
         {errors.length > 0 && (
           <Alert variant="destructive">
             <AlertDescription>
-              <ul className="list-disc list-inside">
+              <ul className="list-disc list-inside space-y-1">
                 {errors.map((error, index) => (
                   <li key={index}>{error}</li>
                 ))}
@@ -682,47 +700,48 @@ if (!hasSelection) {
           </Alert>
         )}
 
-        {/* Selection Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Selection Summary</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5 text-blue-600" />
+              Trial Information
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{getSelectedLevelsCount()}</div>
-                <div className="text-sm text-gray-600">Levels Selected</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Trial Name</p>
+                <p className="font-semibold">{trial.trial_name}</p>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{trialDays.length}</div>
-                <div className="text-sm text-gray-600">Trial Days</div>
+              <div>
+                <p className="text-sm text-gray-600">Location</p>
+                <p className="font-semibold">{trial.location}</p>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-gray-600">
-                  ${Object.values(levelSelections).reduce((total, dayLevels) => 
-                    total + dayLevels.filter(level => level.selected).reduce((sum, level) => sum + level.entryFee, 0), 0
-                  )}
-                </div>
-                <div className="text-sm text-gray-600">Total Entry Fees</div>
+              <div>
+                <p className="text-sm text-gray-600">Number of Days</p>
+                <p className="font-semibold">{trialDays.length} days</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Selected Levels</p>
+                <p className="font-semibold">{getSelectedLevelsCount()} levels selected</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Category Tabs */}
         <Card>
           <CardHeader>
-            <CardTitle>Select Category</CardTitle>
+            <CardTitle>Filter by Category</CardTitle>
             <CardDescription>Choose a category to view available levels</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex space-x-2 mb-4">
+            <div className="flex flex-wrap gap-2">
               {Object.keys(CWAGS_LEVELS).map(category => (
                 <Button
                   key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
+                  variant={selectedCategory === category ? "default" : "outline"}
                   onClick={() => setSelectedCategory(category)}
-                  className="flex-1"
+                  className="flex-1 min-w-[120px]"
                 >
                   {category}
                 </Button>
@@ -731,40 +750,34 @@ if (!hasSelection) {
           </CardContent>
         </Card>
 
-        {/* Level Selection for Each Day */}
         {trialDays.map(day => (
-          <Card key={day.id} className="border-2 border-gray-400"> {/* Darker border for day selection */}
+          <Card key={day.id}>
             <CardHeader className="bg-gray-50">
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
-                <span>Day {day.day_number} - {formatDate(day.trial_date)}</span>
-                <Badge variant="outline" className="border-gray-500">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Day {day.day_number} - {formatDate(day.trial_date)}
+                </CardTitle>
+                <Badge variant="outline">
                   {levelSelections[day.id]?.filter(l => l.selected && l.category === selectedCategory).length || 0} selected
                 </Badge>
-              </CardTitle>
-              <CardDescription>
-                Configure levels for {selectedCategory}
-              </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            <CardContent className="pt-6">
+              <div className="space-y-4">
                 {levelSelections[day.id]
-                  ?.filter(level => level.category === selectedCategory)
-                  .map((level) => {
-  const actualIndex = levelSelections[day.id]?.findIndex(l => 
-    l.levelName === level.levelName && l.category === level.category
-  ) || 0;
-                    
+                  ?.map((level, index) => ({ level, originalIndex: index }))
+                  .filter(({ level }) => level.category === selectedCategory)
+                  .map(({ level, originalIndex: actualIndex }) => {
                     return (
                       <div
                         key={`${day.id}-${level.levelName}`}
-                        className={`border rounded-lg p-4 transition-all ${
+                        className={`p-4 rounded-lg border-2 transition-all ${
                           level.selected 
                             ? 'border-blue-300 bg-blue-50' 
                             : 'border-gray-200 bg-gray-50'
                         }`}
                       >
-                        {/* Level Selection */}
                         <div className="flex items-center space-x-3 mb-3">
                           <Checkbox
                             checked={level.selected}
@@ -785,10 +798,8 @@ if (!hasSelection) {
                           )}
                         </div>
 
-                        {/* Configuration Options */}
                         {level.selected && (
                           <div className="space-y-3 pt-3 border-t">
-                            {/* Entry Fee and Max Entries */}
                             <div className="grid grid-cols-2 gap-2">
                               <div>
                                 <Label className="text-xs">Entry Fee ($)</Label>
@@ -813,22 +824,21 @@ if (!hasSelection) {
                               </div>
                             </div>
 
-                            {/* FEO Configuration */}
                             <div className="space-y-2">
                               <div className="flex items-center space-x-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
-  <Checkbox
-    id={`feo-${day.id}-${actualIndex}`}
-    checked={level.feoAvailable || false}
-    onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
-    className="w-6 h-6" // Extra large for FEO
-  />
-  <Label 
-    htmlFor={`feo-${day.id}-${actualIndex}`} 
-    className="text-sm font-semibold text-blue-900 cursor-pointer"
-  >
-    ✓ FEO Available for this class
-  </Label>
-</div>
+                                <Checkbox
+                                  id={`feo-${day.id}-${actualIndex}`}
+                                  checked={level.feoAvailable || false}
+                                  onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
+                                  className="w-6 h-6"
+                                />
+                                <Label 
+                                  htmlFor={`feo-${day.id}-${actualIndex}`} 
+                                  className="text-sm font-semibold text-blue-900 cursor-pointer"
+                                >
+                                  ✓ FEO Available for this class
+                                </Label>
+                              </div>
                               
                               {level.feoAvailable && (
                                 <div>
@@ -846,27 +856,50 @@ if (!hasSelection) {
                               )}
                             </div>
 
-                            {/* Games Subclass - Only show for Games classes */}
+                            {/* UPDATED: Games Subclass Checkboxes */}
                             {level.category === 'Games' && (
-                              <div className="space-y-2">
-                                <Label className="text-xs text-red-600">Games Subclass (Required) *</Label>
-                                <select
-                                  value={level.gamesSubclass || ''}
-                                  onChange={(e) => updateLevelSelection(day.id, actualIndex, 'gamesSubclass', e.target.value)}
-                                  className="w-full h-8 px-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                  required
-                                >
-                                  <option value="">Select Subclass</option>
-                                  <option value="GB">GB</option>
-                                  <option value="BJ">BJ</option>
-                                  <option value="C">C</option>
-                                  <option value="T">T</option>
-                                  <option value="P">P</option>
-                                </select>
+                              <div className="space-y-2 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                                <Label className="text-sm font-semibold text-purple-900">
+                                  Games Subclasses (Select all that apply) *
+                                </Label>
+                                <p className="text-xs text-purple-700 mb-3">
+                                  Each subclass will create a separate class entry
+                                </p>
+                                <div className="space-y-2">
+                                  {['GB', 'BJ', 'C', 'T', 'P'].map(subclass => (
+                                    <div key={subclass} className="flex items-center space-x-3">
+                                      <Checkbox
+                                        id={`${day.id}-${level.levelName}-${subclass}`}
+                                        checked={level.gamesSubclasses?.includes(subclass) || false}
+                                        onCheckedChange={(checked) => {
+                                          const current = level.gamesSubclasses || [];
+                                          const updated = checked
+                                            ? [...current, subclass]
+                                            : current.filter(s => s !== subclass);
+                                          updateLevelSelection(day.id, actualIndex, 'gamesSubclasses', updated);
+                                        }}
+                                        className="w-5 h-5"
+                                      />
+                                      <Label 
+                                        htmlFor={`${day.id}-${level.levelName}-${subclass}`} 
+                                        className="text-sm font-medium cursor-pointer flex-1"
+                                      >
+                                        <span className="font-bold text-purple-700">{subclass}</span>
+                                        <span className="text-gray-600"> - {getGameName(subclass)}</span>
+                                      </Label>
+                                    </div>
+                                  ))}
+                                </div>
+                                {level.gamesSubclasses && level.gamesSubclasses.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-purple-300">
+                                    <p className="text-xs text-purple-700">
+                                      <strong>Selected ({level.gamesSubclasses.length}):</strong> {level.gamesSubclasses.join(', ')}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             )}
 
-                            {/* Notes */}
                             <div>
                               <Label className="text-xs">Notes (Optional)</Label>
                               <Input
@@ -886,7 +919,6 @@ if (!hasSelection) {
           </Card>
         ))}
 
-        {/* Action Buttons */}
         <div className="flex items-center justify-between pt-6 border-t">
           <div className="flex space-x-3">
             <Button
@@ -923,7 +955,7 @@ if (!hasSelection) {
               ) : (
                 <>
                   <span>{isEditMode ? 'Save Changes' : 'Continue to Rounds'}</span>
-                  {!isEditMode && <ArrowRight className="h-4 w-4" />}
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </Button>
@@ -933,18 +965,17 @@ if (!hasSelection) {
     </MainLayout>
   );
 }
-// Add this at the very end of the file:
+
 export default function TrialLevelsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <MainLayout title="Loading...">
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      </div>
+      </MainLayout>
     }>
       <TrialLevelsPageContent />
     </Suspense>
-  )
+  );
 }

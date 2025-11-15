@@ -305,37 +305,40 @@ export interface Database {
         }
       }
       entry_selections: {
-        Row: {
-          id: string
-          entry_id: string
-          trial_round_id: string
-          entry_type: 'regular' | 'feo'
-          fee: number
-          running_position: number | null
-          entry_status: 'confirmed' | 'withdrawn' | 'no_show'
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          entry_id: string
-          trial_round_id: string
-          entry_type?: 'regular' | 'feo'
-          fee: number
-          running_position?: number | null
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          entry_id?: string
-          trial_round_id?: string
-          entry_type?: 'regular' | 'feo'
-          fee?: number
-          running_position?: number | null
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
-          created_at?: string
-        }
-      }
+  Row: {
+    id: string
+    entry_id: string
+    trial_round_id: string
+    entry_type: 'regular' | 'feo'
+    fee: number
+    running_position: number | null
+    entry_status: 'confirmed' | 'withdrawn' | 'no_show'
+    division: string | null  // NEW FIELD: 'A', 'B', 'TO', 'JR', or null
+    created_at: string
+  }
+  Insert: {
+    id?: string
+    entry_id: string
+    trial_round_id: string
+    entry_type?: 'regular' | 'feo'
+    fee: number
+    running_position?: number | null
+    entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
+    division?: string | null  // NEW FIELD
+    created_at?: string
+  }
+  Update: {
+    id?: string
+    entry_id?: string
+    trial_round_id?: string
+    entry_type?: 'regular' | 'feo'
+    fee?: number
+    running_position?: number | null
+    entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
+    division?: string | null  // NEW FIELD
+    created_at?: string
+  }
+}
       scores: {
         Row: {
           id: string
