@@ -121,6 +121,8 @@ export default function ClassSummaryPage() {
     }
   };
 
+// Replace the generateExcelReport function in src/app/dashboard/trials/[trialId]/summary/page.tsx
+
 const generateExcelReport = async () => {
   if (!summaryData) {
     alert('No data available to export');
@@ -157,14 +159,13 @@ const generateExcelReport = async () => {
     }
     console.log('Loaded scores for lookup:', allScores?.length || 0);
 
-    // Step 1: Normalize class names for display and define blueprint order
+    // Normalize class names
     const normalizeClassName = (className: string): string => {
       const corrections: Record<string, string> = {
         'Patrol': 'Patrol 1',
         'Detective': 'Detective 2',
         'Investigator': 'Investigator 3',
-        'Private Inv': 'Private Investigator',
-        'Det Diversions': 'Detective Diversions'
+        
       };
       return corrections[className] || className;
     };
@@ -186,7 +187,7 @@ const generateExcelReport = async () => {
       return index === -1 ? 999 : index;
     };
 
-    // Step 2: Build complete class structure with all rounds
+    // Build complete class structure with all rounds
     const classesByName = new Map<string, {
       className: string;
       allParticipants: Map<string, {
@@ -200,14 +201,14 @@ const generateExcelReport = async () => {
         trialDate: string;
         roundNumber: number;
         sortOrder: number;
-        results: Map<string, string>; // cwagsNumber -> result
+        results: Map<string, string>;
       }>;
       totalPasses: number;
       totalRuns: number;
       classOrder: number;
     }>();
 
-    // Step 3: Process all trial rounds to create complete structure
+    // Process all trial rounds to create complete structure
     allTrialRounds.forEach((round: any) => {
       const className = round.trial_classes?.class_name;
       if (!className) return;
@@ -229,11 +230,9 @@ const generateExcelReport = async () => {
 
       const classData = classesByName.get(normalizedName)!;
       
-      // Create sort order: date first, then round number
       const dateSort = new Date(trialDate).getTime();
       const sortOrder = dateSort + round.round_number;
 
-      // Add round to class structure
       classData.allRounds.push({
         roundId: round.id,
         judgeInfo: round.judge_name || 'TBD',
@@ -244,27 +243,24 @@ const generateExcelReport = async () => {
       });
     });
 
-    // Step 4: Sort rounds chronologically within each class
+    // Sort rounds chronologically within each class
     classesByName.forEach(classData => {
       classData.allRounds.sort((a, b) => a.sortOrder - b.sortOrder);
     });
 
-    // Step 5: Process actual entries and scores
+    // Process actual entries and scores
     (entriesResult.data || []).forEach((entry: any) => {
       (entry.entry_selections || []).forEach((selection: any) => {
-        // Skip FEO entries
         if (selection.entry_type?.toLowerCase() === 'feo') {
           return;
         }
-           // Skip withdrawn entries
-    if (selection.entry_status?.toLowerCase() === 'withdrawn') {
-      console.log(`Excluding withdrawn entry: ${entry.handler_name} - ${entry.dog_call_name}`);
-      return;
-    }
+        if (selection.entry_status?.toLowerCase() === 'withdrawn') {
+          return;
+        }
+        
         const roundId = selection.trial_round_id;
         const cwagsNumber = entry.cwags_number;
 
-        // Find which class this round belongs to
         let targetClassData: any = null;
         let targetRound: any = null;
 
@@ -280,7 +276,6 @@ const generateExcelReport = async () => {
           return;
         }
 
-        // Add participant to class
         if (!targetClassData.allParticipants.has(cwagsNumber)) {
           targetClassData.allParticipants.set(cwagsNumber, {
             cwagsNumber: entry.cwags_number,
@@ -289,226 +284,236 @@ const generateExcelReport = async () => {
           });
         }
 
-// Get score for this entry selection
-const score = scoresMap.get(selection.id);
-let result = '-';
+        const score = scoresMap.get(selection.id);
+        let result = '-';
 
-console.log('Excel Debug:', {
-  className: targetClassData.className,
-  entryType: selection.entry_type,
-  score: score,
-  hasNumericalScore: score?.numerical_score !== null && score?.numerical_score !== undefined,
-  numericalScore: score?.numerical_score,
-  passFail: score?.pass_fail
-});
-
-// Check if entry is marked as No Show or Absent - show "Abs"
-if (selection.entry_status === 'no_show' || 
-    selection.entry_status === 'absent' || 
-    score?.entry_status === 'no_show' ||
-    score?.entry_status === 'absent') {
-  result = 'Abs';
-  targetClassData.totalRuns++;
-} 
-// Check if entry was withdrawn - show "Wth" 
-else if (selection.entry_status === 'withdrawn' || score?.entry_status === 'withdrawn') {
-  result = 'Wth';
-} 
-// Check if entry was scratched - show "X"
-else if (score?.entry_status === 'scratched') {
-  result = 'X';
-  targetClassData.totalRuns++;
-}
-// Normal scoring logic
-else if (score) {
-  // Check if this is a rally or obedience class
-  const className = targetClassData.className || '';
-  const isRallyOrObedience = className.toLowerCase().includes('starter') || 
-                         className.toLowerCase().includes('advanced') || 
-                         className.toLowerCase().includes('pro') ||
-                         className.toLowerCase().includes('obedience') ||
-                         className.toLowerCase().includes('zoom') ||
-                         className.toLowerCase().includes('rally');
-  
-  console.log('Class check:', {
-    className: className,
-    isRallyOrObedience: isRallyOrObedience,
-    entryType: selection.entry_type,
-    passFail: score.pass_fail
-  });
-  
-  // Handle FEO entries first (always show "FEO")
-  if (selection.entry_type === 'feo' || score.pass_fail === 'FEO') {
-    result = 'FEO';
-    console.log('Setting FEO result');
-    targetClassData.totalRuns++;
-  }
-  // Handle rally/obedience scoring
-  else if (isRallyOrObedience && score.numerical_score !== null && score.numerical_score !== undefined) {
-    const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
-    console.log('Rally/Obedience logic:', {
-      numericalScore: score.numerical_score,
-      passingScore: passingScore,
-      passFail: score.pass_fail
-    });
-    
-    if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
-      result = score.numerical_score.toString();
-      console.log('Setting score result:', result);
-      targetClassData.totalPasses++;
-    } else {
-      result = 'NQ';
-      console.log('Setting NQ result');
-    }
-    targetClassData.totalRuns++;
-  }
-  // Handle other class types (scent, games)
-  else if (score.pass_fail === 'Pass') {
-    console.log('Using fallback Pass logic');
-    const classInfo = selection.trial_rounds?.trial_classes;
-    const isGamesClass = classInfo?.class_type === 'games';
-    const gamesSubclass = classInfo?.games_subclass;
-    result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'Pass';
-    targetClassData.totalPasses++;
-    targetClassData.totalRuns++;
-  } else if (score.pass_fail === 'Fail') {
-    console.log('Using fallback Fail logic');
-    result = 'F';
-    targetClassData.totalRuns++;
-  }
-  
-  console.log('Final result:', result);
-}
+        if (selection.entry_status === 'no_show' || 
+            selection.entry_status === 'absent' || 
+            score?.entry_status === 'no_show' ||
+            score?.entry_status === 'absent') {
+          result = 'Abs';
+          targetClassData.totalRuns++;
+        } 
+        else if (selection.entry_status === 'withdrawn' || score?.entry_status === 'withdrawn') {
+          result = 'Wth';
+        } 
+        else if (score?.entry_status === 'scratched') {
+          result = 'X';
+          targetClassData.totalRuns++;
+        }
+        else if (score) {
+          const className = targetClassData.className || '';
+          const isRallyOrObedience = className.toLowerCase().includes('starter') || 
+                                 className.toLowerCase().includes('advanced') || 
+                                 className.toLowerCase().includes('pro') ||
+                                 className.toLowerCase().includes('obedience') ||
+                                 className.toLowerCase().includes('zoom') ||
+                                 className.toLowerCase().includes('rally');
+          
+          if (selection.entry_type === 'feo' || score.pass_fail === 'FEO') {
+            result = 'FEO';
+            targetClassData.totalRuns++;
+          }
+          else if (isRallyOrObedience && score.numerical_score !== null && score.numerical_score !== undefined) {
+            const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
+            
+            if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+              result = score.numerical_score.toString();
+              targetClassData.totalPasses++;
+            } else {
+              result = 'NQ';
+            }
+            targetClassData.totalRuns++;
+          }
+          else if (score.pass_fail === 'Pass') {
+            const classInfo = selection.trial_rounds?.trial_classes;
+            const isGamesClass = classInfo?.class_type === 'games';
+            const gamesSubclass = classInfo?.games_subclass;
+            result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'Pass';
+            targetClassData.totalPasses++;
+            targetClassData.totalRuns++;
+          } else if (score.pass_fail === 'Fail') {
+            result = 'F';
+            targetClassData.totalRuns++;
+          }
+        }
 
         targetRound.results.set(cwagsNumber, result);
-        console.log(`Set result for ${cwagsNumber} in ${targetClassData.className} Round ${targetRound.roundNumber}: ${result}`);
       });
     });
 
-    // Step 6: Create Excel workbook
-    const XLSX = await import('xlsx');
+    // Create Excel workbook
+    const XLSX = await import('xlsx-js-style');
     const workbook = XLSX.utils.book_new();
 
- // Step 7: Create summary overview sheet with new column structure
-const summarySheetData: any[][] = [
-  ['Trial Summary'],
-  ['Trial Name:', summaryData.trial.trial_name],
-  ['Club:', summaryData.trial.club_name],
-  ['Location:', summaryData.trial.location],
-  [],
-  ['Class Name', 'Total Runs', 'Actually Ran', 'Passes', 'Fails', 'Billable Runs']
-];
+    // Create summary overview sheet with NEW FORMATTING
+    const summarySheetData: any[][] = [
+      ['Trial Summary'], // Row 1
+      [], // Row 2
+      ['Class Name', 'Total Runs', 'Actually Ran', 'Passes', 'Fails', 'Billable Runs'], // Row 3
+      [], // Row 4 (will be first data row)
+    ];
 
-// Sort classes by blueprint order for summary
-const sortedClasses = Array.from(classesByName.values()).sort((a, b) => a.classOrder - b.classOrder);
+    // Sort classes by blueprint order for summary
+    const sortedClasses = Array.from(classesByName.values()).sort((a, b) => a.classOrder - b.classOrder);
 
-sortedClasses.forEach((classData) => {
-  // Calculate statistics for each class
-  let totalRuns = 0;
-  let actuallyRan = 0;
-  let passes = 0;
-  let fails = 0;
-  let billableRuns = 0;
+    sortedClasses.forEach((classData) => {
+      let totalRuns = 0;
+      let actuallyRan = 0;
+      let passes = 0;
+      let fails = 0;
+      let billableRuns = 0;
 
-  // Count results across all rounds
-  classData.allRounds.forEach(round => {
-    round.results.forEach((result, cwagsNumber) => {
-      totalRuns++; // Count every entry slot
-      
-      // Actually Ran: anything with a result (not "-")
-      if (result !== '-') {
-        actuallyRan++;
-      }
-      
-      // Passes: Pass, scores ≥70/120, Games symbols
-      if (result === 'Pass' || result === 'GB' || result === 'BJ' || result === 'C' || result === 'T' || result === 'P') {
-        passes++;
-        billableRuns++;
-      } else if (!isNaN(Number(result))) {
-        // It's a numerical score
-        const score = Number(result);
-        const passingScore = classData.className.toLowerCase().includes('obedience 5') ? 120 : 70;
-        if (score >= passingScore) {
-          passes++;
-          billableRuns++;
+      classData.allRounds.forEach(round => {
+        round.results.forEach((result, cwagsNumber) => {
+          totalRuns++;
+          
+          if (result !== '-') {
+            actuallyRan++;
+          }
+          
+          if (result === 'Pass' || result === 'GB' || result === 'BJ' || result === 'C' || result === 'T' || result === 'P') {
+            passes++;
+            billableRuns++;
+          } else if (!isNaN(Number(result))) {
+            const score = Number(result);
+            const passingScore = classData.className.toLowerCase().includes('obedience 5') ? 120 : 70;
+            if (score >= passingScore) {
+              passes++;
+              billableRuns++;
+            }
+          }
+          else if (result === 'F' || result === 'NQ') {
+            fails++;
+            billableRuns++;
+          }
+          else if (result === 'Abs') {
+            billableRuns++;
+          }
+        });
+      });
+
+      summarySheetData.push([
+        classData.className,
+        totalRuns,
+        actuallyRan,
+        passes,
+        fails,
+        billableRuns
+      ]);
+    });
+
+    const lastDataRow = 3 + sortedClasses.length;
+    const totalRow = lastDataRow + 1;
+    const runFeeRow = totalRow + 1;
+    const totalOwingRow = runFeeRow + 1;
+
+    summarySheetData.push([
+      '', '', '', '', '', 
+      { f: `SUM(F4:F${lastDataRow})` } as any
+    ]);
+
+    summarySheetData.push(['', '', '', '', 'Run Fee', '']);
+
+    summarySheetData.push([
+      '', '', '', '', 'Total Owing', 
+      { f: `F${totalRow}*F${runFeeRow}` } as any
+    ]);
+
+    const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheetData);
+
+    // APPLY NEW FORMATTING
+    // Set column widths: A&B=20, C=27, D+=20
+    summaryWorksheet['!cols'] = [
+      { wch: 20 }, // A
+      { wch: 20 }, // B
+      { wch: 27 }, // C
+      { wch: 20 }, // D
+      { wch: 20 }, // E
+      { wch: 20 }, // F
+      { wch: 20 }, // G
+    ];
+
+    // Merge cells A1:C1 for "Trial Summary"
+    summaryWorksheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } } // A1:C1
+    ];
+
+    // Apply cell formatting
+    const range = XLSX.utils.decode_range(summaryWorksheet['!ref'] || 'A1');
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!summaryWorksheet[cellAddress]) continue;
+        
+        const cell = summaryWorksheet[cellAddress];
+        
+        // Row 1 (index 0): Left aligned, font size 20, merged A-C
+        if (R === 0) {
+          cell.s = {
+            font: { sz: 20, name: 'Calibri' },
+            alignment: { horizontal: 'left', vertical: 'center' }
+          };
+        }
+        // Row 3 (index 2): Center aligned, font size 20, bold
+        else if (R === 2) {
+          cell.s = {
+            font: { sz: 20, bold: true, name: 'Calibri' },
+            alignment: { horizontal: 'left', vertical: 'center' }
+          };
+        }
+        // Row 4 and greater (index 3+): Center aligned
+        else if (R >= 3) {
+          // Row 5 (index 4 - first data row after headers): Bold
+          if (R === 3) {
+            cell.s = {
+              font: { bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // Row 6 (index 5): Bold, size 14
+          else if (R === 4) {
+            cell.s = {
+              font: { sz: 14, bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // All other rows: Center aligned
+          else {
+            cell.s = {
+              font: { name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
         }
       }
-      // Fails: F and NQ
-      else if (result === 'F' || result === 'NQ') {
-        fails++;
-        billableRuns++;
-      }
-      // Abs: counted as billable
-      else if (result === 'Abs') {
-        billableRuns++;
-      }
-    });
-  });
+    }
 
-  summarySheetData.push([
-  classData.className,    // Object property (needs the dot)
-  totalRuns,              // Local variable (no dot)
-  actuallyRan,            // Local variable (no dot)
-  passes,                 // Local variable (no dot)
-  fails,                  // Local variable (no dot)
-  billableRuns            // Local variable (no dot)
-]);
-});
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
 
-// Calculate which row the totals start (header is row 6, data starts row 7)
-const lastDataRow = 6 + sortedClasses.length;
-const totalRow = lastDataRow + 1;
-const runFeeRow = totalRow + 1;
-const totalOwingRow = runFeeRow + 1;
-
-// Add total billable runs with SUM formula
-summarySheetData.push([
-  '', '', '', '', '', 
-  { f: `SUM(F7:F${lastDataRow})` } as any
-]);
-
-// Add Run Fee row (manual entry field)
-summarySheetData.push(['', '', '', '', 'Run Fee', '']);
-
-// Add Total Owing row with formula
-summarySheetData.push([
-  '', '', '', '', 'Total Owing', 
- { f: `F${totalRow}*F${runFeeRow}` } as any
-]);
-
-const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheetData);
-XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
-
-    // Step 8: Create individual class matrix sheets in blueprint order
+    // Create individual class matrix sheets in blueprint order
     sortedClasses.forEach((classData) => {
       const sheetData = [];
       
-      // Initialize empty rows for proper positioning
       for (let i = 0; i < 6; i++) {
         sheetData.push([]);
       }
       
-      // Row 1: Trial name
       sheetData[0] = [summaryData.trial.trial_name];
-      
-      // Row 3: Class name in column F (index 5)
       sheetData[2] = ['', '', '', '', '', classData.className];
       
-      // Row 4: Class (Round #) headers starting from column D
-      const row4Headers = ['', '', '']; // A, B, C columns
+      const row4Headers = ['', '', ''];
       classData.allRounds.forEach(round => {
         row4Headers.push(`Round ${round.roundNumber}`);
       });
       sheetData[3] = row4Headers;
       
-      // Row 5: Judge names starting from column D
       const row5Headers = ['', '', ''];
       classData.allRounds.forEach(round => {
         row5Headers.push(round.judgeInfo);
       });
       sheetData[4] = row5Headers;
       
-      // Row 6: Dates and participant headers
       const row6Headers = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
       classData.allRounds.forEach(round => {
         const date = new Date(round.trialDate);
@@ -521,7 +526,6 @@ XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
       });
       sheetData[5] = row6Headers;
 
-      // Row 7+: Create participant rows
       const participantEntries = Array.from(classData.allParticipants.values());
       
       participantEntries.forEach(participant => {
@@ -531,30 +535,96 @@ XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
           participant.handlerName          
         ];
         
-        // Add results for ALL rounds chronologically
         classData.allRounds.forEach(round => {
           const result = round.results.get(participant.cwagsNumber) || '-';
           row.push(result);
         });
         
         sheetData.push(row);
-        console.log(`Added participant row: ${participant.handlerName} - ${participant.dogName}`);
       });
 
-      // Create worksheet
       const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
       
-      // Create clean sheet name
+      // APPLY FORMATTING TO CLASS SHEETS
+      // Set column widths: A&B=20, C=27, D+=20
+      const numCols = Math.max(3 + classData.allRounds.length, 7);
+      worksheet['!cols'] = [
+        { wch: 20 }, // A
+        { wch: 20 }, // B
+        { wch: 27 }, // C
+      ];
+      // Add column D and beyond with width 20
+      for (let i = 3; i < numCols; i++) {
+        worksheet['!cols'].push({ wch: 20 });
+      }
+
+      // Merge cells A1:C1 for trial name
+      worksheet['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } } // A1:C1
+      ];
+
+      // Apply cell formatting to class sheet
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!worksheet[cellAddress]) continue;
+          
+          const cell = worksheet[cellAddress];
+          
+          // Row 1 (index 0): Left aligned, font size 20, merged A-C
+          if (R === 0) {
+            cell.s = {
+              font: { sz: 20, name: 'Calibri' },
+              alignment: { horizontal: 'left', vertical: 'center' }
+            };
+          }
+          // Row 3 (index 2): Center aligned, font size 20, bold
+          else if (R === 2) {
+            cell.s = {
+              font: { sz: 20, bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // Row 4 (index 3): Center aligned, bold
+          else if (R === 3) {
+            cell.s = {
+              font: { bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // Row 5 (index 4): Center aligned, bold
+          else if (R === 4) {
+            cell.s = {
+              font: { bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // Row 6 (index 5): Center aligned, bold, size 14
+          else if (R === 5) {
+            cell.s = {
+              font: { sz: 14, bold: true, name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+          // Row 7+ (index 6+): Center aligned
+          else if (R >= 6) {
+            cell.s = {
+              font: { name: 'Calibri' },
+              alignment: { horizontal: 'center', vertical: 'center' }
+            };
+          }
+        }
+      }
+      
       let sheetName = classData.className.replace(/[:\\/?*[\]]/g, '');
       if (sheetName.length > 31) {
         sheetName = sheetName.substring(0, 31);
       }
       
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-      console.log(`Created sheet: ${sheetName} with ${participantEntries.length} participants and ${classData.allRounds.length} rounds`);
     });
 
-    // Step 9: Download the file
     const fileName = `${summaryData.trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
     XLSX.writeFile(workbook, fileName);
 
