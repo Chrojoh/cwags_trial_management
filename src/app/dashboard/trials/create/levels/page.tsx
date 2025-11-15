@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
@@ -40,6 +41,17 @@ interface TrialDay {
   day_status: string;
 }
 
+interface ExistingClass {
+  id: string;
+  class_name: string;
+  class_level: string;
+  entry_fee: number;
+  feo_available: boolean;
+  feo_price: number;
+  games_subclass: string | null;
+  notes: string | null;
+  [key: string]: any; // Allow other properties
+}
 interface Trial {
   id: string;
   trial_name: string;
@@ -247,25 +259,149 @@ if (!hasSelection) {
   };
 
   const saveClassesForAllDays = async (): Promise<boolean> => {
-    if (!validateSelections() || !trialId) return false;
-    
+  if (!validateSelections() || !trialId) return false;
 
-    try {
-      console.log('Starting to save classes for all days...');
+  try {
+    console.log('Starting to save classes for all days...');
+    
+    for (const [dayId, dayLevels] of Object.entries(levelSelections)) {
+      const selectedLevels = dayLevels.filter(level => level.selected);
       
-      for (const [dayId, dayLevels] of Object.entries(levelSelections)) {
-        const selectedLevels = dayLevels.filter(level => level.selected);
-        
-        if (selectedLevels.length > 0) {
-          // Prepare classes data with proper types and validation including FEO data
+      if (selectedLevels.length > 0) {
+        // ===== EDIT MODE: Smart save to prevent duplicates =====
+        if (isEditMode) {
+          // Get existing classes for this day
+          const existingClassesResult = await simpleTrialOperations.getTrialClasses(dayId);
+          const existingClasses: ExistingClass[] = existingClassesResult.success ? (existingClassesResult.data || []) : [];
+          
+          console.log(`Day ${dayId}: ${existingClasses.length} existing classes, ${selectedLevels.length} selected`);
+          
+          // Create a map of existing classes by class_name for quick lookup
+         const existingClassMap = new Map<string, ExistingClass>(
+  existingClasses.map((cls) => [cls.class_level, cls])
+);
+          
+          // Find classes to ADD (selected but don't exist yet)
+          const classesToAdd = selectedLevels.filter(level => 
+            !existingClassMap.has(level.levelName)
+          );
+          
+          // Find classes to UPDATE (selected and exist, but settings changed)
+          const classesToUpdate = selectedLevels.filter(level => {
+            const existing = existingClassMap.get(level.levelName);
+            if (!existing) return false;
+            
+            // Check if any settings changed
+            return existing.entry_fee !== level.entryFee ||
+                   existing.feo_available !== level.feoAvailable ||
+                   existing.feo_price !== (level.feoPrice || 0) ||
+                   existing.games_subclass !== (level.gamesSubclass || null) ||
+                   existing.notes !== (level.notes || '');
+          });
+          
+          // Find classes to DELETE (exist but not selected anymore)
+          const classesToDelete = existingClasses.filter((cls: any) => 
+            !selectedLevels.some(level => level.levelName === cls.class_level)
+          );
+          
+          console.log(`Day ${dayId} - Add: ${classesToAdd.length}, Update: ${classesToUpdate.length}, Delete: ${classesToDelete.length}`);
+          
+          // DELETE unselected classes
+          if (classesToDelete.length > 0) {
+            for (const cls of classesToDelete) {
+              const { error: deleteError } = await supabase
+                .from('trial_classes')
+                .delete()
+                .eq('id', cls.id);
+              
+              if (deleteError) {
+                console.error(`Failed to delete class ${cls.class_name}:`, deleteError);
+              } else {
+                console.log(`Deleted class: ${cls.class_name}`);
+              }
+            }
+          }
+          
+          // INSERT new classes
+          if (classesToAdd.length > 0) {
+            const newClasses = classesToAdd.map((level, index) => {
+              const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
+              const feoPrice = level.feoAvailable && level.feoPrice ? 
+                (typeof level.feoPrice === 'number' ? level.feoPrice : parseFloat(String(level.feoPrice)) || 0) : 0;
+              
+              const classTypeMapping: { [key: string]: string } = {
+                'Scent Work': 'scent',
+                'Rally': 'rally',
+                'Obedience': 'obedience', 
+                'Games': 'games'
+              };
+              
+              const classType = classTypeMapping[level.category] || 'scent';
+              
+              return {
+                trial_day_id: dayId,
+                class_name: level.levelName.trim(),
+                class_type: classType,
+                subclass: level.category.trim(),
+                class_level: level.levelName.trim(),
+                entry_fee: entryFee,
+                max_entries: 50, // Default
+                feo_available: level.feoAvailable || false,
+                feo_price: feoPrice,
+                games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
+                class_order: existingClasses.length + index + 1, // Append after existing
+                class_status: 'draft',
+                notes: level.notes?.trim() || null
+              };
+            });
+            
+            const { error: insertError } = await supabase
+              .from('trial_classes')
+              .insert(newClasses);
+            
+            if (insertError) {
+              throw new Error(`Failed to insert new classes for day ${dayId}: ${insertError.message}`);
+            }
+            
+            console.log(`Inserted ${newClasses.length} new classes for day ${dayId}`);
+          }
+          
+          // UPDATE existing classes with changed settings
+          if (classesToUpdate.length > 0) {
+            for (const level of classesToUpdate) {
+              const existing = existingClassMap.get(level.levelName);
+              if (!existing) continue;
+              
+              const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
+              const feoPrice = level.feoAvailable && level.feoPrice ? 
+                (typeof level.feoPrice === 'number' ? level.feoPrice : parseFloat(String(level.feoPrice)) || 0) : 0;
+              
+              const { error: updateError } = await supabase
+                .from('trial_classes')
+                .update({
+                  entry_fee: entryFee,
+                  feo_available: level.feoAvailable || false,
+                  feo_price: feoPrice,
+                  games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
+                  notes: level.notes?.trim() || null
+                })
+                .eq('id', existing.id);
+              
+              if (updateError) {
+                console.error(`Failed to update class ${level.levelName}:`, updateError);
+              } else {
+                console.log(`Updated class: ${level.levelName}`);
+              }
+            }
+          }
+          
+        } else {
+          // ===== CREATE MODE: Insert all classes (original logic) =====
           const classesToSave = selectedLevels.map((level, index) => {
-            // Ensure all numeric values are properly typed
             const entryFee = typeof level.entryFee === 'number' ? level.entryFee : parseFloat(String(level.entryFee)) || 0;
-            const maxEntries = typeof level.maxEntries === 'number' ? level.maxEntries : parseInt(String(level.maxEntries)) || 1;
             const feoPrice = level.feoAvailable && level.feoPrice ? 
               (typeof level.feoPrice === 'number' ? level.feoPrice : parseFloat(String(level.feoPrice)) || 0) : 0;
             
-            // Map category names to database-allowed class_type values
             const classTypeMapping: { [key: string]: string } = {
               'Scent Work': 'scent',
               'Rally': 'rally',
@@ -273,7 +409,7 @@ if (!hasSelection) {
               'Games': 'games'
             };
             
-            const classType = classTypeMapping[level.category] || 'scent'; // Default fallback
+            const classType = classTypeMapping[level.category] || 'scent';
 
             return {
               class_name: level.levelName.trim(),
@@ -281,7 +417,7 @@ if (!hasSelection) {
               subclass: level.category.trim(),
               class_level: level.levelName.trim(),
               entry_fee: entryFee,
-              max_entries: maxEntries,
+              max_entries: 50,
               feo_available: level.feoAvailable || false,
               feo_price: feoPrice,
               games_subclass: level.category === 'Games' ? (level.gamesSubclass || null) : null,
@@ -308,16 +444,17 @@ if (!hasSelection) {
           console.log(`Successfully saved classes for day ${dayId}`);
         }
       }
-
-      console.log('All classes saved successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('Error saving classes:', error);
-      setErrors([error instanceof Error ? error.message : 'Error saving trial classes. Please try again.']);
-      return false;
     }
-  };
+
+    console.log('All classes saved successfully');
+    return true;
+    
+  } catch (error) {
+    console.error('Error saving classes:', error);
+    setErrors([error instanceof Error ? error.message : 'Error saving trial classes. Please try again.']);
+    return false;
+  }
+};
 
   const handleNext = async () => {
     if (!validateSelections() || !trialId) return;

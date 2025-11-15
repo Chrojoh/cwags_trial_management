@@ -85,7 +85,7 @@ export default function PublicEntryForm() {
   const params = useParams();
   const router = useRouter();
   const trialId = params.trialId as string;
-
+  const [selectedDayTab, setSelectedDayTab] = useState<string>("1");
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +159,17 @@ const cleanCwagsNumber = (input: string): string => {
   return `${part1}-${part2}-${part3}`;
 };
 
-
+const formatDayDate = (dateString: string) => {
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0  // Set to noon to avoid timezone issues
+  );
+  
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
 
 // UPDATED: Handle lookup button click
 const handleCwagsSubmit = async () => {
@@ -1142,135 +1152,186 @@ if (insertError) {
           </CardContent>
         </Card>
 
-        {/* Class Entries */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Class Entries
-            </CardTitle>
-            <CardDescription>
-              Select the class entries/rounds you want to enter
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {Object.keys(roundsByDay).length > 0 ? (
-              <Tabs defaultValue="1" className="w-full">
-                <TabsList className="grid w-full grid-cols-5">
-                  {Object.keys(roundsByDay).sort().map(day => {
-                    const dayRounds = roundsByDay[parseInt(day)];
-                    const dayDate = dayRounds[0]?.trial_classes?.trial_days?.trial_date;
-                    return (
-                      <TabsTrigger key={day} value={day}>
-                        Day {day} - {dayDate ? new Date(dayDate).toLocaleDateString('en-US', { weekday: 'short' }) : 'TBD'}
-                      </TabsTrigger>
-                    );
-                  })}
-                </TabsList>
+              {/* Class Entries - FIXED VERSION */}
+        <div className="mb-6">
+          {/* Single Tabs component wrapping BOTH TabsList and TabsContent */}
+          <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
+            
+            {/* Sticky Header Container */}
+            <div className="sticky top-0 z-30 bg-gray-50 pt-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Class Entries
+                      </CardTitle>
+                      <CardDescription>
+                        Select the class entries/rounds you want to enter
+                      </CardDescription>
+                    </div>
+                    
+                    {/* Submit Button - Top Right */}
+                    <Button 
+                      onClick={performSubmit}
+                      disabled={submitting || !formData.waiver_accepted}
+                      size="lg"
+                      className="min-w-[140px] shrink-0"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {existingEntry ? 'Updating...' : 'Submitting...'}
+                        </>
+                      ) : (
+                        <>
+                          {existingEntry ? 'Update Entry' : 'Submit Entry'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
                 
-               {Object.keys(roundsByDay).sort().map(day => (
-                  <TabsContent key={day} value={day} className="mt-4">
-                    <div className="space-y-3">
-                      {roundsByDay[parseInt(day)].map((round) => {
-                        const isSelected = formData.selected_rounds.includes(round.id);
-                        const isFeo = formData.feo_selections.includes(round.id);
-                        const regularFee = round.trial_classes?.entry_fee || 0;
-                        const feoFee = round.trial_classes?.feo_price || 0;
-                        const showFeoOptions = round.trial_classes?.feo_available || round.feo_available;
-
+                <CardContent className="pt-0">
+                  {Object.keys(roundsByDay).length > 0 ? (
+                    /* Day Tabs - ENHANCED VISIBILITY */
+                    <TabsList className="grid w-full grid-cols-5 mb-0 bg-gray-100 p-1">
+                      {Object.keys(roundsByDay).sort().map(day => {
+                        const dayRounds = roundsByDay[parseInt(day)];
+                        const dayDate = dayRounds[0]?.trial_classes?.trial_days?.trial_date;
                         return (
-                          <div 
-                            key={round.id}
-                            className={`border rounded-lg p-4 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                          <TabsTrigger 
+                            key={day} 
+                            value={day}
+                            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:font-bold data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 border-2 data-[state=active]:border-blue-700 data-[state=inactive]:border-gray-300 transition-all"
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="font-medium">
-                                    {round.trial_classes?.class_name || 'Unknown Class'} 
-                                    {round.trial_classes?.games_subclass && (
-                                      <span className="text-sm text-gray-600 ml-1">
-                                        ({round.trial_classes.games_subclass})
-                                      </span>
-                                    )}
-                                  </h4>
-                                  <div className="text-right">
-                                    <div className="text-sm text-gray-600">
-                                      Judge: {round.judge_name}
+                            <div className="text-center">
+                              <div className="font-semibold">Day {day}</div>
+                              <div className="text-xs">
+                                {dayDate ? formatDayDate(dayDate) : 'TBD'}
+                              </div>
+                            </div>
+                          </TabsTrigger>
+                        );
+                      })}
+                    </TabsList>
+                  ) : (
+                    <div className="text-center text-gray-500 py-4">
+                      <p>No class information available yet.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Scrollable Content Area - INSIDE the same Tabs component */}
+            {Object.keys(roundsByDay).length > 0 && (
+              <Card className="mt-0 border-t-0 rounded-t-none">
+                <CardContent className="pt-4">
+                  {/* Tab Content - Scrollable with max height */}
+                  <div className="max-h-[600px] overflow-y-auto pr-2">
+                    {Object.keys(roundsByDay).sort().map(day => (
+                      <TabsContent key={day} value={day} className="mt-0">
+                        <div className="space-y-3">
+                          {roundsByDay[parseInt(day)].map((round) => {
+                            const isSelected = formData.selected_rounds.includes(round.id);
+                            const isFeo = formData.feo_selections.includes(round.id);
+                            const regularFee = round.trial_classes?.entry_fee || 0;
+                            const feoFee = round.trial_classes?.feo_price || 0;
+                            const showFeoOptions = round.trial_classes?.feo_available || round.feo_available;
+
+                            return (
+                              <div 
+                                key={round.id}
+                                className={`border rounded-lg p-4 transition-all ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h4 className="font-medium">
+                                        {round.trial_classes?.class_name || 'Unknown Class'} 
+                                        {round.trial_classes?.games_subclass && (
+                                          <span className="text-sm text-gray-600 ml-1">
+                                            ({round.trial_classes.games_subclass})
+                                          </span>
+                                        )}
+                                      </h4>
+                                      <div className="text-right">
+                                        <div className="text-sm text-gray-600">
+                                          Judge: {round.judge_name}
+                                        </div>
+                                        <div className="text-sm text-gray-600">
+                                          Round {round.round_number}
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="text-sm text-gray-600">
-                                      Round {round.round_number}
+                                    
+                                    <div className="flex gap-3">
+                                      {/* Regular Entry Button */}
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => handleRoundSelection(round.id, 'regular')}
+                                        className={`
+                                          relative min-w-[140px] font-semibold transition-all duration-200
+                                          ${isSelected && !isFeo
+                                            ? 'bg-green-600 hover:bg-green-700 text-white border-2 border-green-700 shadow-md' 
+                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                          }
+                                        `}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          {isSelected && !isFeo && (
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                          )}
+                                          <span>Regular ${regularFee.toFixed(2)}</span>
+                                        </div>
+                                      </Button>
+                                      
+                                      {/* FEO Entry Button */}
+                                      {showFeoOptions && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          onClick={() => handleRoundSelection(round.id, 'feo')}
+                                          className={`
+                                            relative min-w-[140px] font-semibold transition-all duration-200
+                                            ${isSelected && isFeo
+                                              ? 'bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-600 shadow-md' 
+                                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                            }
+                                          `}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            {isSelected && isFeo && (
+                                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                              </svg>
+                                            )}
+                                            <span>FEO ${feoFee.toFixed(2)}</span>
+                                          </div>
+                                        </Button>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
-                                
-                                <div className="flex gap-3">
-                                  {/* Regular Entry Button */}
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => handleRoundSelection(round.id, 'regular')}
-                                    className={`
-                                      relative min-w-[140px] font-semibold transition-all duration-200
-                                      ${isSelected && !isFeo
-                                        ? 'bg-green-600 hover:bg-green-700 text-white border-2 border-green-700 shadow-md' 
-                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
-                                      }
-                                    `}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      {isSelected && !isFeo && (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                      )}
-                                      <span>Regular ${regularFee.toFixed(2)}</span>
-                                    </div>
-                                  </Button>
-                                  
-                                  {/* FEO Entry Button */}
-                                  {showFeoOptions && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      onClick={() => handleRoundSelection(round.id, 'feo')}
-                                      className={`
-                                        relative min-w-[140px] font-semibold transition-all duration-200
-                                        ${isSelected && isFeo
-                                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-600 shadow-md' 
-                                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
-                                        }
-                                      `}
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        {isSelected && isFeo && (
-                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                          </svg>
-                                        )}
-                                        <span>FEO ${feoFee.toFixed(2)}</span>
-                                      </div>
-                                    </Button>
-                                  )}
-                                </div>
                               </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </TabsContent>
-                ))}
-              </Tabs>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <p>No class information available yet.</p>
-              </div>
+                            );
+                          })}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
+          </Tabs>
+        </div>
 
-        {/* Total Entry Fee */}
+        {/* Total Entry Fee - Keep as separate card */}
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex justify-between items-center text-lg font-semibold">
@@ -1303,29 +1364,8 @@ if (insertError) {
           </Alert>
         )}
 
-        {/* Submit Button */}
-        <Card>
-          <CardContent className="pt-6">
-            <Button 
-              onClick={performSubmit}
-              disabled={submitting || !formData.waiver_accepted}
-              className="w-full"
-              size="lg"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {existingEntry ? 'Updating Entry...' : 'Submitting Entry...'}
-                </>
-              ) : (
-                <>
-                  {existingEntry ? 'Update Entry' : 'Submit Entry'}
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-
+        {/* REMOVE THE OLD SUBMIT BUTTON FROM HERE - IT'S NOW AT THE TOP */}
+      
         {/* Custom Confirmation Dialog */}
         {showConfirmDialog && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/lib/supabase';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Calendar,
@@ -319,50 +320,162 @@ function TrialDaysPageContent() {
   };
 
   const handleSave = async () => {
-    const selectedDays = trialDays.filter(day => day.selected);
-    
-    if (selectedDays.length === 0) {
-      setErrors(['Please select at least one day for your trial.']);
-      return;
-    }
+  const selectedDays = trialDays.filter(day => day.selected);
+  
+  if (selectedDays.length === 0) {
+    setErrors(['Please select at least one day for your trial.']);
+    return;
+  }
 
-    setSaving(true);
-    setErrors([]);
+  setSaving(true);
+  setErrors([]);
 
-    try {
-      console.log('Saving trial days:', selectedDays);
+  try {
+    console.log('Saving trial days:', selectedDays);
 
-      // Prepare days data for batch save
-      const daysToSave = selectedDays.map((day, index) => ({
-        trial_date: day.trial_date,
-        day_number: index + 1,
-        day_status: 'draft',
-        max_entries: day.max_entries,
-        notes: day.notes || null
-      }));
-
-      // Call the correct method: saveTrialDays (not createTrialDay)
-      const result = await simpleTrialOperations.saveTrialDays(trialId!, daysToSave);
+    if (isEditMode) {
+      // ===== SMART EDIT: Only add/remove/update what changed =====
       
-      if (result.success) {
-        console.log('Trial days saved successfully');
-        
-        if (isEditMode) {
-          router.push(`/dashboard/trials/${trialId}`);
-        } else {
-          router.push(`/dashboard/trials/create/levels?trial=${trialId}`);
-        }
-      } else {
-        console.error('Error saving trial days:', result.error);
-        setErrors(['Error saving trial days. Please try again.']);
+      // Get existing days from database
+      const { data: existingDays, error: fetchError } = await supabase
+        .from('trial_days')
+        .select('*')
+        .eq('trial_id', trialId)
+        .order('day_number');
+      
+      if (fetchError) {
+        throw new Error(`Failed to fetch existing days: ${fetchError.message}`);
       }
-    } catch (error) {
-      console.error('Error saving trial days:', error);
-      setErrors([error instanceof Error ? error.message : 'Failed to save trial days. Please try again.']);
-    } finally {
-      setSaving(false);
+
+      const existingDates = new Set(existingDays?.map(d => d.trial_date) || []);
+      const selectedDates = new Set(selectedDays.map(d => d.trial_date));
+
+      // Find days to ADD (in selectedDays but not in existingDays)
+      const daysToAdd = selectedDays.filter(day => !existingDates.has(day.trial_date));
+      
+      // Find days to REMOVE (in existingDays but not in selectedDays)
+      const daysToRemove = existingDays?.filter(day => !selectedDates.has(day.trial_date)) || [];
+
+      // Find days to UPDATE (in both, but notes changed)
+      const daysToUpdate = selectedDays.filter(day => {
+        const existing = existingDays?.find(d => d.trial_date === day.trial_date);
+        if (!existing) return false;
+        
+        return existing.notes !== (day.notes || '');
+      });
+
+      console.log('Days to add:', daysToAdd.length);
+      console.log('Days to remove:', daysToRemove.length);
+      console.log('Days to update:', daysToUpdate.length);
+
+      // DELETE removed days
+      if (daysToRemove.length > 0) {
+        for (const day of daysToRemove) {
+          const { error: deleteError } = await supabase
+            .from('trial_days')
+            .delete()
+            .eq('id', day.id);
+          
+          if (deleteError) {
+            throw new Error(`Failed to delete day ${day.trial_date}: ${deleteError.message}`);
+          }
+          console.log(`Deleted day: ${day.trial_date}`);
+        }
+      }
+
+      // INSERT new days (CRITICAL FIX: Don't auto-assign day_number in edit mode)
+      if (daysToAdd.length > 0) {
+        // SAFETY: In edit mode, new days get the NEXT available number
+        // They DON'T automatically insert in the middle and renumber everything
+        // This prevents disrupting existing classes/entries
+        
+        const maxDayNumber = Math.max(0, ...(existingDays?.map(d => d.day_number) || [0]));
+        
+        for (let i = 0; i < daysToAdd.length; i++) {
+          const day = daysToAdd[i];
+          const dayData = {
+            trial_id: trialId!,
+            trial_date: day.trial_date,
+            // IMPORTANT: Append to the end, don't renumber existing days
+            day_number: maxDayNumber + i + 1,
+            notes: day.notes || '',
+            day_status: 'active'
+          };
+
+          console.log(`Adding new day ${dayData.day_number}:`, dayData);
+          console.log('⚠️ Note: This day is added to the END. Use "Custom Day Number" if you need it in a specific position.');
+
+          const { error: insertError } = await supabase
+            .from('trial_days')
+            .insert(dayData);
+          
+          if (insertError) {
+            throw new Error(`Failed to add day ${day.trial_date}: ${insertError.message}`);
+          }
+        }
+      }
+
+      // UPDATE existing days that changed
+      if (daysToUpdate.length > 0) {
+        for (const day of daysToUpdate) {
+          const existing = existingDays?.find(d => d.trial_date === day.trial_date);
+          if (!existing) continue;
+
+          const { error: updateError } = await supabase
+            .from('trial_days')
+            .update({
+              notes: day.notes || ''
+            })
+            .eq('id', existing.id);
+          
+          if (updateError) {
+            throw new Error(`Failed to update day ${day.trial_date}: ${updateError.message}`);
+          }
+          console.log(`Updated day: ${day.trial_date}`);
+        }
+      }
+
+      // REMOVED: Automatic renumbering in edit mode
+      // This was dangerous because it could disrupt existing classes/entries
+      // If you need to renumber, you should do it manually via a separate action
+
+    } else {
+      // ===== CREATE MODE: Insert all selected days =====
+      // In create mode, we CAN number chronologically because nothing exists yet
+      for (let i = 0; i < selectedDays.length; i++) {
+        const day = selectedDays[i];
+        const dayData = {
+          trial_id: trialId!,
+          trial_date: day.trial_date,
+          day_number: i + 1,
+          notes: day.notes || '',
+          day_status: 'active'
+        };
+
+        const { error: insertError } = await supabase
+          .from('trial_days')
+          .insert(dayData);
+        
+        if (insertError) {
+          throw new Error(`Failed to save day ${day.trial_date}: ${insertError.message}`);
+        }
+      }
     }
-  };
+
+    console.log('All trial days saved successfully');
+    
+    if (isEditMode) {
+      router.push(`/dashboard/trials/${trialId}`);
+    } else {
+      router.push(`/dashboard/trials/create/levels?trial=${trialId}`);
+    }
+  } catch (error) {
+    console.error('Error saving trial days:', error);
+    setErrors([error instanceof Error ? error.message : 'Failed to save trial days. Please try again.']);
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleBack = () => {
     if (isEditMode) {
