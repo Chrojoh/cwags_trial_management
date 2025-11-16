@@ -4,14 +4,6 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="text-center p-10">Loading login…</div>}>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
 function LoginForm() {
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -22,83 +14,101 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: any) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim()) return;
-
     setError("");
+
+    if (!username.trim() || !password.trim()) {
+      setError("Enter username and password.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // 1️⃣ Lookup email
       const { data, error: lookupError } = await supabase
         .from("users")
         .select("email")
         .eq("username", username.trim())
         .single();
 
-      if (lookupError || !data) {
-        setError("Invalid username or password.");
+      if (lookupError || !data?.email) {
+        setError("Unknown username.");
+        setLoading(false);
         return;
       }
 
+      // 2️⃣ Try auth login
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: password.trim(),
       });
 
       if (signInError) {
+        console.log("Auth error:", signInError);
         setError("Invalid username or password.");
+        setLoading(false);
         return;
       }
 
       router.replace(searchParams.get("callbackUrl") ?? "/dashboard");
     } catch (err) {
       console.error(err);
-      setError("An unexpected error occurred.");
-    } finally {
-      setLoading(false);
+      setError("Unexpected error. Try again.");
     }
+
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-      <div className="w-full max-w-md bg-white shadow-lg rounded-lg p-8 space-y-6">
-        <div className="text-center">
-          <div className="w-32 h-16 mx-auto mb-4 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-            C-WAGS
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Trial Management System</h1>
-          <p className="text-gray-600">Secure sign-in</p>
-        </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-100">
+      <form
+        onSubmit={handleLogin}
+        className="bg-white p-6 rounded shadow-md w-full max-w-sm space-y-4"
+      >
+        <h1 className="text-xl font-semibold text-center">Login</h1>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Username"
-            className="w-full border p-2 rounded"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+        <input
+          type="text"
+          placeholder="Username"
+          className="w-full border p-2 rounded"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
 
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full border p-2 rounded"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+        <input
+          type="password"
+          placeholder="Password"
+          className="w-full border p-2 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && <p className="text-red-600 text-center">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white p-2 rounded font-semibold hover:bg-blue-700 transition"
-          >
-            {loading ? "Signing in…" : "Login"}
-          </button>
-        </form>
-      </div>
+        <button
+          disabled={loading}
+          className="w-full bg-blue-600 text-white rounded py-2"
+        >
+          {loading ? "Signing in..." : "Login"}
+        </button>
+
+        <a
+          href="/login/forgot"
+          className="block text-center text-sm text-blue-600"
+        >
+          Forgot password?
+        </a>
+      </form>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={"Loading..."}>
+      <LoginForm />
+    </Suspense>
   );
 }
