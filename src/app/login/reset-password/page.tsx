@@ -1,82 +1,95 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const supabase = createClientComponentClient();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const accessToken = searchParams.get("access_token");
 
+  const accessToken = searchParams.get("access_token");
   const [password, setPassword] = useState("");
-  const [status, setStatus] = useState<"idle" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!accessToken) {
-      setStatus("error");
-    }
-  }, [accessToken]);
-
-  const handleReset = async (e: any) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    if (!password.trim() || !accessToken) return;
 
     setLoading(true);
+    setMessage("");
 
-    const { error } = await supabase.auth.updateUser({
-      password: password.trim(),
-    });
+    try {
+      // 1️⃣ Exchange token for authenticated session
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(accessToken);
+      if (sessionError) {
+        console.error(sessionError);
+        setMessage("Invalid or expired reset link.");
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      console.error(error);
-      setStatus("error");
-    } else {
-      setStatus("done");
-      setTimeout(() => router.replace("/login"), 1800);
+      // 2️⃣ Update password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password.trim(),
+      });
+
+      if (updateError) {
+        setMessage("Error updating password.");
+        console.error(updateError);
+      } else {
+        setMessage("Password updated! Redirecting to login...");
+        setTimeout(() => router.replace("/login"), 1500);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("Unexpected error. Try again.");
     }
 
     setLoading(false);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="bg-white shadow-md rounded p-6 w-full max-w-md space-y-4">
-        <h1 className="text-xl font-semibold text-center">Reset Password</h1>
-
-        {status === "error" && (
-          <p className="text-red-600 text-center">
-            Invalid or expired password reset link.
-          </p>
-        )}
-
-        {status === "done" && (
-          <p className="text-green-600 text-center">
-            Password updated! Redirecting…
-          </p>
-        )}
-
-        {status === "idle" && (
-          <form onSubmit={handleReset} className="space-y-4">
-            <input
-              type="password"
-              placeholder="New password"
-              className="w-full border p-2 rounded"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white p-2 rounded"
-            >
-              {loading ? "Updating…" : "Update Password"}
-            </button>
-          </form>
-        )}
+  if (!accessToken) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-red-600 font-semibold">
+          Invalid or expired password reset link.
+        </p>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleReset} className="space-y-4 max-w-md mx-auto p-6">
+      <h1 className="text-2xl font-bold text-center">Reset Password</h1>
+
+      <input
+        type="password"
+        placeholder="New Password"
+        className="w-full p-2 border rounded"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-blue-600 text-white py-2 rounded"
+      >
+        {loading ? "Updating..." : "Set New Password"}
+      </button>
+
+      {message && <p className="text-center">{message}</p>}
+    </form>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<p className="text-center p-6">Loading...</p>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
