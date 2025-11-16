@@ -1,23 +1,37 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          res.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          res.cookies.delete({ name, ...options });
+        },
+      },
+    }
+  );
 
-  const isAuth = !!session;
-  const isLogin = req.nextUrl.pathname.startsWith("/login");
+  const { data } = await supabase.auth.getUser();
+  const isAuth = !!data.user;
+  const isLoginPage = req.nextUrl.pathname.startsWith("/login");
 
-  if (!isAuth && !isLogin) {
+  if (!isAuth && !isLoginPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (isAuth && isLogin) {
+  if (isAuth && isLoginPage) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
