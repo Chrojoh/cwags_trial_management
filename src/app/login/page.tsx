@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading login...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const supabase = createClientComponentClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,7 +22,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: any) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
 
@@ -45,7 +53,7 @@ export default function LoginPage() {
         return;
       }
 
-      // 3️⃣ Redirect
+      // 3️⃣ Redirect (with callbackUrl support)
       router.replace(searchParams.get("callbackUrl") ?? "/dashboard");
     } catch (err) {
       console.error(err);
@@ -57,7 +65,26 @@ export default function LoginPage() {
 
   return (
     <form onSubmit={handleLogin}>
-      {/* your UI fields here */}
+      {/* ⭐ Replace with your UI fields later */}
+      <input
+        type="text"
+        placeholder="Username"
+        onChange={(e) => setUsername(e.target.value)}
+        className="border p-2 block mb-2"
+      />
+
+      <input
+        type="password"
+        placeholder="Password"
+        onChange={(e) => setPassword(e.target.value)}
+        className="border p-2 block mb-2"
+      />
+
+      {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+
+      <button type="submit" disabled={loading} className="bg-blue-600 text-white p-2">
+        {loading ? "Signing in..." : "Login"}
+      </button>
     </form>
   );
 }
