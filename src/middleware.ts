@@ -1,42 +1,29 @@
-// src/middleware.ts
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
 
-  // --- PUBLIC ROUTES (ALWAYS allowed) ---
-  if (
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/entries") ||
-    pathname.startsWith("/api/public") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.match(/\.(png|jpg|jpeg|gif|svg)$/)
-  ) {
-    return NextResponse.next()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const isAuth = !!session;
+  const isLogin = req.nextUrl.pathname.startsWith("/login");
+
+  if (!isAuth && !isLogin) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // --- PROTECTED ROUTES (require login) ---
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  if (!token) {
-    // User not logged in -> redirect to signin
-    const signinUrl = new URL("/auth/signin", request.url)
-    return NextResponse.redirect(signinUrl)
+  if (isAuth && isLogin) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // User IS logged in -> allow access
-  return NextResponse.next()
+  return res;
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
-}
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
