@@ -48,6 +48,7 @@ export default function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={{ width: "100%", marginBottom: 10 }}
+          required
         />
 
         <input
@@ -57,6 +58,7 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           style={{ width: "100%", marginBottom: 10 }}
+          required
         />
 
         <button type="submit" disabled={loading}>
@@ -64,7 +66,11 @@ export default function LoginPage() {
         </button>
       </form>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
+
+      <p style={{ marginTop: 16 }}>
+        Need an account? <a href="/register">Register here</a>
+      </p>
     </div>
   );
 }
