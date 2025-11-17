@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export async function POST(req: Request) {
   const { username } = await req.json();
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: {} } // no cookies needed
-  );
+  const supabase = createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from("users")
@@ -16,11 +11,8 @@ export async function POST(req: Request) {
     .eq("username", username)
     .single();
 
-  if (error || !data?.email) {
-    return NextResponse.json(
-      { error: "Invalid username" },
-      { status: 400 }
-    );
+  if (error || !data) {
+    return NextResponse.json({ error: "Invalid login" }, { status: 400 });
   }
 
   return NextResponse.json({ email: data.email });

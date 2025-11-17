@@ -1,4 +1,5 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +7,6 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -18,8 +18,17 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
+    // Only create Supabase client in the browser
+    const supabase =
+      typeof window !== "undefined" ? createSupabaseBrowserClient() : null;
+
+    if (!supabase) {
+      setError("Supabase client unavailable.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Lookup email by username
       const resp = await fetch("/api/auth/username-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -34,7 +43,6 @@ export default function LoginPage() {
 
       const { email } = await resp.json();
 
-      // Supabase Auth sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password: password.trim(),
