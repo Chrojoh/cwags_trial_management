@@ -1,5 +1,5 @@
-import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
@@ -14,10 +14,10 @@ export async function middleware(req: NextRequest) {
           return req.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: any) {
-          res.cookies.set({ name, value, ...options });
+          res.cookies.set(name, value, options);
         },
         remove(name: string, options: any) {
-          res.cookies.set({ name, value: "", ...options });
+          res.cookies.set(name, "", options);
         },
       },
     }
@@ -27,21 +27,20 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const { pathname } = req.nextUrl;
-  const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
-  const isDashboard = pathname.startsWith("/dashboard");
+  const pathname = req.nextUrl.pathname;
+  const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isDashboardRoute = pathname.startsWith("/dashboard");
 
-  // Not logged in → block dashboard
-  if (!session && isDashboard) {
+  // Protect dashboard routes
+  if (!session && isDashboardRoute) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Logged in → block login/register
-  if (session && isAuthPage) {
+  // Redirect logged in users away from auth pages
+  if (session && isAuthRoute) {
     const redirectUrl = req.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     redirectUrl.search = "";

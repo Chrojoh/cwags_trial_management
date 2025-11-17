@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -8,10 +11,10 @@ export default function RegisterPage() {
   const router = useRouter();
   const supabase = createSupabaseBrowserClient();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,8 +25,6 @@ export default function RegisterPage() {
     setMessage("");
     setLoading(true);
 
-    const username = email.trim().split("@")[0];
-
     const {
       data: { user },
       error: signUpError,
@@ -33,6 +34,7 @@ export default function RegisterPage() {
     });
 
     if (signUpError || !user) {
+      console.error(signUpError);
       setError(signUpError?.message || "Registration failed.");
       setLoading(false);
       return;
@@ -41,7 +43,6 @@ export default function RegisterPage() {
     const { error: profileError } = await supabase.from("users").insert({
       id: user.id,
       email: email.trim(),
-      username,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       role: "secretary",
@@ -50,12 +51,11 @@ export default function RegisterPage() {
 
     setLoading(false);
 
-   if (profileError) {
-  console.error("Profile insert error:", profileError.message, profileError.details);
-  setError("Account created, but failed to create profile: " + profileError.message);
-  return;
-}
-
+    if (profileError) {
+      console.error(profileError);
+      setError("Account created, but failed to create profile.");
+      return;
+    }
 
     setMessage("Account created! You can now log in.");
     setTimeout(() => router.replace("/login"), 1500);
@@ -73,7 +73,6 @@ export default function RegisterPage() {
           style={{ width: "100%", marginBottom: 10 }}
           required
         />
-
         <input
           type="text"
           placeholder="Last name"
@@ -82,7 +81,6 @@ export default function RegisterPage() {
           style={{ width: "100%", marginBottom: 10 }}
           required
         />
-
         <input
           type="email"
           placeholder="Email"
@@ -92,7 +90,6 @@ export default function RegisterPage() {
           style={{ width: "100%", marginBottom: 10 }}
           required
         />
-
         <input
           type="password"
           placeholder="Password"
@@ -117,4 +114,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
