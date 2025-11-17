@@ -1514,10 +1514,14 @@ const exportScoreSheetsForDay = async (dayId: string) => {
         const selections = entry.entry_selections || [];
         selections.forEach((selection: any) => {
           if (selection.trial_round_id === round.id && selection.entry_status !== 'withdrawn') {
+            const isFeo = selection.entry_type === 'feo';
+            const dogName = isFeo
+              ? `${entry.dog_call_name} (FEO)`
+              : (entry.dog_call_name || '');
             roundEntries.push({
               runningOrder: selection.running_position || 0,
               cwagsNumber: entry.cwags_number || '',
-              dogName: entry.dog_call_name || '',
+              dogName,
               handlerName: entry.handler_name || ''
             });
           }
@@ -1553,7 +1557,7 @@ const exportScoreSheetsForDay = async (dayId: string) => {
       wsData.push(['Located in/on', '', '', '', '', 'Located in/on', '', '', '', '', 'Located in/on', '', '', '', '', 'Located in/on', '', '', '', '']);
 
       // Row 8: Instructions
-      wsData.push(['Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less then half.', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+      wsData.push(['Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less then half.', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
 
       // Row 9: Column headers
       wsData.push(['Registration Number', '', 'Handler / Dog', '', '', '', 'Scent 1', 'Scent 2', 'Scent 3', 'Scent 4', 'Fault 1', '', '', 'Fault 2', '', '', 'TIME', '', 'Pass / Fail', '']);
@@ -1576,20 +1580,19 @@ const exportScoreSheetsForDay = async (dayId: string) => {
       const worksheet = XLSX.utils.aoa_to_sheet(wsData);
 
       // Set ALL column widths to 8
-      worksheet['!cols'] = Array(20).fill({ wch: 8 });
+      worksheet['!cols'] = Array(20).fill({ wch: 8});
 
-     // Set row heights
-worksheet['!rows'] = [];
-worksheet['!rows'][5] = { hpt: 80 };  // Row 6 double height (60 instead of 30)
-worksheet['!rows'][6] = { hpt: 80};   // Row 7 double height
-worksheet['!rows'][7] = { hpt: 40 };  // Row 8 same height
-worksheet['!rows'][8] = { hpt: 40};   // Row 9 same height
+      // Set row heights
+      worksheet['!rows'] = [];
+      worksheet['!rows'][5] = { hpt: 80 };  // Row 6 double height (60 instead of 30)
+      worksheet['!rows'][6] = { hpt: 80};   // Row 7 double height
+      worksheet['!rows'][7] = { hpt: 40 };  // Row 8 same height
+      worksheet['!rows'][8] = { hpt: 40};   // Row 9 same height
 
-// 🔥 Set row heights for rows 10 to 49 (indexes 9–48)
-for (let r = 9; r <= 48; r++) {
-  worksheet['!rows'][r] = { hpt: 22 };  // ← change height as desired
-}
-
+      // 🔥 Set row heights for rows 10 to 49 (indexes 9–48)
+      for (let r = 9; r <= 48; r++) {
+        worksheet['!rows'][r] = { hpt: 22 };  // ← change height as desired
+      }
 
       // Set merged cells
       const merges = [
@@ -1737,22 +1740,21 @@ for (let r = 9; r <= 48; r++) {
                 border
               };
             } else if (R === 3) {
-  cell.s = {
-    font: { 
-      bold: true, 
-      sz: 25,              // Maximum font size
-      name: 'Calibri' 
-    },
-    alignment: { 
-      horizontal: (C === 4 || C === 5 || C === 14 || C === 15) ? 'right' : 'left',
-      vertical: 'center',
-      wrapText: true,
-      shrinkToFit: (C === 6) ? true : false   // 👈 SHRINK ONLY JUDGE NAME CELL
-    },
-    border
-  };
-}
-else if (R === 5) {
+              cell.s = {
+                font: { 
+                  bold: true, 
+                  sz: 25,              // Maximum font size
+                  name: 'Calibri' 
+                },
+                alignment: { 
+                  horizontal: (C === 4 || C === 5 || C === 14 || C === 15) ? 'right' : 'left',
+                  vertical: 'center',
+                  wrapText: true,
+                  shrinkToFit: (C === 6) ? true : false   // 👈 SHRINK ONLY JUDGE NAME CELL
+                },
+                border
+              };
+            } else if (R === 5) {
               // Row 6: Scent headers
               cell.s = {
                 font: { bold: true, sz: 17, name: 'Calibri' },
@@ -1836,36 +1838,36 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     }
 
     interface ClassRoundColumn {
-  className: string;
-  roundNumber: number;
-  judgeName: string;
-  classId?: string;
-  roundId: string;
-  columnHeader: string;
-  entries: Array<{
-    position: number;
-    handlerName: string;
-    dogName: string;
-    status: string;
-    result: string;
-  }>;
-}
+      className: string;
+      roundNumber: number;
+      judgeName: string;
+      classId?: string;
+      roundId: string;
+      columnHeader: string;
+      entries: Array<{
+        position: number;
+        handlerName: string;
+        dogName: string;
+        status: string;
+        result: string;
+      }>;
+    }
     
     // Get all classes and rounds for the selected day
     const dayClasses = trialClasses.filter(cls => 
       cls.trial_date === selectedDay.trial_date
     );
 
-  // dayClasses already contains all round info!
-const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
-  className: cls.class_name,
-  roundNumber: cls.round_number || 1,
-  judgeName: cls.judge_name,
-  classId: cls.class_id,
-  roundId: cls.id,
-  columnHeader: `${cls.class_name} Round ${cls.round_number || 1}`,
-  entries: []
-}));
+    // dayClasses already contains all round info!
+    const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
+      className: cls.class_name,
+      roundNumber: cls.round_number || 1,
+      judgeName: cls.judge_name,
+      classId: cls.class_id,
+      roundId: cls.id,
+      columnHeader: `${cls.class_name} Round ${cls.round_number || 1}`,
+      entries: []
+    }));
 
     // Sort columns - First by class order, then by round number within each class
     classRounds.sort((a, b) => {
@@ -1897,7 +1899,7 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
     }
     console.log('Loaded scores for lookup:', allScores?.length || 0);
 
-   // Populate entries for each column with updated result logic
+    // Populate entries for each column with updated result logic
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
     if (entriesResult.success) {
       classRounds.forEach(col => {
@@ -1911,9 +1913,9 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
                 const isFeo = selection.entry_type === 'feo';
                 const handlerName = entry.handler_name;
                 
-                // Add "feo" suffix to dog name if it's an FEO entry
+                // Add "(FEO)" suffix to dog name if it's an FEO entry
                 const dogName = isFeo 
-                  ? `${entry.dog_call_name} FEO`
+                  ? `${entry.dog_call_name} (FEO)`
                   : entry.dog_call_name;
                 
                 // UPDATED: Get the score data and determine proper result display
@@ -1922,12 +1924,13 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
                 // Get score for this entry selection
                 const score = scoresMap?.get(selection.id);
                 console.log('Excel Debug:', {
-  handlerName: entry.handler_name,
-  className: col.className,
-  score: score,
-  entryType: selection.entry_type,
-  entryStatus: entryStatus
-});
+                  handlerName: entry.handler_name,
+                  className: col.className,
+                  score: score,
+                  entryType: selection.entry_type,
+                  entryStatus: entryStatus
+                });
+
                 if (entryStatus === 'no_show' || entryStatus === 'absent') {
                   resultDisplay = 'Abs';
                 } else if (isFeo) {
@@ -1935,7 +1938,7 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
                 } else if (score) {
                   // Check if this is a rally or obedience class
                   const className = col.className || '';
-                 const isRallyOrObedience = className.toLowerCase().includes('starter') || 
+                  const isRallyOrObedience = className.toLowerCase().includes('starter') || 
                           className.toLowerCase().includes('advanced') || 
                           className.toLowerCase().includes('pro') ||
                           className.toLowerCase().includes('obedience') ||
@@ -1969,7 +1972,7 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
                   handlerName: handlerName, 
                   dogName: dogName,
                   status: selection.entry_status,
-                  result: resultDisplay  // Add result to entry data
+                  result: resultDisplay  // Add result to entry data (not shown in text now)
                 });
               } else {
                 console.log('Excluding withdrawn entry from Excel:', entry.handler_name, entry.dog_call_name);
@@ -2019,11 +2022,11 @@ const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
 
     // Row 2: Short date format
     const [year, month, day] = selectedDay.trial_date.split('-').map(Number);
-const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric'
-});
+    const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
 
     for (let col = 0; col < numColumns; col++) {
       const cellRef = XLSX.utils.encode_cell({ c: col, r: 1 });
@@ -2071,8 +2074,7 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
         
         if (entry) {
           const firstName = entry.handlerName.split(' ')[0];
-          const resultPart = entry.result && entry.result !== '-' ? ` (${entry.result})` : '';
-          cellValue = `${firstName} - ${entry.dogName}${resultPart}`;
+          cellValue = `${firstName} - ${entry.dogName}`;
           
           console.log('Excel Cell Creation:', {
             originalHandlerName: entry.handlerName,
@@ -2125,6 +2127,7 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
     alert('Error exporting running order. Please try again.');
   }
 };
+
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, entry: ClassEntry) => {
     setDraggedEntry(entry);
@@ -2368,21 +2371,45 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
   </CardContent>
 </Card>
 
-  {selectedClass && (
+{selectedClass && (
   <Tabs defaultValue="setup" className="w-full">
-    <TabsList>
-      <TabsTrigger value="setup">Running Order Setup</TabsTrigger>
-      <TabsTrigger value="scoring">Score Entry</TabsTrigger>
+
+    <TabsList className="flex space-x-2 mb-4">
+      <TabsTrigger
+        value="setup"
+        className="border-2 border-purple-600 rounded-md px-4 py-2 
+                   data-[state=active]:bg-purple-600 data-[state=active]:text-white
+                   hover:bg-purple-50 transition-colors"
+      >
+        Running Order Setup
+      </TabsTrigger>
+
+      <TabsTrigger
+        value="scoring"
+        className="border-2 border-purple-600 rounded-md px-4 py-2
+                   data-[state=active]:bg-purple-600 data-[state=active]:text-white
+                   hover:bg-purple-50 transition-colors"
+      >
+        Score Entry
+      </TabsTrigger>
     </TabsList>
 
     <TabsContent value="setup" className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-blue-600" />
-              <span>{selectedClass.class_name} - Running Order Setup</span>
+            <CardTitle>
+              <div className="flex items-center space-x-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                <span>{selectedClass.class_name} - Running Order Setup</span>
+              </div>
+
+              <p className="text-sm text-muted-foreground ml-7">
+                Entries can be re-arranged with up and down arrow keys or drag and drop
+              </p>
             </CardTitle>
+
+
             <div className="flex items-center space-x-2">
              <Button onClick={() => setShowAddEntryModal(true)} variant="outline">
                 <Users className="h-4 w-4 mr-2" />
@@ -3127,35 +3154,43 @@ const shortDate = new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString('e
       </div>
       
       <div className="space-y-3">
-        {availableDays.map((day) => (
-          <Button
-            key={day.id}
-            variant="outline"
-            className="w-full text-left justify-start"
-            onClick={() => {
-              // THIS IS THE FIX - check exportType
-              if (exportType === 'running-order') {
-                setSelectedPrintDay(day.id);
-                exportRunningOrderToExcel(day.id);
-              } else {
-                exportScoreSheetsForDay(day.id);
-              }
-            }}
-          >
-            <Calendar className="h-4 w-4 mr-2" />
-            Day {day.day_number} - {day.formatted_date}
-          </Button>
-        ))}
-      </div>
-      
-      <div className="flex justify-end mt-4">
-        <Button 
-          variant="outline" 
-          onClick={() => setShowDaySelector(false)}
-        >
-          Cancel
-        </Button>
-      </div>
+  {availableDays.map((day) => (
+    <Button
+      key={day.id}
+      variant="outline"
+      className={`w-full text-left justify-start transition-colors
+        ${selectedPrintDay === day.id ? "bg-purple-600 text-white" : ""}`}
+      onClick={() => {
+        // set highlight / store selected day
+        setSelectedPrintDay(day.id);
+
+        // run proper export action
+        if (exportType === "running-order") {
+          exportRunningOrderToExcel(day.id);
+        } else {
+          exportScoreSheetsForDay(day.id);
+        }
+      }}
+    >
+      <Calendar
+        className={`h-4 w-4 mr-2 ${
+          selectedPrintDay === day.id ? "text-white" : ""
+        }`}
+      />
+      Day {day.day_number} - {day.formatted_date}
+    </Button>
+  ))}
+</div>
+
+<div className="flex justify-end mt-4">
+  <Button 
+    variant="outline" 
+    onClick={() => setShowDaySelector(false)}
+  >
+    Cancel
+  </Button>
+</div>
+
     </div>
   </div>
 )}

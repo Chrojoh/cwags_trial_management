@@ -760,19 +760,19 @@ const formatDate = (dateString: string) => {
 </div>
                       <Button 
                         variant="default" 
-                        className="w-full justify-start bg-blue-600 hover:bg-blue-700"
+                        className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/live-event`)}
                       >
                         <FileText className="h-4 w-4 mr-2" />
-                        Live Event Management
+                        Live Event Management / Customizable Running Order and Score Sheets/Score Entry
                       </Button>
                       <Button 
                         variant="default" 
-                        className="w-full justify-start bg-purple-600 hover:bg-purple-700"
+                        className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/summary`)}
                       >
                         <BarChart3 className="h-4 w-4 mr-2" />
-                        Class Summary Sheet
+                        Class Summary Sheet and Excel Export
                       </Button>
                     </div>
                   </div>

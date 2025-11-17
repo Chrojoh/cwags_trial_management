@@ -951,7 +951,7 @@ export default function PublicEntryForm() {
               C-WAGS Number Lookup
             </CardTitle>
             <CardDescription>
-              Enter your C-WAGS number to auto-fill handler and dog information
+              Enter your C-WAGS number to auto-fill handler and dog information and previous entries, Hit LOOKUP
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -967,15 +967,20 @@ export default function PublicEntryForm() {
                 }}
                 className="flex-1"
               />
-              <Button 
-                onClick={handleCwagsSubmit}
-                disabled={registryLoading || !cwagsInputValue}
-              >
-                {registryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lookup'}
-              </Button>
+              <Button
+  onClick={handleCwagsSubmit}
+  disabled={registryLoading || !cwagsInputValue}
+  className="border-2 border-purple-600 hover:bg-purple-600 hover:text-white transition-colors"
+>
+  {registryLoading ? (
+    <Loader2 className="h-4 w-4 animate-spin" />
+  ) : (
+    'Lookup'
+  )}
+</Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Format: YY-NNNN-NN (e.g., 17-1955 or 17-1955-01). Enter to look up existing registration.
+              Format: xx-xxxx-xx (e.g., 17-1955 or 17-1955-01). Enter to look up existing registration.
             </p>
             {existingEntry && (
               <Alert className="mt-4">
@@ -1113,28 +1118,33 @@ export default function PublicEntryForm() {
                         Class Entries
                       </CardTitle>
                       <CardDescription>
-                        Select the class entries/rounds you want to enter
+                        Select the class entries/rounds you want to enter  REMEMBER TO ACCEPT WAIVER
                       </CardDescription>
                     </div>
                     
                     {/* Submit Button - Top Right */}
                     <Button 
-                      onClick={performSubmit}
-                      disabled={submitting || !formData.waiver_accepted}
-                      size="lg"
-                      className="min-w-[140px] shrink-0"
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {existingEntry ? 'Updating...' : 'Submitting...'}
-                        </>
-                      ) : (
-                        <>
-                          {existingEntry ? 'Update Entry' : 'Submit Entry'}
-                        </>
-                      )}
-                    </Button>
+  onClick={performSubmit}
+  disabled={submitting || !formData.waiver_accepted}
+  size="lg"
+  className={`
+    min-w-[140px] shrink-0 border-2 border-purple-600 
+    hover:bg-purple-600 hover:text-white transition-colors
+    disabled:opacity-50 disabled:cursor-not-allowed
+  `}
+>
+  {submitting ? (
+    <>
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      {existingEntry ? 'Updating...' : 'Submitting...'}
+    </>
+  ) : (
+    <>
+      {existingEntry ? 'Update Entry' : 'Submit Entry'}
+    </>
+  )}
+</Button>
+
                   </div>
                 </CardHeader>
                 

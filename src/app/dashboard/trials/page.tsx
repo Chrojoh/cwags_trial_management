@@ -482,15 +482,20 @@ export default function TrialsPage() {
                         variant="outline" 
                         size="sm"
                         onClick={() => router.push(`/dashboard/trials/${trial.id}/entries`)}
-                        disabled={deleting === trial.id}
-                      >
+                        disabled={deleting === trial.id}>
                         <Users className="h-4 w-4 mr-1" />
                         Entries
                       </Button>
+                      <Link href={`/dashboard/trials/${trial.id}/live-event`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Running Order
+                        </Button>
+                      </Link>
                       <Link href={`/dashboard/trials/${trial.id}/summary`}>
                         <Button variant="outline" size="sm" disabled={deleting === trial.id}>
                           <FileText className="h-4 w-4 mr-1" />
-                          Reports
+                          Summary
                         </Button>
                       </Link>
                       <Link href={`/dashboard/trials/${trial.id}`}>

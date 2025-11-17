@@ -123,6 +123,12 @@ export default function ClassSummaryPage() {
 
 // Replace the generateExcelReport function in src/app/dashboard/trials/[trialId]/summary/page.tsx
 
+function safeDateFromISO(iso: string) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
+}
+
+
 const generateExcelReport = async () => {
   if (!summaryData) {
     alert('No data available to export');
@@ -230,7 +236,8 @@ const generateExcelReport = async () => {
 
       const classData = classesByName.get(normalizedName)!;
       
-      const dateSort = new Date(trialDate).getTime();
+     const dateSort = safeDateFromISO(trialDate).getTime();
+
       const sortOrder = dateSort + round.round_number;
 
       classData.allRounds.push({
@@ -490,6 +497,13 @@ const generateExcelReport = async () => {
     }
 
     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+        // Helper to sort registration numbers like 17-1734-01 numerically
+    const getRegSortValue = (reg: string | undefined | null): number => {
+      if (!reg) return Number.MAX_SAFE_INTEGER; // blanks go to bottom
+      const numeric = Number(reg.replace(/[^0-9]/g, '')); // strip dashes
+      return Number.isNaN(numeric) ? Number.MAX_SAFE_INTEGER : numeric;
+    };
+
 
     // Create individual class matrix sheets in blueprint order
     sortedClasses.forEach((classData) => {
@@ -516,8 +530,8 @@ const generateExcelReport = async () => {
       
       const row6Headers = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
       classData.allRounds.forEach(round => {
-        const date = new Date(round.trialDate);
-        const formattedDate = date.toLocaleDateString('en-US', {
+        const formattedDate = safeDateFromISO(round.trialDate).toLocaleDateString('en-US', {
+
           month: 'short',
           day: '2-digit',
           year: 'numeric'
@@ -543,7 +557,20 @@ const generateExcelReport = async () => {
         sheetData.push(row);
       });
 
-      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      // 🔧 Sort rows A7:Z by column A (registration) numerically ascending
+      // Keep rows 1–6 (indexes 0–5) exactly as they are
+      const headerRows = sheetData.slice(0, 6);
+      const dataRows = sheetData.slice(6);
+
+      dataRows.sort((a, b) => {
+        const aVal = getRegSortValue(a[0] as string | undefined);
+        const bVal = getRegSortValue(b[0] as string | undefined);
+        return aVal - bVal;
+      });
+
+      const sortedSheetData = [...headerRows, ...dataRows];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sortedSheetData);
       
       // APPLY FORMATTING TO CLASS SHEETS
       // Set column widths: A&B=20, C=27, D+=20
@@ -768,52 +795,70 @@ const generateExcelReport = async () => {
 
         {/* Trial and Class Selection */}
         <Card>
-          <CardHeader>
-            <CardTitle>{summaryData.trial.trial_name}</CardTitle>
-            <CardDescription>{summaryData.trial.club_name} • {summaryData.trial.location}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Select Class:
-                </label>
-                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-  <SelectTrigger>
-    <SelectValue placeholder="Select a class" />
-  </SelectTrigger>
-  <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-    <SelectItem value="all">📊 Select All Classes</SelectItem>
-    {summaryData.classes.map(cls => (
-      <SelectItem key={cls.id} value={cls.id}>
-        {getDisplayClassName(cls)}
-      </SelectItem>
-    ))}
-  </SelectContent>
-</Select>
-              </div>
-              <div className="flex items-end">
-                <Button 
-                  onClick={generateExcelReport} 
-                  disabled={exporting}
-                  className="w-full md:w-auto"
-                >
-                  {exporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <FileSpreadsheet className="h-4 w-4 mr-2" />
-                      Export to Excel
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+  <CardHeader>
+    <CardTitle>{summaryData.trial.trial_name}</CardTitle>
+    <CardDescription>
+      {summaryData.trial.club_name} • {summaryData.trial.location}
+    </CardDescription>
+  </CardHeader>
+
+  <CardContent>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      {/* Select Class */}
+      <div>
+        <label className="text-sm font-medium text-gray-700 mb-2 block">
+          Select Class:
+        </label>
+
+        <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+          <SelectTrigger
+            className="border-2 border-purple-600 rounded-md hover:bg-purple-50 transition-colors"
+          >
+            <SelectValue placeholder="Select a class" />
+          </SelectTrigger>
+
+          <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+            <SelectItem value="all">📊 Select All Classes</SelectItem>
+
+            {summaryData.classes.map((cls) => (
+              <SelectItem key={cls.id} value={cls.id}>
+                {getDisplayClassName(cls)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Export Button */}
+      <div className="flex items-end">
+        <Button
+          onClick={generateExcelReport}
+          disabled={exporting}
+          className="
+            w-full md:w-auto border-2 border-purple-600
+            hover:bg-purple-600 hover:text-white transition-colors
+            disabled:opacity-50 disabled:cursor-not-allowed
+          "
+        >
+          {exporting ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Export to Excel
+            </>
+          )}
+        </Button>
+      </div>
+
+    </div>
+  </CardContent>
+</Card>
+
 
         {summaryData.classes.length === 0 ? (
           <Card>
