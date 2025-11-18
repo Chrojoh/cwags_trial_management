@@ -1,76 +1,76 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
+const supabase = getSupabaseBrowser();
+
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: any) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: password.trim(),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
 
-    if (signInError) {
-      console.error(signInError);
-      setError("Invalid email or password.");
-      setLoading(false);
+    if (error) {
+      setError(error.message);
       return;
     }
 
-    router.replace("/dashboard");
+    if (data?.user) {
+      localStorage.setItem("cwags_user", JSON.stringify(data.user));
+      router.push("/dashboard");
+    }
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto", padding: 20 }}>
-      <h2>Login</h2>
+    <div className="max-w-sm mx-auto mt-24 p-6 border rounded-lg shadow">
+      <h1 className="text-xl font-bold mb-4">Login</h1>
 
-      <form onSubmit={handleLogin}>
+      {error && (
+        <p className="mb-3 text-red-600 text-sm border border-red-300 p-2 rounded">
+          {error}
+        </p>
+      )}
+
+      <form onSubmit={handleLogin} className="space-y-4">
         <input
           type="email"
+          required
+          className="w-full border p-2 rounded"
           placeholder="Email"
-          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
         />
 
         <input
           type="password"
+          required
+          minLength={6}
+          className="w-full border p-2 rounded"
           placeholder="Password"
-          autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
+        <button
+          type="submit"
+          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+        >
+          Sign In
         </button>
       </form>
-
-      {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
-
-      <p style={{ marginTop: 16 }}>
-        Need an account? <a href="/register">Register here</a>
-      </p>
     </div>
   );
 }

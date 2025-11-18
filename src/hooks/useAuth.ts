@@ -1,59 +1,49 @@
-// src/hooks/useAuth.ts
 "use client"
 
-import { useState, useEffect } from 'react'
-import type { User } from '@/types/auth'
+import { useState, useEffect } from "react"
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser"
+import type { User } from "@/types/auth"
 
 export function useAuth() {
+  const supabase = getSupabaseBrowser()
+
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for stored user session
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('cwags_user')
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser)
-          // Handle legacy data that might use camelCase
-          if (parsedUser.firstName) {
-            parsedUser.first_name = parsedUser.firstName
-            delete parsedUser.firstName
-          }
-          if (parsedUser.lastName) {
-            parsedUser.last_name = parsedUser.lastName
-            delete parsedUser.lastName
-          }
-          if (parsedUser.clubName) {
-            parsedUser.club_name = parsedUser.clubName
-            delete parsedUser.clubName
-          }
-          if (parsedUser.isActive !== undefined) {
-            parsedUser.is_active = parsedUser.isActive
-            delete parsedUser.isActive
-          }
-          setUser(parsedUser)
-        } catch (error) {
-          console.error('Error parsing stored user:', error)
-          localStorage.removeItem('cwags_user')
-        }
-      }
-    }
-    setLoading(false)
-  }, [])
+    async function loadUser() {
+      const { data, error } = await supabase.auth.getUser()
 
-  const signOut = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('cwags_user')
-      setUser(null)
-      window.location.href = '/'
+      if (error || !data?.user) {
+        setUser(null)
+      } else {
+     setUser({
+  id: data.user.id,
+  email: data.user.email ?? "",
+  username: data.user.user_metadata?.username ?? "",  // 🔹 added
+  first_name: data.user.user_metadata?.first_name ?? "",
+  last_name: data.user.user_metadata?.last_name ?? "",
+  role: data.user.user_metadata?.role ?? "trial_secretary",
+  club_name: data.user.user_metadata?.club_name ?? "",
+  is_active: true
+})
+
+      }
+
+      setLoading(false)
     }
+
+    loadUser()
+  }, [supabase])
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = "/login"
   }
 
-  // Helper methods for display
   const getFullName = () => {
-    if (!user) return ''
-    return `${user.first_name || ''} ${user.last_name || ''}`.trim()
+    if (!user) return ""
+    return `${user.first_name} ${user.last_name}`.trim()
   }
 
   const getDisplayInfo = () => {
@@ -61,9 +51,9 @@ export function useAuth() {
     return {
       fullName: getFullName(),
       role: user.role,
-      club_name: user.club_name || '',
+      club_name: user.club_name,
       email: user.email,
-      is_active: user.is_active
+      is_active: user.is_active,
     }
   }
 

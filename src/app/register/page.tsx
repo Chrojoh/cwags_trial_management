@@ -2,119 +2,77 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
+ const supabase = getSupabaseBrowser();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+
+
+  const [first, setFirst] = useState("");
+  const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     setError("");
-    setMessage("");
-    setLoading(true);
 
-    const username = email.trim().split("@")[0];
-
-    const {
-      data: { user },
-      error: signUpError,
-    } = await supabase.auth.signUp({
-      email: email.trim(),
-      password: password.trim(),
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
     });
 
-    if (signUpError || !user) {
-      setError(signUpError?.message || "Registration failed.");
-      setLoading(false);
-      return;
-    }
+    if (signUpError) return setError(signUpError.message);
 
-    const { error: profileError } = await supabase.from("users").insert({
-      id: user.id,
-      email: email.trim(),
-      username,
-      first_name: firstName.trim(),
-      last_name: lastName.trim(),
-      role: "secretary",
-      is_active: true,
-    });
-
-    setLoading(false);
-
-   if (profileError) {
-  console.error("Profile insert error:", profileError.message, profileError.details);
-  setError("Account created, but failed to create profile: " + profileError.message);
-  return;
-}
+  await supabase.from("users").insert([
+  {
+    id: data.user?.id,
+    email,
+    first_name: first,
+    last_name: last,
+    role: "trial_secretary",
+  }
+]);
 
 
-    setMessage("Account created! You can now log in.");
-    setTimeout(() => router.replace("/login"), 1500);
+    router.push("/login");
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "80px auto", padding: 20 }}>
-      <h2>Register</h2>
-      <form onSubmit={handleRegister}>
-        <input
-          type="text"
-          placeholder="First name"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
+    <div className="max-w-md mx-auto mt-10 p-6 border rounded-lg space-y-3">
+      <h1 className="text-xl font-semibold">Create Account</h1>
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <input className="w-full border px-3 py-2 rounded"
+          placeholder="First Name" required value={first}
+          onChange={(e) => setFirst(e.target.value)}
         />
 
-        <input
-          type="text"
-          placeholder="Last name"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
+        <input className="w-full border px-3 py-2 rounded"
+          placeholder="Last Name" required value={last}
+          onChange={(e) => setLast(e.target.value)}
         />
 
-        <input
-          type="email"
-          placeholder="Email"
-          autoComplete="email"
-          value={email}
+        <input className="w-full border px-3 py-2 rounded" type="email"
+          placeholder="Email Address" required value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
         />
 
-        <input
-          type="password"
-          placeholder="Password"
-          autoComplete="new-password"
-          value={password}
+        <input className="w-full border px-3 py-2 rounded" type="password"
+          placeholder="Password" minLength={6} required value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ width: "100%", marginBottom: 10 }}
-          required
         />
 
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating account..." : "Sign Up"}
+        <button className="w-full bg-blue-600 text-white p-2 rounded">
+          Register
         </button>
       </form>
-
-      {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
-      {message && <p style={{ color: "green", marginTop: 10 }}>{message}</p>}
-
-      <p style={{ marginTop: 16 }}>
-        Already have an account? <a href="/login">Log in</a>
-      </p>
     </div>
   );
 }
-

@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
 
 // Judge data structure matching your existing table schema
 interface JudgeData {

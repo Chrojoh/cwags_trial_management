@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
 
 interface Judge {
   name: string;

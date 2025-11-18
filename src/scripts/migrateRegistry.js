@@ -30,7 +30,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
 
 /**
  * Parse Excel file and extract registry data

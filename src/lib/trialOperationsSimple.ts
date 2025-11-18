@@ -1,5 +1,9 @@
 // src/lib/trial-operations-simple.ts
-import { supabase } from './supabase';
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+const supabase = getSupabaseBrowser();
+
+
+
 
 // Proper TypeScript interfaces from original
 export interface TrialData {
@@ -263,27 +267,59 @@ async getTrial(trialId: string): Promise<OperationResult> {
 },
 
   // Added from original - needed for dashboard
-  async getAllTrials(): Promise<OperationResult> {
-    try {
-      console.log('Getting all trials');
+// =========================
+//  SAFE UPDATED getAllTrials
+// =========================
+async getAllTrials(): Promise<OperationResult> {
+  try {
+    const supabase = getSupabaseBrowser(); // ensure authenticated client
 
-      const { data, error } = await supabase
-        .from('trials')
-        .select('*')
-        .order('created_at', { ascending: false });
+    // Get the logged-in user
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
 
-      if (error) {
-        console.error('Error getting trials:', error);
-        return { success: false, error: error.message || error };
-      }
-
-      console.log(`Found ${data?.length || 0} trials`);
-      return { success: true, data: data || [] };
-    } catch (error) {
-      console.error('Error getting trials:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    if (!user) {
+      console.log("No logged-in user found when loading trials.");
+      return { success: false, error: "Not authenticated" };
     }
-  },
+
+    // Get user role
+    const { data: userRecord, error: userError } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (userError || !userRecord) {
+      console.error("Failed to load user role:", userError);
+      return { success: false, error: "Failed to load user role" };
+    }
+
+    const isAdmin = userRecord.role === "administrator";
+
+    // Build query based on role
+    let query = supabase.from("trials").select("*");
+
+    if (!isAdmin) {
+      query = query.eq("created_by", user.id);
+    }
+
+    const { data, error } = await query.order("start_date", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching trials:", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (err: any) {
+    console.error("Unexpected getAllTrials error:", err);
+    return { success: false, error: "Unexpected error fetching trials" };
+  }
+},
+
+
+
 
   // Enhanced Trial Days Operations
   async saveTrialDays(trialId: string, days: Omit<TrialDay, 'id' | 'trial_id'>[]): Promise<OperationResult> {
@@ -2303,3 +2339,4 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
   }
 
 };
+

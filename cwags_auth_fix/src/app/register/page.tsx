@@ -5,11 +5,11 @@ export const fetchCache = "force-no-store";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getSupabaseBrowser(BrowserClient } from "@/lib/supabaseClient";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const supabase = createSupabaseBrowserClient();
+  const supabase = getSupabaseBrowser(BrowserClient();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

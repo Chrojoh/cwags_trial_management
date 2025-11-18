@@ -24,7 +24,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 console.log('\n2. Creating Supabase Client...');
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
 console.log('✅ Client created');
 
 async function testConnection() {

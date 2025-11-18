@@ -40,7 +40,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
 
 /**
  * Parse Excel file and extract registry data
