@@ -50,7 +50,7 @@ export default function HomePage() {
               </div>
               <h1 className="ml-3 text-xl font-bold">C-WAGS Trial Management</h1>
             </div>
-            <Link href="/auth/signin">
+            <Link href="/login">
               <Button variant="secondary" className="bg-white text-blue-600 hover:bg-gray-50">
                 Sign In
               </Button>
@@ -73,7 +73,7 @@ export default function HomePage() {
             Handle entries, running orders, scoring, and reporting all in one place.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/signin">
+            <Link href="/login">
               <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
                 Get Started
               </Button>
@@ -126,7 +126,7 @@ export default function HomePage() {
             Join trial secretaries across North America who trust C-WAGS Trial Management 
             for their competitions.
           </p>
-          <Link href="/auth/signin">
+          <Link href="/login">
             <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
               Sign In to Dashboard
             </Button>
