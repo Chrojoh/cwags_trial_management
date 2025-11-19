@@ -4,11 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
-
 export default function LoginPage() {
   const router = useRouter();
-const supabase = getSupabaseBrowser();
-
+  const supabase = getSupabaseBrowser();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,7 +68,18 @@ const supabase = getSupabaseBrowser();
         >
           Sign In
         </button>
+
+        {/* NEW REGISTER LINK */}
+        <div className="text-center mt-4">
+          <a 
+            href="/register" 
+            className="text-blue-600 hover:underline"
+          >
+            Need an account? Register here
+          </a>
+        </div>
       </form>
     </div>
   );
 }
+

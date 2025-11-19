@@ -813,29 +813,43 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
     }
   },
 
-  // Get all entries for a trial
-  async getTrialEntries(trialId: string): Promise<OperationResult> {
-    try {
-      console.log('Getting entries for trial ID:', trialId);
+async getTrialEntries(trialId: string): Promise<OperationResult> {
+  try {
+    // Ensure trialId is a clean string
+    const cleanTrialId = String(trialId).trim();
+    console.log('Fetching entries for trial ID:', `'${cleanTrialId}'`);
 
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('trial_id', trialId)
-        .order('submitted_at', { ascending: false });
+    // Fetch entries
+    const { data, error } = await supabase
+      .from('entries')
+      .select('*')
+      .eq('trial_id', cleanTrialId)
+      .order('submitted_at', { ascending: false });
 
-      if (error) {
-        console.error('Error getting trial entries:', error);
-        return { success: false, error: error.message || error };
-      }
+    // Log raw Supabase response
+    console.log('Supabase returned data:', data);
+    console.log('Supabase returned error:', error);
 
-      console.log(`Found ${data?.length || 0} entries for trial`);
-      return { success: true, data: data || [] };
-    } catch (error) {
-      console.error('Error getting trial entries:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    // Handle Supabase error
+    if (error) {
+      console.error('Error fetching trial entries:', error);
+      return { success: false, error: error.message || JSON.stringify(error) };
     }
-  },
+
+    // Check if data exists
+    if (!data || data.length === 0) {
+      console.warn('No entries found for trial ID:', cleanTrialId);
+      return { success: true, data: [] };
+    }
+
+    console.log(`Found ${data.length} entries for trial ${cleanTrialId}`);
+    return { success: true, data };
+  } catch (err) {
+    console.error('Unexpected error fetching trial entries:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+},
+
 
   // Get single entry
   async getEntry(entryId: string): Promise<OperationResult> {
