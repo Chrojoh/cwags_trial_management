@@ -32,7 +32,7 @@ export const TimezoneSelector: React.FC<TimezoneSelectorProps> = ({
         value={value} 
         onChange={(e) => onChange(e.target.value)} 
         disabled={disabled}
-        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
       >
         <option value="">Select timezone...</option>
         {TIMEZONE_CONFIG.commonTimezones.map((timezone) => {

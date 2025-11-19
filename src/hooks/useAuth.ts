@@ -12,21 +12,41 @@ export function useAuth() {
 
   useEffect(() => {
     async function loadUser() {
-      const { data, error } = await supabase.auth.getUser()
+      // Get auth session user (session only contains email + ID)
+      const { data: authData } = await supabase.auth.getUser()
 
-      if (error || !data?.user) {
+      if (!authData?.user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      const authUser = authData.user
+
+      // 🔥 Fetch REAL user profile from public.users — this is the important fix
+      const { data: profile, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", authUser.id)
+        .single()
+
+      if (error || !profile) {
+        console.error("Failed to load user profile:", error)
         setUser(null)
       } else {
-     setUser({
-  id: data.user.id,
-  email: data.user.email ?? "",
-  username: data.user.user_metadata?.username ?? "",  // 🔹 added
-  first_name: data.user.user_metadata?.first_name ?? "",
-  last_name: data.user.user_metadata?.last_name ?? "",
-  role: data.user.user_metadata?.role ?? "trial_secretary",
-  club_name: data.user.user_metadata?.club_name ?? "",
-  is_active: true
-})
+        // 🔥 Build full user object from the database
+       setUser({
+  id: profile.id,
+  email: profile.email,
+  first_name: profile.first_name,
+  last_name: profile.last_name,
+  role: profile.role,
+  club_name: profile.club_name,
+  phone: profile.phone,
+  is_active: profile.is_active,
+  created_at: profile.created_at,
+  updated_at: profile.updated_at,
+});
 
       }
 
@@ -47,15 +67,18 @@ export function useAuth() {
   }
 
   const getDisplayInfo = () => {
-    if (!user) return null
-    return {
-      fullName: getFullName(),
-      role: user.role,
-      club_name: user.club_name,
-      email: user.email,
-      is_active: user.is_active,
-    }
-  }
+  if (!user) return null;
+  return {
+    first_name: user.first_name,
+    last_name: user.last_name,
+    fullName: `${user.first_name} ${user.last_name}`,
+    role: user.role,
+    club_name: user.club_name,
+    email: user.email,
+    is_active: user.is_active,
+  };
+};
+
 
   return {
     user,
@@ -63,6 +86,6 @@ export function useAuth() {
     signOut,
     isAuthenticated: !!user,
     getFullName,
-    getDisplayInfo
+    getDisplayInfo,
   }
 }

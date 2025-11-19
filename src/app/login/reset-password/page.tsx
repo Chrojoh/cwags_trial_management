@@ -83,7 +83,7 @@ const supabase = createBrowserClient(
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 text-white py-2 rounded"
+        className="w-full bg-orange-600 text-white py-2 rounded"
       >
         {loading ? "Updating..." : "Set New Password"}
       </button>

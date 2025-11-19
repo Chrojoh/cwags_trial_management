@@ -366,8 +366,8 @@ export default function CreateTrialPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Auto-fill notification */}
         {user && (
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertDescription className="text-blue-800">
+          <Alert className="bg-orange-50 border-orange-200">
+            <AlertDescription className="text-orange-800">
               <strong>Auto-filled:</strong> Form has been pre-populated with your account information. You can modify any field as needed.
             </AlertDescription>
           </Alert>
@@ -383,11 +383,11 @@ export default function CreateTrialPage() {
             return (
               <div key={stepNumber} className="flex items-center">
                 <div className={`flex items-center space-x-2 ${
-                  isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
                 }`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     isActive 
-                      ? 'bg-blue-600 text-white' 
+                      ? 'bg-orange-600 text-white' 
                       : isCompleted 
                         ? 'bg-green-600 text-white' 
                         : 'bg-gray-200 text-gray-600'
@@ -411,7 +411,7 @@ export default function CreateTrialPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
+                <Calendar className="h-5 w-5 text-orange-600" />
                 <span>Basic Trial Information</span>
               </CardTitle>
               <CardDescription>
@@ -455,7 +455,7 @@ export default function CreateTrialPage() {
                 {/* Location Section */}
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-base font-medium flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <MapPin className="h-4 w-4 text-orange-600" />
                     <span>Trial Location</span>
                   </Label>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pl-6">
@@ -654,9 +654,9 @@ export default function CreateTrialPage() {
 
               {/* Location Preview */}
               {(trialData.city || trialData.province || trialData.country) && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <Label className="text-sm font-medium text-blue-900">Location Preview:</Label>
-                  <p className="text-blue-800">
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <Label className="text-sm font-medium text-orange-900">Location Preview:</Label>
+                  <p className="text-orange-800">
                     {[trialData.venue_name, trialData.city, trialData.province, trialData.country].filter(Boolean).join(', ')}
                   </p>
                 </div>
@@ -671,7 +671,7 @@ export default function CreateTrialPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5 text-blue-600" />
+                  <FileText className="h-5 w-5 text-orange-600" />
                   <span>Waiver Text</span>
                 </CardTitle>
                 <CardDescription>

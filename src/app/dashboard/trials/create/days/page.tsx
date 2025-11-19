@@ -490,7 +490,7 @@ function TrialDaysPageContent() {
       <MainLayout title={isEditMode ? "Edit Trial - Select Days" : "Create Trial - Select Days"}>
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p>Loading trial data...</p>
           </div>
         </div>
@@ -540,7 +540,7 @@ function TrialDaysPageContent() {
                   <div className="flex items-center space-x-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
                       isActive 
-                        ? 'bg-blue-600 text-white' 
+                        ? 'bg-orange-600 text-white' 
                         : isCompleted 
                           ? 'bg-green-600 text-white' 
                           : 'bg-gray-200 text-gray-600'
@@ -576,13 +576,13 @@ function TrialDaysPageContent() {
         )}
 
         {/* Trial Summary */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-orange-50 border-orange-200">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-blue-900">
+            <CardTitle className="flex items-center space-x-2 text-orange-900">
               <Calendar className="h-5 w-5" />
               <span>{trial.trial_name}</span>
             </CardTitle>
-            <CardDescription className="text-blue-700">
+            <CardDescription className="text-orange-700">
               Trial period: {formatDate(trial.start_date)} to {formatDate(trial.end_date)}
             </CardDescription>
           </CardHeader>
@@ -725,7 +725,7 @@ function TrialDaysPageContent() {
           <CardContent>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-3xl font-bold text-blue-600">{selectedCount}</div>
+                <div className="text-3xl font-bold text-orange-600">{selectedCount}</div>
                 <div className="text-sm text-gray-600">Days Selected</div>
               </div>
               <div>
@@ -733,7 +733,9 @@ function TrialDaysPageContent() {
                 <div className="text-sm text-gray-600">Total Max Entries</div>
               </div>
               <div>
-                <div className="text-3xl font-bold text-purple-600">{trialDays.length}</div>
+                <div className="text-3xl font-bold text-purple
+
+-600">{trialDays.length}</div>
                 <div className="text-sm text-gray-600">Available Days</div>
               </div>
             </div>
@@ -756,7 +758,7 @@ function TrialDaysPageContent() {
               <div 
                 key={index} 
                 className={`border rounded-lg p-4 transition-all ${
-                  day.selected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  day.selected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
                 }`}
               >
                 <div className="flex items-start space-x-3">
@@ -856,7 +858,7 @@ function TrialDaysPageContent() {
             <Button
               onClick={handleSave}
               disabled={saving || selectedCount === 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-orange-600 hover:bg-orange-700"
             >
               {saving ? (
                 <>
@@ -883,7 +885,7 @@ export default function TrialDaysPage() {
       <MainLayout title="Loading...">
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
             <p>Loading...</p>
           </div>
         </div>

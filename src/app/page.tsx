@@ -23,9 +23,9 @@ export default function HomePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-8 mx-auto mb-4 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+          <div className="w-16 h-8 mx-auto mb-4 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold">
             C-WAGS
           </div>
           <p className="text-gray-600">Loading...</p>
@@ -39,19 +39,19 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-indigo-100">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
                 C-WAGS
               </div>
               <h1 className="ml-3 text-xl font-bold">C-WAGS Trial Management</h1>
             </div>
             <Link href="/login">
-              <Button variant="secondary" className="bg-white text-blue-600 hover:bg-gray-50">
+              <Button variant="secondary" className="bg-white text-orange-600 hover:bg-gray-50">
                 Sign In
               </Button>
             </Link>
@@ -74,7 +74,7 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/login">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+              <Button size="lg" className="bg-orange-600 hover:bg-orange-700">
                 Get Started
               </Button>
             </Link>
@@ -88,7 +88,7 @@ export default function HomePage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
-              <Calendar className="h-8 w-8 text-blue-600 mb-2" />
+              <Calendar className="h-8 w-8 text-orange-600 mb-2" />
               <CardTitle>Trial Management</CardTitle>
             </CardHeader>
             <CardContent>
@@ -98,7 +98,7 @@ export default function HomePage() {
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
-              <Users className="h-8 w-8 text-blue-600 mb-2" />
+              <Users className="h-8 w-8 text-orange-600 mb-2" />
               <CardTitle>Entry Processing</CardTitle>
             </CardHeader>
             <CardContent>
@@ -108,7 +108,7 @@ export default function HomePage() {
 
           <Card className="hover:shadow-md transition-shadow">
             <CardHeader>
-              <Trophy className="h-8 w-8 text-blue-600 mb-2" />
+              <Trophy className="h-8 w-8 text-orange-600 mb-2" />
               <CardTitle>Combined Scoring</CardTitle>
             </CardHeader>
             <CardContent>
@@ -127,7 +127,7 @@ export default function HomePage() {
             for their competitions.
           </p>
           <Link href="/login">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <Button size="lg" className="bg-orange-600 hover:bg-orange-700">
               Sign In to Dashboard
             </Button>
           </Link>

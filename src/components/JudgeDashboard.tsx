@@ -81,7 +81,7 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
         <Card>
           <CardContent className="flex items-center justify-center py-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading judge data...</p>
             </div>
           </CardContent>
@@ -96,7 +96,7 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="flex items-center p-6">
-            <Users className="h-8 w-8 text-blue-600 mr-3" />
+            <Users className="h-8 w-8 text-orange-600 mr-3" />
             <div>
               <p className="text-2xl font-bold">200+</p>
               <p className="text-sm text-gray-600">Total Judges</p>
@@ -116,7 +116,9 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
 
         <Card>
           <CardContent className="flex items-center p-6">
-            <MapPin className="h-8 w-8 text-purple-600 mr-3" />
+            <MapPin className="h-8 w-8 text-purple
+
+-600 mr-3" />
             <div>
               <p className="text-2xl font-bold">2</p>
               <p className="text-sm text-gray-600">Countries</p>

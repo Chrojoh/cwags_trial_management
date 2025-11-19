@@ -7,12 +7,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'cwags-blue': '#2563eb',
-        'cwags-light-blue': '#dbeafe', 
-        'cwags-dark-blue': '#1e40af'
+        'fall-gold': '#D99A2B',
+        'fall-orange': '#C96A2B',
+        'fall-red': '#A63D33',
+        'fall-purple': '#5C3B2E',   // ✅ FIXED — no broken string
+        'fall-tan': '#F2E2C4',
       },
       backgroundImage: {
-        'gradient-cwags': 'linear-gradient(to br, #eff6ff, #e0e7ff)',
+        'gradient-cwags': 'linear-gradient(to br, #F2E2C4, #D99A2B, #C96A2B)',
       }
     }
   },

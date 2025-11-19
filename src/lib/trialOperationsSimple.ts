@@ -157,7 +157,7 @@ if (createdById === '2') {
   const { data: user, error: userError } = await supabase
     .from('users')
     .select('id')
-    .eq('username', 'secretary1')
+    .eq('first_name', 'role')
     .single();
   
   if (userError || !user) {

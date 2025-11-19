@@ -154,9 +154,9 @@ export default function TrialsPage() {
   const getStatusColor = (status: TrialStatus) => {
     switch (status) {
       case 'draft':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-white-100 text-white-800 border-white-200';
       case 'published':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'active':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'completed':
@@ -164,7 +164,7 @@ export default function TrialsPage() {
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-white-100 text-white-800 border-white-200';
     }
   };
 
@@ -219,8 +219,8 @@ export default function TrialsPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
-              <p className="text-gray-600">Loading trials...</p>
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
+              <p className="text-white-600">Loading trials...</p>
             </div>
           </div>
         </div>
@@ -235,53 +235,57 @@ export default function TrialsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Trial Management</h1>
-            <p className="text-gray-600 mt-1">Manage and organize your C-WAGS trials</p>
+            <p className="text-white-600 mt-1">Manage and organize your C-WAGS trials</p>
           </div>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Trials</p>
+                  <p className="text-sm font-medium text-white-600">Total Trials</p>
                   <p className="text-2xl font-bold">{stats.total}</p>
                 </div>
-                <Calendar className="h-8 w-8 text-gray-400" />
+                <Calendar className="h-8 w-8 text-white-400" />
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Draft</p>
-                  <p className="text-2xl font-bold text-gray-600">{stats.draft}</p>
+                  <p className="text-sm font-medium text-white-600">Draft</p>
+                  <p className="text-2xl font-bold text-white-600">{stats.draft}</p>
                 </div>
-                <FileText className="h-8 w-8 text-gray-400" />
+                <FileText className="h-8 w-8 text-white-400" />
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Published</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.published}</p>
+                  <p className="text-sm font-medium text-white-600">Published</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.published}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-blue-600" />
+                <TrendingUp className="h-8 w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Active</p>
+                  <p className="text-sm font-medium text-white-600">Active</p>
                   <p className="text-2xl font-bold text-green-600">{stats.active}</p>
                 </div>
                 <Users className="h-8 w-8 text-green-600" />
@@ -289,11 +293,12 @@ export default function TrialsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Completed</p>
+                  <p className="text-sm font-medium text-white-600">Completed</p>
                   <p className="text-2xl font-bold text-purple-600">{stats.completed}</p>
                 </div>
                 <Clock className="h-8 w-8 text-purple-600" />
@@ -314,7 +319,7 @@ export default function TrialsPage() {
         <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="flex flex-col sm:flex-row gap-3 flex-1">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-white-400" />
               <Input
                 placeholder="Search trials..."
                 value={searchTerm}
@@ -363,11 +368,12 @@ export default function TrialsPage() {
         {/* Trials List */}
         <div className="grid gap-6">
           {filteredTrials.length === 0 ? (
-            <Card>
+            <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
+
               <CardContent className="p-12 text-center">
-                <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <Calendar className="h-12 w-12 text-white-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Trials Found</h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-white-600 mb-4">
                   {searchTerm || statusFilter !== 'all' 
                     ? 'Try adjusting your search or filter criteria.'
                     : 'Get started by creating your first trial.'
@@ -385,7 +391,10 @@ export default function TrialsPage() {
             </Card>
           ) : (
             filteredTrials.map((trial) => (
-              <Card key={trial.id} className={deleting === trial.id ? 'opacity-50' : ''}>
+              <Card 
+  key={trial.id}
+  className={`bg-gradient-to-br from-orange-200 to-orange-400 ${deleting === trial.id ? 'opacity-50' : ''}`} 
+>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -445,7 +454,7 @@ export default function TrialsPage() {
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <p className="text-gray-600 mb-1">Dates</p>
+                      <p className="text-white-600 mb-1">Dates</p>
                       <p className="font-medium">
                         {formatDate(trial.start_date)}
                         {trial.start_date !== trial.end_date && ` - ${formatDate(trial.end_date)}`}
@@ -453,19 +462,19 @@ export default function TrialsPage() {
                     </div>
                     
                     <div>
-                      <p className="text-gray-600 mb-1">Max Entries</p>
+                      <p className="text-white-600 mb-1">Max Entries</p>
                       <p className="font-medium">
                         {trial.max_entries_per_day} per day
                       </p>
                     </div>
                     
                     <div>
-                      <p className="text-gray-600 mb-1">Secretary</p>
+                      <p className="text-white-600 mb-1">Secretary</p>
                       <p className="font-medium">{trial.trial_secretary}</p>
                     </div>
                     
                     <div>
-                      <p className="text-gray-600 mb-1">Entry Status</p>
+                      <p className="text-white-600 mb-1">Entry Status</p>
                       <Badge variant={trial.entries_open ? 'default' : 'secondary'}>
                         {trial.entries_open ? 'Open' : 'Closed'}
                       </Badge>
@@ -473,7 +482,7 @@ export default function TrialsPage() {
                   </div>
 
                   <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-white-600">
                       Created {formatDate(trial.created_at)}
                     </p>
                     

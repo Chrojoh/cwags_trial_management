@@ -42,7 +42,7 @@ export const TrialDateTimeDisplay: React.FC<TrialDateTimeDisplayProps> = ({
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-start gap-4">
         <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-600" />
+          <Calendar className="w-5 h-5 text-orange-600" />
           <div>
             <div className="font-medium">{trialTime.date}</div>
             <div className="text-sm text-gray-600">{trialTime.time} {trialTime.timezone}</div>

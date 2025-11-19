@@ -60,7 +60,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return false
         }
 
-        // Only allow proper roles (matching blueprint requirements)
+        // Only allow proper roles (matching orangeprint requirements)
         if (!['trial_secretary', 'administrator'].includes(userData.role)) {
           return false
         }

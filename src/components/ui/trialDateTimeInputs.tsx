@@ -79,9 +79,9 @@ export const TrialDateTimeInputs: React.FC<TrialDateTimeInputsProps> = ({
       />
       
       {date && time && timezone && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="text-sm font-medium text-blue-800">Preview:</div>
-          <div className="text-sm text-blue-700">{getPreviewDateTime()}</div>
+        <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="text-sm font-medium text-orange-800">Preview:</div>
+          <div className="text-sm text-orange-700">{getPreviewDateTime()}</div>
         </div>
       )}
     </div>

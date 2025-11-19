@@ -56,7 +56,7 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
   const entryStatus = isEntryOpen();
 
   return (
-    <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white">
+    <div className="bg-gradient-to-br from-orange-600 via-orange-700 to-indigo-800 text-white">
       <div className="max-w-6xl mx-auto px-6 py-12">
         {/* Status Badge */}
         <div className="mb-6">
@@ -74,7 +74,7 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
           {trial.trial_name}
         </h1>
         
-        <p className="text-xl md:text-2xl text-blue-100 mb-8">
+        <p className="text-xl md:text-2xl text-orange-100 mb-8">
           {trial.club_name}
         </p>
 
@@ -83,12 +83,12 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
           {/* Date */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
             <div className="flex items-start space-x-3">
-              <Calendar className="h-6 w-6 text-blue-200 mt-1" />
+              <Calendar className="h-6 w-6 text-orange-200 mt-1" />
               <div>
-                <p className="text-sm text-blue-200 font-medium mb-1">Trial Dates</p>
+                <p className="text-sm text-orange-200 font-medium mb-1">Trial Dates</p>
                 <p className="text-lg font-semibold">{formatShortDate(trial.start_date)}</p>
                 {trial.start_date !== trial.end_date && (
-                  <p className="text-sm text-blue-200">to {formatShortDate(trial.end_date)}</p>
+                  <p className="text-sm text-orange-200">to {formatShortDate(trial.end_date)}</p>
                 )}
               </div>
             </div>
@@ -97,11 +97,11 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
           {/* Location */}
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
             <div className="flex items-start space-x-3">
-              <MapPin className="h-6 w-6 text-blue-200 mt-1" />
+              <MapPin className="h-6 w-6 text-orange-200 mt-1" />
               <div>
-                <p className="text-sm text-blue-200 font-medium mb-1">Location</p>
+                <p className="text-sm text-orange-200 font-medium mb-1">Location</p>
                 <p className="text-lg font-semibold">{trial.city}</p>
-                <p className="text-sm text-blue-200">{trial.province}, {trial.country}</p>
+                <p className="text-sm text-orange-200">{trial.province}, {trial.country}</p>
               </div>
             </div>
           </div>
@@ -110,11 +110,11 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
           {trial.entry_close_date && (
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
               <div className="flex items-start space-x-3">
-                <Clock className="h-6 w-6 text-blue-200 mt-1" />
+                <Clock className="h-6 w-6 text-orange-200 mt-1" />
                 <div>
-                  <p className="text-sm text-blue-200 font-medium mb-1">Entry Closes</p>
+                  <p className="text-sm text-orange-200 font-medium mb-1">Entry Closes</p>
                   <p className="text-lg font-semibold">{formatShortDate(trial.entry_close_date)}</p>
-                  <p className="text-sm text-blue-200">Submit early!</p>
+                  <p className="text-sm text-orange-200">Submit early!</p>
                 </div>
               </div>
             </div>
@@ -122,7 +122,7 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
         </div>
 
         {/* Additional Info */}
-        <div className="flex flex-wrap gap-6 text-blue-100">
+        <div className="flex flex-wrap gap-6 text-orange-100">
           {totalRounds && totalRounds > 0 && (
             <div className="flex items-center space-x-2">
               <Trophy className="h-5 w-5" />
@@ -142,10 +142,10 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
         {/* Call to Action */}
         {entryStatus && (
           <div className="mt-8">
-            <p className="text-lg text-blue-100 mb-4">
+            <p className="text-lg text-orange-100 mb-4">
               Ready to compete? Fill out the entry form below to register your dog.
             </p>
-            <div className="flex items-center space-x-2 text-sm text-blue-200">
+            <div className="flex items-center space-x-2 text-sm text-orange-200">
               <Users className="h-4 w-4" />
               <span>All skill levels welcome • FEO (For Exhibition Only) entries available</span>
             </div>

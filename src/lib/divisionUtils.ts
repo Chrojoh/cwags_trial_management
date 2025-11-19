@@ -50,7 +50,7 @@ export const getDivisionColor = (division: string | null | undefined): string =>
   if (!division) return 'bg-gray-100 text-gray-700';
   
   const colors: Record<string, string> = {
-    'A': 'bg-blue-100 text-blue-700 border-blue-300',
+    'A': 'bg-orange-100 text-orange-700 border-orange-300',
     'B': 'bg-green-100 text-green-700 border-green-300',
     'TO': 'bg-purple-100 text-purple-700 border-purple-300',
     'JR': 'bg-orange-100 text-orange-700 border-orange-300'

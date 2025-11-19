@@ -176,8 +176,8 @@ const generateExcelReport = async () => {
       return corrections[className] || className;
     };
 
-    // Blueprint class ordering
-    const blueprintOrder = [
+    // orangeprint class ordering
+    const orangeprintOrder = [
       'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth', 
       'Private Investigator', 'Detective Diversions',
       'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
@@ -189,7 +189,7 @@ const generateExcelReport = async () => {
     ];
 
     const getClassOrder = (className: string): number => {
-      const index = blueprintOrder.indexOf(className);
+      const index = orangeprintOrder.indexOf(className);
       return index === -1 ? 999 : index;
     };
 
@@ -361,7 +361,7 @@ const generateExcelReport = async () => {
       [], // Row 4 (will be first data row)
     ];
 
-    // Sort classes by blueprint order for summary
+    // Sort classes by orangeprint order for summary
     const sortedClasses = Array.from(classesByName.values()).sort((a, b) => a.classOrder - b.classOrder);
 
     sortedClasses.forEach((classData) => {
@@ -505,7 +505,7 @@ const generateExcelReport = async () => {
     };
 
 
-    // Create individual class matrix sheets in blueprint order
+    // Create individual class matrix sheets in orangeprint order
     sortedClasses.forEach((classData) => {
       const sheetData = [];
       
@@ -739,7 +739,7 @@ const generateExcelReport = async () => {
       <MainLayout title="Class Summary Sheet">
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
             <p className="text-gray-600">Loading trial summary data...</p>
           </div>
         </div>
@@ -782,7 +782,7 @@ const generateExcelReport = async () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
-              <BarChart3 className="h-8 w-8 text-blue-600" />
+              <BarChart3 className="h-8 w-8 text-orange-600" />
               <span>Class Summary Sheet</span>
             </h1>
             <p className="text-gray-600 mt-1">Track competitor progress across all rounds of a class</p>
@@ -951,7 +951,7 @@ const generateExcelReport = async () => {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <Card>
                 <CardContent className="text-center p-4">
-                  <div className="text-2xl font-bold text-blue-600">{summaryData.statistics.total_classes}</div>
+                  <div className="text-2xl font-bold text-orange-600">{summaryData.statistics.total_classes}</div>
                   <div className="text-sm text-gray-600">Total Classes</div>
                 </CardContent>
               </Card>
@@ -1048,7 +1048,7 @@ const generateExcelReport = async () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="text-center p-4">
-                    <div className="text-2xl font-bold text-blue-600">{selectedClassData.entries.length}</div>
+                    <div className="text-2xl font-bold text-orange-600">{selectedClassData.entries.length}</div>
                     <div className="text-sm text-gray-600">Total Participants</div>
                   </CardContent>
                 </Card>

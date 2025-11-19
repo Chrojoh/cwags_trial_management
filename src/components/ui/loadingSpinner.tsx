@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 interface LoadingSpinnerProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  color?: 'blue' | 'white' | 'gray';
+  color?: 'orange' | 'white' | 'gray';
 }
 
 const sizeClasses = {
@@ -17,7 +17,7 @@ const sizeClasses = {
 };
 
 const colorClasses = {
-  blue: 'text-blue-600',
+  orange: 'text-orange-600',
   white: 'text-white',
   gray: 'text-gray-600',
 };
@@ -25,7 +25,7 @@ const colorClasses = {
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'md',
   className,
-  color = 'blue',
+  color = 'orange',
 }) => {
   return (
     <div className={cn('flex items-center justify-center', className)}>

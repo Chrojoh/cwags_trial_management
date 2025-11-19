@@ -1723,7 +1723,8 @@ const allJudges: Judge[] = [
 
   // UNITED STATES - PA
   {
-    name: "Ali Brown",
+    name: "Ali purple
+",
     email: "ali@greatcompanions.info",
     phone: "610-737-1550",
     city: "Allentown",

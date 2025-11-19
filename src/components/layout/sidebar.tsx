@@ -191,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, currentPath }) => {
                   href={item.href}
                   className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+                      ? 'bg-orange-100 text-orange-900 border-r-2 border-orange-500'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
@@ -211,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, currentPath }) => {
                           href={child.href}
                           className={`flex items-center space-x-3 ml-6 px-2 py-2 rounded-lg text-sm font-medium transition-colors ${
                             isChildActive
-                              ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+                              ? 'bg-orange-100 text-orange-900 border-r-2 border-orange-500'
                               : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                           }`}
                         >
@@ -249,20 +249,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, currentPath }) => {
         </div>
 
         {/* User Info Section */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+        <div className="mt-6 p-4 bg-orange-50 rounded-lg">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center">
-              <UserCheck className="h-5 w-5 text-blue-600" />
+            <div className="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center">
+              <UserCheck className="h-5 w-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-blue-900">
+              <p className="text-sm font-medium text-orange-900">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="text-xs text-blue-700">
+              <p className="text-xs text-orange-700">
                 {user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </p>
               {user.club_name && (
-                <p className="text-xs text-blue-600">{user.club_name}</p>
+                <p className="text-xs text-orange-600">{user.club_name}</p>
               )}
             </div>
           </div>

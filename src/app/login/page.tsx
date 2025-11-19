@@ -64,7 +64,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700"
+          className="w-full bg-orange-600 text-white p-2 rounded hover:bg-orange-700"
         >
           Sign In
         </button>
@@ -73,7 +73,7 @@ export default function LoginPage() {
         <div className="text-center mt-4">
           <a 
             href="/register" 
-            className="text-blue-600 hover:underline"
+            className="text-orange-600 hover:underline"
           >
             Need an account? Register here
           </a>

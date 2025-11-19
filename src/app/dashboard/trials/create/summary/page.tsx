@@ -203,7 +203,7 @@ function TrialSummaryPageContent() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center h-64">
             <div className="flex items-center space-x-3">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
               <span className="text-lg text-gray-600">Loading trial summary...</span>
             </div>
           </div>
@@ -313,11 +313,11 @@ function TrialSummaryPageContent() {
             return (
               <div key={stepNumber} className="flex items-center flex-shrink-0">
                 <div className={`flex items-center space-x-2 ${
-                  isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
                 }`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     isActive 
-                      ? 'bg-blue-600 text-white' 
+                      ? 'bg-orange-600 text-white' 
                       : isCompleted 
                         ? 'bg-green-600 text-white' 
                         : 'bg-gray-200 text-gray-600'
@@ -351,9 +351,9 @@ function TrialSummaryPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Classes</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.totalClasses}</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.totalClasses}</p>
                 </div>
-                <Trophy className="h-8 w-8 text-blue-600" />
+                <Trophy className="h-8 w-8 text-orange-600" />
               </div>
             </CardContent>
           </Card>
@@ -363,9 +363,13 @@ function TrialSummaryPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Rounds</p>
-                  <p className="text-2xl font-bold text-purple-600">{stats.totalRounds}</p>
+                  <p className="text-2xl font-bold text-purple
+
+-600">{stats.totalRounds}</p>
                 </div>
-                <Clock className="h-8 w-8 text-purple-600" />
+                <Clock className="h-8 w-8 text-purple
+
+-600" />
               </div>
             </CardContent>
           </Card>
@@ -400,7 +404,7 @@ function TrialSummaryPageContent() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Info className="h-5 w-5 text-blue-600" />
+                <Info className="h-5 w-5 text-orange-600" />
                 <span>Trial Information</span>
               </div>
               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/trials/create?trialId=${trialId}`)}>
@@ -465,7 +469,7 @@ function TrialSummaryPageContent() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-5 w-5 text-blue-600" />
+                    <Calendar className="h-5 w-5 text-orange-600" />
                     <span>{formatDate(dayDate)}</span>
                     <Badge variant="outline">{dayRounds.length} rounds</Badge>
                   </div>
@@ -602,7 +606,7 @@ export default function TrialSummaryPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>

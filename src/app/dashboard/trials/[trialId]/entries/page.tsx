@@ -262,7 +262,7 @@ export default function TrialEntriesPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'submitted':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'confirmed':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'withdrawn':
@@ -320,7 +320,7 @@ export default function TrialEntriesPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
               <p className="text-gray-600">Loading entries...</p>
             </div>
           </div>
@@ -363,12 +363,12 @@ export default function TrialEntriesPage() {
     >
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Trial Header */}
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+        <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl text-blue-900">{trial.trial_name}</CardTitle>
-                <CardDescription className="text-blue-700 mt-2">
+                <CardTitle className="text-2xl text-orange-900">{trial.trial_name}</CardTitle>
+                <CardDescription className="text-orange-700 mt-2">
                   <span className="flex items-center space-x-4">
                     <span className="flex items-center space-x-1">
                       <Calendar className="h-4 w-4" />
@@ -395,7 +395,7 @@ export default function TrialEntriesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{entryStats.total}</div>
+              <div className="text-2xl font-bold text-orange-600">{entryStats.total}</div>
               <div className="text-sm text-gray-600">Total Entries</div>
             </CardContent>
           </Card>
@@ -494,7 +494,7 @@ export default function TrialEntriesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-blue-600" />
+              <Users className="h-5 w-5 text-orange-600" />
               <span>Trial Entries ({filteredEntries.length} teams)</span>
             </CardTitle>
             <CardDescription>
@@ -549,7 +549,7 @@ export default function TrialEntriesPage() {
                               {entry.payment_status}
                             </Badge>
                             {entry.is_junior_handler && (
-                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
                                 Junior Handler
                               </Badge>
                             )}

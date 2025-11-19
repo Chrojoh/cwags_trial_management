@@ -109,20 +109,20 @@ See you at the trial!`;
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <button
             onClick={shareViaEmail}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all group"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-all group"
           >
-            <Mail className="h-5 w-5 text-gray-600 group-hover:text-blue-600" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
+            <Mail className="h-5 w-5 text-gray-600 group-hover:text-orange-600" />
+            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
               Email
             </span>
           </button>
 
           <button
             onClick={shareToFacebook}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all group"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-all group"
           >
-            <Facebook className="h-5 w-5 text-gray-600 group-hover:text-blue-600" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">
+            <Facebook className="h-5 w-5 text-gray-600 group-hover:text-orange-600" />
+            <span className="text-sm font-medium text-gray-700 group-hover:text-orange-600">
               Facebook
             </span>
           </button>
@@ -139,10 +139,18 @@ See you at the trial!`;
 
           <button
             onClick={() => setShowQR(!showQR)}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all group"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-brown
+
+-300 hover:bg-purple
+
+-50 transition-all group"
           >
-            <QrCode className="h-5 w-5 text-gray-600 group-hover:text-purple-600" />
-            <span className="text-sm font-medium text-gray-700 group-hover:text-purple-600">
+            <QrCode className="h-5 w-5 text-gray-600 group-hover:text-purple
+
+-600" />
+            <span className="text-sm font-medium text-gray-700 group-hover:text-purple
+
+-600">
               QR Code
             </span>
           </button>

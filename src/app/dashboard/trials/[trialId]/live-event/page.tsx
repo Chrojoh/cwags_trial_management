@@ -385,7 +385,7 @@ const renderClassesByDay = () => {
         key={classKey}
         className={`p-4 rounded-lg border cursor-pointer transition-all ${
           sortedRounds.some(cls => selectedClass?.id === cls.id)
-            ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+            ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
             : 'border-gray-200 hover:bg-gray-50'
         }`}
         onClick={() => setSelectedClass(sortedRounds[0])}
@@ -415,8 +415,8 @@ const renderClassesByDay = () => {
           {sortedRounds.map((round) => (
             <div 
               key={round.id}
-              className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-blue-50 transition-colors ${
-                selectedClass?.id === round.id ? 'bg-blue-100' : ''
+              className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-orange-50 transition-colors ${
+                selectedClass?.id === round.id ? 'bg-orange-100' : ''
               }`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -2150,10 +2150,10 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   const getEntryStatusColor = (status: string) => {
     switch (status) {
       case 'entered': return 'bg-green-100 border-green-200';
-      case 'confirmed': return 'bg-blue-100 border-blue-200';
+      case 'confirmed': return 'bg-orange-100 border-orange-200';
       case 'withdrawn': return 'bg-red-100 border-red-200'; 
       case 'no_show': return 'bg-gray-100 border-gray-200';
-      default: return 'bg-blue-100 border-blue-200';
+      default: return 'bg-orange-100 border-orange-200';
     }
   };
 
@@ -2180,7 +2180,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       <MainLayout title="Live Event Management">
         <div className="flex items-center justify-center min-h-64">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
             <p className="text-gray-600">Loading trial data...</p>
           </div>
         </div>
@@ -2236,7 +2236,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 <Card>
   <CardHeader>
     <CardTitle className="flex items-center space-x-2">
-      <FileText className="h-5 w-5 text-blue-600" />
+      <FileText className="h-5 w-5 text-orange-600" />
       <span>Class Selection</span>
     </CardTitle>
     <CardDescription>
@@ -2252,18 +2252,21 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     ) : (
       (() => {
         // Group classes by day using trial_date from the classes
-        const classesByDay = trialClasses.reduce((acc, cls) => {
-          const trialDate = cls.trial_date;
-          const dayKey = trialDate
-  ? (() => {
-      const [year, month, day] = trialDate.split('-').map(Number);
-      const date = new Date(year, month - 1, day, 12, 0, 0); // ← your snippet
-      return `Day ${date.toLocaleDateString('en-CA', {
-        weekday: 'short',
-        day: 'numeric'
-      })}`;
-    })()
-  : 'Day 1';
+      const classesByDay = trialClasses.reduce((acc, cls) => {
+  const trialDate = cls.trial_date;
+  const dayKey = trialDate
+    ? (() => {
+        const [year, month, day] = trialDate.split('-').map(Number);
+        const date = new Date(year, month - 1, day, 12, 0, 0);
+        // Sat, Dec 6 style
+        return date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+      })()
+    : 'Unknown date';
+
 
           
           if (!acc[dayKey]) acc[dayKey] = [];
@@ -2281,15 +2284,29 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           return a.localeCompare(b);
         });
 
-        return dayKeys.length > 1 ? (
-          <Tabs defaultValue={dayKeys[0]} className="w-full">
-            <TabsList className="grid w-full mb-4" style={{ gridTemplateColumns: `repeat(${dayKeys.length}, minmax(0, 1fr))` }}>
-              {dayKeys.map((dayKey) => (
-                <TabsTrigger key={dayKey} value={dayKey} className="text-sm px-2">
-                  {dayKey}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+       return dayKeys.length > 1 ? (
+  <Tabs defaultValue={dayKeys[0]} className="w-full">
+    <TabsList
+      className="grid w-full mb-4 gap-2"
+      style={{ gridTemplateColumns: `repeat(${dayKeys.length}, minmax(0, 1fr))` }}
+    >
+      {dayKeys.map((dayKey) => (
+        <TabsTrigger
+          key={dayKey}
+          value={dayKey}
+          className="
+            text-sm px-3 py-2 rounded-md
+            border-2 border-[#5b3214] text-[#5b3214]
+            data-[state=active]:bg-[#5b3214] data-[state=active]:text-white
+            hover:bg-white
+            transition-colors
+          "
+        >
+          {dayKey}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+
             
             {dayKeys.map((dayKey) => (
               <TabsContent key={dayKey} value={dayKey}>
@@ -2299,7 +2316,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                       key={cls.id}
                       className={`p-4 rounded-lg border cursor-pointer transition-all ${
                         selectedClass?.id === cls.id
-                          ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+                          ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
                           : 'border-gray-200 hover:bg-gray-50'
                       }`}
                       onClick={() => setSelectedClass(cls)}
@@ -2337,7 +2354,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                 key={cls.id}
                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                   selectedClass?.id === cls.id
-                    ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+                    ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
                     : 'border-gray-200 hover:bg-gray-50'
                 }`}
                 onClick={() => setSelectedClass(cls)}
@@ -2400,7 +2417,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <div className="flex items-center justify-between">
             <CardTitle>
               <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5 text-blue-600" />
+                <Users className="h-5 w-5 text-orange-600" />
                 <span>{selectedClass.class_name} - Running Order Setup</span>
               </div>
 
@@ -2458,7 +2475,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                       <div key={roundKey} className="border rounded-lg p-4 bg-gray-50">
                         <div className="mb-4 pb-3 border-b border-gray-200">
                           <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-                            <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                            <Badge variant="outline" className="bg-orange-100 text-orange-800">
                               {roundKey}
                             </Badge>
                             <span>
@@ -2489,13 +2506,13 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       tabIndex={0}
       className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
         draggedEntry?.id === entry.id ? 'opacity-50' : ''
-      } ${selectedEntryId === entry.id ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+      } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <GripVertical className="h-4 w-4 text-gray-400" />
-            <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+            <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
               #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
             </span>
           </div>
@@ -2661,7 +2678,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                               <div key={entry.id} className="bg-white border rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-4">
                                   <div className="flex items-center space-x-4">
-                                    <span className="text-lg font-bold text-blue-600 min-w-[2rem]">
+                                    <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
                                       #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
                                     </span>
                                     <div>
@@ -2947,7 +2964,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{classEntries.length}</div>
+                  <div className="text-2xl font-bold text-orange-600">{classEntries.length}</div>
                   <div className="text-sm text-gray-600">Total Entries</div>
                 </div>
                 <div className="text-center">
@@ -2957,7 +2974,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   <div className="text-sm text-gray-600">Present</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold text-orange-600">
                     {classEntries.filter(e => e.entry_status === 'confirmed').length}
                   </div>
                   <div className="text-sm text-gray-600">Confirmed</div>
@@ -3051,7 +3068,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   id="round_selection"
                   value={selectedRound}
                   onChange={(e) => setSelectedRound(parseInt(e.target.value))}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
                 >
                   {/* Show all available rounds for this class */}
                   {(() => {

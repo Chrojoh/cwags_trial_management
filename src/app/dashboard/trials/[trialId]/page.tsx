@@ -215,7 +215,7 @@ export default function TrialDetailPage() {
       case 'published':
         return 'bg-green-100 text-green-800';
       case 'active':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case 'draft':
         return 'bg-gray-100 text-gray-800';
       case 'completed':
@@ -247,7 +247,7 @@ const formatDate = (dateString: string) => {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
               <p className="text-gray-600">Loading trial data...</p>
             </div>
           </div>
@@ -289,12 +289,12 @@ const formatDate = (dateString: string) => {
     >
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Trial Header */}
-        <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+        <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-2xl text-blue-900">{trial.trial_name}</CardTitle>
-                <CardDescription className="text-blue-700 mt-2">
+                <CardTitle className="text-2xl text-orange-900">{trial.trial_name}</CardTitle>
+                <CardDescription className="text-orange-700 mt-2">
                   <span className="flex items-center space-x-4">
                     <span className="flex items-center space-x-1">
                       <MapPin className="h-4 w-4" />
@@ -324,7 +324,7 @@ const formatDate = (dateString: string) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-blue-600">{trialDays.length}</div>
+              <div className="text-2xl font-bold text-orange-600">{trialDays.length}</div>
               <div className="text-sm text-gray-600">Trial Days</div>
             </CardContent>
           </Card>
@@ -407,7 +407,7 @@ const formatDate = (dateString: string) => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
+                    <FileText className="h-5 w-5 text-orange-600" />
                     <span>Basic Trial Information</span>
                   </CardTitle>
                   {editingSection !== 'basic' && (
@@ -570,7 +570,7 @@ const formatDate = (dateString: string) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-blue-600" />
+                  <Calendar className="h-5 w-5 text-orange-600" />
                   <span>Trial Days</span>
                 </CardTitle>
                 <CardDescription>
@@ -608,7 +608,7 @@ const formatDate = (dateString: string) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Users className="h-5 w-5 text-orange-600" />
                   <span>Trial Classes</span>
                 </CardTitle>
                 <CardDescription>
@@ -650,7 +650,7 @@ const formatDate = (dateString: string) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                  <Clock className="h-5 w-5 text-orange-600" />
                   <span>Trial Rounds</span>
                 </CardTitle>
                 <CardDescription>
@@ -705,7 +705,7 @@ const formatDate = (dateString: string) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5 text-blue-600" />
+                  <Settings className="h-5 w-5 text-orange-600" />
                   <span>Trial Settings & Actions</span>
                 </CardTitle>
                 <CardDescription>
@@ -760,7 +760,7 @@ const formatDate = (dateString: string) => {
 </div>
                       <Button 
                         variant="default" 
-                        className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
+                        className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/live-event`)}
                       >
                         <FileText className="h-4 w-4 mr-2" />

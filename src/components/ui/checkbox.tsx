@@ -22,10 +22,10 @@ function Checkbox({
         "border-gray-500 bg-white",
         // Hover state - darker border and shadow
         "hover:border-gray-700 hover:shadow-md",
-        // Focus state - blue ring
-        "focus-visible:ring-4 focus-visible:ring-blue-500/20 focus-visible:border-blue-600",
-        // Checked state - blue background and border
-        "data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 data-[state=checked]:shadow-lg",
+        // Focus state - orange ring
+        "focus-visible:ring-4 focus-visible:ring-orange-500/20 focus-visible:border-orange-600",
+        // Checked state - orange background and border
+        "data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600 data-[state=checked]:shadow-lg",
         // Disabled state
         "disabled:cursor-not-allowed disabled:opacity-50",
         // Cursor

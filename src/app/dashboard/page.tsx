@@ -108,7 +108,7 @@ export default function DashboardPage() {
       case 'published':
         return 'bg-green-100 text-green-800';
       case 'active':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-orange-100 text-orange-800';
       case 'draft':
         return 'bg-gray-100 text-gray-800';
       case 'completed':
@@ -132,7 +132,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <div className="w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p className="text-gray-600">Loading dashboard...</p>
             </div>
           </div>
@@ -145,29 +145,43 @@ export default function DashboardPage() {
     <MainLayout title="Dashboard">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg text-white p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-2">
-                Welcome back, {userInfo?.fullName || 'User'}!
-              </h1>
-              <p className="text-blue-100 text-lg">
-                {userInfo?.club_name && `${userInfo.club_name} • `}
-                {userInfo?.role === 'administrator' ? 'Administrator' : 'Trial Secretary'}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-blue-100 text-sm">
-                {new Date().toLocaleDateString('en-CA', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </p>
-            </div>
-          </div>
-        </div>
+<div className="bg-gradient-to-r from-orange-600 to-orange-800 rounded-lg shadow-lg text-white p-6">
+  <div className="flex items-center justify-between">
+
+    {/* LEFT */}
+    <div>
+      <h1 className="text-2xl font-bold mb-2">
+        Welcome back, {userInfo?.fullName?.split(' ')[0] || 'User'}!
+      </h1>
+
+      <p className="text-orange-100 text-lg">
+        {userInfo?.role === 'administrator'
+          ? 'Administrator'
+          : 'Trial Secretary'}
+      </p>
+
+      {userInfo?.club_name && (
+        <p className="text-orange-200 text-sm mt-1">
+          {userInfo.club_name}
+        </p>
+      )}
+    </div>
+
+    {/* RIGHT */}
+    <div className="text-right">
+      <p className="text-orange-100 text-sm">
+        {new Date().toLocaleDateString('en-CA', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}
+      </p>
+    </div>
+
+  </div>
+</div>
+
 
         {/* Error Display */}
         {error && (
@@ -196,7 +210,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Total Trials
               </CardTitle>
-              <Calendar className="h-4 w-4 text-blue-600" />
+              <Calendar className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{stats.totalTrials}</div>
@@ -258,7 +272,7 @@ export default function DashboardPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
+                <Calendar className="h-5 w-5 text-orange-600" />
                 <span>Recent Trials</span>
               </CardTitle>
               <CardDescription>
@@ -272,7 +286,7 @@ export default function DashboardPage() {
                   <p className="text-gray-500 mb-4">No trials created yet</p>
                   <Button 
                     onClick={() => router.push('/dashboard/trials/create')}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-orange-600 hover:bg-orange-700"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Create Your First Trial
@@ -316,7 +330,7 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
-                <Settings className="h-5 w-5 text-blue-600" />
+                <Settings className="h-5 w-5 text-orange-600" />
                 <span>Quick Actions</span>
               </CardTitle>
               <CardDescription>
@@ -326,7 +340,7 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
   <Button 
     onClick={() => router.push('/dashboard/trials/create')}
-    className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
+    className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
   >
     <Plus className="h-4 w-4 mr-2" />
     Create New Trial
@@ -348,7 +362,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <CheckCircle className="h-5 w-5 text-blue-600" />
+              <CheckCircle className="h-5 w-5 text-orange-600" />
               <span>Recent Activity</span>
             </CardTitle>
             <CardDescription>
@@ -370,7 +384,7 @@ export default function DashboardPage() {
                     <span className="text-gray-400 ml-auto">Just now</span>
                   </div>
                   <div className="flex items-center space-x-3 text-sm">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     <span className="text-gray-600">Database connected successfully</span>
                     <span className="text-gray-400 ml-auto">Few moments ago</span>
                   </div>

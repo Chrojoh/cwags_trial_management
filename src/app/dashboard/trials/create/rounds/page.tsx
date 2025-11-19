@@ -452,7 +452,7 @@ function CreateRoundsPageContent() {
       <MainLayout title={isEditMode ? "Edit Trial - Rounds & Judges" : "Trial Rounds"}>
         <div className="flex items-center justify-center min-h-64">
           <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
             <span>Loading trial data...</span>
           </div>
         </div>
@@ -532,7 +532,7 @@ function CreateRoundsPageContent() {
                     key={cls.id}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedClassId === cls.id
-                        ? 'bg-blue-50 border-blue-200'
+                        ? 'bg-orange-50 border-orange-200'
                         : 'hover:bg-gray-50'
                     }`}
                     onClick={() => setSelectedClassId(cls.id)}
@@ -584,7 +584,7 @@ function CreateRoundsPageContent() {
                     <Button
                       onClick={() => addRound(selectedClassId)}
                       size="default"
-                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md"
+                      className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md"
                     >
                       <Plus className="h-5 w-5" />
                       <span>Add Round</span>
@@ -619,7 +619,7 @@ function CreateRoundsPageContent() {
                               className={`h-12 text-base font-medium border-2 ${
                                 errors[`${selectedClassId}-${roundIndex}-judge`] 
                                   ? 'border-red-500 bg-red-50' 
-                                  : 'border-gray-400 hover:border-blue-500 focus:border-blue-600'
+                                  : 'border-gray-400 hover:border-orange-500 focus:border-orange-600'
                               }`}
                             >
                               <SelectValue 
@@ -633,7 +633,7 @@ function CreateRoundsPageContent() {
                                   <SelectItem 
                                     key={judge.id} 
                                     value={judge.id}
-                                    className="text-base py-3 hover:bg-blue-100 focus:bg-blue-100 cursor-pointer"
+                                    className="text-base py-3 hover:bg-orange-100 focus:bg-orange-100 cursor-pointer"
                                   >
                                     <div className="w-full">
                                       <div className="font-semibold text-gray-900">{judge.name}</div>
@@ -705,7 +705,7 @@ function CreateRoundsPageContent() {
                                 className={`h-12 text-base font-medium border-2 ${
                                   errors[`${selectedClassId}-${roundIndex}-reset-judge`]
                                     ? 'border-red-500 bg-red-50' 
-                                    : 'border-gray-400 hover:border-blue-500 focus:border-blue-600'
+                                    : 'border-gray-400 hover:border-orange-500 focus:border-orange-600'
                                 }`}
                               >
                                 <SelectValue 
@@ -719,7 +719,7 @@ function CreateRoundsPageContent() {
                                     <SelectItem 
                                       key={judge.id} 
                                       value={judge.id}
-                                      className="text-base py-3 hover:bg-blue-100 focus:bg-blue-100 cursor-pointer"
+                                      className="text-base py-3 hover:bg-orange-100 focus:bg-orange-100 cursor-pointer"
                                     >
                                       <div className="w-full">
                                         <div className="font-semibold text-gray-900">{judge.name}</div>
@@ -763,7 +763,7 @@ function CreateRoundsPageContent() {
                       <Button 
                         onClick={() => addRound(selectedClassId)}
                         size="lg"
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md"
+                        className="bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md"
                       >
                         <Plus className="h-5 w-5 mr-2" />
                         Add First Round
@@ -835,7 +835,7 @@ export default function CreateRoundsPage() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>

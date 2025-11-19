@@ -598,7 +598,7 @@ function TrialLevelsPageContent() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <div className="w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p className="text-gray-600">Loading trial data...</p>
             </div>
           </div>
@@ -664,11 +664,11 @@ function TrialLevelsPageContent() {
               return (
                 <div key={stepNumber} className="flex items-center flex-shrink-0">
                   <div className={`flex items-center space-x-2 ${
-                    isActive ? 'text-blue-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                    isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
                   }`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                       isActive 
-                        ? 'bg-blue-600 text-white' 
+                        ? 'bg-orange-600 text-white' 
                         : isCompleted 
                           ? 'bg-green-600 text-white'
                           : 'bg-gray-200 text-gray-600'
@@ -703,7 +703,7 @@ function TrialLevelsPageContent() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5 text-blue-600" />
+              <Info className="h-5 w-5 text-orange-600" />
               Trial Information
             </CardTitle>
           </CardHeader>
@@ -774,7 +774,7 @@ function TrialLevelsPageContent() {
                         key={`${day.id}-${level.levelName}`}
                         className={`p-4 rounded-lg border-2 transition-all ${
                           level.selected 
-                            ? 'border-blue-300 bg-blue-50' 
+                            ? 'border-orange-300 bg-orange-50' 
                             : 'border-gray-200 bg-gray-50'
                         }`}
                       >
@@ -784,7 +784,7 @@ function TrialLevelsPageContent() {
                             onCheckedChange={(checked) => 
                               updateLevelSelection(day.id, actualIndex, 'selected', checked)
                             }
-                            className="w-5 h-5 border-2 border-gray-400 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                            className="w-5 h-5 border-2 border-gray-400 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
                           />
                           <div className="flex-1">
                             <div className="font-semibold text-gray-900">{level.levelName}</div>
@@ -825,7 +825,7 @@ function TrialLevelsPageContent() {
                             </div>
 
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-3 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                              <div className="flex items-center space-x-3 p-3 bg-orange-50 border-2 border-orange-200 rounded-lg">
                                 <Checkbox
                                   id={`feo-${day.id}-${actualIndex}`}
                                   checked={level.feoAvailable || false}
@@ -834,7 +834,7 @@ function TrialLevelsPageContent() {
                                 />
                                 <Label 
                                   htmlFor={`feo-${day.id}-${actualIndex}`} 
-                                  className="text-sm font-semibold text-blue-900 cursor-pointer"
+                                  className="text-sm font-semibold text-orange-900 cursor-pointer"
                                 >
                                   ✓ FEO Available for this class
                                 </Label>
@@ -858,11 +858,19 @@ function TrialLevelsPageContent() {
 
                             {/* UPDATED: Games Subclass Checkboxes */}
                             {level.category === 'Games' && (
-                              <div className="space-y-2 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
-                                <Label className="text-sm font-semibold text-purple-900">
+                              <div className="space-y-2 p-4 bg-purple
+
+-50 border-2 border-brown
+
+-200 rounded-lg">
+                                <Label className="text-sm font-semibold text-purple
+
+-900">
                                   Games Subclasses (Select all that apply) *
                                 </Label>
-                                <p className="text-xs text-purple-700 mb-3">
+                                <p className="text-xs text-purple
+
+-700 mb-3">
                                   Each subclass will create a separate class entry
                                 </p>
                                 <div className="space-y-2">
@@ -884,15 +892,21 @@ function TrialLevelsPageContent() {
                                         htmlFor={`${day.id}-${level.levelName}-${subclass}`} 
                                         className="text-sm font-medium cursor-pointer flex-1"
                                       >
-                                        <span className="font-bold text-purple-700">{subclass}</span>
+                                        <span className="font-bold text-purple
+
+-700">{subclass}</span>
                                         <span className="text-gray-600"> - {getGameName(subclass)}</span>
                                       </Label>
                                     </div>
                                   ))}
                                 </div>
                                 {level.gamesSubclasses && level.gamesSubclasses.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-purple-300">
-                                    <p className="text-xs text-purple-700">
+                                  <div className="mt-3 pt-3 border-t border-brown
+
+-300">
+                                    <p className="text-xs text-purple
+
+-700">
                                       <strong>Selected ({level.gamesSubclasses.length}):</strong> {level.gamesSubclasses.join(', ')}
                                     </p>
                                   </div>
@@ -971,7 +985,7 @@ export default function TrialLevelsPage() {
     <Suspense fallback={
       <MainLayout title="Loading...">
         <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-2 border-orange-600 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </MainLayout>
     }>

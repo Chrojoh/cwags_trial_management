@@ -818,8 +818,8 @@ export default function PublicEntryForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">Entry Details</h3>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <h3 className="font-semibold text-orange-900 mb-2">Entry Details</h3>
               <div className="space-y-1 text-sm">
                 <p><strong>Handler:</strong> {formData.handler_name}</p>
                 <p><strong>Dog:</strong> {formData.dog_call_name}</p>
@@ -858,7 +858,7 @@ export default function PublicEntryForm() {
                 </div>
               </div>
               {existingEntry && (
-                <div className="flex items-center gap-2 text-blue-600">
+                <div className="flex items-center gap-2 text-orange-600">
                   <Edit className="h-4 w-4" />
                   <span className="text-sm font-medium">Edit Mode</span>
                 </div>
@@ -886,8 +886,8 @@ export default function PublicEntryForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="text-sm text-blue-900 space-y-3 leading-relaxed">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+              <div className="text-sm text-orange-900 space-y-3 leading-relaxed">
                 <p><strong>C-WAGS Notice to Exhibitors</strong></p>
                 <p>Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS rules and regulations including but not limited to the following rules regarding entry:</p>
                 <ul className="list-disc pl-5 space-y-1">
@@ -970,7 +970,11 @@ export default function PublicEntryForm() {
               <Button
   onClick={handleCwagsSubmit}
   disabled={registryLoading || !cwagsInputValue}
-  className="border-2 border-purple-600 hover:bg-purple-600 hover:text-white transition-colors"
+  className="border-2 border-brown
+
+-600 hover:bg-purple
+
+-600 hover:text-white transition-colors"
 >
   {registryLoading ? (
     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1128,8 +1132,12 @@ export default function PublicEntryForm() {
   disabled={submitting || !formData.waiver_accepted}
   size="lg"
   className={`
-    min-w-[140px] shrink-0 border-2 border-purple-600 
-    hover:bg-purple-600 hover:text-white transition-colors
+    min-w-[140px] shrink-0 border-2 border-brown
+
+-600 
+    hover:bg-purple
+
+-600 hover:text-white transition-colors
     disabled:opacity-50 disabled:cursor-not-allowed
   `}
 >
@@ -1159,7 +1167,7 @@ export default function PublicEntryForm() {
                           <TabsTrigger 
                             key={day} 
                             value={day}
-                            className="data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:font-bold data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 border-2 data-[state=active]:border-blue-700 data-[state=inactive]:border-gray-300 transition-all"
+                            className="data-[state=active]:bg-orange-600 data-[state=active]:text-white data-[state=active]:font-bold data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 border-2 data-[state=active]:border-orange-700 data-[state=inactive]:border-gray-300 transition-all"
                           >
                             <div className="text-center">
                               <div className="font-semibold">Day {day}</div>
@@ -1198,7 +1206,7 @@ export default function PublicEntryForm() {
                             return (
                               <div 
                                 key={round.id}
-                                className={`border rounded-lg p-4 transition-all ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                                className={`border rounded-lg p-4 transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
@@ -1275,7 +1283,17 @@ export default function PublicEntryForm() {
                                 <select
                                   value={formData.division_selections[round.id] || ''}
                                   onChange={(e) => handleDivisionChange(round.id, e.target.value)}
-                                  className="h-9 px-3 border-2 border-purple-300 rounded-md text-sm font-medium bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                  className="h-9 px-3 border-2 border-brown
+
+-300 rounded-md text-sm font-medium bg-purple
+
+-50 hover:bg-purple
+
+-100 focus:outline-none focus:ring-2 focus:ring-purple
+
+-500 focus:border-brown
+
+-500"
                                   required
                                 >
                                   <option value="">Select Division *</option>
@@ -1312,7 +1330,7 @@ export default function PublicEntryForm() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded p-4">
+                <div className="bg-orange-50 border border-orange-200 rounded p-4">
                   <p className="text-sm">
                     <strong>Previous selections:</strong> {confirmationData.originalSelections} classes
                   </p>
