@@ -860,7 +860,7 @@ function TrialLevelsPageContent() {
                             {level.category === 'Games' && (
                               <div className="space-y-2 p-4 bg-purple
 
--50 border-2 border-brown
+-50 border-2 border-purple
 
 -200 rounded-lg">
                                 <Label className="text-sm font-semibold text-purple
@@ -901,7 +901,7 @@ function TrialLevelsPageContent() {
                                   ))}
                                 </div>
                                 {level.gamesSubclasses && level.gamesSubclasses.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-brown
+                                  <div className="mt-3 pt-3 border-t border-purple
 
 -300">
                                     <p className="text-xs text-purple

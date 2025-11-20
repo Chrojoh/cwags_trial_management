@@ -52,7 +52,16 @@ export interface TrialClass {
   class_order: number;
   class_status: string;
   notes?: string;
+
+  // ✅ Add this
+  trial_rounds?: TrialRound[]
+  trial_days?: {
+    trial_id: string;
+    day_number: number;
+    trial_date: string;
+};
 }
+
 
 export interface TrialRound {
   id?: string;
@@ -1153,6 +1162,7 @@ async getEntrySelections(entryId: string): Promise<OperationResult> {
   // Get all entries with their selections for a trial (for running order management)
 // Replace this function in your trial-operations-simple.ts file
 
+// Get all entries with their selections for a trial (for running order management)
 async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
   try {
     console.log('Getting trial entries with selections for trial ID:', trialId);
@@ -1181,6 +1191,7 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
           .from('entry_selections')
           .select(`
             *,
+            scores (*),
             trial_rounds!inner(
               id,
               trial_class_id,
@@ -1198,6 +1209,16 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
         // Get class information for each selection including Games subclass
         const selectionsWithClasses = await Promise.all(
           (selections || []).map(async (selection) => {
+            // ✅ SAFETY GUARD: some old data may be missing trial_rounds or trial_class_id
+            if (!selection.trial_rounds || !selection.trial_rounds.trial_class_id) {
+              console.warn(
+                'Skipping class enrichment for selection with missing trial_rounds.trial_class_id:',
+                selection.id
+              );
+              // Return the selection as-is so we don't crash the whole load
+              return selection;
+            }
+
             const { data: classData, error: classError } = await supabase
               .from('trial_classes')
               .select(`
@@ -1216,7 +1237,7 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
               .single();
 
             if (classError) {
-              console.error('Error getting class data:', classError);
+              console.error('Error getting class data for selection:', selection.id, classError);
               return selection;
             }
 
@@ -1238,7 +1259,9 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
     );
 
     console.log(`Found ${entries.length} entries with selections`);
-    console.log('Sample entry with selections:', entriesWithSelections[0]);
+    if (entriesWithSelections.length > 0) {
+      console.log('Sample entry with selections:', entriesWithSelections[0]);
+    }
     
     return { success: true, data: entriesWithSelections };
   } catch (error) {
@@ -1246,6 +1269,7 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 },
+
 
   // Update running positions for entry selections
   async updateRunningPositions(updates: { id: string; running_position: number }[]): Promise<OperationResult> {

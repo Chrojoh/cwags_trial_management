@@ -970,7 +970,7 @@ export default function PublicEntryForm() {
               <Button
   onClick={handleCwagsSubmit}
   disabled={registryLoading || !cwagsInputValue}
-  className="border-2 border-brown
+  className="border-2 border-purple
 
 -600 hover:bg-purple
 
@@ -1132,7 +1132,7 @@ export default function PublicEntryForm() {
   disabled={submitting || !formData.waiver_accepted}
   size="lg"
   className={`
-    min-w-[140px] shrink-0 border-2 border-brown
+    min-w-[140px] shrink-0 border-2 border-purple
 
 -600 
     hover:bg-purple
@@ -1283,7 +1283,7 @@ export default function PublicEntryForm() {
                                 <select
                                   value={formData.division_selections[round.id] || ''}
                                   onChange={(e) => handleDivisionChange(round.id, e.target.value)}
-                                  className="h-9 px-3 border-2 border-brown
+                                  className="h-9 px-3 border-2 border-purple
 
 -300 rounded-md text-sm font-medium bg-purple
 
@@ -1291,7 +1291,7 @@ export default function PublicEntryForm() {
 
 -100 focus:outline-none focus:ring-2 focus:ring-purple
 
--500 focus:border-brown
+-500 focus:border-purple
 
 -500"
                                   required

@@ -139,7 +139,7 @@ See you at the trial!`;
 
           <button
             onClick={() => setShowQR(!showQR)}
-            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-brown
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-white border-2 border-gray-200 rounded-lg hover:border-purple
 
 -300 hover:bg-purple
 

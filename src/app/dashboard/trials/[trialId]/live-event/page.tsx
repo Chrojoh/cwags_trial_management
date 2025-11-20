@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import DigitalScoreEntry from '@/components/trials/DigitalScoreEntry';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
@@ -265,6 +266,7 @@ export default function LiveEventManagementPage() {
   const [classEntries, setClassEntries] = useState<ClassEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDigitalScoreEntry, setShowDigitalScoreEntry] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -1545,7 +1547,7 @@ const exportScoreSheetsForDay = async (dayId: string) => {
 
       // Row 4: ROUND and JUDGE
       const roundText = `Round ${round.round_number || 1}`;
-      wsData.push(['', '', '', '', 'ROUND:', '', roundText, '', '', '', '', '', '', '', 'JUDGE:', '', round.judge_name, '', '', '']);
+      wsData.push(['', '', '', '', 'ROUND:', '', roundText, '', '', '', 'JUDGE:', '', round.judge_name, '', '', '']);
 
       // Row 5: Empty
       wsData.push([...emptyRow]);
@@ -1615,8 +1617,8 @@ const exportScoreSheetsForDay = async (dayId: string) => {
         { s: { r: 3, c: 6 }, e: { r: 3, c: 8 } },    // G4:I4 round name
         
         // Row 4: JUDGE O4:P4 (label), Q4:T4 (judge name)
-        { s: { r: 3, c: 14 }, e: { r: 3, c: 15 } },  // O4:P4 JUDGE:
-        { s: { r: 3, c: 16 }, e: { r: 3, c: 19 } },  // Q4:T4 judge name
+        { s: { r: 3, c: 10 }, e: { r: 3, c: 11 } },  // O4:P4 JUDGE:
+        { s: { r: 3, c: 12 }, e: { r: 3, c: 19 } },  // Q4:T4 judge name
 
         // Row 6: Scent headers
         { s: { r: 5, c: 0 }, e: { r: 5, c: 4 } },    // A6:E6 Scent 1
@@ -2171,6 +2173,13 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>You must be logged in to access this page.</AlertDescription>
         </Alert>
+      {showDigitalScoreEntry && selectedClass && (
+        <DigitalScoreEntry
+  selectedClass={selectedClass}
+  trial={trial}
+/>
+
+      )}
       </MainLayout>
     );
   }
@@ -2309,43 +2318,57 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 
             
             {dayKeys.map((dayKey) => (
-              <TabsContent key={dayKey} value={dayKey}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {classesByDay[dayKey].map((cls) => (
-                    <div
-                      key={cls.id}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                        selectedClass?.id === cls.id
-                          ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => setSelectedClass(cls)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{cls.class_name}</h3>
-                          <p className="text-sm text-gray-600">Judge: {cls.judge_name}</p>
-                          <p className="text-xs text-gray-500">Type: {cls.class_type}</p>
-                          {cls.class_type === 'games' && cls.games_subclass && (
-                            <div className="mt-1">
-                              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                <Trophy className="h-3 w-3 mr-1" />
-                                {cls.games_subclass}
-                              </Badge>
-                            </div>
-                          )}
-                        </div>
-                        <div className="ml-2">
-                          <Badge variant="outline">
-                            {classCounts[cls.id] || 0} entries
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+  <TabsContent key={dayKey} value={dayKey}>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {classesByDay[dayKey].map((cls) => (
+        <div
+          key={cls.id}
+          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+            selectedClass?.id === cls.id
+              ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
+              : 'border-gray-200 hover:bg-gray-50'
+          }`}
+          onClick={() => setSelectedClass(cls)}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h3 className="font-semibold text-gray-900">{cls.class_name}</h3>
+              <p className="text-sm text-gray-600">Judge: {cls.judge_name}</p>
+
+              {/* NEW — Add rounds */}
+              {cls.trial_rounds && cls.trial_rounds.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  Rounds: {cls.trial_rounds.map(r => r.round_number).join(", ")}
+                </p>
+              )}
+
+              <p className="text-xs text-gray-500">Type: {cls.class_type}</p>
+
+              {cls.class_type === 'games' && cls.games_subclass && (
+                <div className="mt-1">
+                  <Badge
+                    variant="outline"
+                    className="bg-purple-50 text-purple-700 border-purple-200"
+                  >
+                    <Trophy className="h-3 w-3 mr-1" />
+                    {cls.games_subclass}
+                  </Badge>
                 </div>
-              </TabsContent>
-            ))}
+              )}
+            </div>
+
+            <div className="ml-2">
+              <Badge variant="outline">
+                {classCounts[cls.id] || 0} entries
+              </Badge>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </TabsContent>
+))}
+
           </Tabs>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2587,362 +2610,8 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     
 
     <TabsContent value="scoring" className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="h-5 w-5 text-green-600" />
-                <span>{selectedClass.class_name} - Score Entry</span>
-              </CardTitle>
-              <CardDescription className="flex items-center space-x-4">
-                <span>Enter scores as judge sheets are returned</span>
-                {selectedClass.class_type === 'games' && selectedClass.games_subclass && (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                    <Trophy className="h-3 w-3 mr-1" />
-                    Games: {selectedClass.games_subclass} (Pass = {selectedClass.games_subclass})
-                  </Badge>
-                )}
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button onClick={saveAllScores} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Save All Scores
-              </Button>
-              <Button variant="outline" onClick={exportScores}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddEntryModal(true)}>
-                <Users className="h-4 w-4 mr-2" />
-                Add Entry
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {classEntries.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No entries for this class</p>
-            </div>
-          ) : (
-            // GROUP SCORING BY ROUND TOO
-            (() => {
-              const entriesByRound = classEntries.reduce((acc, entry) => {
-                const roundKey = `Round ${entry.round_number}`;
-                if (!acc[roundKey]) acc[roundKey] = [];
-                acc[roundKey].push(entry);
-                return acc;
-              }, {} as Record<string, ClassEntry[]>);
-
-              const roundKeys = Object.keys(entriesByRound).sort((a, b) => {
-                const numA = parseInt(a.replace('Round ', ''));
-                const numB = parseInt(b.replace('Round ', ''));
-                return numA - numB;
-              });
-
-              return (
-                <div className="space-y-6">
-                  {roundKeys.map((roundKey) => {
-                    const roundEntries = entriesByRound[roundKey];
-                    const roundInfo = roundEntries[0];
-                    
-                    return (
-                      <div key={roundKey} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="mb-4 pb-3 border-b border-gray-200">
-                          <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-                            <Badge variant="outline" className="bg-green-100 text-green-800">
-                              {roundKey}
-                            </Badge>
-                            <span>
-                              {selectedClass?.class_name}
-                              {selectedClass?.games_subclass && ` - ${selectedClass.games_subclass}`}
-                            </span>
-                          </h3>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Judge: {roundInfo.trial_rounds.judge_name} • {roundEntries.length} entries
-                          </p>
-                        </div>
-
-                        <div className="space-y-4">
-                          {roundEntries.map((entry) => {
-                            const score = entry.scores?.[0] || {};
-                            
-                            return (
-                              <div key={entry.id} className="bg-white border rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-4">
-                                  <div className="flex items-center space-x-4">
-                                    <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
-                                      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-                                    </span>
-                                    <div>
-                                      <p className="font-semibold text-gray-900">
-                                        {entry.entries.handler_name}
-                                      </p>
-                                      <p className="text-sm text-gray-600">
-                                        {entry.entries.dog_call_name} • {entry.entries.cwags_number}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <Badge className={`${getEntryTypeColor(entry.entry_type)} border`}>
-                                      {entry.entry_type}
-                                    </Badge>
-                                    <Badge variant="outline">
-                                      {entry.entry_status}
-                                    </Badge>
-                                  </div>
-                                </div>
-
-{/* Scoring fields based on class type */}
-{selectedClass.class_type === 'scent' && (
-  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-    <div className="space-y-1">
-      <Label className="text-xs">Scent 1</Label>
-      <Select
-        value={score.scent1 || ''}
-        onValueChange={(value) => updateScore(entry.id, 'scent1', value)}
-        disabled={!canScore(entry)}
-      >
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder="-" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="Pass">Pass</SelectItem>
-          <SelectItem value="Fail">Fail</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div className="space-y-1">
-      <Label className="text-xs">Scent 2</Label>
-      <Select
-        value={score.scent2 || ''}
-        onValueChange={(value) => updateScore(entry.id, 'scent2', value)}
-        disabled={!canScore(entry)}
-      >
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder="-" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="Pass">Pass</SelectItem>
-          <SelectItem value="Fail">Fail</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div className="space-y-1">
-      <Label className="text-xs">Scent 3</Label>
-      <Select
-        value={score.scent3 || ''}
-        onValueChange={(value) => updateScore(entry.id, 'scent3', value)}
-        disabled={!canScore(entry)}
-      >
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder="-" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="Pass">Pass</SelectItem>
-          <SelectItem value="Fail">Fail</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-    <div className="space-y-1">
-      <Label className="text-xs">Scent 4</Label>
-      <Select
-        value={score.scent4 || ''}
-        onValueChange={(value) => updateScore(entry.id, 'scent4', value)}
-        disabled={!canScore(entry)}
-      >
-        <SelectTrigger className="h-8">
-          <SelectValue placeholder="-" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-          <SelectItem value="Pass">Pass</SelectItem>
-          <SelectItem value="Fail">Fail</SelectItem>
-        </SelectContent>
-      </Select>
-    </div>
-  </div>
-)}
-
-                                {(selectedClass.class_type === 'rally' || isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name)) && (
-                                  <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Time (seconds)</Label>
-                                      <Input
-                                        type="number"
-                                        className="h-8"
-                                        value={score.time_seconds || ''}
-                                        onChange={(e) => updateScore(entry.id, 'time_seconds', parseFloat(e.target.value) || null)}
-                                        placeholder="0"
-                                        disabled={!canScore(entry)}
-                                      />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-xs">Score</Label>
-                                      <Input
-                                        type="number"
-                                        className="h-8"
-                                        value={score.numerical_score || ''}
-                                        onChange={(e) => updateScore(entry.id, 'numerical_score', parseFloat(e.target.value) || null)}
-                                        placeholder="0"
-                                        disabled={!canScore(entry)}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {selectedClass.class_type === 'games' && (
-                                  <div className="space-y-4 mb-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Time (seconds)</Label>
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          className="h-8"
-                                          value={score.time_seconds || ''}
-                                          onChange={(e) => updateScore(entry.id, 'time_seconds', parseFloat(e.target.value) || null)}
-                                          placeholder="0.00"
-                                          disabled={!canScore(entry)}
-                                        />
-                                      </div>
-                                      <div className="space-y-1">
-                                        <Label className="text-xs">Faults</Label>
-                                        <Input
-                                          type="number"
-                                          className="h-8"
-                                          value={score.fault1 || ''}
-                                          onChange={(e) => updateScore(entry.id, 'fault1', e.target.value)}
-                                          placeholder="0"
-                                          disabled={!canScore(entry)}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                  <div className="space-y-1">
-    <Label className="text-xs">Entry Type</Label>
-    <Select
-      value={entry.entry_type || 'regular'}
-      onValueChange={(value) => updateEntryField(entry.id, 'entry_type', value)}
-    >
-      <SelectTrigger className="h-8">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-        <SelectItem value="regular">Regular</SelectItem>
-        <SelectItem value="feo">FEO</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Result</Label>
-                                    {canScore(entry) ? (
-                                      (() => {
-                                        const isRallyObedience = selectedClass && isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name);
-                                        
-                                        if (isRallyObedience) {
-                                          // For rally/obedience, show calculated result based on score
-                                          const score = entry.scores?.[0];
-                                          let displayResult = '-';
-                                          
-                                          if (score?.numerical_score !== null && score?.numerical_score !== undefined) {
-                                            const passingScore = getPassingScore(selectedClass.class_name);
-                                            displayResult = score.numerical_score >= passingScore 
-                                              ? score.numerical_score.toString() 
-                                              : 'NQ';
-                                          }
-                                          
-                                          return (
-                                            <div className="h-8 px-3 py-2 bg-gray-100 border rounded text-sm text-gray-700 flex items-center">
-                                              {displayResult} 
-                                              {score?.numerical_score !== null && score?.numerical_score !== undefined && (
-                                                <span className="ml-2 text-xs text-gray-500">
-                                                  (Passing: {getPassingScore(selectedClass.class_name)}+)
-                                                </span>
-                                              )}
-                                            </div>
-                                          );
-                                        } else {
-                                          // For other class types, show dropdown
-                                          return (
-                                            <Select
-                                              value={score.pass_fail || ''}
-                                              onValueChange={(value) => updateScore(entry.id, 'pass_fail', value)}
-                                            >
-                                              <SelectTrigger className="h-8">
-                                                <SelectValue placeholder="Select result..." />
-                                              </SelectTrigger>
-                                              <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                                                <SelectItem value="Pass">Pass</SelectItem>
-                                                <SelectItem value="Fail">Fail</SelectItem>
-                                                {selectedClass.class_type === 'games' && selectedClass.games_subclass && (
-                                                  <SelectItem value={selectedClass.games_subclass.toLowerCase()}>
-                                                    {selectedClass.games_subclass}
-                                                  </SelectItem>
-                                                )}
-                                              </SelectContent>
-                                            </Select>
-                                          );
-                                        }
-                                      })()
-                                    ) : (
-                                      <div className="h-8 px-3 py-2 bg-gray-100 border rounded text-sm text-gray-500 flex items-center">
-                                        Abs (No Show)
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Label className="text-xs">Status</Label>
-                                    <Select
-                                      value={entry.entry_status}
-                                      onValueChange={(value) => updateEntryField(entry.id, 'entry_status', value)}
-                                    >
-                                      <SelectTrigger className="h-8">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                     <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                                        <SelectItem value="entered">Present</SelectItem>
-                                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                                        <SelectItem value="no_show">No Show (Absent)</SelectItem>
-                                        <SelectItem value="withdrawn">Withdrawn</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                </div>
-
-                                <div className="space-y-1">
-                                  <Label className="text-xs">Judge Notes</Label>
-                                  <Textarea
-                                    className="h-16 text-xs"
-                                    value={score.judge_notes || ''}
-                                    onChange={(e) => updateScore(entry.id, 'judge_notes', e.target.value)}
-                                    placeholder="Optional notes..."
-                                    disabled={!canScore(entry)}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()
-          )}
-        </CardContent>
-      </Card>
-    </TabsContent>
+  <DigitalScoreEntry selectedClass={selectedClass} trial={trial} />
+</TabsContent>
   </Tabs>
 )}
 
