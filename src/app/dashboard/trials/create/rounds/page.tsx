@@ -13,17 +13,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Users, UserCheck, ArrowRight, ArrowLeft, Save, Plus, Trash2, Edit } from 'lucide-react';
+import { Clock, Users, UserCheck, ArrowRight, ArrowLeft, Save, Plus, Trash2, Edit, Settings } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
-interface Judge {
+// Remove the local Judge interface - use the database structure
+interface DatabaseJudge {
   id: string;
   name: string;
   email: string;
-  level: string;
+  phone?: string;
   city: string;
   province_state: string;
   country: string;
+  level?: string;
+  obedience_levels?: string[];
+  rally_levels?: string[];
+  games_levels?: string[];
+  scent_levels?: string[];
   is_active: boolean;
 }
 
@@ -75,17 +81,18 @@ function CreateRoundsPageContent() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
-  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: Judge[] }>({});
+  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: DatabaseJudge[] }>({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [rounds, setRounds] = useState<{ [classId: string]: RoundData[] }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   // Sort judges by proximity to trial location
-  const sortJudgesByProximity = (judges: Judge[], trialData: Trial): Judge[] => {
-    if (!trialData?.location) return judges.sort((a, b) => a.name.localeCompare(b.name));
+  const sortJudgesByProximity = (judges: DatabaseJudge[], trialData: Trial): DatabaseJudge[] => {
+    if (!trialData?.location) return judges.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     
     const locationParts = trialData.location.split(',').map(part => part.trim());
-    const trialProvinceState = locationParts.length >= 2 ? locationParts[locationParts.length - 2] : '';
+    const trialProvinceState = locationParts.length >= 2 ? 
+      locationParts[locationParts.length - 2] : '';
     
     return judges.sort((a, b) => {
       const aIsLocal = a.province_state === trialProvinceState;
@@ -94,9 +101,25 @@ function CreateRoundsPageContent() {
       if (aIsLocal && !bIsLocal) return -1;
       if (!aIsLocal && bIsLocal) return 1;
       
-      return a.name.localeCompare(b.name);
+      return (a.name || '').localeCompare(b.name || '');
     });
   };
+const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): DatabaseJudge[] => {
+  return judges.filter(judge => {
+    switch (classType.toLowerCase()) {
+      case 'scent':
+        return judge.scent_levels && judge.scent_levels.length > 0;
+      case 'rally':
+        return judge.rally_levels && judge.rally_levels.length > 0;
+      case 'obedience':
+        return judge.obedience_levels && judge.obedience_levels.length > 0;
+      case 'games':
+        return judge.games_levels && judge.games_levels.length > 0;
+      default:
+        return true;
+    }
+  });
+};
 
   useEffect(() => {
     if (trialId) {
@@ -104,7 +127,6 @@ function CreateRoundsPageContent() {
     } else {
       setInitialLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trialId]);
 
   const loadTrialData = async () => {
@@ -131,17 +153,7 @@ function CreateRoundsPageContent() {
         try {
           const dayClassesResult = await simpleTrialOperations.getTrialClasses(day.id);
           if (dayClassesResult.success && dayClassesResult.data) {
-            interface ClassData {
-              id: string;
-              class_name: string;
-              class_level: string;
-              class_type: string;
-              subclass: string;
-              max_entries: number;
-              [key: string]: any;
-            }
-
-            const dayClasses = dayClassesResult.data.map((cls: ClassData) => ({
+            const dayClasses = dayClassesResult.data.map((cls: any) => ({
               id: cls.id,
               class_name: cls.class_name || '',
               class_level: cls.class_level || '',
@@ -164,37 +176,25 @@ function CreateRoundsPageContent() {
       setTrialClasses(allClasses);
 
       const judgesResult = await simpleTrialOperations.getAllJudges();
-      if (judgesResult.success) {
-        const allJudgesData = judgesResult.data || [];
-        
-        const qualifiedMap: { [classId: string]: Judge[] } = {};
-        for (const cls of allClasses) {
-          const sortedJudges = sortJudgesByProximity(allJudgesData, trialResult.data);
-          qualifiedMap[cls.id] = sortedJudges;
-        }
-        setQualifiedJudges(qualifiedMap);
-      }
+if (judgesResult.success) {
+  const allJudgesData = judgesResult.data || [];
+  
+  const qualifiedMap: { [classId: string]: DatabaseJudge[] } = {};
+  for (const cls of allClasses) {
+    // ✅ Filter by certification FIRST
+    const certifiedJudges = filterJudgesByClassType(allJudgesData, cls.class_type);
+    // Then sort by proximity
+    const sortedJudges = sortJudgesByProximity(certifiedJudges, trialResult.data);
+    qualifiedMap[cls.id] = sortedJudges;
+  }
+  setQualifiedJudges(qualifiedMap);
+}
 
       const roundsData: { [classId: string]: RoundData[] } = {};
       for (const cls of allClasses) {
         const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
         if (roundsResult.success && roundsResult.data && roundsResult.data.length > 0) {
-          interface RoundResult {
-            id: string;
-            round_number: number;
-            judge_name: string;
-            judge_email: string;
-            start_time: string;
-            estimated_duration: string;
-            max_entries: number;
-            has_reset: boolean;
-            reset_judge_name: string;
-            reset_judge_email: string;
-            notes: string;
-            [key: string]: any;
-          }
-
-          roundsData[cls.id] = roundsResult.data.map((round: RoundResult) => ({
+          roundsData[cls.id] = roundsResult.data.map((round: any) => ({
             id: round.id,
             round_number: round.round_number || 1,
             judge_name: round.judge_name || '',
@@ -245,7 +245,7 @@ function CreateRoundsPageContent() {
       ...prev,
       [classId]: prev[classId]?.map((round, idx) => 
         idx === roundIndex 
-          ? { ...round, judge_name: judge.name, judge_email: judge.email }
+          ? { ...round, judge_name: judge.name || '', judge_email: judge.email || '' }
           : round
       ) || []
     }));
@@ -260,8 +260,17 @@ function CreateRoundsPageContent() {
       ...prev,
       [classId]: prev[classId]?.map((round, idx) => 
         idx === roundIndex 
-          ? { ...round, reset_judge_name: judge.name, reset_judge_email: judge.email }
+          ? { ...round, reset_judge_name: judge.name || '', reset_judge_email: judge.email || '' }
           : round
+      ) || []
+    }));
+  };
+
+  const handleRoundChange = (classId: string, roundIndex: number, field: keyof RoundData, value: any) => {
+    setRounds(prev => ({
+      ...prev,
+      [classId]: prev[classId]?.map((round, idx) => 
+        idx === roundIndex ? { ...round, [field]: value } : round
       ) || []
     }));
   };
@@ -280,29 +289,18 @@ function CreateRoundsPageContent() {
       reset_judge_email: '',
       notes: ''
     };
-
+    
     setRounds(prev => ({
       ...prev,
-      [classId]: [...classRounds, newRound]
+      [classId]: [...(prev[classId] || []), newRound]
     }));
   };
 
   const removeRound = (classId: string, roundIndex: number) => {
     setRounds(prev => ({
       ...prev,
-      [classId]: (prev[classId] || []).filter((_, idx) => idx !== roundIndex)
-        .map((round, idx) => ({ ...round, round_number: idx + 1 }))
-    }));
-  };
-
-  const updateRoundField = (classId: string, roundIndex: number, field: keyof RoundData, value: string | number | boolean) => {
-    setRounds(prev => ({
-      ...prev,
-      [classId]: (prev[classId] || []).map((round, idx) => 
-        idx === roundIndex 
-          ? { ...round, [field]: value }
-          : round
-      )
+      [classId]: prev[classId]?.filter((_, idx) => idx !== roundIndex)
+        .map((round, idx) => ({ ...round, round_number: idx + 1 })) || []
     }));
   };
 
@@ -310,112 +308,72 @@ function CreateRoundsPageContent() {
     const newErrors: { [key: string]: string } = {};
     let isValid = true;
 
-    for (const [classId, classRounds] of Object.entries(rounds)) {
+    Object.entries(rounds).forEach(([classId, classRounds]) => {
       classRounds.forEach((round, idx) => {
-        const key = `${classId}-${idx}`;
-        
-        if (!round.judge_name.trim()) {
-          newErrors[`${key}-judge`] = 'Judge is required';
+        if (!round.judge_name || !round.judge_email) {
+          newErrors[`${classId}-${idx}-judge`] = 'Judge is required';
           isValid = false;
         }
-
-        if (round.has_reset && !round.reset_judge_name.trim()) {
-          newErrors[`${key}-reset-judge`] = 'Reset judge is required when reset is enabled';
+        if (round.has_reset && (!round.reset_judge_name || !round.reset_judge_email)) {
+          newErrors[`${classId}-${idx}-reset-judge`] = 'Reset judge is required when reset is enabled';
           isValid = false;
         }
       });
-    }
+    });
 
     setErrors(newErrors);
     return isValid;
   };
 
-  const saveRounds = async () => {
-    if (!validateRounds()) {
-      alert('Please fix validation errors before saving.');
-      return;
-    }
+ const handleSave = async () => {
+  if (!validateRounds()) {
+    alert('Please fix the errors before saving.');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      for (const [classId, classRounds] of Object.entries(rounds)) {
-        if (classRounds.length === 0) continue;
+  setLoading(true);
+  try {
+    for (const [classId, classRounds] of Object.entries(rounds)) {
+      const roundsData = classRounds.map(round => ({
+        id: round.id,
+        round_number: round.round_number,
+        judge_name: round.judge_name,
+        judge_email: round.judge_email,
+        feo_available: true,
+        round_status: 'scheduled',
+        start_time: round.start_time || null,
+        estimated_duration: round.estimated_duration || null,
+        max_entries: round.max_entries,
+        has_reset: round.has_reset,
+        reset_judge_name: round.reset_judge_name || null,
+        reset_judge_email: round.reset_judge_email || null,
+        notes: round.notes || null
+      }));
 
-        const roundsToSave = classRounds.map(round => ({
-          round_number: round.round_number,
-          judge_name: round.judge_name,
-          judge_email: round.judge_email,
-          start_time: round.start_time || null,
-          estimated_duration: round.estimated_duration || null,
-          max_entries: round.max_entries,
-          has_reset: round.has_reset,
-          reset_judge_name: round.has_reset ? round.reset_judge_name : null,
-          reset_judge_email: round.has_reset ? round.reset_judge_email : null,
-          notes: round.notes || null,
-          round_status: 'draft'
-        }));
-
-        const result = await simpleTrialOperations.saveTrialRounds(classId, roundsToSave);
-        if (!result.success) {
-          console.error(`Error saving rounds for class ${classId}:`, result.error);
-          alert(`Error saving rounds: ${String(result.error || 'Unknown error')}`);
-          return;
-        }
-      }
-
-      alert('Rounds saved successfully!');
-
-    } catch (error) {
-      console.error('Error saving rounds:', error);
-      alert('Error saving rounds. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (!validateRounds() || !trialId) return;
-
-    setLoading(true);
-    try {
-      for (const [classId, classRounds] of Object.entries(rounds)) {
-        if (classRounds.length === 0) continue;
-
-        const roundsToSave = classRounds.map(round => ({
-          round_number: round.round_number,
-          judge_name: round.judge_name,
-          judge_email: round.judge_email,
-          start_time: round.start_time || null,
-          estimated_duration: round.estimated_duration || null,
-          max_entries: round.max_entries,
-          has_reset: round.has_reset,
-          reset_judge_name: round.has_reset ? round.reset_judge_name : null,
-          reset_judge_email: round.has_reset ? round.reset_judge_email : null,
-          notes: round.notes || null,
-          round_status: 'draft'
-        }));
-
-        const result = await simpleTrialOperations.saveTrialRounds(classId, roundsToSave);
-        if (!result.success) {
-          console.error(`Error saving rounds for class ${classId}:`, result.error);
-          alert(`Error saving rounds: ${String(result.error || 'Unknown error')}`);
-          return;
-        }
-      }
-
-      if (isEditMode) {
-        router.push(`/dashboard/trials/${trialId}`);
-      } else {
-        router.push(`/dashboard/trials/create/summary?trialId=${trialId}`);
-      }
+      const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
       
-    } catch (error) {
-      console.error('Error saving rounds:', error);
-      alert('Error saving rounds. Please try again.');
-    } finally {
-      setLoading(false);
+      if (!result.success) {
+        // ✅ FIX: Convert error to string if it's an object
+        const errorMessage = typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || 'Failed to save rounds';
+        throw new Error(errorMessage);
+      }
     }
-  };
+
+    alert('Rounds saved successfully!');
+    if (!isEditMode) {
+      router.push(`/dashboard/trials/${trialId}`);
+    } else {
+      await loadTrialData();
+    }
+  } catch (error) {
+    console.error('Error saving rounds:', error);
+    alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleBack = () => {
     if (isEditMode) {
@@ -423,6 +381,10 @@ function CreateRoundsPageContent() {
     } else {
       router.push(`/dashboard/trials/create/levels?trial=${trialId}`);
     }
+  };
+
+  const handleManageJudges = () => {
+    router.push('/dashboard/judges');
   };
 
   if (!user) {
@@ -504,14 +466,27 @@ function CreateRoundsPageContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{trial.trial_name}</CardTitle>
-            <CardDescription>
-              {trial.location} • {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>{trial.trial_name}</CardTitle>
+                <CardDescription>
+                  {trial.location} • {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleManageJudges}
+                className="flex items-center space-x-2"
+              >
+                <Settings className="h-4 w-4" />
+                <span>Manage Judges</span>
+              </Button>
+            </div>
           </CardHeader>
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Class Selection Sidebar */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -548,54 +523,56 @@ function CreateRoundsPageContent() {
                           {classRoundCount} round{classRoundCount !== 1 ? 's' : ''}
                         </Badge>
                         {hasJudges && (
-                          <Badge variant="outline" className="text-xs">
-                            <UserCheck className="h-3 w-3 mr-1" />
-                            Assigned
-                          </Badge>
+                          <UserCheck className="h-4 w-4 text-green-600" />
                         )}
                       </div>
                     </div>
                   </div>
                 );
               })}
-              
-              {trialClasses.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No classes configured
-                </p>
-              )}
             </CardContent>
           </Card>
 
-          <div className="lg:col-span-3">
-            {selectedClass ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center space-x-2">
-                        <Clock className="h-5 w-5" />
-                        <span>{selectedClass.class_name} - {selectedClass.class_level}</span>
-                      </CardTitle>
-                      <CardDescription>
-                        Configure rounds and assign judges for this class
-                      </CardDescription>
-                    </div>
-                    <Button
-                      onClick={() => addRound(selectedClassId)}
-                      size="default"
-                      className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md"
-                    >
-                      <Plus className="h-5 w-5" />
-                      <span>Add Round</span>
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-6">
+          {/* Rounds Configuration */}
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>
+                    {selectedClass ? `${selectedClass.class_name} - Rounds` : 'Select a class'}
+                  </CardTitle>
+                  {selectedClass && (
+                    <CardDescription>
+                      Configure rounds and assign judges for this class
+                    </CardDescription>
+                  )}
+                </div>
+                {selectedClass && (
+                  <Button
+                    onClick={() => addRound(selectedClassId)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Round
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!selectedClass ? (
+                <div className="text-center text-gray-500 py-8">
+                  Select a class from the left to configure its rounds and judges
+                </div>
+              ) : (
+                <div className="space-y-6">
                   {selectedClassRounds.map((round, roundIndex) => (
-                    <div key={roundIndex} className="border rounded-lg p-4 space-y-4">
+                    <div
+                      key={roundIndex}
+                      className="border rounded-lg p-4 space-y-4"
+                    >
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Round {round.round_number}</h4>
+                        <h3 className="font-semibold text-lg">Round {round.round_number}</h3>
                         {selectedClassRounds.length > 1 && (
                           <Button
                             onClick={() => removeRound(selectedClassId, roundIndex)}
@@ -608,24 +585,21 @@ function CreateRoundsPageContent() {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm font-semibold">Judge *</Label>
-                          <Select 
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2">
+                          <Label className="text-base font-semibold">Judge *</Label>
+                          <Select
                             value={qualifiedJudges[selectedClassId]?.find(j => j.name === round.judge_name)?.id || ''}
                             onValueChange={(judgeId) => handleJudgeSelect(selectedClassId, roundIndex, judgeId)}
                           >
-                            <SelectTrigger 
-                              className={`h-12 text-base font-medium border-2 ${
+                            <SelectTrigger
+                              className={`mt-1 text-base h-auto py-3 ${
                                 errors[`${selectedClassId}-${roundIndex}-judge`] 
                                   ? 'border-red-500 bg-red-50' 
                                   : 'border-gray-400 hover:border-orange-500 focus:border-orange-600'
                               }`}
                             >
-                              <SelectValue 
-                                placeholder="👤 Select a judge..." 
-                                className="text-gray-900"
-                              />
+                              <SelectValue placeholder="👤 Select a judge..." />
                             </SelectTrigger>
                             <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
                               {qualifiedJudges[selectedClassId] && qualifiedJudges[selectedClassId].length > 0 ? (
@@ -651,180 +625,132 @@ function CreateRoundsPageContent() {
                             </SelectContent>
                           </Select>
                           {errors[`${selectedClassId}-${roundIndex}-judge`] && (
-                            <p className="text-sm text-red-600 font-medium">
-                              ⚠️ {errors[`${selectedClassId}-${roundIndex}-judge`]}
+                            <p className="text-sm text-red-600 font-medium mt-1">
+                              {errors[`${selectedClassId}-${roundIndex}-judge`]}
                             </p>
                           )}
                         </div>
 
-                        <div className="space-y-2">
+                        <div>
                           <Label>Start Time</Label>
                           <Input
                             type="time"
                             value={round.start_time}
-                            onChange={(e) => updateRoundField(selectedClassId, roundIndex, 'start_time', e.target.value)}
+                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'start_time', e.target.value)}
                           />
                         </div>
 
-                        <div className="space-y-2">
+                        <div>
+                          <Label>Estimated Duration</Label>
+                          <Input
+                            placeholder="e.g., 2 hours"
+                            value={round.estimated_duration}
+                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'estimated_duration', e.target.value)}
+                          />
+                        </div>
+
+                        <div>
                           <Label>Max Entries</Label>
                           <Input
                             type="number"
-                            min="1"
-                            max="100"
                             value={round.max_entries}
-                            onChange={(e) => updateRoundField(selectedClassId, roundIndex, 'max_entries', parseInt(e.target.value) || 0)}
+                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'max_entries', parseInt(e.target.value))}
                           />
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-3 p-3 bg-gray-50 border-2 border-gray-300 rounded-lg">
+                        <div className="flex items-center space-x-2 pt-6">
                           <Checkbox
-                            id={`reset-${selectedClassId}-${roundIndex}`}
+                            id={`reset-${roundIndex}`}
                             checked={round.has_reset}
-                            onCheckedChange={(checked) => updateRoundField(selectedClassId, roundIndex, 'has_reset', checked)}
-                            className="w-6 h-6"
+                            onCheckedChange={(checked) => handleRoundChange(selectedClassId, roundIndex, 'has_reset', checked)}
                           />
-                          <Label 
-                            htmlFor={`reset-${selectedClassId}-${roundIndex}`}
-                            className="text-sm font-semibold cursor-pointer"
-                          >
-                            This round has a reset
+                          <Label htmlFor={`reset-${roundIndex}`} className="cursor-pointer">
+                            Has Reset Judge
                           </Label>
                         </div>
 
                         {round.has_reset && (
-                          <div className="space-y-2">
-                            <Label className="text-sm font-semibold">Reset Judge *</Label>
-                            <Select 
+                          <div className="col-span-2">
+                            <Label>Reset Judge *</Label>
+                            <Select
                               value={qualifiedJudges[selectedClassId]?.find(j => j.name === round.reset_judge_name)?.id || ''}
                               onValueChange={(judgeId) => handleResetJudgeSelect(selectedClassId, roundIndex, judgeId)}
                             >
-                              <SelectTrigger 
-                                className={`h-12 text-base font-medium border-2 ${
-                                  errors[`${selectedClassId}-${roundIndex}-reset-judge`]
+                              <SelectTrigger
+                                className={`mt-1 ${
+                                  errors[`${selectedClassId}-${roundIndex}-reset-judge`] 
                                     ? 'border-red-500 bg-red-50' 
-                                    : 'border-gray-400 hover:border-orange-500 focus:border-orange-600'
+                                    : ''
                                 }`}
                               >
-                                <SelectValue 
-                                  placeholder="👤 Select reset judge..." 
-                                  className="text-gray-900"
-                                />
+                                <SelectValue placeholder="Select reset judge..." />
                               </SelectTrigger>
-                              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
-                                {qualifiedJudges[selectedClassId] && qualifiedJudges[selectedClassId].length > 0 ? (
-                                  qualifiedJudges[selectedClassId].map((judge) => (
-                                    <SelectItem 
-                                      key={judge.id} 
-                                      value={judge.id}
-                                      className="text-base py-3 hover:bg-orange-100 focus:bg-orange-100 cursor-pointer"
-                                    >
-                                      <div className="w-full">
-                                        <div className="font-semibold text-gray-900">{judge.name}</div>
-                                        <div className="text-sm text-gray-600">
-                                          {judge.city}, {judge.province_state}
-                                        </div>
-                                      </div>
-                                    </SelectItem>
-                                  ))
-                                ) : (
-                                  <SelectItem value="loading" disabled className="text-gray-500">
-                                    No judges found
+                              <SelectContent>
+                                {qualifiedJudges[selectedClassId]?.map((judge) => (
+                                  <SelectItem key={judge.id} value={judge.id}>
+                                    {judge.name} - {judge.city}, {judge.province_state}
                                   </SelectItem>
-                                )}
+                                ))}
                               </SelectContent>
                             </Select>
                             {errors[`${selectedClassId}-${roundIndex}-reset-judge`] && (
-                              <p className="text-sm text-red-600 font-medium">
-                                ⚠️ {errors[`${selectedClassId}-${roundIndex}-reset-judge`]}
+                              <p className="text-sm text-red-600 mt-1">
+                                {errors[`${selectedClassId}-${roundIndex}-reset-judge`]}
                               </p>
                             )}
                           </div>
                         )}
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label>Round Notes</Label>
-                        <Textarea
-                          value={round.notes}
-                          onChange={(e) => updateRoundField(selectedClassId, roundIndex, 'notes', e.target.value)}
-                          placeholder="Any special notes for this round..."
-                          rows={2}
-                        />
+                        <div className="col-span-2">
+                          <Label>Notes</Label>
+                          <Textarea
+                            placeholder="Optional notes for this round..."
+                            value={round.notes}
+                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'notes', e.target.value)}
+                            rows={2}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
-
-                  {selectedClassRounds.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 mb-4">No rounds configured for this class</p>
-                      <Button 
-                        onClick={() => addRound(selectedClassId)}
-                        size="lg"
-                        className="bg-orange-600 hover:bg-orange-700 text-white font-semibold shadow-md"
-                      >
-                        <Plus className="h-5 w-5 mr-2" />
-                        Add First Round
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Select a class from the left to configure rounds and judges</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-6 border-t">
-          <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={saveRounds}
-              disabled={loading}
-              className="flex items-center space-x-2"
-            >
-              <Save className="h-4 w-4" />
-              <span>Save Rounds</span>
-            </Button>
-          </div>
-
-          <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={loading}
-              className="flex items-center space-x-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>{isEditMode ? 'Back to Trial' : 'Back to Levels'}</span>
-            </Button>
-            <Button
-              onClick={handleContinue}
-              disabled={loading || !trialId}
-              className="flex items-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <span>{isEditMode ? 'Save Changes' : 'Continue to Summary'}</span>
-                  {!isEditMode && <ArrowRight className="h-4 w-4" />}
-                </>
+                </div>
               )}
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Action Buttons */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex justify-between">
+              <Button
+                onClick={handleBack}
+                variant="outline"
+                disabled={loading}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={loading}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    {isEditMode ? 'Save Changes' : 'Save & Continue'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   );
@@ -833,14 +759,13 @@ function CreateRoundsPageContent() {
 export default function CreateRoundsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <MainLayout title="Loading...">
+        <div className="flex items-center justify-center min-h-64">
+          <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
         </div>
-      </div>
+      </MainLayout>
     }>
       <CreateRoundsPageContent />
     </Suspense>
-  )
+  );
 }

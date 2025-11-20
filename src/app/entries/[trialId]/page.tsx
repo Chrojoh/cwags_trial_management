@@ -209,10 +209,6 @@ export default function PublicEntryForm() {
         throw new Error('Failed to load trial information');
       }
 
-      if (!trialResult.data.entries_open) {
-        throw new Error('Entries are not currently open for this trial');
-      }
-
       setTrial(trialResult.data);
 
       const roundsResult = await simpleTrialOperations.getAllTrialRounds(trialId);
@@ -348,34 +344,67 @@ export default function PublicEntryForm() {
         
         console.log('Form populated with existing entry data and class selections');
       } else {
-        console.log('No existing entry found, checking C-WAGS registry...');
-        setExistingEntry(null);
-        
-        try {
-          const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
-          if (registryResult.success && registryResult.data) {
-            console.log('Found C-WAGS registry data:', registryResult.data);
-            setFormData(prev => ({
-              ...prev,
-              handler_name: registryResult.data.handler_name || '',
-              dog_call_name: registryResult.data.dog_call_name || '',
-              cwags_number: cwagsNumber
-            }));
-          } else {
-            console.log('No C-WAGS registry data found');
-            setFormData(prev => ({
-              ...prev,
-              cwags_number: cwagsNumber
-            }));
-          }
-        } catch (registryError) {
-          console.error('Error checking C-WAGS registry:', registryError);
-          setFormData(prev => ({
-            ...prev,
-            cwags_number: cwagsNumber
-          }));
-        }
-      }
+  console.log('No existing entry found, checking C-WAGS registry...');
+  setExistingEntry(null);
+  
+  try {
+    const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
+    if (registryResult.success && registryResult.data) {
+      console.log('Found C-WAGS registry data:', registryResult.data);
+      console.log('🧹 Clearing all selections for new entry');
+      
+      // ✅ FIXED: Clear ALL selections since this is a new entry for this trial
+      setFormData(prev => ({
+        ...prev,
+        handler_name: registryResult.data.handler_name || '',
+        dog_call_name: registryResult.data.dog_call_name || '',
+        cwags_number: cwagsNumber,
+        // Clear all round selections
+        selected_rounds: [],
+        feo_selections: [],
+        division_selections: {}
+      }));
+      
+      // Also clear the original form data
+      setOriginalFormData(null);
+      
+    } else {
+      console.log('No C-WAGS registry data found');
+      console.log('🧹 Clearing all selections for completely new dog');
+      
+      // ✅ FIXED: Also clear selections if dog not in registry
+      setFormData(prev => ({
+        ...prev,
+        cwags_number: cwagsNumber,
+        handler_name: '',
+        dog_call_name: '',
+        // Clear all round selections
+        selected_rounds: [],
+        feo_selections: [],
+        division_selections: {}
+      }));
+      
+      // Clear original form data
+      setOriginalFormData(null);
+    }
+  } catch (registryError) {
+    console.error('Error checking C-WAGS registry:', registryError);
+    console.log('🧹 Clearing all selections due to error');
+    
+    // ✅ FIXED: Clear on error too
+    setFormData(prev => ({
+      ...prev,
+      cwags_number: cwagsNumber,
+      // Clear all round selections
+      selected_rounds: [],
+      feo_selections: [],
+      division_selections: {}
+    }));
+    
+    // Clear original form data
+    setOriginalFormData(null);
+  }
+}
       
     } catch (error) {
       console.error('Error in C-WAGS lookup:', error);
@@ -633,75 +662,92 @@ export default function PublicEntryForm() {
           console.log(`✅ Deleted ${deleteIds.length} old selections`);
         }
       }
-      
-      // ADD
+      //ADD
       if (roundsToAdd.length > 0) {
-        const newSelections = roundsToAdd.map((roundId, index) => {
-          const round = trialRounds.find(r => r.id === roundId);
-          const isFeo = formData.feo_selections.includes(roundId);
-          const division = formData.division_selections[roundId] || null;
-          
-          let entryFee = round?.trial_classes?.entry_fee || 0;
-          let entryType = 'regular';
-          
-          if (isFeo && round?.trial_classes?.feo_price) {
-            entryFee = round.trial_classes.feo_price;
-            entryType = 'feo';
-          }
-          
-          return {
-            trial_round_id: roundId,
-            entry_type: entryType,
-            fee: entryFee,
-            running_position: (existingSelections?.length || 0) + index + 1,
-            entry_status: 'entered',
-            division: division
-          };
-        });
-        
-        const { error: insertError } = await supabase
-          .from('entry_selections')
-          .insert(newSelections.map(selection => ({
-            entry_id: primaryEntryId,
-            ...selection
-          })));
+  const newSelections = roundsToAdd.map((roundId, index) => {
+    const round = trialRounds.find(r => r.id === roundId);
+    const isFeo = formData.feo_selections.includes(roundId);
+    const division = formData.division_selections[roundId] || null;
+    
+    let entryFee = round?.trial_classes?.entry_fee || 0;
+    let entryType = 'regular';
+    
+    if (isFeo && round?.trial_classes?.feo_price) {
+      entryFee = round.trial_classes.feo_price;
+      entryType = 'feo';
+    }
+    
+    console.log(`📝 Creating selection for round ${roundId}:`, {
+      entry_type: entryType,
+      division: division,
+      fee: entryFee,
+      isFeo: isFeo
+    });
+    
+    return {
+      entry_id: primaryEntryId,  // ✅ CRITICAL: Must include entry_id
+      trial_round_id: roundId,
+      entry_type: entryType,
+      fee: entryFee,
+      running_position: (existingSelections?.length || 0) + index + 1,
+      entry_status: 'entered',
+      division: division  // ✅ Include division
+    };
+  });
+  
+  const { error: insertError } = await supabase
+    .from('entry_selections')
+    .insert(newSelections);
 
-        if (insertError) {
-          throw new Error('Failed to add new selections: ' + insertError.message);
-        }
-        
-        console.log(`✅ Added ${newSelections.length} new selections`);
-      }
+  if (insertError) {
+    throw new Error('Failed to add new selections: ' + insertError.message);
+  }
+  
+  console.log(`✅ Added ${newSelections.length} new selections`);
+}
       
       // UPDATE
       if (selectionsToUpdate.length > 0) {
-        for (const selection of selectionsToUpdate) {
-          const shouldBeFeo = formData.feo_selections.includes(selection.trial_round_id);
-          const round = trialRounds.find(r => r.id === selection.trial_round_id);
-          
-          let newFee = round?.trial_classes?.entry_fee || 0;
-          let newType = 'regular';
-          
-          if (shouldBeFeo && round?.trial_classes?.feo_price) {
-            newFee = round.trial_classes.feo_price;
-            newType = 'feo';
-          }
-          
-          const { error: updateError } = await supabase
-            .from('entry_selections')
-            .update({
-              entry_type: newType,
-              fee: newFee
-            })
-            .eq('id', selection.id);
-          
-          if (updateError) {
-            console.error('Error updating selection:', updateError);
-          }
-        }
-        
-        console.log(`✅ Updated ${selectionsToUpdate.length} selections`);
-      }
+  for (const selection of selectionsToUpdate) {
+    const shouldBeFeo = formData.feo_selections.includes(selection.trial_round_id);
+    const round = trialRounds.find(r => r.id === selection.trial_round_id);
+    
+    // Get the division for this round from formData
+    const division = formData.division_selections[selection.trial_round_id] || null;
+    
+    let newFee = round?.trial_classes?.entry_fee || 0;
+    let newType = 'regular';
+    
+    if (shouldBeFeo && round?.trial_classes?.feo_price) {
+      newFee = round.trial_classes.feo_price;
+      newType = 'feo';
+    }
+    
+    console.log(`🔄 Updating selection ${selection.id} for round ${selection.trial_round_id}:`, {
+      entry_type: newType,
+      division: division,
+      fee: newFee
+    });
+    
+    // ✅ FIX: Now updating division field along with entry_type and fee
+    const { error: updateError } = await supabase
+      .from('entry_selections')
+      .update({
+        entry_type: newType,
+        fee: newFee,
+        division: division  // ✅ ADDED: Update division field
+      })
+      .eq('id', selection.id);
+    
+    if (updateError) {
+      console.error('Error updating selection:', updateError);
+    } else {
+      console.log(`✅ Updated selection ${selection.id} - Type: ${newType}, Division: ${division || 'none'}`);
+    }
+  }
+  
+  console.log(`✅ Updated ${selectionsToUpdate.length} selections`);
+}
       
       // Recalculate total fee
       const { data: finalSelections, error: finalSelectionsError } = await supabase
@@ -804,40 +850,195 @@ export default function PublicEntryForm() {
     );
   }
 
-  if (success) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="max-w-2xl w-full">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-10 w-10 text-green-600" />
+// REPLACE the success section in src/app/entries/[trialId]/page.tsx
+// This shows detailed information about all selected classes
+
+if (success) {
+  // Build detailed list of selected classes
+  const selectedClassDetails = formData.selected_rounds.map(roundId => {
+    const round = trialRounds.find(r => r.id === roundId);
+    if (!round) return null;
+    
+    const isFeo = formData.feo_selections.includes(roundId);
+    const division = formData.division_selections[roundId];
+    const fee = isFeo && round.trial_classes?.feo_price 
+      ? round.trial_classes.feo_price 
+      : round.trial_classes?.entry_fee || 0;
+    
+    return {
+      className: round.trial_classes?.class_name || 'Unknown',
+      roundNumber: round.round_number || 1,
+      entryType: isFeo ? 'FEO' : 'Regular',
+      division: division || null,
+      fee: fee,
+      dayInfo: round.trial_classes?.trial_days?.trial_date 
+        ? new Date(round.trial_classes.trial_days.trial_date).toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+          })
+        : 'TBD'
+    };
+  }).filter((item): item is NonNullable<typeof item> => item !== null);
+
+  // Calculate total
+  const totalFee = selectedClassDetails.reduce((sum, item) => sum + (item?.fee || 0), 0);
+
+  // If updating, show what changed
+  const isUpdate = existingEntry !== null;
+  const changes = [];
+  
+  if (isUpdate && originalFormData) {
+    // Check for added rounds
+    const addedRounds = formData.selected_rounds.filter(
+      id => !originalFormData.selected_rounds.includes(id)
+    );
+    if (addedRounds.length > 0) {
+      changes.push(`Added ${addedRounds.length} class(es)`);
+    }
+    
+    // Check for removed rounds
+    const removedRounds = originalFormData.selected_rounds.filter(
+      id => !formData.selected_rounds.includes(id)
+    );
+    if (removedRounds.length > 0) {
+      changes.push(`Removed ${removedRounds.length} class(es)`);
+    }
+    
+    // Check for FEO changes
+    const feoChanges = formData.selected_rounds.filter(id => {
+      const wasFEO = originalFormData.feo_selections.includes(id);
+      const isFeo = formData.feo_selections.includes(id);
+      return wasFEO !== isFeo;
+    });
+    if (feoChanges.length > 0) {
+      changes.push(`Changed FEO status on ${feoChanges.length} class(es)`);
+    }
+    
+    // Check for division changes
+    const divisionChanges = formData.selected_rounds.filter(id => {
+      const oldDiv = originalFormData.division_selections[id];
+      const newDiv = formData.division_selections[id];
+      return oldDiv !== newDiv;
+    });
+    if (divisionChanges.length > 0) {
+      changes.push(`Changed division on ${divisionChanges.length} class(es)`);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <Card className="max-w-3xl w-full">
+        <CardHeader className="text-center">
+          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle className="h-10 w-10 text-green-600" />
+          </div>
+          <CardTitle className="text-2xl">
+            Entry {isUpdate ? 'Updated' : 'Submitted'} Successfully!
+          </CardTitle>
+          <CardDescription>
+            Your entry for {trial.trial_name} has been {isUpdate ? 'updated' : 'received'}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Basic Info */}
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h3 className="font-semibold text-orange-900 mb-2">Entry Information</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div><strong>Handler:</strong> {formData.handler_name}</div>
+              <div><strong>Dog:</strong> {formData.dog_call_name}</div>
+              <div><strong>C-WAGS Number:</strong> {formData.cwags_number}</div>
+              <div><strong>Total Classes:</strong> {formData.selected_rounds.length}</div>
             </div>
-            <CardTitle className="text-2xl">Entry {existingEntry ? 'Updated' : 'Submitted'} Successfully!</CardTitle>
-            <CardDescription>
-              Your entry for {trial.trial_name} has been {existingEntry ? 'updated' : 'received'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="font-semibold text-orange-900 mb-2">Entry Details</h3>
-              <div className="space-y-1 text-sm">
-                <p><strong>Handler:</strong> {formData.handler_name}</p>
-                <p><strong>Dog:</strong> {formData.dog_call_name}</p>
-                <p><strong>C-WAGS Number:</strong> {formData.cwags_number}</p>
-                <p><strong>Classes Selected:</strong> {formData.selected_rounds.length}</p>
+          </div>
+
+          {/* Changes Summary (if update) */}
+          {isUpdate && changes.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-900 mb-2">Changes Made</h3>
+              <ul className="text-sm space-y-1">
+                {changes.map((change, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <span className="text-blue-600">•</span>
+                    {change}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Detailed Class List */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">
+              {isUpdate ? 'Current Class Selections' : 'Classes Selected'}
+            </h3>
+            <div className="space-y-2">
+              {selectedClassDetails.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200"
+                >
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">
+                      {item?.className || 'Unknown'} - Round {item?.roundNumber || 1}
+                    </div>
+                    <div className="text-sm text-gray-600 flex items-center gap-3 mt-1">
+                      <span>{item?.dayInfo || 'TBD'}</span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        item?.entryType === 'FEO' 
+                          ? 'bg-purple-100 text-purple-700' 
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {item?.entryType || 'Regular'}
+                      </span>
+                      {item?.division && (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                          Division {item.division}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-900">
+                      ${(item?.fee || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Total */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-gray-900">Total Entry Fee:</span>
+                <span className="text-xl font-bold text-orange-600">
+                  ${totalFee.toFixed(2)}
+                </span>
               </div>
             </div>
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="w-full"
-            >
-              Submit Another Entry
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+          </div>
+
+          {/* Payment Status */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm text-yellow-900">
+              <strong>Payment Status:</strong> Pending
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              Please contact the trial secretary for payment instructions.
+            </p>
+          </div>
+
+          <Button 
+            onClick={() => window.location.reload()} 
+            className="w-full"
+          >
+            Submit Another Entry
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -1201,7 +1402,12 @@ export default function PublicEntryForm() {
                             const isFeo = formData.feo_selections.includes(round.id);
                             const regularFee = round.trial_classes?.entry_fee || 0;
                             const feoFee = round.trial_classes?.feo_price || 0;
-                            const showFeoOptions = round.trial_classes?.feo_available || round.feo_available;
+                            const showFeoOptions = (
+  (round.trial_classes?.feo_available || round.feo_available) && 
+  round.trial_classes?.feo_price !== undefined && 
+  round.trial_classes?.feo_price !== null &&
+  round.trial_classes?.feo_price > 0
+);
 
                             return (
                               <div 

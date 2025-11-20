@@ -12,8 +12,10 @@ import {
   Calendar,
   Users,
   Trophy,
+  TrendingUp,
   Clock,
   Plus,
+  UserCheck,
   Settings,
   CheckCircle,
   AlertCircle,
@@ -326,18 +328,18 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="h-5 w-5 text-orange-600" />
-                <span>Quick Actions</span>
-              </CardTitle>
-              <CardDescription>
-                Common tasks and shortcuts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
+         {/* Quick Actions */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center space-x-2">
+      <Settings className="h-5 w-5 text-orange-600" />
+      <span>Quick Actions</span>
+    </CardTitle>
+    <CardDescription>
+      Common tasks and shortcuts
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-3">
   <Button 
     onClick={() => router.push('/dashboard/trials/create')}
     className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
@@ -354,8 +356,17 @@ export default function DashboardPage() {
     <Calendar className="h-4 w-4 mr-2" />
     Manage Trials
   </Button>
+
+  <Button 
+    variant="outline" 
+    onClick={() => router.push('/dashboard/judges')}
+    className="w-full justify-start"
+  >
+    <UserCheck className="h-4 w-4 mr-2" />
+    Manage Judges
+  </Button>
 </CardContent>
-          </Card>
+</Card>
         </div>
 
         {/* Recent Activity Section */}

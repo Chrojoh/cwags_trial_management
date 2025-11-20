@@ -496,7 +496,7 @@ export default function CreateTrialPage() {
                         <SelectTrigger className={errors.country ? 'border-red-500' : ''}>
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {Object.keys(LOCATIONS).map((country) => (
                             <SelectItem key={country} value={country}>
                               {country}
@@ -523,7 +523,7 @@ export default function CreateTrialPage() {
                             'Select country first'
                           } />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {trialData.country && LOCATIONS[trialData.country as keyof typeof LOCATIONS]?.map((location) => (
                             <SelectItem key={location.code} value={location.code}>
                               {location.name} ({location.code})

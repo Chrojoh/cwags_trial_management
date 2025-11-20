@@ -1,9 +1,8 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+// import { Inter } from "next/font/google"  // ← Commented out
 import "./globals.css"
-// import { TimezoneProvider } from '@/contexts/timezone-context'  // Comment out temporarily
 
-const inter = Inter({ subsets: ["latin"] })
+// const inter = Inter({ subsets: ["latin"] })  // ← Commented out
 
 export const metadata: Metadata = {
   title: "C-WAGS Trial Management System",
@@ -17,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className="antialiased">  {/* ← Changed to just "antialiased" */}
         {children}
       </body>
     </html>

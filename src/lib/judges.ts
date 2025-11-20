@@ -1,42 +1,29 @@
 // src/lib/judges.ts
 // Judge utilities for C-WAGS Trial Management System
-// Supporting functions for judge selection and management
 
 import { createClient } from '@supabase/supabase-js';
+import type { Judge, JudgeFormData } from '../types/judge';
 
-const supabase = getSupabaseBrowser(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Judge interface matching database structure
-export interface Judge {
-  id: string;
-  first_name: string;
-  last_name: string;
-  city: string;
-  state_province: string;
-  country: string;
-  email: string;
-  phone?: string;
-  obedience_levels: string[];
-  rally_levels: string[];
-  games_levels: string[];
-  scent_levels: string[];
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Judge search filters
-export interface JudgeFilters {
-  country?: string;
-  state_province?: string;
-  city?: string;
-  specialization?: 'obedience' | 'rally' | 'games' | 'scent';
-  level?: string;
-  is_active?: boolean;
-  search_term?: string; // For name/email search
+/**
+ * Get all judges
+ */
+export async function getAllJudges(): Promise<Judge[]> {
+  const { data, error } = await supabase
+    .from('judges')
+    .select('*')
+    .order('name');
+
+  if (error) {
+    console.error('Error fetching judges:', error);
+    throw new Error('Failed to fetch judges');
+  }
+
+  return data || [];
 }
 
 /**
@@ -47,113 +34,11 @@ export async function getActiveJudges(): Promise<Judge[]> {
     .from('judges')
     .select('*')
     .eq('is_active', true)
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
+    .order('name');
 
   if (error) {
     console.error('Error fetching active judges:', error);
     throw new Error('Failed to fetch judges');
-  }
-
-  return data || [];
-}
-
-/**
- * Get judges by specialization and level
- */
-export async function getJudgesBySpecialization(
-  specialization: 'obedience' | 'rally' | 'games' | 'scent',
-  level?: string
-): Promise<Judge[]> {
-  let query = supabase
-    .from('judges')
-    .select('*')
-    .eq('is_active', true);
-
-  // Filter by specialization
-  const columnMap = {
-    obedience: 'obedience_levels',
-    rally: 'rally_levels',
-    games: 'games_levels',
-    scent: 'scent_levels'
-  };
-
-  const column = columnMap[specialization];
-  
-  if (level) {
-    // Check if the specific level is in the array
-    query = query.contains(column, [level]);
-  } else {
-    // Check if the array is not empty
-    query = query.not(column, 'is', null);
-  }
-
-  query = query
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching judges by specialization:', error);
-    throw new Error('Failed to fetch judges');
-  }
-
-  return data || [];
-}
-
-/**
- * Get judges by geographic location
- */
-export async function getJudgesByLocation(
-  country?: string,
-  state_province?: string,
-  city?: string
-): Promise<Judge[]> {
-  let query = supabase
-    .from('judges')
-    .select('*')
-    .eq('is_active', true);
-
-  if (country) {
-    query = query.eq('country', country);
-  }
-  if (state_province) {
-    query = query.eq('state_province', state_province);
-  }
-  if (city) {
-    query = query.eq('city', city);
-  }
-
-  query = query
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching judges by location:', error);
-    throw new Error('Failed to fetch judges');
-  }
-
-  return data || [];
-}
-
-/**
- * Search judges by name or email
- */
-export async function searchJudges(searchTerm: string): Promise<Judge[]> {
-  const { data, error } = await supabase
-    .from('judges')
-    .select('*')
-    .eq('is_active', true)
-    .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
-
-  if (error) {
-    console.error('Error searching judges:', error);
-    throw new Error('Failed to search judges');
   }
 
   return data || [];
@@ -171,7 +56,7 @@ export async function getJudgeById(id: string): Promise<Judge | null> {
 
   if (error) {
     if (error.code === 'PGRST116') {
-      return null; // No judge found
+      return null;
     }
     console.error('Error fetching judge by ID:', error);
     throw new Error('Failed to fetch judge');
@@ -181,21 +66,133 @@ export async function getJudgeById(id: string): Promise<Judge | null> {
 }
 
 /**
- * Get unique countries from judges
+ * Create a new judge
  */
-export async function getJudgeCountries(): Promise<string[]> {
+export async function createJudge(formData: JudgeFormData): Promise<Judge> {
   const { data, error } = await supabase
     .from('judges')
-    .select('country')
-    .eq('is_active', true)
-    .order('country');
+    .insert([{
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || null,
+      city: formData.city || null,
+      province_state: formData.province_state || null,
+      country: formData.country || null,
+      obedience_levels: formData.obedience_levels,
+      rally_levels: formData.rally_levels,
+      games_levels: formData.games_levels,
+      scent_levels: formData.scent_levels,
+      is_active: formData.is_active
+    }])
+    .select()
+    .single();
 
   if (error) {
-    console.error('Error fetching judge countries:', error);
-    throw new Error('Failed to fetch countries');
+    console.error('Error creating judge:', error);
+    throw new Error('Failed to create judge');
   }
 
-  // Remove duplicates and return sorted array
-  const countries = [...new Set(data?.map(item => item.country) || [])];
-  return countries.sort();
+  return data;
+}
+
+/**
+ * Update an existing judge
+ */
+export async function updateJudge(id: string, formData: JudgeFormData): Promise<Judge> {
+  const { data, error } = await supabase
+    .from('judges')
+    .update({
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || null,
+      city: formData.city || null,
+      province_state: formData.province_state || null,
+      country: formData.country || null,
+      obedience_levels: formData.obedience_levels,
+      rally_levels: formData.rally_levels,
+      games_levels: formData.games_levels,
+      scent_levels: formData.scent_levels,
+      is_active: formData.is_active,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating judge:', error);
+    throw new Error('Failed to update judge');
+  }
+
+  return data;
+}
+
+/**
+ * Delete a judge
+ */
+export async function deleteJudge(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('judges')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting judge:', error);
+    throw new Error('Failed to delete judge');
+  }
+}
+
+/**
+ * Search judges by name, email, or location
+ */
+export async function searchJudges(searchTerm: string): Promise<Judge[]> {
+  const { data, error } = await supabase
+    .from('judges')
+    .select('*')
+    .or(`name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,city.ilike.%${searchTerm}%`)
+    .order('name');
+
+  if (error) {
+    console.error('Error searching judges:', error);
+    throw new Error('Failed to search judges');
+  }
+
+  return data || [];
+}
+
+/**
+ * Get judges certified for a specific discipline and level
+ */
+export async function getJudgesByDiscipline(
+  discipline: 'obedience' | 'rally' | 'games' | 'scent',
+  level?: string
+): Promise<Judge[]> {
+  const columnMap = {
+    obedience: 'obedience_levels',
+    rally: 'rally_levels',
+    games: 'games_levels',
+    scent: 'scent_levels'
+  };
+
+  const column = columnMap[discipline];
+  let query = supabase
+    .from('judges')
+    .select('*')
+    .eq('is_active', true);
+
+  if (level) {
+    query = query.contains(column, [level]);
+  } else {
+    // Get judges with at least one level in this discipline
+    query = query.filter(column, 'neq', '{}');
+  }
+
+  const { data, error } = await query.order('name');
+
+  if (error) {
+    console.error('Error fetching judges by discipline:', error);
+    throw new Error('Failed to fetch judges');
+  }
+
+  return data || [];
 }

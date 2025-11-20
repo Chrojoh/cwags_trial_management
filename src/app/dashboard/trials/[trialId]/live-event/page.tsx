@@ -75,6 +75,12 @@ interface TrialClass {
   class_level?: string;
   class_order?: number;
   class_status?: string;
+  // ✅ ADD THIS: Array of rounds for displaying round numbers
+  trial_rounds?: Array<{
+    id: string;
+    round_number: number;
+    judge_name?: string;
+  }>;
 }
 
 interface TrialRound {
@@ -105,6 +111,7 @@ interface ClassEntry {
   entry_status: string;
   round_number: number; // Add this
   round_id: string; // Add this
+  division?: string | null;
   entries: {
     handler_name: string;
     dog_call_name: string;
@@ -2557,6 +2564,12 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* ✅ ADD DIVISION BADGE */}
+  {entry.division && (
+    <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+      DIV {entry.division}
+    </Badge>
+  )}
             <Badge className={`${getEntryTypeColor(entry.entry_type)} border`}>
               {entry.entry_type}
             </Badge>
