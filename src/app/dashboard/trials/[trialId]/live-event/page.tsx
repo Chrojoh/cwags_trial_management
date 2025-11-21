@@ -601,29 +601,30 @@ const loadClassEntries = async () => {
           // FILTER OUT WITHDRAWN ENTRIES
           const entryStatus = selection.entry_status || 'entered';
           if (entryStatus.toLowerCase() !== 'withdrawn') {
-            classEntriesData.push({
-              id: selection.id,
-              entry_id: entry.id,
-              running_position: selection.running_position || 0,
-              entry_type: selection.entry_type || 'regular',
-              entry_status: entryStatus,
-              round_number: selectedClass.round_number || 1,
-              round_id: selectedClass.id,
-              entries: {
-                handler_name: entry.handler_name,
-                dog_call_name: entry.dog_call_name,
-                cwags_number: entry.cwags_number
-              },
-              trial_rounds: {
-                judge_name: selectedClass.judge_name,
-                trial_classes: {
-                  class_name: selectedClass.class_name,
-                  class_type: selectedClass.class_type,
-                  games_subclass: selectedClass.games_subclass
-                }
-              },
-              scores: selection.scores || []
-            });
+           classEntriesData.push({
+  id: selection.id,
+  entry_id: entry.id,
+  running_position: selection.running_position || 0,
+  entry_type: selection.entry_type || 'regular',
+  entry_status: entryStatus,
+  round_number: selectedClass.round_number || 1,
+  round_id: selectedClass.id,
+  division: selection.division || null,  // ✅ ADD THIS LINE
+  entries: {
+    handler_name: entry.handler_name,
+    dog_call_name: entry.dog_call_name,
+    cwags_number: entry.cwags_number
+  },
+  trial_rounds: {
+    judge_name: selectedClass.judge_name,
+    trial_classes: {
+      class_name: selectedClass.class_name,
+      class_type: selectedClass.class_type,
+      games_subclass: selectedClass.games_subclass
+    }
+  },
+  scores: selection.scores || []
+});
           }
         }
       });
@@ -2564,23 +2565,25 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* ✅ ADD DIVISION BADGE */}
+  <div className="flex items-center space-x-2">
+  {/* Division Badge - NEW */}
   {entry.division && (
-    <Badge className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+    <Badge className="text-xs bg-blue-100 text-blue-700 border border-blue-300">
       DIV {entry.division}
     </Badge>
   )}
-            <Badge className={`${getEntryTypeColor(entry.entry_type)} border`}>
-              {entry.entry_type}
-            </Badge>
-            <Badge variant="outline">
-              {entry.entry_status}
-            </Badge>
-            {resultDisplay && resultDisplay !== '-' && (
-              <Badge className={`border ${resultClass}`}>
-                {resultDisplay}
-              </Badge>
-            )}
+  
+  {/* Entry Type Badge (FEO/REGULAR) */}
+  <Badge className={`text-xs ${getEntryTypeColor(entry.entry_type)}`}>
+    {entry.entry_type.toUpperCase()}
+  </Badge>
+  
+  {/* Result Badge */}
+  <Badge className={`text-xs ${resultClass}`}>
+    {resultDisplay || 'Pending'}
+  </Badge>
+</div>
+            
           </div>
         </div>
 

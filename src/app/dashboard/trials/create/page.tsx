@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, MapPin, FileText, ArrowRight, Save } from 'lucide-react';
+import { Calendar, MapPin, FileText, ArrowRight, Save, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
@@ -105,23 +105,23 @@ const DEFAULT_NOTICE = `C-WAGS Notice to Exhibitors
 
 Competitors, through submission of entry, acknowledge that they are knowledgeable of C-WAGS Obedience & Rally rules and regulations including but not limited to the following rules regarding entry:
 
-• All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.
-• All judges and trial hosts are expected to show respect to all exhibitors.
-• This trial is open to all dogs registered with C-WAGS.
-• Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.
-• Teams may be entered in multiple levels/classes at the same trial.
-• Dogs must be shown by a member of the owner's immediate family.
-• Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.
-• Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.
-• Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.
+- All exhibitors are expected to treat the judges, trial hosts, your canine partner and all other exhibitors with respect.
+- All judges and trial hosts are expected to show respect to all exhibitors.
+- This trial is open to all dogs registered with C-WAGS.
+- Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered dogs.
+- Teams may be entered in multiple levels/classes at the same trial.
+- Dogs must be shown by a member of the owner's immediate family.
+- Collars: The dog must wear a flat type collar (buckle, snap or proper fit martingale) and/or body harness in the ring. Electronic training collars are not allowed on the show grounds.
+- Owners with disabilities are encouraged to compete. Any necessary modifications to the exercises must be provided by the handler to the judge and approved by the judge.
+- Safety shall always be of foremost consideration in actions and conduct by handlers at all times. Handlers, through entry at this event, accept full responsibility for themselves and the actions of their dogs.
 
 In addition,
-• The organizing committee may refuse any entry for any reason.
-• THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.
-• Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.
-• Returned checks do not constitute a valid entry. There will be a $35.00 service charge for returned checks. Payment of entry fees and service charges shall be made by money order within 7 days of notice to exhibitor of returned check. Any fees not received within 7 days of notice result in cancellation of event results for all classes for the registration number(s) of delinquent entry/entries. No reinstatement of results is possible.
-• All competitors through entry at this event waive any and all rights relative to video broadcast of this event. Competitors shall have the right to videotape portions of this event for their personal use only. No portion of this event may be videotaped for commercial or other purposes.
-• Dogs must be on leash while on show grounds unless being shown.`;
+- The organizing committee may refuse any entry for any reason.
+- THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are dismissed from competition, regardless of reason for such dismissal. There will be no refunds if the trial has to be cancelled for any reason.
+- Refunds will be made for females in season upon written request accompanied by a statement from the exhibitor's veterinarian.
+- Returned checks do not constitute a valid entry. There will be a $35.00 service charge for returned checks. Payment of entry fees and service charges shall be made by money order within 7 days of notice to exhibitor of returned check. Any fees not received within 7 days of notice result in cancellation of event results for all classes for the registration number(s) of delinquent entry/entries. No reinstatement of results is possible.
+- All competitors through entry at this event waive any and all rights relative to video broadcast of this event. Competitors shall have the right to videotape portions of this event for their personal use only. No portion of this event may be videotaped for commercial or other purposes.
+- Dogs must be on leash while on show grounds unless being shown.`;
 
 interface TrialFormData {
   trial_name: string;
@@ -137,6 +137,8 @@ interface TrialFormData {
   secretary_email: string;
   secretary_phone: string;
   max_entries_per_day: number;
+  default_entry_fee: number;      // ✅ NEW: Default regular entry fee
+  default_feo_price: number;      // ✅ NEW: Default FEO price
   waiver_text: string;
   notes: string;
 }
@@ -152,7 +154,7 @@ export default function CreateTrialPage() {
     venue_name: '',
     city: '',
     province: '',
-    country: 'Canada', // Default to Canada
+    country: 'Canada',
     full_address: '',
     start_date: '',
     end_date: '',
@@ -160,11 +162,13 @@ export default function CreateTrialPage() {
     secretary_email: '',
     secretary_phone: '',
     max_entries_per_day: 50,
+    default_entry_fee: 25,          // ✅ NEW: Default to $25
+    default_feo_price: 15,           // ✅ NEW: Default to $15
     waiver_text: DEFAULT_WAIVER,
     notes: ''
   });
 
-  const [errors, setErrors] = useState<Partial<TrialFormData>>({});
+ const [errors, setErrors] = useState<Partial<Record<keyof TrialFormData, string>>>({});
 
   // Auto-fill form fields when user data is available
   useEffect(() => {
@@ -181,8 +185,8 @@ export default function CreateTrialPage() {
     }
   }, [user]);
 
-  const validateStep = (step: number): boolean => {
-    const newErrors: Partial<TrialFormData> = {};
+ const validateStep = (step: number): boolean => {
+  const newErrors: Partial<Record<keyof TrialFormData, string>> = {};
 
     if (step === 1) {
       if (!trialData.trial_name.trim()) newErrors.trial_name = 'Trial name is required';
@@ -197,6 +201,14 @@ export default function CreateTrialPage() {
       
       if (trialData.start_date && trialData.end_date && trialData.start_date > trialData.end_date) {
         newErrors.end_date = 'End date must be after start date';
+      }
+      
+      // ✅ NEW: Validate entry fees
+      if (trialData.default_entry_fee < 0) {
+        newErrors.default_entry_fee = 'Entry fee must be 0 or greater';
+      }
+      if (trialData.default_feo_price < 0) {
+        newErrors.default_feo_price = 'FEO price must be 0 or greater';
       }
     }
 
@@ -217,74 +229,73 @@ export default function CreateTrialPage() {
     if (currentStep < 2) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Save trial to database and proceed to days
       await saveTrialAndProceed();
     }
   };
 
- const saveTrialAndProceed = async () => {
-  if (!user) {
-    alert('User not found. Please log in again.');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    const locationParts = [
-      trialData.venue_name,
-      trialData.city,
-      trialData.province,
-      trialData.country
-    ].filter(part => part.trim());
-    
-    const location = locationParts.join(', ');
-
-    const trialToSave = {
-      trial_name: trialData.trial_name,
-      club_name: trialData.club_name,
-      location: location,
-      // FIX: Ensure dates don't shift due to timezone
-      start_date: trialData.start_date, // Keep as-is, fix is in display
-      end_date: trialData.end_date,     // Keep as-is, fix is in display
-      created_by: user.id,
-      trial_status: 'draft',
-      premium_published: false,
-      entries_open: false,
-      entries_close_date: null,
-      max_entries_per_day: trialData.max_entries_per_day,
-      trial_secretary: trialData.trial_secretary,
-      secretary_email: trialData.secretary_email,
-      secretary_phone: trialData.secretary_phone || null,
-      waiver_text: trialData.waiver_text,
-      fee_configuration: {},
-      notes: trialData.notes || null
-    };
-
-    console.log('Saving trial data:', trialToSave);
-
-    const result = await simpleTrialOperations.createTrial(trialToSave);
-    
-    if (result.success && result.data) {
-      console.log('Trial created successfully:', result.data);
-      router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
-    } else {
-      console.error('Error creating trial:', result.error);
-      alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
+  const saveTrialAndProceed = async () => {
+    if (!user) {
+      alert('User not found. Please log in again.');
+      return;
     }
-  } catch (error) {
-    console.error('Error saving trial:', error);
-    alert('Error creating trial. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+    try {
+      const locationParts = [
+        trialData.venue_name,
+        trialData.city,
+        trialData.province,
+        trialData.country
+      ].filter(part => part.trim());
+      
+      const location = locationParts.join(', ');
+
+      const trialToSave = {
+        trial_name: trialData.trial_name,
+        club_name: trialData.club_name,
+        location: location,
+        start_date: trialData.start_date,
+        end_date: trialData.end_date,
+        created_by: user.id,
+        trial_status: 'draft',
+        premium_published: false,
+        entries_open: false,
+        entries_close_date: null,
+        max_entries_per_day: trialData.max_entries_per_day,
+        default_entry_fee: trialData.default_entry_fee,      // ✅ NEW: Save default entry fee
+        default_feo_price: trialData.default_feo_price,      // ✅ NEW: Save default FEO price
+        trial_secretary: trialData.trial_secretary,
+        secretary_email: trialData.secretary_email,
+        secretary_phone: trialData.secretary_phone || null,
+        waiver_text: trialData.waiver_text,
+        fee_configuration: {},
+        notes: trialData.notes || null
+      };
+
+      console.log('Saving trial data:', trialToSave);
+
+      const result = await simpleTrialOperations.createTrial(trialToSave);
+      
+      if (result.success && result.data) {
+        console.log('Trial created successfully:', result.data);
+        router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
+      } else {
+        console.error('Error creating trial:', result.error);
+        alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error saving trial:', error);
+      alert('Error creating trial. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSaveDraft = async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // Build the location string from structured data
       const locationParts = [
         trialData.venue_name || 'TBD',
         trialData.city || 'TBD',
@@ -306,15 +317,17 @@ export default function CreateTrialPage() {
         entries_open: false,
         entries_close_date: null,
         max_entries_per_day: trialData.max_entries_per_day,
+        default_entry_fee: trialData.default_entry_fee,      // ✅ NEW: Save default entry fee
+        default_feo_price: trialData.default_feo_price,      // ✅ NEW: Save default FEO price
         trial_secretary: trialData.trial_secretary,
         secretary_email: trialData.secretary_email,
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
-        fee_configuration: {}, // Empty object instead of null
+        fee_configuration: {},
         notes: trialData.notes || null
       };
 
-      console.log('Saving draft:', trialToSave); // Debug log
+      console.log('Saving draft:', trialToSave);
 
       const result = await simpleTrialOperations.createTrial(trialToSave);
       
@@ -364,7 +377,6 @@ export default function CreateTrialPage() {
       breadcrumbItems={breadcrumbItems}
     >
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Auto-fill notification */}
         {user && (
           <Alert className="bg-orange-50 border-orange-200">
             <AlertDescription className="text-orange-800">
@@ -489,7 +501,6 @@ export default function CreateTrialPage() {
                         value={trialData.country}
                         onValueChange={(value) => {
                           handleInputChange('country', value);
-                          // Reset province when country changes
                           handleInputChange('province', '');
                         }}
                       >
@@ -640,6 +651,52 @@ export default function CreateTrialPage() {
                   />
                 </div>
 
+                {/* ✅ NEW: Default Entry Fees Section */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="text-base font-medium flex items-center space-x-2">
+                    <DollarSign className="h-4 w-4 text-orange-600" />
+                    <span>Default Entry Fees</span>
+                  </Label>
+                  <p className="text-sm text-gray-600 pl-6 mb-3">
+                    Set default fees for this trial. These can be adjusted for individual classes later.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="default_entry_fee">Regular Entry Fee ($) *</Label>
+                      <Input
+                        id="default_entry_fee"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={trialData.default_entry_fee}
+                        onChange={(e) => handleInputChange('default_entry_fee', parseFloat(e.target.value) || 0)}
+                        className={errors.default_entry_fee ? 'border-red-500' : ''}
+                      />
+                      {errors.default_entry_fee && (
+                        <p className="text-sm text-red-600">{errors.default_entry_fee}</p>
+                      )}
+                      <p className="text-xs text-gray-500">Standard entry fee for regular entries</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="default_feo_price">FEO Price ($) *</Label>
+                      <Input
+                        id="default_feo_price"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={trialData.default_feo_price}
+                        onChange={(e) => handleInputChange('default_feo_price', parseFloat(e.target.value) || 0)}
+                        className={errors.default_feo_price ? 'border-red-500' : ''}
+                      />
+                      {errors.default_feo_price && (
+                        <p className="text-sm text-red-600">{errors.default_feo_price}</p>
+                      )}
+                      <p className="text-xs text-gray-500">For Exhibition Only entry fee</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="notes">Additional Notes</Label>
                   <Textarea
@@ -658,6 +715,20 @@ export default function CreateTrialPage() {
                   <Label className="text-sm font-medium text-orange-900">Location Preview:</Label>
                   <p className="text-orange-800">
                     {[trialData.venue_name, trialData.city, trialData.province, trialData.country].filter(Boolean).join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {/* ✅ NEW: Fee Preview */}
+              {(trialData.default_entry_fee > 0 || trialData.default_feo_price > 0) && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <Label className="text-sm font-medium text-green-900">Default Fees:</Label>
+                  <div className="text-green-800 space-y-1 mt-2">
+                    <p>Regular Entry: ${trialData.default_entry_fee.toFixed(2)}</p>
+                    <p>FEO Entry: ${trialData.default_feo_price.toFixed(2)}</p>
+                  </div>
+                  <p className="text-xs text-green-700 mt-2">
+                    These fees will be applied to all classes by default and can be adjusted individually later.
                   </p>
                 </div>
               )}

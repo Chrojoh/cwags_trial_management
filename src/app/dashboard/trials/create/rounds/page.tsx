@@ -16,7 +16,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, Users, UserCheck, ArrowRight, ArrowLeft, Save, Plus, Trash2, Edit, Settings } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
-// Remove the local Judge interface - use the database structure
 interface DatabaseJudge {
   id: string;
   name: string;
@@ -69,6 +68,12 @@ interface Trial {
   end_date: string;
 }
 
+interface TrialDay {
+  id: string;
+  day_number: number;
+  trial_date: string;
+}
+
 function CreateRoundsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -80,13 +85,14 @@ function CreateRoundsPageContent() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [trial, setTrial] = useState<Trial | null>(null);
+  const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
+  const [selectedDayId, setSelectedDayId] = useState<string>(''); // NEW: Track selected day
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
   const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: DatabaseJudge[] }>({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [rounds, setRounds] = useState<{ [classId: string]: RoundData[] }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Sort judges by proximity to trial location
   const sortJudgesByProximity = (judges: DatabaseJudge[], trialData: Trial): DatabaseJudge[] => {
     if (!trialData?.location) return judges.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     
@@ -104,22 +110,39 @@ function CreateRoundsPageContent() {
       return (a.name || '').localeCompare(b.name || '');
     });
   };
-const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): DatabaseJudge[] => {
-  return judges.filter(judge => {
-    switch (classType.toLowerCase()) {
-      case 'scent':
-        return judge.scent_levels && judge.scent_levels.length > 0;
-      case 'rally':
-        return judge.rally_levels && judge.rally_levels.length > 0;
-      case 'obedience':
-        return judge.obedience_levels && judge.obedience_levels.length > 0;
-      case 'games':
-        return judge.games_levels && judge.games_levels.length > 0;
-      default:
-        return true;
-    }
-  });
-};
+
+  const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): DatabaseJudge[] => {
+    return judges.filter(judge => {
+      switch (classType.toLowerCase()) {
+        case 'scent':
+          return judge.scent_levels && judge.scent_levels.length > 0;
+        case 'rally':
+          return judge.rally_levels && judge.rally_levels.length > 0;
+        case 'obedience':
+          return judge.obedience_levels && judge.obedience_levels.length > 0;
+        case 'games':
+          return judge.games_levels && judge.games_levels.length > 0;
+        default:
+          return true;
+      }
+    });
+  };
+
+  const formatShortDate = (dateString: string) => {
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12, 0, 0
+    );
+    
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
 
   useEffect(() => {
     if (trialId) {
@@ -148,8 +171,16 @@ const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): Da
         return;
       }
 
+      const days = daysResult.data || [];
+      setTrialDays(days);
+
+      // NEW: Set default selected day to first day
+      if (days.length > 0 && !selectedDayId) {
+        setSelectedDayId(days[0].id);
+      }
+
       const allClasses: TrialClass[] = [];
-      for (const day of daysResult.data || []) {
+      for (const day of days) {
         try {
           const dayClassesResult = await simpleTrialOperations.getTrialClasses(day.id);
           if (dayClassesResult.success && dayClassesResult.data) {
@@ -176,19 +207,17 @@ const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): Da
       setTrialClasses(allClasses);
 
       const judgesResult = await simpleTrialOperations.getAllJudges();
-if (judgesResult.success) {
-  const allJudgesData = judgesResult.data || [];
-  
-  const qualifiedMap: { [classId: string]: DatabaseJudge[] } = {};
-  for (const cls of allClasses) {
-    // ✅ Filter by certification FIRST
-    const certifiedJudges = filterJudgesByClassType(allJudgesData, cls.class_type);
-    // Then sort by proximity
-    const sortedJudges = sortJudgesByProximity(certifiedJudges, trialResult.data);
-    qualifiedMap[cls.id] = sortedJudges;
-  }
-  setQualifiedJudges(qualifiedMap);
-}
+      if (judgesResult.success) {
+        const allJudgesData = judgesResult.data || [];
+        
+        const qualifiedMap: { [classId: string]: DatabaseJudge[] } = {};
+        for (const cls of allClasses) {
+          const certifiedJudges = filterJudgesByClassType(allJudgesData, cls.class_type);
+          const sortedJudges = sortJudgesByProximity(certifiedJudges, trialResult.data);
+          qualifiedMap[cls.id] = sortedJudges;
+        }
+        setQualifiedJudges(qualifiedMap);
+      }
 
       const roundsData: { [classId: string]: RoundData[] } = {};
       for (const cls of allClasses) {
@@ -225,8 +254,10 @@ if (judgesResult.success) {
 
       setRounds(roundsData);
 
-      if (allClasses.length > 0 && !selectedClassId) {
-        setSelectedClassId(allClasses[0].id);
+      // NEW: Set selected class to first class of selected day
+      const firstDayClass = allClasses.find(c => c.trial_day_id === (days[0]?.id || ''));
+      if (firstDayClass && !selectedClassId) {
+        setSelectedClassId(firstDayClass.id);
       }
 
     } catch (error) {
@@ -235,6 +266,16 @@ if (judgesResult.success) {
       setInitialLoading(false);
     }
   };
+
+  // NEW: When day changes, update selected class to first class of that day
+  useEffect(() => {
+    if (selectedDayId && trialClasses.length > 0) {
+      const dayClasses = trialClasses.filter(c => c.trial_day_id === selectedDayId);
+      if (dayClasses.length > 0 && !dayClasses.find(c => c.id === selectedClassId)) {
+        setSelectedClassId(dayClasses[0].id);
+      }
+    }
+  }, [selectedDayId, trialClasses]);
 
   const handleJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
     const classQualifiedJudges = qualifiedJudges[classId] || [];
@@ -325,55 +366,54 @@ if (judgesResult.success) {
     return isValid;
   };
 
- const handleSave = async () => {
-  if (!validateRounds()) {
-    alert('Please fix the errors before saving.');
-    return;
-  }
+  const handleSave = async () => {
+    if (!validateRounds()) {
+      alert('Please fix the errors before saving.');
+      return;
+    }
 
-  setLoading(true);
-  try {
-    for (const [classId, classRounds] of Object.entries(rounds)) {
-      const roundsData = classRounds.map(round => ({
-        id: round.id,
-        round_number: round.round_number,
-        judge_name: round.judge_name,
-        judge_email: round.judge_email,
-        feo_available: true,
-        round_status: 'scheduled',
-        start_time: round.start_time || null,
-        estimated_duration: round.estimated_duration || null,
-        max_entries: round.max_entries,
-        has_reset: round.has_reset,
-        reset_judge_name: round.reset_judge_name || null,
-        reset_judge_email: round.reset_judge_email || null,
-        notes: round.notes || null
-      }));
+    setLoading(true);
+    try {
+      for (const [classId, classRounds] of Object.entries(rounds)) {
+        const roundsData = classRounds.map(round => ({
+          id: round.id,
+          round_number: round.round_number,
+          judge_name: round.judge_name,
+          judge_email: round.judge_email,
+          feo_available: true,
+          round_status: 'scheduled',
+          start_time: round.start_time || null,
+          estimated_duration: round.estimated_duration || null,
+          max_entries: round.max_entries,
+          has_reset: round.has_reset,
+          reset_judge_name: round.reset_judge_name || null,
+          reset_judge_email: round.reset_judge_email || null,
+          notes: round.notes || null
+        }));
 
-      const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
-      
-      if (!result.success) {
-        // ✅ FIX: Convert error to string if it's an object
-        const errorMessage = typeof result.error === 'string' 
-          ? result.error 
-          : result.error?.message || 'Failed to save rounds';
-        throw new Error(errorMessage);
+        const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
+        
+        if (!result.success) {
+          const errorMessage = typeof result.error === 'string' 
+            ? result.error 
+            : result.error?.message || 'Failed to save rounds';
+          throw new Error(errorMessage);
+        }
       }
-    }
 
-    alert('Rounds saved successfully!');
-    if (!isEditMode) {
-      router.push(`/dashboard/trials/${trialId}`);
-    } else {
-      await loadTrialData();
+      alert('Rounds saved successfully!');
+      if (!isEditMode) {
+        router.push(`/dashboard/trials/${trialId}`);
+      } else {
+        await loadTrialData();
+      }
+    } catch (error) {
+      console.error('Error saving rounds:', error);
+      alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error saving rounds:', error);
-    alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleBack = () => {
     if (isEditMode) {
@@ -443,6 +483,9 @@ if (judgesResult.success) {
 
   const selectedClass = trialClasses.find(c => c.id === selectedClassId);
   const selectedClassRounds = selectedClassId ? rounds[selectedClassId] || [] : [];
+  
+  // NEW: Filter classes by selected day
+  const dayClasses = trialClasses.filter(c => c.trial_day_id === selectedDayId);
 
   return (
     <MainLayout 
@@ -485,8 +528,40 @@ if (judgesResult.success) {
           </CardHeader>
         </Card>
 
+        {/* NEW: DAY TABS */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Select Trial Day</CardTitle>
+            <CardDescription>Choose which day to assign judges for</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${trialDays.length}, minmax(0, 1fr))` }}>
+              {trialDays.map((day) => (
+                <button
+                  key={day.id}
+                  onClick={() => setSelectedDayId(day.id)}
+                  className={`
+                    px-4 py-3 rounded-lg font-semibold transition-all border-2
+                    ${selectedDayId === day.id 
+                      ? 'bg-[#5b3214] text-white border-[#5b3214]' 
+                      : 'bg-white text-[#5b3214] border-[#5b3214] hover:bg-[#5b3214] hover:text-white'
+                    }
+                  `}
+                >
+                  <div className="text-center">
+                    <div className="text-sm font-semibold">Day {day.day_number}</div>
+                    <div className="text-xs mt-1 opacity-90">
+                      {formatShortDate(day.trial_date)}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Class Selection Sidebar */}
+          {/* NEW: SCROLLABLE Class Selection Sidebar */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -494,42 +569,50 @@ if (judgesResult.success) {
                 <span>Classes</span>
               </CardTitle>
               <CardDescription>
-                Select a class to configure rounds and judges
+                Select a class to configure rounds
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-96 overflow-y-auto">
-              {trialClasses.map((cls) => {
-                const classRoundCount = rounds[cls.id]?.length || 0;
-                const hasJudges = rounds[cls.id]?.some(r => r.judge_name) || false;
-                
-                return (
-                  <div
-                    key={cls.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedClassId === cls.id
-                        ? 'bg-orange-50 border-orange-200'
-                        : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => setSelectedClassId(cls.id)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-sm">{cls.class_name}</p>
-                        <p className="text-xs text-gray-600">{cls.class_level}</p>
-                        <p className="text-xs text-gray-500">Day {cls.trial_days?.day_number || 'N/A'}</p>
-                      </div>
-                      <div className="flex flex-col items-end space-y-1">
-                        <Badge variant={hasJudges ? "default" : "secondary"} className="text-xs">
-                          {classRoundCount} round{classRoundCount !== 1 ? 's' : ''}
-                        </Badge>
-                        {hasJudges && (
-                          <UserCheck className="h-4 w-4 text-green-600" />
-                        )}
-                      </div>
-                    </div>
+            <CardContent className="p-0">
+              {/* NEW: Fixed height scrollable container */}
+              <div className="max-h-[500px] overflow-y-auto px-6 py-4 space-y-2">
+                {dayClasses.length === 0 ? (
+                  <div className="text-center text-gray-500 py-8">
+                    No classes for this day
                   </div>
-                );
-              })}
+                ) : (
+                  dayClasses.map((cls) => {
+                    const classRoundCount = rounds[cls.id]?.length || 0;
+                    const hasJudges = rounds[cls.id]?.some(r => r.judge_name) || false;
+                    
+                    return (
+                      <div
+                        key={cls.id}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedClassId === cls.id
+                            ? 'bg-orange-50 border-orange-200'
+                            : 'hover:bg-gray-50'
+                        }`}
+                        onClick={() => setSelectedClassId(cls.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{cls.class_name}</p>
+                            <p className="text-xs text-gray-600">{cls.class_level}</p>
+                          </div>
+                          <div className="flex flex-col items-end space-y-1">
+                            <Badge variant={hasJudges ? "default" : "secondary"} className="text-xs">
+                              {classRoundCount} round{classRoundCount !== 1 ? 's' : ''}
+                            </Badge>
+                            {hasJudges && (
+                              <UserCheck className="h-4 w-4 text-green-600" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </CardContent>
           </Card>
 

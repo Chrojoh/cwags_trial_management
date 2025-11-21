@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Calendar,
   ArrowRight,
@@ -18,11 +19,12 @@ import {
   Save,
   CheckCircle,
   Info,
-  Edit
+  Edit,
+  DollarSign,
+  Trophy
 } from 'lucide-react';
 import { simpleTrialOperations, CWAGS_LEVELS } from '@/lib/trialOperationsSimple';
 
-// UPDATED INTERFACE - Changed gamesSubclass to gamesSubclasses array
 interface LevelSelection {
   levelName: string;
   category: string;
@@ -31,7 +33,7 @@ interface LevelSelection {
   maxEntries: number;
   feoAvailable?: boolean;
   feoPrice?: number;
-  gamesSubclasses?: string[]; // CHANGED: Now an array instead of single string
+  gamesSubclasses?: string[];
   notes: string;
 }
 
@@ -61,9 +63,10 @@ interface Trial {
   location: string;
   start_date: string;
   end_date: string;
+  default_entry_fee?: number;    // ✅ NEW: Default regular fee
+  default_feo_price?: number;    // ✅ NEW: Default FEO price
 }
 
-// Helper function to get game names
 const getGameName = (subclass: string): string => {
   const gameNames: { [key: string]: string } = {
     'GB': 'Grab Bag',
@@ -84,6 +87,7 @@ function TrialLevelsPageContent() {
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Scent Work');
+  const [selectedDayTab, setSelectedDayTab] = useState<string>('0'); // ✅ Track selected day tab
   const [levelSelections, setLevelSelections] = useState<{ [dayId: string]: LevelSelection[] }>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,7 +124,13 @@ function TrialLevelsPageContent() {
         const days = daysResult.data || [];
         setTrialDays(days);
         
-        await loadExistingClasses(days);
+        // ✅ Set initial day tab
+        if (days.length > 0) {
+          setSelectedDayTab('0');
+        }
+        
+        // ✅ Pass trial data to loadExistingClasses so it can use default fees
+        await loadExistingClasses(days, trialResult.data);
         setLoading(false);
       } catch (error) {
         console.error('Error loading trial data:', error);
@@ -132,9 +142,15 @@ function TrialLevelsPageContent() {
     loadTrialData();
   }, [trialId]);
 
-  // UPDATED FUNCTION - Handles loading multiple Games subclasses from existing data
-  const loadExistingClasses = async (days: TrialDay[]) => {
+  // ✅ UPDATED: Now accepts trial data to use default fees
+  const loadExistingClasses = async (days: TrialDay[], trialData: Trial) => {
     const initialSelections: { [dayId: string]: LevelSelection[] } = {};
+    
+    // ✅ Get default fees from trial data, with fallbacks
+    const defaultEntryFee = trialData.default_entry_fee ?? 25;
+    const defaultFeoPrice = trialData.default_feo_price ?? 15;
+    
+    console.log('Using default fees:', { defaultEntryFee, defaultFeoPrice });
     
     for (const day of days) {
       try {
@@ -143,7 +159,6 @@ function TrialLevelsPageContent() {
         if (classesResult.success && classesResult.data) {
           const existingClasses: ExistingClass[] = classesResult.data;
           
-          // Group Games classes by level name to collect all subclasses
           const gamesSubclassMap = new Map<string, string[]>();
           const nonGamesClasses = new Map<string, ExistingClass>();
           
@@ -151,34 +166,30 @@ function TrialLevelsPageContent() {
             const category = cls.subclass || 'Scent Work';
             
             if (category === 'Games' && cls.games_subclass) {
-              // Collect all subclasses for each Games level
               const key = cls.class_name;
               if (!gamesSubclassMap.has(key)) {
                 gamesSubclassMap.set(key, []);
               }
               gamesSubclassMap.get(key)!.push(cls.games_subclass);
             } else {
-              // Non-Games classes - store by level name
               nonGamesClasses.set(cls.class_name, cls);
             }
           });
 
-          // Create level selections
           const existingLevels = existingClasses.map((cls: ExistingClass) => {
             const category = cls.subclass || 'Scent Work';
             const levelName = cls.class_name;
             
-            // For Games classes, collect all subclasses
             if (category === 'Games') {
               return {
                 levelName,
                 category,
                 selected: true,
-                entryFee: cls.entry_fee || 25,
+                entryFee: cls.entry_fee || defaultEntryFee,
                 maxEntries: 20,
                 feoAvailable: cls.feo_available || false,
-                feoPrice: cls.feo_price || 0,
-                gamesSubclasses: gamesSubclassMap.get(levelName) || [], // Array of subclasses
+                feoPrice: cls.feo_price || defaultFeoPrice,
+                gamesSubclasses: gamesSubclassMap.get(levelName) || [],
                 notes: String(cls.notes || '')
               };
             } else {
@@ -186,17 +197,16 @@ function TrialLevelsPageContent() {
                 levelName,
                 category,
                 selected: true,
-                entryFee: cls.entry_fee || 25,
+                entryFee: cls.entry_fee || defaultEntryFee,
                 maxEntries: 20,
                 feoAvailable: cls.feo_available || false,
-                feoPrice: cls.feo_price || 0,
+                feoPrice: cls.feo_price || defaultFeoPrice,
                 gamesSubclasses: [],
                 notes: String(cls.notes || '')
               };
             }
           });
 
-          // Remove duplicates for Games classes (since we grouped them)
           const uniqueLevels = Array.from(
             new Map(existingLevels.map(level => [
               `${level.category}-${level.levelName}`, 
@@ -213,26 +223,25 @@ function TrialLevelsPageContent() {
                 levelName,
                 category,
                 selected: false,
-                entryFee: 25,
+                entryFee: defaultEntryFee,
                 maxEntries: 20,
                 feoAvailable: false,
-                feoPrice: 0,
+                feoPrice: defaultFeoPrice,
                 gamesSubclasses: [],
                 notes: ''
               };
             })
           );
         } else {
-          // No existing classes
           initialSelections[day.id] = Object.entries(CWAGS_LEVELS).flatMap(([category, levels]) =>
             levels.map(levelName => ({
               levelName,
               category,
               selected: false,
-              entryFee: 25,
+              entryFee: defaultEntryFee,
               maxEntries: 20,
               feoAvailable: false,
-              feoPrice: 0,
+              feoPrice: defaultFeoPrice,
               gamesSubclasses: [],
               notes: ''
             }))
@@ -245,10 +254,10 @@ function TrialLevelsPageContent() {
             levelName,
             category,
             selected: false,
-            entryFee: 25,
+            entryFee: defaultEntryFee,
             maxEntries: 20,
             feoAvailable: false,
-            feoPrice: 0,
+            feoPrice: defaultFeoPrice,
             gamesSubclasses: [],
             notes: ''
           }))
@@ -259,7 +268,6 @@ function TrialLevelsPageContent() {
     setLevelSelections(initialSelections);
   };
 
-  // UPDATED FUNCTION - Handles both string and array values
   const updateLevelSelection = (
     dayId: string, 
     levelIndex: number, 
@@ -280,7 +288,6 @@ function TrialLevelsPageContent() {
     }
   };
 
-  // UPDATED FUNCTION - Validates Games subclass selections
   const validateSelections = (): boolean => {
     const newErrors: string[] = [];
     
@@ -294,7 +301,6 @@ function TrialLevelsPageContent() {
       return false;
     }
 
-    // Validate Games classes have at least one subclass selected
     Object.entries(levelSelections).forEach(([dayId, dayLevels]) => {
       const day = trialDays.find(d => d.id === dayId);
       const dayNumber = day?.day_number || 0;
@@ -318,7 +324,6 @@ function TrialLevelsPageContent() {
     return true;
   };
 
-  // UPDATED FUNCTION - Creates separate trial_classes for each Games subclass
   const saveClassesForAllDays = async (): Promise<boolean> => {
     try {
       for (const [dayId, dayLevels] of Object.entries(levelSelections)) {
@@ -339,7 +344,6 @@ function TrialLevelsPageContent() {
 
           selectedLevels.forEach(level => {
             if (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) {
-              // For Games, check each subclass variant
               level.gamesSubclasses.forEach(subclass => {
                 const key = level.levelName + subclass;
                 if (existingClassMap.has(key)) {
@@ -349,7 +353,6 @@ function TrialLevelsPageContent() {
                 }
               });
             } else {
-              // Non-Games classes
               if (existingClassMap.has(level.levelName)) {
                 classesToUpdate.push(level);
               } else {
@@ -358,7 +361,6 @@ function TrialLevelsPageContent() {
             }
           });
 
-          // DELETE removed classes
           if (existingClasses && existingClasses.length > 0) {
             const selectedKeys = new Set<string>();
             selectedLevels.forEach(level => {
@@ -390,9 +392,7 @@ function TrialLevelsPageContent() {
             }
           }
 
-          // INSERT new classes - SEPARATE ENTRY FOR EACH GAMES SUBCLASS
           if (classesToInsert.length > 0) {
-            // Define the type for our class objects
             type TrialClassInsert = {
               trial_day_id: string;
               class_name: string;
@@ -423,7 +423,6 @@ function TrialLevelsPageContent() {
               
               const classType = classTypeMapping[level.category] || 'scent';
               
-              // For Games classes, create a separate entry for each subclass
               if (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) {
                 return level.gamesSubclasses.map((subclass, subIndex): TrialClassInsert => ({
                   trial_day_id: dayId,
@@ -435,13 +434,12 @@ function TrialLevelsPageContent() {
                   max_entries: 50,
                   feo_available: level.feoAvailable || false,
                   feo_price: feoPrice,
-                  games_subclass: subclass, // Each subclass gets its own row
+                  games_subclass: subclass,
                   class_order: (existingClasses?.length || 0) + index * 10 + subIndex,
                   class_status: 'draft',
                   notes: level.notes?.trim() || null
                 }));
               } else {
-                // Non-Games classes remain single entries
                 return [{
                   trial_day_id: dayId,
                   class_name: level.levelName.trim(),
@@ -471,10 +469,8 @@ function TrialLevelsPageContent() {
             console.log(`Inserted ${newClasses.length} new classes for day ${dayId}`);
           }
           
-          // UPDATE existing classes
           if (classesToUpdate.length > 0) {
             for (const level of classesToUpdate) {
-              // For Games, the gamesSubclasses array will only have 1 item (the specific subclass being updated)
               const gamesSubclass = (level.category === 'Games' && level.gamesSubclasses && level.gamesSubclasses.length > 0) 
                 ? level.gamesSubclasses[0] 
                 : null;
@@ -584,6 +580,18 @@ function TrialLevelsPageContent() {
       month: 'long',
       day: 'numeric'
     });
+  };
+
+  const formatDayDate = (dateString: string) => {
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12, 0, 0
+    );
+    
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const getSelectedLevelsCount = () => {
@@ -726,6 +734,33 @@ function TrialLevelsPageContent() {
                 <p className="font-semibold">{getSelectedLevelsCount()} levels selected</p>
               </div>
             </div>
+            
+            {/* ✅ NEW: Display default fees */}
+            {(trial.default_entry_fee !== undefined || trial.default_feo_price !== undefined) && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-4 w-4 text-green-600" />
+                  <p className="text-sm font-medium text-gray-700">Default Entry Fees</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pl-6">
+                  <div>
+                    <p className="text-xs text-gray-500">Regular Entry</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      ${(trial.default_entry_fee ?? 25).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">FEO Entry</p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      ${(trial.default_feo_price ?? 15).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 pl-6">
+                  These defaults are applied to all new classes and can be adjusted individually below.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -750,188 +785,199 @@ function TrialLevelsPageContent() {
           </CardContent>
         </Card>
 
-        {trialDays.map(day => (
-          <Card key={day.id}>
-            <CardHeader className="bg-gray-50">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Day {day.day_number} - {formatDate(day.trial_date)}
-                </CardTitle>
-                <Badge variant="outline">
-                  {levelSelections[day.id]?.filter(l => l.selected && l.category === selectedCategory).length || 0} selected
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {levelSelections[day.id]
-                  ?.map((level, index) => ({ level, originalIndex: index }))
-                  .filter(({ level }) => level.category === selectedCategory)
-                  .map(({ level, originalIndex: actualIndex }) => {
-                    return (
-                      <div
-                        key={`${day.id}-${level.levelName}`}
-                        className={`p-4 rounded-lg border-2 transition-all ${
-                          level.selected 
-                            ? 'border-orange-300 bg-orange-50' 
-                            : 'border-gray-200 bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 mb-3">
-                          <Checkbox
-                            checked={level.selected}
-                            onCheckedChange={(checked) => 
-                              updateLevelSelection(day.id, actualIndex, 'selected', checked)
-                            }
-                            className="w-5 h-5 border-2 border-gray-400 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
-                          />
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-900">{level.levelName}</div>
-                            <div className="text-sm text-gray-600">{level.category}</div>
-                          </div>
-                          {level.selected && (
-                            <Badge variant="default" className="bg-green-100 text-green-800">
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Selected
-                            </Badge>
-                          )}
-                        </div>
+        {/* ✅ DAY TABS */}
+        <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
+          <TabsList 
+            className="grid w-full mb-4 gap-2" 
+            style={{ gridTemplateColumns: `repeat(${trialDays.length}, minmax(0, 1fr))` }}
+          >
+            {trialDays.map((day, index) => (
+              <TabsTrigger 
+                key={day.id} 
+                value={index.toString()} 
+                className="
+                  text-sm px-3 py-2 rounded-md
+                  border-2 border-[#5b3214] text-[#5b3214]
+                  data-[state=active]:bg-[#5b3214] data-[state=active]:text-white
+                  hover:bg-white
+                  transition-colors
+                "
+              >
+                Day {day.day_number} - {formatDayDate(day.trial_date)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-                        {level.selected && (
-                          <div className="space-y-3 pt-3 border-t">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <Label className="text-xs">Entry Fee ($)</Label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={level.entryFee}
-                                  onChange={(e) => updateLevelSelection(day.id, actualIndex, 'entryFee', parseFloat(e.target.value) || 0)}
-                                  className="h-8"
-                                />
+          {trialDays.map((day, dayIndex) => (
+            <TabsContent key={day.id} value={dayIndex.toString()}>
+              <Card>
+                <CardHeader className="bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Day {day.day_number} - {formatDate(day.trial_date)}
+                    </CardTitle>
+                    <Badge variant="outline">
+                      {levelSelections[day.id]?.filter(l => l.selected && l.category === selectedCategory).length || 0} selected
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    {levelSelections[day.id]
+                      ?.map((level, index) => ({ level, originalIndex: index }))
+                      .filter(({ level }) => level.category === selectedCategory)
+                      .map(({ level, originalIndex: actualIndex }) => {
+                        return (
+                          <div
+                            key={`${day.id}-${level.levelName}`}
+                            className={`p-4 rounded-lg border-2 transition-all ${
+                              level.selected 
+                                ? 'border-orange-300 bg-orange-50' 
+                                : 'border-gray-200 bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 mb-3">
+                              <Checkbox
+                                checked={level.selected}
+                                onCheckedChange={(checked) => 
+                                  updateLevelSelection(day.id, actualIndex, 'selected', checked)
+                                }
+                                className="w-5 h-5 border-2 border-gray-400 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                              />
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900">{level.levelName}</div>
+                                <div className="text-sm text-gray-600">{level.category}</div>
                               </div>
-                              <div>
-                                <Label className="text-xs">Max Entries</Label>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={level.maxEntries}
-                                  onChange={(e) => updateLevelSelection(day.id, actualIndex, 'maxEntries', parseInt(e.target.value) || 1)}
-                                  className="h-8"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-3 p-3 bg-orange-50 border-2 border-orange-200 rounded-lg">
-                                <Checkbox
-                                  id={`feo-${day.id}-${actualIndex}`}
-                                  checked={level.feoAvailable || false}
-                                  onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
-                                  className="w-6 h-6"
-                                />
-                                <Label 
-                                  htmlFor={`feo-${day.id}-${actualIndex}`} 
-                                  className="text-sm font-semibold text-orange-900 cursor-pointer"
-                                >
-                                  ✓ FEO Available for this class
-                                </Label>
-                              </div>
-                              
-                              {level.feoAvailable && (
-                                <div>
-                                  <Label className="text-xs">FEO Price ($)</Label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={level.feoPrice || ''}
-                                    onChange={(e) => updateLevelSelection(day.id, actualIndex, 'feoPrice', parseFloat(e.target.value) || 0)}
-                                    placeholder="15.00"
-                                    className="h-8"
-                                  />
-                                </div>
+                              {level.selected && (
+                                <Badge variant="default" className="bg-green-100 text-green-800">
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Selected
+                                </Badge>
                               )}
                             </div>
 
-                            {/* UPDATED: Games Subclass Checkboxes */}
-                            {level.category === 'Games' && (
-                              <div className="space-y-2 p-4 bg-purple
-
--50 border-2 border-purple
-
--200 rounded-lg">
-                                <Label className="text-sm font-semibold text-purple
-
--900">
-                                  Games Subclasses (Select all that apply) *
-                                </Label>
-                                <p className="text-xs text-purple
-
--700 mb-3">
-                                  Each subclass will create a separate class entry
-                                </p>
-                                <div className="space-y-2">
-                                  {['GB', 'BJ', 'C', 'T', 'P'].map(subclass => (
-                                    <div key={subclass} className="flex items-center space-x-3">
-                                      <Checkbox
-                                        id={`${day.id}-${level.levelName}-${subclass}`}
-                                        checked={level.gamesSubclasses?.includes(subclass) || false}
-                                        onCheckedChange={(checked) => {
-                                          const current = level.gamesSubclasses || [];
-                                          const updated = checked
-                                            ? [...current, subclass]
-                                            : current.filter(s => s !== subclass);
-                                          updateLevelSelection(day.id, actualIndex, 'gamesSubclasses', updated);
-                                        }}
-                                        className="w-5 h-5"
-                                      />
-                                      <Label 
-                                        htmlFor={`${day.id}-${level.levelName}-${subclass}`} 
-                                        className="text-sm font-medium cursor-pointer flex-1"
-                                      >
-                                        <span className="font-bold text-purple
-
--700">{subclass}</span>
-                                        <span className="text-gray-600"> - {getGameName(subclass)}</span>
-                                      </Label>
-                                    </div>
-                                  ))}
+                            {level.selected && (
+                              <div className="space-y-3 pt-3 border-t">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <Label className="text-xs">Entry Fee ($)</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={level.entryFee}
+                                      onChange={(e) => updateLevelSelection(day.id, actualIndex, 'entryFee', parseFloat(e.target.value) || 0)}
+                                      className="h-8"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Max Entries</Label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={level.maxEntries}
+                                      onChange={(e) => updateLevelSelection(day.id, actualIndex, 'maxEntries', parseInt(e.target.value) || 1)}
+                                      className="h-8"
+                                    />
+                                  </div>
                                 </div>
-                                {level.gamesSubclasses && level.gamesSubclasses.length > 0 && (
-                                  <div className="mt-3 pt-3 border-t border-purple
 
--300">
-                                    <p className="text-xs text-purple
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-3 p-3 bg-orange-50 border-2 border-orange-200 rounded-lg">
+                                    <Checkbox
+                                      id={`feo-${day.id}-${actualIndex}`}
+                                      checked={level.feoAvailable || false}
+                                      onCheckedChange={(checked) => updateLevelSelection(day.id, actualIndex, 'feoAvailable', checked)}
+                                      className="w-6 h-6"
+                                    />
+                                    <Label 
+                                      htmlFor={`feo-${day.id}-${actualIndex}`} 
+                                      className="text-sm font-semibold text-orange-900 cursor-pointer"
+                                    >
+                                      ✓ FEO Available for this class
+                                    </Label>
+                                  </div>
+                                  
+                                  {level.feoAvailable && (
+                                    <div>
+                                      <Label className="text-xs">FEO Price ($)</Label>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={level.feoPrice || ''}
+                                        onChange={(e) => updateLevelSelection(day.id, actualIndex, 'feoPrice', parseFloat(e.target.value) || 0)}
+                                        placeholder={(trial.default_feo_price ?? 15).toFixed(2)}
+                                        className="h-8"
+                                      />
+                                    </div>
+                                  )}
+                                </div>
 
--700">
-                                      <strong>Selected ({level.gamesSubclasses.length}):</strong> {level.gamesSubclasses.join(', ')}
+                                {level.category === 'Games' && (
+                                  <div className="space-y-2 p-4 bg-purple-50 border-2 border-purple-200 rounded-lg">
+                                    <Label className="text-sm font-semibold text-purple-900">
+                                      Games Subclasses (Select all that apply) *
+                                    </Label>
+                                    <p className="text-xs text-purple-700 mb-3">
+                                      Each subclass will create a separate class entry
                                     </p>
+                                    <div className="space-y-2">
+                                      {['GB', 'BJ', 'C', 'T', 'P'].map(subclass => (
+                                        <div key={subclass} className="flex items-center space-x-3">
+                                          <Checkbox
+                                            id={`${day.id}-${level.levelName}-${subclass}`}
+                                            checked={level.gamesSubclasses?.includes(subclass) || false}
+                                            onCheckedChange={(checked) => {
+                                              const current = level.gamesSubclasses || [];
+                                              const updated = checked
+                                                ? [...current, subclass]
+                                                : current.filter(s => s !== subclass);
+                                              updateLevelSelection(day.id, actualIndex, 'gamesSubclasses', updated);
+                                            }}
+                                            className="w-5 h-5"
+                                          />
+                                          <Label 
+                                            htmlFor={`${day.id}-${level.levelName}-${subclass}`} 
+                                            className="text-sm font-medium cursor-pointer flex-1"
+                                          >
+                                            <span className="font-bold text-purple-700">{subclass}</span>
+                                            <span className="text-gray-600"> - {getGameName(subclass)}</span>
+                                          </Label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {level.gamesSubclasses && level.gamesSubclasses.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-purple-300">
+                                        <p className="text-xs text-purple-700">
+                                          <strong>Selected ({level.gamesSubclasses.length}):</strong> {level.gamesSubclasses.join(', ')}
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
+
+                                <div>
+                                  <Label className="text-xs">Notes (Optional)</Label>
+                                  <Input
+                                    value={level.notes}
+                                    onChange={(e) => updateLevelSelection(day.id, actualIndex, 'notes', e.target.value)}
+                                    placeholder="Special notes for this level..."
+                                    className="h-8"
+                                  />
+                                </div>
                               </div>
                             )}
-
-                            <div>
-                              <Label className="text-xs">Notes (Optional)</Label>
-                              <Input
-                                value={level.notes}
-                                onChange={(e) => updateLevelSelection(day.id, actualIndex, 'notes', e.target.value)}
-                                placeholder="Special notes for this level..."
-                                className="h-8"
-                              />
-                            </div>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
 
         <div className="flex items-center justify-between pt-6 border-t">
           <div className="flex space-x-3">

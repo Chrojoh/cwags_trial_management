@@ -22,6 +22,8 @@ export interface TrialData {
   trial_secretary: string;
   secretary_email: string;
   secretary_phone: string | null;
+  default_entry_fee?: number;       
+  default_feo_price?: number; 
   waiver_text: string;
   fee_configuration: any | null;
   notes: string | null;
@@ -191,6 +193,8 @@ if (createdById === '2') {
         entries_open: dataToInsert.entries_open || false,
         entries_close_date: dataToInsert.entries_close_date,
         max_entries_per_day: dataToInsert.max_entries_per_day,
+        default_entry_fee: dataToInsert.default_entry_fee,     // ✅ ADD THIS
+        default_feo_price: dataToInsert.default_feo_price,     // ✅ ADD THIS
         trial_secretary: dataToInsert.trial_secretary,
         secretary_email: dataToInsert.secretary_email,
         secretary_phone: dataToInsert.secretary_phone,
@@ -253,7 +257,11 @@ async getTrial(trialId: string): Promise<OperationResult> {
 
     const { data, error } = await supabase
       .from('trials')
-      .select('*')
+      .select(`
+  *,
+  default_entry_fee,
+  default_feo_price
+`)
       .eq('id', trialId)
       .single();
 

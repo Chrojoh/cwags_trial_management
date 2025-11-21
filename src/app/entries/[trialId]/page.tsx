@@ -415,7 +415,7 @@ export default function PublicEntryForm() {
     }
   };
 
-  const saveToRegistry = async () => {
+ const saveToRegistry = async () => {
     if (!formData.cwags_number || !formData.handler_name || !formData.dog_call_name) {
       return;
     }
@@ -430,6 +430,12 @@ export default function PublicEntryForm() {
         cwags_number: formData.cwags_number,
         dog_call_name: formData.dog_call_name,
         handler_name: formData.handler_name,
+        handler_email: formData.handler_email || null,           // ✅ NEW
+        handler_phone: formData.handler_phone || null,           // ✅ NEW
+        emergency_contact: formData.emergency_contact || null,   // ✅ NEW
+        breed: formData.dog_breed || null,                       // ✅ NEW
+        dog_sex: formData.dog_sex || null,                       // ✅ NEW
+        is_junior_handler: formData.is_junior_handler || false,  // ✅ NEW
         is_active: true
       };
 
@@ -1051,9 +1057,17 @@ if (success) {
                 <CardTitle className="text-2xl">{trial.trial_name}</CardTitle>
                 <div className="text-base mt-2 text-gray-600">
                   <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="h-4 w-4" />
-                    <span>{new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}</span>
-                  </div>
+  <Calendar className="h-4 w-4" />
+  <span>
+    {(() => {
+      const [startYear, startMonth, startDay] = trial.start_date.split('-').map(Number);
+      const [endYear, endMonth, endDay] = trial.end_date.split('-').map(Number);
+      const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+    })()}
+  </span>
+</div>
                   <div>📍 {trial.location}</div>
                   <div>🏆 Hosted by {trial.club_name}</div>
                 </div>
