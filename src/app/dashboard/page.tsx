@@ -357,6 +357,15 @@ export default function DashboardPage() {
     Manage Trials
   </Button>
 
+<Button 
+    variant="outline" 
+    onClick={() => router.push('/dashboard/admin/registry')}
+    className="w-full justify-start"
+  >
+    <UserCheck className="h-4 w-4 mr-2" />
+    Manage Registry
+  </Button>
+  
   <Button 
     variant="outline" 
     onClick={() => router.push('/dashboard/judges')}
