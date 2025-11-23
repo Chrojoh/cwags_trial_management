@@ -1,0 +1,36 @@
+[1mdiff --git a/next.config.mjs b/next.config.mjs[m
+[1mindex 6cc8493..a58e239 100644[m
+[1m--- a/next.config.mjs[m
+[1m+++ b/next.config.mjs[m
+[36m@@ -1,11 +1,4 @@[m
+ /** @type {import('next').NextConfig} */[m
+[31m-const nextConfig = {[m
+[31m-  typescript: {[m
+[31m-    ignoreBuildErrors: true,[m
+[31m-  },[m
+[31m-  eslint: {[m
+[31m-    ignoreDuringBuilds: true,[m
+[31m-  },[m
+[31m-};[m
+[32m+[m[32mconst nextConfig = {};[m
+ [m
+[31m-export default nextConfig;[m
+[32m+[m[32mexport default nextConfig;[m
+\ No newline at end of file[m
+[1mdiff --git a/postcss.config.mjs b/postcss.config.mjs[m
+[1mindex c7bcb4b..0c2a10b 100644[m
+[1m--- a/postcss.config.mjs[m
+[1m+++ b/postcss.config.mjs[m
+[36m@@ -1,5 +1,9 @@[m
+[32m+[m[32m/** @type {import('postcss-load-config').Config} */[m
+ const config = {[m
+[31m-  plugins: ["@tailwindcss/postcss"],[m
+[32m+[m[32m  plugins: {[m
+[32m+[m[32m    tailwindcss: {},[m
+[32m+[m[32m    autoprefixer: {},[m
+[32m+[m[32m  },[m
+ };[m
+ [m
+[31m-export default config;[m
+[32m+[m[32mexport default config;[m
+\ No newline at end of file[m
