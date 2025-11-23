@@ -82,7 +82,7 @@ async function loadTrialingData(): Promise<any[]> {
 
   try {
     console.log('Loading Data for Tracker web.xlsx...');
-  const response = await fetch('https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx');  
+   const response = await fetch('/Data-for-Tracker-web.xlsx');
     if (!response.ok) throw new Error('Failed to fetch data-for-tracker-web.xlsx');
     
     const arrayBuffer = await response.arrayBuffer();
