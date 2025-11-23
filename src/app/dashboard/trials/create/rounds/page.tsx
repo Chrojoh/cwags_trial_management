@@ -7,6 +7,8 @@ import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { hasPermission } from '@/lib/permissions';
+import { PERMISSIONS } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -516,14 +518,16 @@ function CreateRoundsPageContent() {
                   {trial.location} • {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
                 </CardDescription>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleManageJudges}
-                className="flex items-center space-x-2"
-              >
-                <Settings className="h-4 w-4" />
-                <span>Manage Judges</span>
-              </Button>
+              {hasPermission(user, PERMISSIONS.MANAGE_JUDGES) && (
+  <Button 
+    variant="outline" 
+    onClick={() => router.push('/dashboard/judges')}
+    className="w-full justify-start"
+  >
+    <UserCheck className="h-4 w-4 mr-2" />
+    Manage Judges
+  </Button>
+              )}
             </div>
           </CardHeader>
         </Card>

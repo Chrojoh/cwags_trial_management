@@ -404,24 +404,57 @@ const formatDate = (dateString: string) => {
           {/* Basic Information Tab */}
           <TabsContent value="basic">
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center space-x-2">
-                    <FileText className="h-5 w-5 text-orange-600" />
-                    <span>Basic Trial Information</span>
-                  </CardTitle>
-                  {editingSection !== 'basic' && (
-                    <Button 
-                      variant="outline" 
-                      onClick={() => startEditing('basic', trial)}
-                      className="flex items-center space-x-2"
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span>Edit</span>
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
+             // In src/app/dashboard/trials/[trialId]/page.tsx
+// Replace the CardHeader section in the Basic Information Tab
+
+<CardHeader>
+  <div className="flex items-center justify-between">
+    <CardTitle className="flex items-center space-x-2">
+      <FileText className="h-5 w-5 text-orange-600" />
+      <span>Basic Trial Information</span>
+    </CardTitle>
+    
+    <div className="flex items-center space-x-2">
+      {/* Show Publish button if trial is in draft status */}
+      {trial.trial_status === 'draft' && editingSection !== 'basic' && (
+        <Button 
+          className="bg-green-600 hover:bg-green-700 text-white"
+          onClick={async () => {
+            if (confirm('Are you sure you want to publish this trial? This will make it visible to the public.')) {
+              try {
+                const result = await simpleTrialOperations.publishTrial(trialId);
+                if (result.success) {
+                  alert('Trial published successfully!');
+                  loadTrialData();
+                } else {
+                  alert('Failed to publish trial: ' + (result.error || 'Unknown error'));
+                }
+              } catch (error) {
+                console.error('Error publishing trial:', error);
+                alert('Failed to publish trial');
+              }
+            }
+          }}
+        >
+          <CheckCircle className="h-4 w-4 mr-2" />
+          Publish Trial
+        </Button>
+      )}
+      
+      {/* Edit button - always show when not editing */}
+      {editingSection !== 'basic' && (
+        <Button 
+          variant="outline" 
+          onClick={() => startEditing('basic', trial)}
+          className="flex items-center space-x-2"
+        >
+          <Edit className="h-4 w-4" />
+          <span>Edit</span>
+        </Button>
+      )}
+    </div>
+  </div>
+</CardHeader>
               <CardContent>
                 {editingSection === 'basic' ? (
                   <div className="space-y-4">

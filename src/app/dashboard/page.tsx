@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
+import { hasPermission } from '@/lib/permissions';
+import { PERMISSIONS } from '@/lib/constants';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { 
   Calendar,
@@ -41,8 +43,7 @@ interface Trial {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { getDisplayInfo } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>({
+   const [stats, setStats] = useState<DashboardStats>({
     totalTrials: 0,
     activeTrials: 0,
     upcomingTrials: 0,
@@ -51,9 +52,10 @@ export default function DashboardPage() {
   const [recentTrials, setRecentTrials] = useState<Trial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { user, getDisplayInfo } = useAuth();
+const userInfo = getDisplayInfo();
 
-  const userInfo = getDisplayInfo();
-
+  
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -357,7 +359,8 @@ export default function DashboardPage() {
     Manage Trials
   </Button>
 
-<Button 
+{hasPermission(user, PERMISSIONS.MANAGE_REGISTRY) && (
+  <Button 
     variant="outline" 
     onClick={() => router.push('/dashboard/admin/registry')}
     className="w-full justify-start"
@@ -365,7 +368,9 @@ export default function DashboardPage() {
     <UserCheck className="h-4 w-4 mr-2" />
     Manage Registry
   </Button>
-  
+)}
+
+{hasPermission(user, PERMISSIONS.MANAGE_JUDGES) && (
   <Button 
     variant="outline" 
     onClick={() => router.push('/dashboard/judges')}
@@ -374,6 +379,7 @@ export default function DashboardPage() {
     <UserCheck className="h-4 w-4 mr-2" />
     Manage Judges
   </Button>
+)}
 </CardContent>
 </Card>
         </div>

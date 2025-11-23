@@ -376,75 +376,80 @@ const renderClassesByDay = () => {
   };
 
   const renderClassCard = (classGroup: typeof trialClasses) => {
-    const firstClass = classGroup[0];
-    const classKey = firstClass.class_type === 'games' && firstClass.games_subclass
-      ? `${firstClass.class_name}-${firstClass.games_subclass}`
-      : firstClass.class_name;
-    
-    // Calculate total entries across all rounds
-    const totalEntries = classGroup.reduce((sum, cls) => sum + (classCounts[cls.id] || 0), 0);
-    
-    // Sort rounds by round number
-    const sortedRounds = [...classGroup].sort((a, b) => {
-      return (a.round_number || 1) - (b.round_number || 1);
-    });
-    
-    return (
-      <div
-        key={classKey}
-        className={`p-4 rounded-lg border cursor-pointer transition-all ${
-          sortedRounds.some(cls => selectedClass?.id === cls.id)
-            ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
-            : 'border-gray-200 hover:bg-gray-50'
-        }`}
-        onClick={() => setSelectedClass(sortedRounds[0])}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900">{firstClass.class_name}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Type: {firstClass.class_type}</p>
-            {firstClass.class_type === 'games' && firstClass.games_subclass && (
-              <div className="mt-1">
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  <Trophy className="h-3 w-3 mr-1" />
-                  {firstClass.games_subclass}
-                </Badge>
-              </div>
+  const firstClass = classGroup[0];
+  const classKey = firstClass.class_type === 'games' && firstClass.games_subclass
+    ? `${firstClass.class_name}-${firstClass.games_subclass}`
+    : firstClass.class_name;
+  
+  // Calculate total entries across all rounds
+  const totalEntries = classGroup.reduce((sum, cls) => sum + (classCounts[cls.id] || 0), 0);
+  
+  // Sort rounds by round number
+  const sortedRounds = [...classGroup].sort((a, b) => {
+    return (a.round_number || 1) - (b.round_number || 1);
+  });
+  
+  return (
+    <div
+      key={classKey}
+      className={`p-4 rounded-lg border cursor-pointer transition-all ${
+        sortedRounds.some(cls => selectedClass?.id === cls.id)
+          ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
+          : 'border-gray-200 hover:bg-gray-50'
+      }`}
+      onClick={() => setSelectedClass(sortedRounds[0])}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900">
+            {firstClass.class_name}
+            {sortedRounds.length > 1 && (
+              <span className="ml-2 text-orange-600">- {sortedRounds.length} Rounds</span>
             )}
-          </div>
-          <div className="ml-2">
-            <Badge variant="outline">
-              {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
-            </Badge>
-          </div>
-        </div>
-        
-        {/* List all rounds with judges */}
-        <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200">
-          {sortedRounds.map((round) => (
-            <div 
-              key={round.id}
-              className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-orange-50 transition-colors ${
-                selectedClass?.id === round.id ? 'bg-orange-100' : ''
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedClass(round);
-              }}
-            >
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-medium text-gray-600">Round {round.round_number}:</span>
-                <span className="text-gray-700">{round.judge_name || 'No Judge Assigned'}</span>
-              </div>
-              <Badge variant="secondary" className="text-xs">
-                {classCounts[round.id] || 0}
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">Type: {firstClass.class_type}</p>
+          {firstClass.class_type === 'games' && firstClass.games_subclass && (
+            <div className="mt-1">
+              <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                <Trophy className="h-3 w-3 mr-1" />
+                {firstClass.games_subclass}
               </Badge>
             </div>
-          ))}
+          )}
+        </div>
+        <div className="ml-2">
+          <Badge variant="outline">
+            {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
+          </Badge>
         </div>
       </div>
-    );
-  };
+      
+      {/* List all rounds with judges */}
+      <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200">
+        {sortedRounds.map((round) => (
+          <div 
+            key={round.id}
+            className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-orange-50 transition-colors ${
+              selectedClass?.id === round.id ? 'bg-orange-100' : ''
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedClass(round);
+            }}
+          >
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-medium text-gray-600">Round {round.round_number}:</span>
+              <span className="text-gray-700">{round.judge_name || 'No Judge Assigned'}</span>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {classCounts[round.id] || 0}
+            </Badge>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
   if (dayKeys.length > 1) {
     return (
@@ -877,20 +882,18 @@ const debugSelectedClassData = () => {
 // Call this from your browser console: debugSelectedClassData()
     
 const loadAllClassCounts = async () => {
-  if (trialClasses.length === 0) return;
-  
   try {
-    console.log('Loading entry counts for', trialClasses.length, 'rounds');
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
     if (!entriesResult.success) return;
-
+    
     const counts: Record<string, number> = {};
     
     // Now cls.id is a ROUND ID, so check directly against trial_round_id
     trialClasses.forEach(cls => {
       const roundEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
         const selectionsForRound = entry.entry_selections?.filter((selection: any) => 
-          selection.trial_round_id === cls.id  // Check round ID directly
+          selection.trial_round_id === cls.id && 
+          selection.entry_status?.toLowerCase() !== 'withdrawn' // ✅ EXCLUDE WITHDRAWN ENTRIES
         ) || [];
         return count + selectionsForRound.length;
       }, 0);
@@ -1221,48 +1224,49 @@ const addNewEntry = async () => {
     return;
   }
 
+  if (!selectedClass.class_id) {
+    setError('Invalid class selection - class ID missing');
+    return;
+  }
+
   try {
     setSaving(true);
     setError(null);
 
     console.log('Adding new entry to class:', selectedClass.class_name, 'Round:', selectedRound);
 
-    // Get all rounds for this class
-    const roundsResult = await simpleTrialOperations.getTrialRounds(selectedClass.id);
-    if (!roundsResult.success || !roundsResult.data) {
-      throw new Error('Failed to get class rounds');
-    }
-
-    const classRounds = roundsResult.data;
-    console.log('Available rounds for class:', classRounds.map((r: any) => `Round ${r.round_number} (ID: ${r.id})`));
-
-    // Find the specific round the user selected
-    const targetRound = classRounds.find((round: any) => round.round_number === selectedRound);
-    if (!targetRound) {
+    // ✅ Find the specific round from trialClasses using selectedRound
+    const roundToUse = trialClasses.find(
+      tc => tc.class_id === selectedClass.class_id && 
+            tc.round_number === selectedRound
+    );
+    
+    if (!roundToUse) {
       throw new Error(`Round ${selectedRound} not found for this class`);
     }
 
-    console.log('Target round found:', targetRound.id, 'for round number:', selectedRound);
+    console.log('Target round found:', roundToUse.id, 'for round number:', selectedRound);
 
-    // CALCULATE PROPER FEE BASED ON ENTRY TYPE - THIS IS THE KEY FIX!
+    // CALCULATE PROPER FEE BASED ON ENTRY TYPE
     let calculatedFee = 0;
     const isFeO = newEntryData.entry_type.toLowerCase() === 'feo';
     
     console.log('Fee calculation debug:', {
       entry_type: newEntryData.entry_type,
       isFeO: isFeO,
-      feo_available: targetRound.feo_available,
-      trial_classes: targetRound.trial_classes
+      feo_available: roundToUse.feo_available,
+      entry_fee: roundToUse.entry_fee,
+      feo_price: roundToUse.feo_price
     });
 
     if (isFeO) {
       // Check if FEO pricing is available for this round
-      if (targetRound.feo_available && targetRound.trial_classes?.feo_price !== undefined) {
-        calculatedFee = targetRound.trial_classes.feo_price;
+      if (roundToUse.feo_available && roundToUse.feo_price !== undefined) {
+        calculatedFee = roundToUse.feo_price;
         console.log('Using FEO pricing from database:', calculatedFee);
-      } else if (targetRound.trial_classes?.entry_fee) {
+      } else if (roundToUse.entry_fee) {
         // Fallback: some trials offer FEO at reduced rate (e.g., 50% of regular)
-        calculatedFee = Math.round(targetRound.trial_classes.entry_fee * 0.5);
+        calculatedFee = Math.round(roundToUse.entry_fee * 0.5);
         console.log('Using 50% of regular fee for FEO:', calculatedFee);
       } else {
         calculatedFee = 0; // Some trials offer FEO for free
@@ -1270,7 +1274,7 @@ const addNewEntry = async () => {
       }
     } else {
       // Regular entry
-      calculatedFee = targetRound.trial_classes?.entry_fee || 0;
+      calculatedFee = roundToUse.entry_fee || 0;
       console.log('Using regular pricing:', calculatedFee);
     }
 
@@ -1288,7 +1292,7 @@ const addNewEntry = async () => {
       handler_phone: '',
       is_junior_handler: false,
       waiver_accepted: true,
-      total_fee: calculatedFee, // ← SET THE CORRECT TOTAL FEE HERE
+      total_fee: calculatedFee,
       payment_status: 'pending',
       entry_status: 'submitted'
     });
@@ -1297,7 +1301,7 @@ const addNewEntry = async () => {
       throw new Error(entryResult.error as string);
     }
 
-    // Calculate next running position for the SELECTED round (not all rounds)
+    // Calculate next running position for the SELECTED round
     const roundEntries = classEntries.filter(e => e.round_number === selectedRound);
     const nextPosition = roundEntries.length > 0 
       ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
@@ -1305,21 +1309,21 @@ const addNewEntry = async () => {
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
-   // Create entry selection with direct insert (avoid score-aware function)
-const { error: insertError } = await supabase
-  .from('entry_selections')
-  .insert({
-    entry_id: entryResult.data.id,
-    trial_round_id: targetRound.id,
-    entry_type: newEntryData.entry_type,
-    fee: calculatedFee,
-    running_position: nextPosition,
-    entry_status: 'entered'
-  });
+    // Create entry selection with direct insert
+    const { error: insertError } = await supabase
+      .from('entry_selections')
+      .insert({
+        entry_id: entryResult.data.id,
+        trial_round_id: roundToUse.id,  // ✅ Use roundToUse.id (the correct round)
+        entry_type: newEntryData.entry_type,
+        fee: calculatedFee,
+        running_position: nextPosition,
+        entry_status: 'entered'
+      });
 
-if (insertError) {
-  throw new Error('Failed to save entry selection: ' + insertError.message);
-}
+    if (insertError) {
+      throw new Error('Failed to save entry selection: ' + insertError.message);
+    }
 
     // Reload the class entries to show the new entry
     await loadClassEntries();
@@ -2340,7 +2344,12 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900">{cls.class_name}</h3>
+              <h3 className="font-semibold text-gray-900">
+  {cls.class_name}
+  {cls.round_number && (
+    <span className="ml-2 text-orange-600">- Round {cls.round_number}</span>
+  )}
+</h3>
               <p className="text-sm text-gray-600">Judge: {cls.judge_name}</p>
 
               {/* NEW — Add rounds */}
@@ -2392,7 +2401,12 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{cls.class_name}</h3>
+                    <h3 className="font-semibold text-gray-900">
+  {cls.class_name}
+  {cls.round_number && (
+    <span className="ml-2 text-orange-600">- Round {cls.round_number}</span>
+  )}
+</h3>
                     <p className="text-sm text-gray-600">Judge: {cls.judge_name}</p>
                     <p className="text-xs text-gray-500">Type: {cls.class_type}</p>
                     {cls.class_type === 'games' && cls.games_subclass && (
@@ -2748,36 +2762,41 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
               </div>
                 {/* Add this new field AFTER the C-WAGS Number input */}
               <div>
-                <Label htmlFor="round_selection">Select Round *</Label>
-                <select
-                  id="round_selection"
-                  value={selectedRound}
-                  onChange={(e) => setSelectedRound(parseInt(e.target.value))}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
-                >
-                  {/* Show all available rounds for this class */}
-                  {(() => {
-                    const availableRounds = classEntries
-                      .map(entry => entry.round_number)
-                      .filter((round, index, arr) => arr.indexOf(round) === index)
-                      .sort((a, b) => a - b);
-                    
-                    // If no entries exist yet, default to showing Round 1
-                    if (availableRounds.length === 0) {
-                      availableRounds.push(1);
-                    }
-                    
-                    return availableRounds.map(roundNum => (
-                      <option key={roundNum} value={roundNum}>
-                        Round {roundNum}
-                      </option>
-                    ));
-                  })()}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Choose which round to add this entry to
-                </p>
-              </div>
+  <Label htmlFor="round_selection">Select Round *</Label>
+  <select
+    id="round_selection"
+    value={selectedRound}
+    onChange={(e) => setSelectedRound(parseInt(e.target.value))}
+    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+  >
+    {/* Show ALL rounds for this class from trialClasses */}
+    {(() => {
+      if (!selectedClass?.class_id) return <option value="1">Round 1</option>;
+      
+      // Get ALL rounds for this class from trialClasses
+      const availableRounds = trialClasses
+        .filter(tc => tc.class_id === selectedClass.class_id)
+        .map(tc => tc.round_number)
+        .filter((round): round is number => round !== undefined) // ✅ Remove undefined values
+        .filter((round, index, arr) => arr.indexOf(round) === index)
+        .sort((a, b) => a - b); // ✅ Now a and b are guaranteed to be numbers
+      
+      // Fallback if no rounds found
+      if (availableRounds.length === 0) {
+        return <option value="1">Round 1</option>;
+      }
+      
+      return availableRounds.map(roundNum => (
+        <option key={roundNum} value={roundNum}>
+          Round {roundNum}
+        </option>
+      ));
+    })()}
+  </select>
+  <p className="text-xs text-gray-500 mt-1">
+    Choose which round to add this entry to
+  </p>
+</div>
               <div>
                 <Label htmlFor="handler_name">Handler Name *</Label>
                 <Input
