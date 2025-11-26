@@ -404,10 +404,7 @@ const formatDate = (dateString: string) => {
           {/* Basic Information Tab */}
           <TabsContent value="basic">
             <Card>
-             // In src/app/dashboard/trials/[trialId]/page.tsx
-// Replace the CardHeader section in the Basic Information Tab
-
-<CardHeader>
+            <CardHeader>
   <div className="flex items-center justify-between">
     <CardTitle className="flex items-center space-x-2">
       <FileText className="h-5 w-5 text-orange-600" />

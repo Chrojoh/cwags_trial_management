@@ -146,6 +146,7 @@ interface TrialFormData {
 export default function CreateTrialPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const [savedTrialId, setSavedTrialId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [trialData, setTrialData] = useState<TrialFormData>({
@@ -224,14 +225,76 @@ export default function CreateTrialPage() {
   };
 
   const handleNext = async () => {
-    if (!validateStep(currentStep)) return;
+  if (!validateForm()) {
+    alert('Please fill in all required fields before continuing.');
+    return;
+  }
 
-    if (currentStep < 2) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      await saveTrialAndProceed();
+  if (!user) {
+    alert('User session expired. Please log in again.');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    // If we already have a saved trial ID (from Save Draft), just navigate
+    if (savedTrialId) {
+      console.log('Using existing trial ID:', savedTrialId);
+      router.push(`/dashboard/trials/create/days?trial=${savedTrialId}`);
+      return;
     }
-  };
+
+    // Otherwise, create a new trial
+    const locationParts = [
+      trialData.venue_name,
+      trialData.city,
+      trialData.province,
+      trialData.country
+    ].filter(part => part.trim());
+    
+    const location = locationParts.join(', ');
+
+    const trialToSave = {
+      trial_name: trialData.trial_name,
+      club_name: trialData.club_name,
+      location: location,
+      start_date: trialData.start_date,
+      end_date: trialData.end_date,
+      created_by: user.id,
+      trial_status: 'draft',
+      premium_published: false,
+      entries_open: false,
+      entries_close_date: null,
+      max_entries_per_day: trialData.max_entries_per_day,
+      default_entry_fee: trialData.default_entry_fee,
+      default_feo_price: trialData.default_feo_price,
+      trial_secretary: trialData.trial_secretary,
+      secretary_email: trialData.secretary_email,
+      secretary_phone: trialData.secretary_phone || null,
+      waiver_text: trialData.waiver_text,
+      fee_configuration: {},
+      notes: trialData.notes || null
+    };
+
+    console.log('Saving trial data:', trialToSave);
+
+    const result = await simpleTrialOperations.createTrial(trialToSave);
+    
+    if (result.success && result.data) {
+      console.log('Trial created successfully:', result.data);
+      setSavedTrialId(result.data.id); // ✅ Store the trial ID
+      router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
+    } else {
+      console.error('Error creating trial:', result.error);
+      alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error saving trial:', error);
+    alert('Error creating trial. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const saveTrialAndProceed = async () => {
     if (!user) {
@@ -291,60 +354,111 @@ export default function CreateTrialPage() {
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!user) return;
+const validateForm = (): boolean => {
+  const newErrors: { [key: string]: string } = {};
 
-    setLoading(true);
-    try {
-      const locationParts = [
-        trialData.venue_name || 'TBD',
-        trialData.city || 'TBD',
-        trialData.province || 'AB',
-        trialData.country || 'Canada'
-      ].filter(part => part.trim());
+  if (!trialData.trial_name?.trim()) {
+    newErrors.trial_name = 'Trial name is required';
+  }
+  if (!trialData.club_name?.trim()) {
+    newErrors.club_name = 'Club name is required';
+  }
+  if (!trialData.start_date) {
+    newErrors.start_date = 'Start date is required';
+  }
+  if (!trialData.end_date) {
+    newErrors.end_date = 'End date is required';
+  }
+  if (trialData.start_date && trialData.end_date && trialData.start_date > trialData.end_date) {
+    newErrors.end_date = 'End date must be after start date';
+  }
+  if (!trialData.trial_secretary?.trim()) {
+    newErrors.trial_secretary = 'Trial secretary name is required';
+  }
+  if (!trialData.secretary_email?.trim()) {
+    newErrors.secretary_email = 'Secretary email is required';
+  }
+  if (!trialData.max_entries_per_day || trialData.max_entries_per_day < 1) {
+    newErrors.max_entries_per_day = 'Max entries per day must be at least 1';
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+
+const handleSaveDraft = async () => {
+  if (!user) return;
+
+  setLoading(true);
+  try {
+    const locationParts = [
+      trialData.venue_name || 'TBD',
+      trialData.city || 'TBD',
+      trialData.province || 'AB',
+      trialData.country || 'Canada'
+    ].filter(part => part.trim());
+    
+    const location = locationParts.join(', ');
+
+    const trialToSave = {
+      trial_name: trialData.trial_name || 'Draft Trial',
+      club_name: trialData.club_name || user.club_name || 'Unknown Club',
+      location: location,
+      start_date: trialData.start_date || new Date().toISOString().split('T')[0],
+      end_date: trialData.end_date || new Date().toISOString().split('T')[0],
+      created_by: user.id,
+      trial_status: 'draft',
+      premium_published: false,
+      entries_open: false,
+      entries_close_date: null,
+      max_entries_per_day: trialData.max_entries_per_day,
+      default_entry_fee: trialData.default_entry_fee,
+      default_feo_price: trialData.default_feo_price,
+      trial_secretary: trialData.trial_secretary,
+      secretary_email: trialData.secretary_email,
+      secretary_phone: trialData.secretary_phone || null,
+      waiver_text: trialData.waiver_text,
+      fee_configuration: {},
+      notes: trialData.notes || null
+    };
+
+    console.log('Saving draft:', trialToSave);
+
+    // ✅ CHECK if we're updating an existing trial or creating a new one
+    const urlParams = new URLSearchParams(window.location.search);
+    const existingTrialId = urlParams.get('trial');
+
+    let result;
+    if (existingTrialId) {
+      // UPDATE existing trial
+      console.log('Updating existing trial:', existingTrialId);
+      result = await simpleTrialOperations.updateTrial(existingTrialId, trialToSave);
+    } else {
+      // CREATE new trial
+      console.log('Creating new trial');
+      result = await simpleTrialOperations.createTrial(trialToSave);
       
-      const location = locationParts.join(', ');
-
-      const trialToSave = {
-        trial_name: trialData.trial_name || 'Draft Trial',
-        club_name: trialData.club_name || user.club_name || 'Unknown Club',
-        location: location,
-        start_date: trialData.start_date || new Date().toISOString().split('T')[0],
-        end_date: trialData.end_date || new Date().toISOString().split('T')[0],
-        created_by: user.id,
-        trial_status: 'draft',
-        premium_published: false,
-        entries_open: false,
-        entries_close_date: null,
-        max_entries_per_day: trialData.max_entries_per_day,
-        default_entry_fee: trialData.default_entry_fee,      // ✅ NEW: Save default entry fee
-        default_feo_price: trialData.default_feo_price,      // ✅ NEW: Save default FEO price
-        trial_secretary: trialData.trial_secretary,
-        secretary_email: trialData.secretary_email,
-        secretary_phone: trialData.secretary_phone || null,
-        waiver_text: trialData.waiver_text,
-        fee_configuration: {},
-        notes: trialData.notes || null
-      };
-
-      console.log('Saving draft:', trialToSave);
-
-      const result = await simpleTrialOperations.createTrial(trialToSave);
-      
-      if (result.success) {
-        console.log('Draft saved successfully:', result.data);
-        alert('Draft saved successfully!');
-      } else {
-        console.error('Error saving draft:', result.error);
-        alert(`Error saving draft: ${result.error?.toString() || 'Unknown error'}`);
+      // If creation was successful, update the URL with the trial ID
+      if (result.success && result.data) {
+        const newUrl = `${window.location.pathname}?trial=${result.data.id}`;
+        window.history.replaceState({}, '', newUrl);
       }
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      alert('Error saving draft. Please try again.');
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    if (result.success) {
+      console.log('Draft saved successfully:', result.data);
+      alert('Draft saved successfully!');
+    } else {
+      console.error('Error saving draft:', result.error);
+      alert(`Error saving draft: ${result.error?.toString() || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error saving draft:', error);
+    alert('Error saving draft. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (!user) {
     return (

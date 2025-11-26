@@ -1851,21 +1851,22 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
       return;
     }
 
-    interface ClassRoundColumn {
-      className: string;
-      roundNumber: number;
-      judgeName: string;
-      classId?: string;
-      roundId: string;
-      columnHeader: string;
-      entries: Array<{
-        position: number;
-        handlerName: string;
-        dogName: string;
-        status: string;
-        result: string;
-      }>;
-    }
+  interface ClassRoundColumn {
+  className: string;
+  roundNumber: number;
+  judgeName: string;
+  classId?: string;
+  roundId: string;
+  columnHeader: string;
+  entries: Array<{
+    position: number;
+    handlerName: string;
+    dogName: string;
+    division?: string | null;  // ✅ ADD THIS LINE
+    status: string;
+    result: string;
+  }>;
+}
     
     // Get all classes and rounds for the selected day
     const dayClasses = trialClasses.filter(cls => 
@@ -1981,13 +1982,14 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   resultDisplay = '-'; // No score
                 }
                 
-                entries.push({
-                  position: selection.running_position,
-                  handlerName: handlerName, 
-                  dogName: dogName,
-                  status: selection.entry_status,
-                  result: resultDisplay  // Add result to entry data (not shown in text now)
-                });
+              entries.push({
+  position: selection.running_position,
+  handlerName: handlerName, 
+  dogName: dogName,
+  division: selection.division || null,  // ✅ ADD THIS LINE
+  status: selection.entry_status,
+  result: resultDisplay
+});
               } else {
                 console.log('Excluding withdrawn entry from Excel:', entry.handler_name, entry.dog_call_name);
               }
@@ -2086,18 +2088,21 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
         const entry = classRounds[col].entries[entryIndex];
         let cellValue = '';
         
-        if (entry) {
-          const firstName = entry.handlerName.split(' ')[0];
-          cellValue = `${firstName} - ${entry.dogName}`;
-          
-          console.log('Excel Cell Creation:', {
-            originalHandlerName: entry.handlerName,
-            firstName: firstName,
-            dogName: entry.dogName,
-            result: entry.result,
-            finalCellValue: cellValue
-          });
-        }
+ if (entry) {
+  const firstName = entry.handlerName.split(' ')[0];
+  // ✅ ADD DIVISION TO CELL VALUE
+  const divisionText = entry.division ? ` (${entry.division})` : '';
+  cellValue = `${firstName} - ${entry.dogName}${divisionText}`;
+  
+  console.log('Excel Cell Creation:', {
+    originalHandlerName: entry.handlerName,
+    firstName: firstName,
+    dogName: entry.dogName,
+    division: entry.division,
+    result: entry.result,
+    finalCellValue: cellValue
+  });
+}
 
         worksheet[cellRef] = {
           v: cellValue,
@@ -2477,9 +2482,9 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                 <Users className="h-4 w-4 mr-2" />
                 Add Entry
               </Button>
-             <Button onClick={() => setShowDaySelector(true)} variant="outline">
+             <Button onClick={handleExportRunningOrder} variant="outline">
               <FileDown className="h-4 w-4 mr-2" />
-                Export Running Order
+               Export Running Order
               </Button>
               <Button onClick={exportScoreSheets} variant="outline">
              <FileDown className="h-4 w-4 mr-2" />
@@ -2553,30 +2558,46 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
         draggedEntry?.id === entry.id ? 'opacity-50' : ''
       } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <GripVertical className="h-4 w-4 text-gray-400" />
-            <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
-              #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-            </span>
-          </div>
-          
-          <div className="flex-1">
-            <div className="flex items-center space-x-3">
-              <div>
-                <p className="font-semibold text-gray-900">
-                  {entry.entries.handler_name}
-                </p>
-                <div className="flex items-center space-x-2">
-                  {/* REMOVED THE EDIT ICON - just show the text */}
-                  <div className="text-sm text-gray-600">
-                    {entry.entries.dog_call_name} • {entry.entries.cwags_number}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+       <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <GripVertical className="h-4 w-4 text-gray-400" />
+                            <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
+                              #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
+                            </span>
+                          </div>
+                          
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-semibold text-gray-900">
+                                    {entry.entries.handler_name}
+                                  </p>
+                                  {entry.division && (
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-xs ${
+                                        entry.division === 'A' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                                        entry.division === 'B' ? 'bg-green-100 text-green-700 border-green-300' :
+                                        entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                                        entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                        'bg-gray-100 text-gray-700 border-gray-300'
+                                      }`}
+                                    >
+                                      Div {entry.division}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <div className="text-sm text-gray-600">
+                                    {entry.entries.dog_call_name} • {entry.entries.cwags_number}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        
 
           <div className="flex items-center space-x-2">
   <div className="flex items-center space-x-2">

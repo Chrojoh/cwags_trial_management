@@ -772,7 +772,7 @@ function CreateRoundsPageContent() {
                               >
                                 <SelectValue placeholder="Select reset judge..." />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
                                 {qualifiedJudges[selectedClassId]?.map((judge) => (
                                   <SelectItem key={judge.id} value={judge.id}>
                                     {judge.name} - {judge.city}, {judge.province_state}

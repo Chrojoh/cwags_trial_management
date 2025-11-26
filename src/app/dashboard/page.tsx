@@ -122,13 +122,22 @@ const userInfo = getDisplayInfo();
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
+ const formatDate = (dateString: string) => {
+  // Split the date string to avoid timezone issues
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),      // year
+    parseInt(parts[1]) - 1,  // month (0-indexed)
+    parseInt(parts[2]),      // day
+    12, 0, 0                 // Set to noon to avoid timezone shifts
+  );
+  
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
 
   if (loading) {
     return (

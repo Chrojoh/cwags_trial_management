@@ -1301,7 +1301,8 @@ if (success) {
                   <SelectTrigger>
                     <SelectValue placeholder="Select sex" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
+                    
                     <SelectItem value="Male">Male</SelectItem>
                     <SelectItem value="Female">Female</SelectItem>
                   </SelectContent>
