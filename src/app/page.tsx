@@ -15,11 +15,20 @@ export default function HomePage() {
   const router = useRouter()
 
   // Redirect authenticated users to dashboard
-  useEffect(() => {
-    if (!loading && user) {
-      router.push('/dashboard')
-    }
-  }, [user, loading, router])
+ useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+
+  // 🔥 Do NOT redirect during recovery flow
+  if (params.get("type") === "recovery" || params.has("access_token") || params.has("token_hash")) {
+    return
+  }
+
+  // Normal redirect for actual logged-in users
+  if (!loading && user) {
+    router.push('/dashboard')
+  }
+}, [user, loading, router])
+
 
   if (loading) {
     return (
