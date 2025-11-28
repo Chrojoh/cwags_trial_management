@@ -1380,92 +1380,106 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
 },
 
   // Create or update score
-  async upsertScore(scoreData: {
-    entry_selection_id: string;
-    trial_round_id: string;
-    is_reset_round?: boolean;
-    scent1?: string | null;
-    scent2?: string | null;
-    scent3?: string | null;
-    scent4?: string | null;
-    fault1?: string | null;
-    fault2?: string | null;
-    time_seconds?: number | null;
-    numerical_score?: number | null;
-    pass_fail?: string | null;
-    entry_status?: string | null;
-    judge_notes?: string | null;
-    scored_by?: string | null;
-  }): Promise<OperationResult> {
-    try {
-      console.log('Upserting score:', scoreData);
+async upsertScore(scoreData: {
+  entry_selection_id: string;
+  trial_round_id: string;
+  is_reset_round?: boolean;
+  scent1?: string | null;
+  scent2?: string | null;
+  scent3?: string | null;
+  scent4?: string | null;
+  fault1?: string | null;
+  fault2?: string | null;
+  time_seconds?: number | null;
+  numerical_score?: number | null;
+  pass_fail?: string | null;
+  entry_status?: string | null;
+  judge_notes?: string | null;
+  scored_by?: string | null;
+}): Promise<OperationResult> {
+  try {
+    console.log('Upserting score:', scoreData);
 
-      // Check if score already exists
-      const { data: existingScore, error: checkError } = await supabase
-        .from('scores')
-        .select('id')
-        .eq('entry_selection_id', scoreData.entry_selection_id)
-        .eq('trial_round_id', scoreData.trial_round_id)
-        .eq('is_reset_round', scoreData.is_reset_round || false)
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing score:', checkError);
-        return { success: false, error: checkError.message };
+    // ✅ Extract base round ID if it's a compound ID (for Games classes)
+    let baseRoundId = scoreData.trial_round_id;
+    
+    if (scoreData.trial_round_id && scoreData.trial_round_id.includes('-')) {
+      const parts = scoreData.trial_round_id.split('-');
+      const lastPart = parts[parts.length - 1];
+      
+      // If the last part is a Games subclass, strip it to get the base UUID
+      if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+        baseRoundId = parts.slice(0, -1).join('-');
+        console.log('Extracted base round ID from compound ID:', baseRoundId);
       }
-
-      const scoreRecord = {
-        entry_selection_id: scoreData.entry_selection_id,
-        trial_round_id: scoreData.trial_round_id,
-        is_reset_round: scoreData.is_reset_round || false,
-        scent1: scoreData.scent1 || null,
-        scent2: scoreData.scent2 || null,
-        scent3: scoreData.scent3 || null,
-        scent4: scoreData.scent4 || null,
-        fault1: scoreData.fault1 || null,
-        fault2: scoreData.fault2 || null,
-        time_seconds: scoreData.time_seconds || null,
-        numerical_score: scoreData.numerical_score || null,
-        pass_fail: scoreData.pass_fail || null,
-        entry_status: scoreData.entry_status || 'present',
-        judge_notes: scoreData.judge_notes || null,
-        scored_by: scoreData.scored_by || null,
-        scored_at: new Date().toISOString()
-      };
-
-      let result;
-      if (existingScore) {
-        // Update existing score
-        result = await supabase
-          .from('scores')
-          .update(scoreRecord)
-          .eq('id', existingScore.id)
-          .select()
-          .single();
-      } else {
-        // Create new score
-        result = await supabase
-          .from('scores')
-          .insert({
-            ...scoreRecord,
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-      }
-
-      if (result.error) {
-        console.error('Error upserting score:', result.error);
-        return { success: false, error: result.error.message || result.error };
-      }
-
-      console.log('Score upserted successfully:', result.data);
-      return { success: true, data: result.data };
-    } catch (error) {
-      console.error('Error upserting score:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-  },
+
+    // Check if score already exists
+    const { data: existingScore, error: checkError } = await supabase
+      .from('scores')
+      .select('id')
+      .eq('entry_selection_id', scoreData.entry_selection_id)
+      .eq('trial_round_id', baseRoundId)  // ✅ Use base round ID
+      .eq('is_reset_round', scoreData.is_reset_round || false)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking existing score:', checkError);
+      return { success: false, error: checkError.message };
+    }
+
+    const scoreRecord = {
+      entry_selection_id: scoreData.entry_selection_id,
+      trial_round_id: baseRoundId,  // ✅ Use base round ID
+      is_reset_round: scoreData.is_reset_round || false,
+      scent1: scoreData.scent1 || null,
+      scent2: scoreData.scent2 || null,
+      scent3: scoreData.scent3 || null,
+      scent4: scoreData.scent4 || null,
+      fault1: scoreData.fault1 || null,
+      fault2: scoreData.fault2 || null,
+      time_seconds: scoreData.time_seconds || null,
+      numerical_score: scoreData.numerical_score || null,
+      pass_fail: scoreData.pass_fail || null,
+      entry_status: scoreData.entry_status || 'present',
+      judge_notes: scoreData.judge_notes || null,
+      scored_by: scoreData.scored_by || null,
+      scored_at: new Date().toISOString()
+    };
+
+    let result;
+    if (existingScore) {
+      // Update existing score
+      result = await supabase
+        .from('scores')
+        .update(scoreRecord)
+        .eq('id', existingScore.id)
+        .select()
+        .single();
+    } else {
+      // Create new score
+      result = await supabase
+        .from('scores')
+        .insert({
+          ...scoreRecord,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+    }
+
+    if (result.error) {
+      console.error('Error upserting score:', result.error);
+      return { success: false, error: result.error.message || result.error };
+    }
+
+    console.log('Score upserted successfully:', result.data);
+    return { success: true, data: result.data };
+  } catch (error) {
+    console.error('Error upserting score:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
 
   // Bulk update scores for a class
   async bulkUpdateScores(scores: Array<{
@@ -1975,131 +1989,184 @@ console.log('Raw classes with round data:', classesResult.data);
     }
 
     // Process each class to calculate statistics (EXCLUDING FEO)
-    const classesWithStats = await Promise.all(
-      (classesResult.data || []).map(async (cls: any) => {
-        try {
-          // Get judge info
-          const roundsResult = await this.getTrialRounds(cls.id);
-          const judge = roundsResult.success && roundsResult.data.length > 0 
-            ? roundsResult.data[0].judge_name 
-            : 'No Judge Assigned';
+    // ✅ First, expand Games classes with multiple subclasses
+const expandedClasses: any[] = [];
+(classesResult.data || []).forEach((cls: any) => {
+  if (cls.class_type === 'games' && cls.games_subclass && cls.games_subclass.includes(',')) {
+    // Split Games class by subclasses
+    const subclasses = cls.games_subclass.split(',').map((s: string) => s.trim());
+    subclasses.forEach((subclass: string) => {
+      expandedClasses.push({
+        ...cls,
+        id: `${cls.id}-${subclass}`, // Compound ID
+        games_subclass: subclass // Single subclass
+      });
+    });
+  } else {
+    // Non-Games or Games with single subclass
+    expandedClasses.push(cls);
+  }
+});
 
-          // Filter entries for this class - EXCLUDE FEO AND WITHDRAWN ENTRIES
+const classesWithStatsRaw = await Promise.all(
+  expandedClasses.map(async (cls: any) => {
+    // ✅ Add null check
+    if (!cls) return null;
+    
+    try {
+     // Extract base class ID for Games with compound IDs
+let baseClassId = cls.id;
+let targetSubclass = cls.games_subclass;
+
+if (cls.class_type === 'games' && typeof cls.id === 'string' && cls.id.includes('-')) {
+  const parts = cls.id.split('-');
+  const lastPart = parts[parts.length - 1];
+  
+  if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+    baseClassId = parts.slice(0, -1).join('-');
+    targetSubclass = lastPart;
+  }
+}
+
+// Get judge info and round ID using base class ID
+const roundsResult = await this.getTrialRounds(baseClassId);
+const judge = roundsResult.success && roundsResult.data.length > 0 
+  ? roundsResult.data[0].judge_name 
+  : 'Not Assigned';
+
+// ✅ Get the actual round ID to match against entry selections
+const roundId = roundsResult.success && roundsResult.data.length > 0
+  ? roundsResult.data[0].id
+  : baseClassId;
+
+      // Filter entries for this specific class/subclass
+      // Filter entries for this class/subclass
 const classEntries: any[] = [];
 (entriesResult.data || []).forEach((entry: any) => {
   const selections = entry.entry_selections || [];
   
-  // Get all selections for this specific class
-  const classSelections = selections.filter((selection: any) => 
-    selection.trial_rounds?.trial_class_id === cls.id
-  );
+// Get selections for this specific class
+const classSelections = selections.filter((selection: any) => {
+  // Match by trial_round_id (which should match the actual round ID)
+  const roundMatches = selection.trial_round_id === roundId;  // ✅ Use roundId, not baseClassId
+    
+    // For Games, also check subclass matches
+    let subclassMatches = true;
+    if (cls.class_type === 'games' && targetSubclass) {
+      subclassMatches = selection.games_subclass === targetSubclass;
+    }
+    
+    return roundMatches && subclassMatches;
+  });
   
-  // Check if this entry has any valid (non-FEO, non-withdrawn) selections for this class
+  // ✅ ADD THIS DEBUG LOG
+console.log(`Class ${cls.class_name} (${baseClassId}, subclass: ${targetSubclass}): Found ${classSelections.length} selections`);
+if (selections.length > 0 && classSelections.length === 0) {
+  console.log('Selection trial_round_ids:', selections.map((s: any) => s.trial_round_id));
+  console.log('Selection games_subclasses:', selections.map((s: any) => s.games_subclass));
+}
+  // Check if this entry has any valid selections
   const hasValidSelections = classSelections.some((selection: any) => {
     const isFeo = selection.entry_type?.toLowerCase() === 'feo';
     const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
     return !isFeo && !isWithdrawn;
   });
   
-  // Only include entries that have at least one valid selection
   if (hasValidSelections) {
     classSelections.forEach((selection: any) => {
       const isFeo = selection.entry_type?.toLowerCase() === 'feo';
       const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
       
-      // Only add non-FEO, non-withdrawn selections
       if (!isFeo && !isWithdrawn) {
         classEntries.push({
           id: selection.id,
           entry_id: entry.id,
           running_position: selection.running_position || 1,
           entry_type: selection.entry_type || 'regular',
-          entry_status: selection.entry_status, // Use actual status, no default
+          entry_status: selection.entry_status,
           entries: {
             handler_name: entry.handler_name,
             dog_call_name: entry.dog_call_name,
             cwags_number: entry.cwags_number
           },
-          scores: []
+          scores: selection.scores || []
         });
       }
     });
-  } else {
-    console.log(`Excluding entry (all selections FEO/withdrawn): ${entry.handler_name} - ${entry.dog_call_name}`);
   }
 });
 
-          // Get actual scores for class entries (non-FEO only)
-          const entriesWithScores = await Promise.all(
-            classEntries.map(async (entry) => {
-              try {
-                const { data: scores, error } = await supabase
-                  .from('scores')
-                  .select('*')
-                  .eq('entry_selection_id', entry.id);
+      // Filter entries with scores (EXCLUDING FEO)
+      const entriesWithScores = classEntries.filter((entry: any) => {
+        const selection = entry.selections?.find((sel: any) => {
+          if (cls.class_type === 'games' && targetSubclass) {
+            return sel.trial_rounds?.trial_class_id === baseClassId && 
+                   sel.games_subclass === targetSubclass;
+          }
+          return sel.trial_rounds?.trial_class_id === cls.id;
+        });
+        
+        // EXCLUDE FEO from statistics
+        return selection && 
+               selection.entry_type !== 'FEO' && 
+               selection.scores && 
+               selection.scores.length > 0;
+      });
 
-                if (!error && scores) {
-                  entry.scores = scores;
-                }
-                return entry;
-              } catch (error) {
-                console.error('Error loading scores for entry:', entry.id, error);
-                return entry;
-              }
-            })
-          );
+      // Calculate statistics (EXCLUDING FEO)
+      const passCount = entriesWithScores.filter((entry: any) => {
+        const selection = entry.selections?.find((sel: any) => {
+          if (cls.class_type === 'games' && targetSubclass) {
+            return sel.trial_rounds?.trial_class_id === baseClassId && 
+                   sel.games_subclass === targetSubclass;
+          }
+          return sel.trial_rounds?.trial_class_id === cls.id;
+        });
+        return selection?.scores?.some((s: any) => s.pass_fail === 'Pass');
+      }).length;
 
-          // Calculate statistics (ONLY for non-FEO entries)
-          const passCount = entriesWithScores.filter(entry => 
-            entry.scores?.some((score: any) => score.pass_fail === 'Pass')
-          ).length;
-          
-          const failCount = entriesWithScores.filter(entry => 
-            entry.scores?.some((score: any) => score.pass_fail === 'Fail')
-          ).length;
+      const failCount = entriesWithScores.filter((entry: any) => {
+        const selection = entry.selections?.find((sel: any) => {
+          if (cls.class_type === 'games' && targetSubclass) {
+            return sel.trial_rounds?.trial_class_id === baseClassId && 
+                   sel.games_subclass === targetSubclass;
+          }
+          return sel.trial_rounds?.trial_class_id === cls.id;
+        });
+        return selection?.scores?.some((s: any) => s.pass_fail === 'Fail');
+      }).length;
 
-          const completedRuns = entriesWithScores.filter(entry => 
-            entry.scores?.some((score: any) => score.pass_fail !== null)
-          ).length;
+      const completedRuns = entriesWithScores.length;
 
-          return {
-            id: cls.id,
-            class_name: cls.class_name,
-            class_type: cls.class_type || 'scent',
-            games_subclass: cls.games_subclass || null,
-            judge_name: judge,
-            trial_date: cls.trial_days?.trial_date || '',
-            trial_day_id: cls.trial_day_id,
-            participant_count: classEntries.length, // Only non-FEO
-            pass_count: passCount,
-            fail_count: failCount,
-            completed_runs: completedRuns,
-            entries: entriesWithScores
-          };
-        } catch (error) {
-          console.error(`Error processing class ${cls.id}:`, error);
-          return {
-            id: cls.id,
-            class_name: cls.class_name,
-            class_type: cls.class_type || 'scent',
-            games_subclass: cls.games_subclass || null,
-            judge_name: 'Error Loading',
-            trial_date: cls.trial_days?.trial_date || '',
-            trial_day_id: cls.trial_day_id,
-            participant_count: 0,
-            pass_count: 0,
-            fail_count: 0,
-            completed_runs: 0,
-            entries: []
-          };
-        }
-      })
-    );
+      return {
+        id: cls.id,
+        class_name: cls.class_name,
+        class_type: cls.class_type || 'scent',
+        games_subclass: targetSubclass || null,
+        judge_name: judge,
+        trial_date: cls.trial_days?.trial_date || '',
+        trial_day_id: cls.trial_day_id,
+        participant_count: classEntries.length,
+        pass_count: passCount,
+        fail_count: failCount,
+        completed_runs: completedRuns,
+        entries: entriesWithScores,
+        total_rounds: roundsResult.data?.length || 1
+      };
+    } catch (error) {
+      console.error('Error processing class:', error);
+      return null;
+    }
+  })
+);
 
-    // Filter classes that have entries OR have configured rounds
-    const classesWithEntries = classesWithStats.filter(cls => 
-      cls.participant_count > 0 || cls.total_rounds > 0
-    );
+// ✅ Filter out nulls with proper TypeScript type guard
+const classesWithStats = classesWithStatsRaw.filter((cls): cls is NonNullable<typeof cls> => cls !== null);
+
+// Filter classes that have entries OR have configured rounds
+const classesWithEntries = classesWithStats.filter(cls => 
+  cls.participant_count > 0 || cls.total_rounds > 0
+);
 
     // Calculate overall trial statistics (EXCLUDING FEO)
     const totalParticipants = classesWithEntries.reduce((sum, cls) => sum + cls.participant_count, 0);
@@ -2274,6 +2341,7 @@ const classEntries: any[] = [];
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 },
+
 async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     try {
       console.log('Fetching running order data for day:', dayId);

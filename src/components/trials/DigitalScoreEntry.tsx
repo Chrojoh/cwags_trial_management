@@ -201,11 +201,23 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           };
         }
 
-        console.log('Saving score for entry:', entry.id, scoreData);
+       // ✅ Extract base round ID for Games classes with compound IDs
+        let roundIdForScore = selectedClass.id;
+        
+        if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
+          const parts = selectedClass.id.split('-');
+          const lastPart = parts[parts.length - 1];
+          
+          if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+            roundIdForScore = parts.slice(0, -1).join('-');
+          }
+        }
+        
+        console.log('Saving score for entry:', entry.id, scoreData, 'Round ID:', roundIdForScore);
 
         const result = await simpleTrialOperations.upsertScore({
           entry_selection_id: entry.id,
-          trial_round_id: selectedClass.id,
+          trial_round_id: roundIdForScore,  // ✅ Use base round ID, not compound ID
           ...scoreData,
         });
 

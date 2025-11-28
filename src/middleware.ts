@@ -2,32 +2,32 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export function middleware(request: NextRequest) {
-  const response = NextResponse.next();
-  const pathname = request.nextUrl.pathname;
-  const searchParams = request.nextUrl.searchParams;
+  const url = request.nextUrl;
+  const pathname = url.pathname;
+  const params = url.searchParams;
 
-  // --------------------------------------------
-  // 🔥 CRITICAL: Allow Supabase recovery flow early return
-  // --------------------------------------------
-
-  // If the URL contains the recovery event, allow it and STOP processing
-  if (searchParams.get("type") === "recovery") {
-    return NextResponse.next();  // <-- EARLY RETURN
+  // -------------------------------------------------------
+  // 🔥 1. Allow Supabase recovery links IMMEDIATELY
+  // -------------------------------------------------------
+  if (params.get("type") === "recovery") {
+    return NextResponse.next(); // VERY IMPORTANT
   }
 
-  // Allow URLs that carry auth tokens
-  if (searchParams.has("access_token") || searchParams.has("token_hash")) {
-    return NextResponse.next();  // <-- EARLY RETURN
+  // Allow any URL that includes Supabase tokens
+  if (params.has("token_hash") || params.has("access_token")) {
+    return NextResponse.next();
   }
 
-  // Allow the actual reset-password page
+  // Allow the reset-password page to load
   if (pathname.startsWith("/login/reset-password")) {
-    return response;             // <-- EARLY RETURN
+    return NextResponse.next();
   }
 
-  // --------------------------------------------
-  // ❗ ONLY after recovery is handled, create SSR client
-  // --------------------------------------------
+  // -------------------------------------------------------
+  // Continue normally for all other requests
+  // -------------------------------------------------------
+  const response = NextResponse.next();
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -37,13 +37,9 @@ export function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set({
-              name,
-              value,
-              ...options,
-            });
-          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set({ name, value, ...options })
+          );
         },
       },
     }
@@ -53,7 +49,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

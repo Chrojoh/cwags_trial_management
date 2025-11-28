@@ -308,7 +308,7 @@ const generateExcelReport = async () => {
           result = 'X';
           targetClassData.totalRuns++;
         }
-        else if (score) {
+       else if (score) {
           const className = targetClassData.className || '';
           const isRallyOrObedience = className.toLowerCase().includes('starter') || 
                                  className.toLowerCase().includes('advanced') || 
@@ -332,14 +332,18 @@ const generateExcelReport = async () => {
             }
             targetClassData.totalRuns++;
           }
-          else if (score.pass_fail === 'Pass') {
-            const classInfo = selection.trial_rounds?.trial_classes;
-            const isGamesClass = classInfo?.class_type === 'games';
-            const gamesSubclass = classInfo?.games_subclass;
-            result = (isGamesClass && gamesSubclass) ? gamesSubclass : 'Pass';
+          // ✅ FIX: Check for Games subclass symbols first
+          else if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
+            result = score.pass_fail; // Show the subclass symbol (GB, BJ, T, P, C)
             targetClassData.totalPasses++;
             targetClassData.totalRuns++;
-          } else if (score.pass_fail === 'Fail') {
+          }
+          else if (score.pass_fail === 'Pass') {
+            result = 'Pass';
+            targetClassData.totalPasses++;
+            targetClassData.totalRuns++;
+          } 
+          else if (score.pass_fail === 'Fail') {
             result = 'F';
             targetClassData.totalRuns++;
           }
