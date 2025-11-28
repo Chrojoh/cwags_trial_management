@@ -2,39 +2,32 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 function ResetPasswordForm() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
+  const supabase = getSupabaseBrowser(); // ✅ use correct shared client
   const router = useRouter();
+
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // ✅ Listen for recovery session
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      (event) => {
-        if (event === "PASSWORD_RECOVERY") {
-          setReady(true);
-        }
+    // 🔥 CRITICAL: detect PASSWORD_RECOVERY
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setReady(true); // allow form to appear
       }
-    );
+    });
 
-    return () => {
-      listener?.subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [supabase]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) return;
-
     setLoading(true);
     setMessage("");
 
@@ -43,14 +36,13 @@ function ResetPasswordForm() {
     });
 
     if (error) {
-      console.error(error);
-      setMessage("Error updating password.");
-    } else {
-      setMessage("Password updated! Redirecting to login...");
-      setTimeout(() => router.replace("/login"), 1500);
+      setMessage("Error updating password: " + error.message);
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    setMessage("Password updated! Redirecting...");
+    setTimeout(() => router.replace("/login"), 1500);
   };
 
   if (!ready) {
