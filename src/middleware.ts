@@ -5,10 +5,19 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   const pathname = request.nextUrl.pathname;
 
-  // ✅ Allow password reset page through WITHOUT auth redirect
-if (pathname.startsWith("/login/reset-password")) {
-  return response;
-}
+  const searchParams = request.nextUrl.searchParams;
+  const isRecovery = searchParams.get("type") === "recovery";
+
+  // 🔥 Allow Supabase password reset magic link
+  if (isRecovery) {
+    return response; // let the page load so reset-handler can redirect
+  }
+
+  // 🔥 Allow user to visit the actual reset page
+  if (pathname.startsWith("/login/reset-password")) {
+    return response;
+  }
+
 
 
   const supabase = createServerClient(

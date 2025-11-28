@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 // import { Inter } from "next/font/google"  // ← Commented out
 import "./globals.css"
 
+import ResetHandler from "./reset-handler"   // ← ✅ ADD THIS
+
 // const inter = Inter({ subsets: ["latin"] })  // ← Commented out
 
 export const metadata: Metadata = {
@@ -16,7 +18,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">  {/* ← Changed to just "antialiased" */}
+      <body className="antialiased">
+        <ResetHandler />    {/* ← ✅ ADD THIS */}
         {children}
       </body>
     </html>
