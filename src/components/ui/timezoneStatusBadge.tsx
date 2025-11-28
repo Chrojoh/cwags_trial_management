@@ -2,7 +2,9 @@
 // src/components/ui/timezone-status-badge.tsx
 // PURPOSE: Status badge for entry windows
 // ============================================================================
-import { DollarSign, CheckCircle } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+
 
 interface TimezoneStatusBadgeProps {
   status: 'open' | 'late' | 'closed';

@@ -265,6 +265,7 @@ export default function LiveEventManagementPage() {
   const router = useRouter();
   const params = useParams();
   const { user } = useAuth();
+  const [selectedGamesSubclass, setSelectedGamesSubclass] = useState<string | null>(null);
   const trialId = params.trialId as string;
   const [selectedRound, setSelectedRound] = useState<number>(1);
   const [trial, setTrial] = useState<Trial | null>(null);
@@ -512,7 +513,6 @@ const loadTrialData = async () => {
 
     console.log('Loading trial data for live event management:', trialId);
 
-    // Load trial basic info
     const trialResult = await simpleTrialOperations.getTrial(trialId);
     if (!trialResult.success) {
       throw new Error('Failed to load trial data');
@@ -520,13 +520,11 @@ const loadTrialData = async () => {
 
     setTrial(trialResult.data);
 
-    // Load all trial classes
     const classesResult = await simpleTrialOperations.getAllTrialClasses(trialId);
     if (!classesResult.success) {
       throw new Error('Failed to load trial classes');
     }
 
-    // Get ALL rounds for each class - create separate entries for each round
     const allClassRounds: TrialClass[] = [];
     
     for (const cls of (classesResult.data || [])) {
@@ -536,29 +534,54 @@ const loadTrialData = async () => {
         if (roundsResult.success && roundsResult.data && roundsResult.data.length > 0) {
           console.log(`Found ${roundsResult.data.length} rounds for class ${cls.class_name}`);
           
-          // Create a TrialClass entry for EACH round
           roundsResult.data.forEach((round: any, index: number) => {
-            allClassRounds.push({
-              id: round.id, // Use ROUND ID as the main ID
-              class_id: cls.id, // Store original class ID
-              round_number: round.round_number || (index + 1),
-              class_name: cls.class_name,
-              class_type: cls.class_type || 'scent',
-              games_subclass: cls.games_subclass || null,
-              judge_name: round.judge_name || 'No Judge Assigned',
-              trial_date: cls.trial_days?.trial_date || '',
-              trial_day_id: cls.trial_day_id,
-              entry_fee: cls.entry_fee || 0,
-              feo_available: cls.feo_available || false,
-              feo_price: cls.feo_price || 0,
-              max_entries: cls.max_entries || 0,
-              class_level: cls.class_level || '',
-              class_order: cls.class_order || 999,
-              class_status: cls.class_status || 'active'
-            });
+            // ✅ For Games classes, check if we need to split by subclass
+            if (cls.class_type === 'games' && cls.games_subclass) {
+              // Split Games classes by their subclass (GB, T, etc.)
+              const subclasses = cls.games_subclass.split(',').map((s: string) => s.trim());
+              
+              subclasses.forEach((subclass: string) => {
+                allClassRounds.push({
+                  id: `${round.id}-${subclass}`, // Unique ID combining round + subclass
+                  class_id: cls.id,
+                  round_number: round.round_number || (index + 1),
+                  class_name: cls.class_name,
+                  class_type: cls.class_type || 'games',
+                  games_subclass: subclass, // Individual subclass
+                  judge_name: round.judge_name || 'No Judge Assigned',
+                  trial_date: cls.trial_days?.trial_date || '',
+                  trial_day_id: cls.trial_day_id,
+                  entry_fee: cls.entry_fee || 0,
+                  feo_available: cls.feo_available || false,
+                  feo_price: cls.feo_price || 0,
+                  max_entries: cls.max_entries || 0,
+                  class_level: cls.class_level || '',
+                  class_order: cls.class_order || 999,
+                  class_status: cls.class_status || 'active'
+                });
+              });
+            } else {
+              // Non-games classes work as before
+              allClassRounds.push({
+                id: round.id,
+                class_id: cls.id,
+                round_number: round.round_number || (index + 1),
+                class_name: cls.class_name,
+                class_type: cls.class_type || 'scent',
+                games_subclass: cls.games_subclass || null,
+                judge_name: round.judge_name || 'No Judge Assigned',
+                trial_date: cls.trial_days?.trial_date || '',
+                trial_day_id: cls.trial_day_id,
+                entry_fee: cls.entry_fee || 0,
+                feo_available: cls.feo_available || false,
+                feo_price: cls.feo_price || 0,
+                max_entries: cls.max_entries || 0,
+                class_level: cls.class_level || '',
+                class_order: cls.class_order || 999,
+                class_status: cls.class_status || 'active'
+              });
+            }
           });
-        } else {
-          console.log(`No rounds found for class ${cls.class_name}`);
         }
       } catch (error) {
         console.error(`Error loading rounds for class ${cls.id}:`, error);
@@ -596,40 +619,75 @@ const loadClassEntries = async () => {
       throw new Error('Failed to load entries');
     }
 
-    // Filter entries for THIS SPECIFIC ROUND (selectedClass.id is the round ID)
+    // ✅ FIX: Extract base round ID if this is a compound ID (for Games subclasses)
+    let baseRoundId = selectedClass.id;
+    let targetSubclass = selectedClass.games_subclass;
+    
+    // If the ID contains a hyphen followed by a subclass (GB, BJ, T, P, C)
+    if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
+      const parts = selectedClass.id.split('-');
+      const lastPart = parts[parts.length - 1];
+      
+      // Check if last part is a games subclass (single or double letter)
+      if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+        // This is a compound ID - extract base round ID
+        baseRoundId = parts.slice(0, -1).join('-');
+        targetSubclass = lastPart;
+        console.log('Compound ID detected. Base round ID:', baseRoundId, 'Target subclass:', targetSubclass);
+      }
+    }
+
+    // Filter entries for THIS SPECIFIC ROUND (and subclass for Games)
     const classEntriesData: ClassEntry[] = [];
     (entriesResult.data || []).forEach((entry: any) => {
       const selections = entry.entry_selections || [];
       selections.forEach((selection: any) => {
         // Check if this selection is for the selected round
-        if (selection.trial_round_id === selectedClass.id) {
+        const roundMatches = selection.trial_round_id === selectedClass.id || 
+                            selection.trial_round_id === baseRoundId;
+        
+        // For Games classes with subclasses, also check the subclass matches
+        let subclassMatches = true;
+        if (selectedClass.class_type === 'games' && targetSubclass) {
+          // Check if the selection has a games_subclass field and it matches
+          subclassMatches = !selection.games_subclass || selection.games_subclass === targetSubclass;
+          
+          console.log('Checking subclass match:', {
+            entryHandler: entry.handler_name,
+            selectionSubclass: selection.games_subclass,
+            targetSubclass: targetSubclass,
+            matches: subclassMatches
+          });
+        }
+        
+        if (roundMatches && subclassMatches) {
           // FILTER OUT WITHDRAWN ENTRIES
           const entryStatus = selection.entry_status || 'entered';
           if (entryStatus.toLowerCase() !== 'withdrawn') {
-           classEntriesData.push({
-  id: selection.id,
-  entry_id: entry.id,
-  running_position: selection.running_position || 0,
-  entry_type: selection.entry_type || 'regular',
-  entry_status: entryStatus,
-  round_number: selectedClass.round_number || 1,
-  round_id: selectedClass.id,
-  division: selection.division || null,  // ✅ ADD THIS LINE
-  entries: {
-    handler_name: entry.handler_name,
-    dog_call_name: entry.dog_call_name,
-    cwags_number: entry.cwags_number
-  },
-  trial_rounds: {
-    judge_name: selectedClass.judge_name,
-    trial_classes: {
-      class_name: selectedClass.class_name,
-      class_type: selectedClass.class_type,
-      games_subclass: selectedClass.games_subclass
-    }
-  },
-  scores: selection.scores || []
-});
+            classEntriesData.push({
+              id: selection.id,
+              entry_id: entry.id,
+              running_position: selection.running_position || 0,
+              entry_type: selection.entry_type || 'regular',
+              entry_status: entryStatus,
+              round_number: selectedClass.round_number || 1,
+              round_id: selectedClass.id,
+              division: selection.division || null,
+              entries: {
+                handler_name: entry.handler_name,
+                dog_call_name: entry.dog_call_name,
+                cwags_number: entry.cwags_number
+              },
+              trial_rounds: {
+                judge_name: selectedClass.judge_name,
+                trial_classes: {
+                  class_name: selectedClass.class_name,
+                  class_type: selectedClass.class_type,
+                  games_subclass: selectedClass.games_subclass
+                }
+              },
+              scores: selection.scores || []
+            });
           }
         }
       });
@@ -638,7 +696,7 @@ const loadClassEntries = async () => {
     // Sort by running position
     classEntriesData.sort((a, b) => a.running_position - b.running_position);
     
-    console.log(`Loaded ${classEntriesData.length} entries for round ${selectedClass.id}`);
+    console.log(`Loaded ${classEntriesData.length} entries for round ${selectedClass.id} (base: ${baseRoundId}, subclass: ${targetSubclass})`);
     setClassEntries(classEntriesData);
     
   } catch (err) {
@@ -888,18 +946,47 @@ const loadAllClassCounts = async () => {
     
     const counts: Record<string, number> = {};
     
-    // Now cls.id is a ROUND ID, so check directly against trial_round_id
+    // Now cls.id is a ROUND ID (or compound ID for Games subclasses)
     trialClasses.forEach(cls => {
+      // ✅ FIX: Handle compound IDs for Games subclasses
+      let baseRoundId = cls.id;
+      let targetSubclass = cls.games_subclass;
+      
+      // If this is a Games class with a compound ID
+      if (cls.class_type === 'games' && cls.id.includes('-')) {
+        const parts = cls.id.split('-');
+        const lastPart = parts[parts.length - 1];
+        
+        // Check if last part is a games subclass (GB, BJ, T, P, C)
+        if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+          baseRoundId = parts.slice(0, -1).join('-');
+          targetSubclass = lastPart;
+        }
+      }
+      
       const roundEntryCount = (entriesResult.data || []).reduce((count: number, entry: any) => {
-        const selectionsForRound = entry.entry_selections?.filter((selection: any) => 
-          selection.trial_round_id === cls.id && 
-          selection.entry_status?.toLowerCase() !== 'withdrawn' // ✅ EXCLUDE WITHDRAWN ENTRIES
-        ) || [];
+        const selectionsForRound = entry.entry_selections?.filter((selection: any) => {
+          // Check if round ID matches
+          const roundMatches = selection.trial_round_id === cls.id || 
+                              selection.trial_round_id === baseRoundId;
+          
+          // For Games with subclass, also check subclass matches
+          let subclassMatches = true;
+          if (cls.class_type === 'games' && targetSubclass) {
+            subclassMatches = !selection.games_subclass || selection.games_subclass === targetSubclass;
+          }
+          
+          // Not withdrawn
+          const notWithdrawn = selection.entry_status?.toLowerCase() !== 'withdrawn';
+          
+          return roundMatches && subclassMatches && notWithdrawn;
+        }) || [];
+        
         return count + selectionsForRound.length;
       }, 0);
       
       counts[cls.id] = roundEntryCount;
-      console.log(`Round ${cls.id} (${cls.class_name} R${cls.round_number}): ${roundEntryCount} entries`);
+      console.log(`Round ${cls.id} (${cls.class_name} R${cls.round_number}${targetSubclass ? ` - ${targetSubclass}` : ''}): ${roundEntryCount} entries`);
     });
     
     setClassCounts(counts);
@@ -1229,13 +1316,18 @@ const addNewEntry = async () => {
     return;
   }
 
+  // ✅ ADD: For Games classes, require subclass selection
+  if (selectedClass.class_type?.toLowerCase() === 'games' && !selectedGamesSubclass) {
+    setError('Please select a Games subclass (GB, BJ, T, P, or C)');
+    return;
+  }
+
   try {
     setSaving(true);
     setError(null);
 
     console.log('Adding new entry to class:', selectedClass.class_name, 'Round:', selectedRound);
 
-    // ✅ Find the specific round from trialClasses using selectedRound
     const roundToUse = trialClasses.find(
       tc => tc.class_id === selectedClass.class_id && 
             tc.round_number === selectedRound
@@ -1260,20 +1352,17 @@ const addNewEntry = async () => {
     });
 
     if (isFeO) {
-      // Check if FEO pricing is available for this round
       if (roundToUse.feo_available && roundToUse.feo_price !== undefined) {
         calculatedFee = roundToUse.feo_price;
         console.log('Using FEO pricing from database:', calculatedFee);
       } else if (roundToUse.entry_fee) {
-        // Fallback: some trials offer FEO at reduced rate (e.g., 50% of regular)
         calculatedFee = Math.round(roundToUse.entry_fee * 0.5);
         console.log('Using 50% of regular fee for FEO:', calculatedFee);
       } else {
-        calculatedFee = 0; // Some trials offer FEO for free
+        calculatedFee = 0;
         console.log('FEO entry set to free');
       }
     } else {
-      // Regular entry
       calculatedFee = roundToUse.entry_fee || 0;
       console.log('Using regular pricing:', calculatedFee);
     }
@@ -1309,17 +1398,25 @@ const addNewEntry = async () => {
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
-    // Create entry selection with direct insert
+    // ✅ UPDATED: Create entry selection with games_subclass
+    const insertData: any = {
+      entry_id: entryResult.data.id,
+      trial_round_id: roundToUse.id,
+      entry_type: newEntryData.entry_type,
+      fee: calculatedFee,
+      running_position: nextPosition,
+      entry_status: 'entered'
+    };
+
+   // Add games_subclass if this is a Games class
+    if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
+      insertData.games_subclass = selectedGamesSubclass;
+      console.log('Adding games_subclass to entry:', selectedGamesSubclass);
+    }
+
     const { error: insertError } = await supabase
       .from('entry_selections')
-      .insert({
-        entry_id: entryResult.data.id,
-        trial_round_id: roundToUse.id,  // ✅ Use roundToUse.id (the correct round)
-        entry_type: newEntryData.entry_type,
-        fee: calculatedFee,
-        running_position: nextPosition,
-        entry_status: 'entered'
-      });
+      .insert(insertData);
 
     if (insertError) {
       throw new Error('Failed to save entry selection: ' + insertError.message);
@@ -1336,7 +1433,8 @@ const addNewEntry = async () => {
       cwags_number: '',
       entry_type: 'regular'
     });
-    setSelectedRound(1); // Reset to round 1
+    setSelectedRound(1);
+    setSelectedGamesSubclass(null); // ✅ Reset games subclass
     setShowAddEntryModal(false);
 
     alert(`Entry added successfully to Round ${selectedRound} with fee: $${calculatedFee}!`);
@@ -1516,40 +1614,89 @@ const exportScoreSheetsForDay = async (dayId: string) => {
     });
 
     for (const round of roundsForDay) {
-      // Get entries for this round
-      const roundEntries: Array<{
-        runningOrder: number;
-        cwagsNumber: string;
-        dogName: string;
-        handlerName: string;
-      }> = [];
+    console.log('Processing round for score sheet:', {
+    roundId: round.id,
+    className: round.class_name,
+    classType: round.class_type,
+    gamesSubclass: round.games_subclass,
+    roundNumber: round.round_number
+  });
 
-      (entriesResult.data || []).forEach((entry: any) => {
-        const selections = entry.entry_selections || [];
-        selections.forEach((selection: any) => {
-          if (selection.trial_round_id === round.id && selection.entry_status !== 'withdrawn') {
-            const isFeo = selection.entry_type === 'feo';
-            const dogName = isFeo
-              ? `${entry.dog_call_name} (FEO)`
-              : (entry.dog_call_name || '');
-            roundEntries.push({
-              runningOrder: selection.running_position || 0,
-              cwagsNumber: entry.cwags_number || '',
-              dogName,
-              handlerName: entry.handler_name || ''
-            });
-          }
-        });
+  // Get entries for this round
+  const roundEntries: Array<{
+    runningOrder: number;
+    cwagsNumber: string;
+    dogName: string;
+    handlerName: string;
+  }> = [];
+
+  // ✅ Extract base round ID for Games classes with compound IDs
+  let baseRoundId = round.id;
+  let targetSubclass = round.games_subclass;
+  
+  if (round.class_type === 'games' && round.id.includes('-')) {
+    const parts = round.id.split('-');
+    const lastPart = parts[parts.length - 1];
+    
+    if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+      baseRoundId = parts.slice(0, -1).join('-');
+      targetSubclass = lastPart;
+      console.log('Compound Games ID detected:', {
+        fullId: round.id,
+        baseRoundId: baseRoundId,
+        targetSubclass: targetSubclass
       });
+    }
+  }
+     
+      (entriesResult.data || []).forEach((entry: any) => {
+    const selections = entry.entry_selections || [];
+    selections.forEach((selection: any) => {
+      // Check if round ID matches
+      const roundMatches = selection.trial_round_id === round.id || 
+                          selection.trial_round_id === baseRoundId;
+      
+      // For Games classes, also check subclass matches
+      let subclassMatches = true;
+      if (round.class_type === 'games' && targetSubclass) {
+        subclassMatches = selection.games_subclass === targetSubclass;
+        
+        console.log('Games entry check:', {
+          handler: entry.handler_name,
+          dog: entry.dog_call_name,
+          selectionRoundId: selection.trial_round_id,
+          selectionSubclass: selection.games_subclass,
+          targetSubclass: targetSubclass,
+          roundMatches: roundMatches,
+          subclassMatches: subclassMatches
+        });
+      }
+      
+      if (roundMatches && subclassMatches && selection.entry_status !== 'withdrawn') {
+        const isFeo = selection.entry_type === 'feo';
+        const dogName = isFeo
+          ? `${entry.dog_call_name} (FEO)`
+          : (entry.dog_call_name || '');
+        roundEntries.push({
+          runningOrder: selection.running_position || 0,
+          cwagsNumber: entry.cwags_number || '',
+          dogName,
+          handlerName: entry.handler_name || ''
+        });
+      }
+    });
+  });
 
-      roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
+  console.log(`Found ${roundEntries.length} entries for ${round.class_name} - ${targetSubclass || 'no subclass'}`);
+
+  roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
 
       // Create array - 20 columns (A-T)
       const wsData: any[][] = [];
       const emptyRow = ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''];
 
       // Row 1: Title and Date
-      wsData.push(['Scent Detection Master Score Sheet', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Date:', '', formattedDate, '']);
+      wsData.push(['Scent Detection Master Score Sheet', '','','','','','','','','','','Date:','','','', formattedDate, '','','','']);
 
       // Row 2: CLASS (and logo area B2:D5)
       wsData.push(['', '', '', '', 'CLASS:', "", round.class_name, '', '', '', '', '', '', '', '', '', '', '', '', '']);
@@ -1558,7 +1705,12 @@ const exportScoreSheetsForDay = async (dayId: string) => {
       wsData.push([...emptyRow]);
 
       // Row 4: ROUND and JUDGE
-      const roundText = `Round ${round.round_number || 1}`;
+      // ✅ FIX: Include games subclass in the round text
+      let roundText = `Round ${round.round_number || 1}`;
+      if (round.class_type === 'games' && round.games_subclass) {
+        roundText += ` - ${round.games_subclass}`;
+      }
+      
       wsData.push(['', '', '', '', 'ROUND:', '', roundText, '', '', '', 'JUDGE:', '', round.judge_name, '', '', '']);
 
       // Row 5: Empty
@@ -1600,33 +1752,30 @@ const exportScoreSheetsForDay = async (dayId: string) => {
       worksheet['!rows'] = [];
       worksheet['!rows'][5] = { hpt: 80 };  // Row 6 double height (60 instead of 30)
       worksheet['!rows'][6] = { hpt: 80};   // Row 7 double height
-      worksheet['!rows'][7] = { hpt: 40 };  // Row 8 same height
-      worksheet['!rows'][8] = { hpt: 40};   // Row 9 same height
+      worksheet['!rows'][7] = { hpt: 43 };  // Row 8 same height
+      worksheet['!rows'][8] = { hpt: 43};   // Row 9 same height
 
       // 🔥 Set row heights for rows 10 to 49 (indexes 9–48)
       for (let r = 9; r <= 48; r++) {
-        worksheet['!rows'][r] = { hpt: 22 };  // ← change height as desired
+        worksheet['!rows'][r] = { hpt: 24 };  // ← change height as desired
       }
 
       // Set merged cells
       const merges = [
         // Row 1: Title merged A1:K1
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
         
         // Row 1: Date label P1:Q1, Date value S1:T1
-        { s: { r: 0, c: 15 }, e: { r: 0, c: 16 } },  // P1:Q1 "Date:"
-        { s: { r: 0, c: 17 }, e: { r: 0, c: 19 } },  // S1:T1 date value
+        { s: { r: 0, c: 11 }, e: { r: 0, c: 14 } },  // L1:O1 "Date:"
+        { s: { r: 0, c: 15 }, e: { r: 0, c: 19 } },  // P1:T1 date value
         
-        // Logo area B2:D5 (for image placement)
-        { s: { r: 1, c: 1 }, e: { r: 4, c: 3 } },
-
         // Row 2: CLASS: E2:F2, Class name G2:I2
         { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } },    // E2:F2 CLASS:
-        { s: { r: 1, c: 6 }, e: { r: 1, c: 10 } },    // G2:I2 class name
+        { s: { r: 1, c: 6 }, e: { r: 1, c: 11 } },    // G2:K2 class name
 
         // Row 4: ROUND: E4:F4, Round name G4:I4
         { s: { r: 3, c: 4 }, e: { r: 3, c: 5 } },    // E4:F4 ROUND:
-        { s: { r: 3, c: 6 }, e: { r: 3, c: 8 } },    // G4:I4 round name
+        { s: { r: 3, c: 6 }, e: { r: 3, c: 9 } },    // G4:I4 round name
         
         // Row 4: JUDGE O4:P4 (label), Q4:T4 (judge name)
         { s: { r: 3, c: 10 }, e: { r: 3, c: 11 } },  // O4:P4 JUDGE:
@@ -1729,23 +1878,32 @@ const exportScoreSheetsForDay = async (dayId: string) => {
             }
           }
 
-          // Rows 1-7: Font size 17, BOLD
-          if (R <= 6) {
-            if (R === 0) {
-              // Row 1: Title (size 20) and Date
-              cell.s = {
-                font: { bold: true, sz: 25, name: 'Calibri' },
-                alignment: { 
-                  horizontal: C === 0 ? 'left' : (C === 18 || C === 19 ? 'center' : (C >= 17 ? 'left' : 'right')), 
-                  vertical: 'center', 
-                  wrapText: false
-                },
-                border
-              };
+          // Rows 1-7: Font size 28, BOLD
+         if (R <= 6) {
+  if (R === 0) {
+    // Row 1: Title (size 34) and Date
+    let horizontalAlign = 'left';
+
+    // L:O → right aligned
+    if (C >= 11 && C <= 14) {
+      horizontalAlign = 'right';
+    }
+
+    cell.s = {
+      font: { bold: true, sz: 34, name: 'Calibri' },
+      alignment: {
+        horizontal: horizontalAlign,
+        vertical: 'center',
+        wrapText: false
+      },
+      border
+    };
+
+
             } else if (R === 1) {
               // Row 2: CLASS/Logo area
               cell.s = {
-                font: { bold: true, sz: 25, name: 'Calibri' },
+                font: { bold: true, sz: 28, name: 'Calibri' },
                 alignment: { 
                   horizontal: (C === 4 || C === 5) ? 'right' : 'left', 
                   vertical: 'center', 
@@ -1757,7 +1915,7 @@ const exportScoreSheetsForDay = async (dayId: string) => {
               cell.s = {
                 font: { 
                   bold: true, 
-                  sz: 25,              // Maximum font size
+                  sz: 26,              
                   name: 'Calibri' 
                 },
                 alignment: { 
@@ -1771,16 +1929,16 @@ const exportScoreSheetsForDay = async (dayId: string) => {
             } else if (R === 5) {
               // Row 6: Scent headers
               cell.s = {
-                font: { bold: true, sz: 17, name: 'Calibri' },
-                alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
+                font: { bold: true, sz: 28, name: 'Calibri' },
+                alignment: { horizontal: 'center', vertical: 'top', wrapText: true },
                 fill: { fgColor: { rgb: 'E8E8E8' } },
                 border
               };
             } else if (R === 6) {
               // Row 7: Located in/on
               cell.s = {
-                font: { bold: true, sz: 17, name: 'Calibri' },
-                alignment: { horizontal: 'left', vertical: 'top', wrapText: true },
+                font: { bold: true, sz: 28, name: 'Calibri' },
+                alignment: { horizontal: 'center', vertical: 'top', wrapText: true },
                 border
               };
             } else {
@@ -1792,10 +1950,10 @@ const exportScoreSheetsForDay = async (dayId: string) => {
               };
             }
           }
-          // Rows 8-57: Font size 12
+          // Rows 8-57: Font size 18
           else {
             cell.s = {
-              font: { sz: 14, name: 'Calibri' },
+              font: { sz: 18, name: 'Calibri' },
               alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
               border
             };
@@ -1812,7 +1970,7 @@ const exportScoreSheetsForDay = async (dayId: string) => {
               
               // Columns G, H, I, J: Shrink to fit
               if (C >= 6 && C <= 9) {
-                cell.s.alignment.shrinkToFit = true;
+                cell.s.alignment.shrinkToFit = false;
               }
             }
           }
@@ -1821,10 +1979,17 @@ const exportScoreSheetsForDay = async (dayId: string) => {
 
       // Add worksheet
       let sheetName = `${round.class_name} R${round.round_number || 1}`;
+      
+      if (round.class_type === 'games' && round.games_subclass) {
+        sheetName += ` ${round.games_subclass}`;
+      }
+      
       if (sheetName.length > 31) {
         sheetName = sheetName.substring(0, 31);
       }
       sheetName = sheetName.replace(/[:\\/?*[\]]/g, '');
+      
+      console.log('Creating worksheet with name:', sheetName);
       
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     }
@@ -1968,16 +2133,24 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                     } else {
                       resultDisplay = 'NQ'; // Not Qualified
                     }
-                  } else {
-                    // Other class types (scent, games)
-                    if (score.pass_fail === 'Pass') {
-                      resultDisplay = 'Pass';
-                    } else if (score.pass_fail === 'Fail') {
-                      resultDisplay = 'F';
-                    } else if (score.pass_fail === 'FEO') {
-                      resultDisplay = 'FEO';
-                    }
-                  }
+                 } else {
+  // Other class types (scent, games)
+  // Check if it's a Games subclass symbol (GB, BJ, P, T, C)
+  const gamesSubclasses = ['GB', 'BJ', 'P', 'T', 'C'];
+  if (gamesSubclasses.includes(score.pass_fail)) {
+    resultDisplay = score.pass_fail; // Show subclass symbol directly
+  } else if (score.pass_fail === 'Pass') {
+    resultDisplay = 'Pass';
+  } else if (score.pass_fail === 'Fail') {
+    resultDisplay = 'F';
+  } else if (score.pass_fail === 'FEO') {
+    resultDisplay = 'FEO';
+  } else if (score.pass_fail === 'ABS') {
+    resultDisplay = 'Abs';
+  } else {
+    resultDisplay = '-';
+  }
+}
                 } else {
                   resultDisplay = '-'; // No score
                 }
@@ -2088,7 +2261,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
         const entry = classRounds[col].entries[entryIndex];
         let cellValue = '';
         
- if (entry) {
+     if (entry) {
   const firstName = entry.handlerName.split(' ')[0];
   // ✅ ADD DIVISION TO CELL VALUE
   const divisionText = entry.division ? ` (${entry.division})` : '';
@@ -2560,64 +2733,56 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     >
        <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <GripVertical className="h-4 w-4 text-gray-400" />
-                            <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
-                              #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-                            </span>
-                          </div>
-                          
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-semibold text-gray-900">
-                                    {entry.entries.handler_name}
-                                  </p>
-                                  {entry.division && (
-                                    <Badge 
-                                      variant="outline" 
-                                      className={`text-xs ${
-                                        entry.division === 'A' ? 'bg-orange-100 text-orange-700 border-orange-300' :
-                                        entry.division === 'B' ? 'bg-green-100 text-green-700 border-green-300' :
-                                        entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                                        entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                        'bg-gray-100 text-gray-700 border-gray-300'
-                                      }`}
-                                    >
-                                      Div {entry.division}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <div className="text-sm text-gray-600">
-                                    {entry.entries.dog_call_name} • {entry.entries.cwags_number}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        
-
-          <div className="flex items-center space-x-2">
   <div className="flex items-center space-x-2">
-  {/* Division Badge - NEW */}
-  {entry.division && (
-    <Badge className="text-xs bg-blue-100 text-blue-700 border border-blue-300">
-      DIV {entry.division}
-    </Badge>
-  )}
+    <GripVertical className="h-4 w-4 text-gray-400" />
+    <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
+      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
+    </span>
+  </div>
   
-  {/* Entry Type Badge (FEO/REGULAR) */}
-  <Badge className={`text-xs ${getEntryTypeColor(entry.entry_type)}`}>
-    {entry.entry_type.toUpperCase()}
-  </Badge>
-  
-  {/* Result Badge */}
-  <Badge className={`text-xs ${resultClass}`}>
-    {resultDisplay || 'Pending'}
-  </Badge>
-</div>
+ <div className="flex-1">
+    <div className="flex items-center space-x-3">
+      <div>
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-gray-900">
+            {entry.entries.handler_name}
+          </p>
+          {entry.division && (
+            <Badge 
+              variant="outline" 
+              className={`text-xs ${
+                entry.division === 'A' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+                entry.division === 'B' ? 'bg-green-100 text-green-700 border-green-300' :
+                entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                'bg-gray-100 text-gray-700 border-gray-300'
+              }`}
+            >
+              Div {entry.division}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="text-sm text-gray-600">
+            {entry.entries.dog_call_name} • {entry.entries.cwags_number}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-2">
+      {/* Entry Type Badge (FEO/REGULAR) */}
+      <Badge className={`text-xs ${getEntryTypeColor(entry.entry_type)}`}>
+        {entry.entry_type.toUpperCase()}
+      </Badge>
+      
+      {/* Result Badge */}
+      <Badge className={`text-xs ${resultClass}`}>
+        {resultDisplay || 'Pending'}
+      </Badge>
+    </div>
             
           </div>
         </div>
@@ -2853,6 +3018,28 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   </SelectContent>
                 </Select>
               </div>
+{/* ✅ NEW: Games Subclass Selector */}
+             {selectedClass?.class_type?.toLowerCase() === 'games' && (
+                <div>
+                  <Label htmlFor="games_subclass">Games Subclass *</Label>
+                  <select
+                    id="games_subclass"
+                    value={selectedGamesSubclass || ''}
+                    onChange={(e) => setSelectedGamesSubclass(e.target.value || null)}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+                  >
+                    <option value="">Select Subclass</option>
+                    <option value="GB">GB - Grab Bag</option>
+                    <option value="BJ">BJ - Blackjack</option>
+                    <option value="T">T - Teams</option>
+                    <option value="P">P - Pairs</option>
+                    <option value="C">C - Colors</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select which Games subclass this entry is for
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end space-x-2 mt-6">
@@ -2865,7 +3052,13 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
               </Button>
               <Button 
                 onClick={addNewEntry}
-                disabled={saving || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number}
+                disabled={
+                  saving || 
+                  !newEntryData.handler_name || 
+                  !newEntryData.dog_call_name || 
+                  !newEntryData.cwags_number ||
+                  (selectedClass?.class_type?.toLowerCase() === 'games' && !selectedGamesSubclass)
+                }
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -2875,7 +3068,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                 Add Entry
               </Button>
             </div>
-          </div>
+           </div>
         </div>
       )}
       {/* Day Selection Modal */}

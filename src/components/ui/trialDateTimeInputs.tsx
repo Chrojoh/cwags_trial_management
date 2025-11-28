@@ -4,6 +4,7 @@
 // ============================================================================
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TimezoneSelector } from '@/components/ui/timezoneSelector';
 import { createTrialDateTime, formatters } from '@/lib/timezone';
 
 interface TrialDateTimeInputsProps {

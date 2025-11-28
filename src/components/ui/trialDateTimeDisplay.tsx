@@ -2,7 +2,7 @@
 // src/components/ui/trial-date-time-display.tsx
 // PURPOSE: Display trial date/time with timezone info
 // ============================================================================
-import { Calendar } from 'lucide-react';
+import { Calendar, Clock } from 'lucide-react';
 import { useTimezone, formatTimeRemaining } from '@/lib/timezone';
 import { Badge } from '@/components/ui/badge';
 

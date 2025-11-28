@@ -669,7 +669,7 @@ export default function PublicEntryForm() {
         }
       }
       //ADD
-      if (roundsToAdd.length > 0) {
+ if (roundsToAdd.length > 0) {
   const newSelections = roundsToAdd.map((roundId, index) => {
     const round = trialRounds.find(r => r.id === roundId);
     const isFeo = formData.feo_selections.includes(roundId);
@@ -683,24 +683,28 @@ export default function PublicEntryForm() {
       entryType = 'feo';
     }
     
+    // ✅ Extract games_subclass from the round's trial_classes
+    const gamesSubclass = round?.trial_classes?.games_subclass || null;
+    
     console.log(`📝 Creating selection for round ${roundId}:`, {
       entry_type: entryType,
       division: division,
       fee: entryFee,
-      isFeo: isFeo
+      isFeo: isFeo,
+      games_subclass: gamesSubclass
     });
     
     return {
-      entry_id: primaryEntryId,  // ✅ CRITICAL: Must include entry_id
+      entry_id: primaryEntryId,
       trial_round_id: roundId,
       entry_type: entryType,
       fee: entryFee,
       running_position: (existingSelections?.length || 0) + index + 1,
       entry_status: 'entered',
-      division: division  // ✅ Include division
+      division: division,
+      games_subclass: gamesSubclass  // ✅ ADD THIS LINE
     };
   });
-  
   const { error: insertError } = await supabase
     .from('entry_selections')
     .insert(newSelections);

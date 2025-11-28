@@ -1,69 +1,62 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
-
-
 function ResetPasswordForm() {
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const accessToken = searchParams.get("access_token");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // ✅ Listen for recovery session
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setReady(true);
+        }
+      }
+    );
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim() || !accessToken) return;
+    if (!password.trim()) return;
 
     setLoading(true);
     setMessage("");
 
-    try {
-      // 1️⃣ Exchange token for authenticated session
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(accessToken);
-      if (sessionError) {
-        console.error(sessionError);
-        setMessage("Invalid or expired reset link.");
-        setLoading(false);
-        return;
-      }
+    const { error } = await supabase.auth.updateUser({
+      password: password.trim(),
+    });
 
-      // 2️⃣ Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password.trim(),
-      });
-
-      if (updateError) {
-        setMessage("Error updating password.");
-        console.error(updateError);
-      } else {
-        setMessage("Password updated! Redirecting to login...");
-        setTimeout(() => router.replace("/login"), 1500);
-      }
-    } catch (err) {
-      console.error(err);
-      setMessage("Unexpected error. Try again.");
+    if (error) {
+      console.error(error);
+      setMessage("Error updating password.");
+    } else {
+      setMessage("Password updated! Redirecting to login...");
+      setTimeout(() => router.replace("/login"), 1500);
     }
 
     setLoading(false);
   };
 
-  if (!accessToken) {
+  if (!ready) {
     return (
       <div className="p-6 text-center">
-        <p className="text-red-600 font-semibold">
-          Invalid or expired password reset link.
-        </p>
+        <p>Verifying reset link...</p>
       </div>
     );
   }
@@ -78,6 +71,7 @@ const supabase = createBrowserClient(
         className="w-full p-2 border rounded"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        required
       />
 
       <button

@@ -38,7 +38,7 @@ function MainLayout({
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     if (typeof window !== 'undefined') {
-      window.location.pathname = '/auth/signin';
+      window.location.pathname = '/login';
     }
     return null;
   }

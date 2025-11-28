@@ -24,9 +24,7 @@ export interface QuickAction {
   description: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  color: 'blue' | 'green' | 'orange' | 'purple
-
-' | 'red';
+color: 'blue' | 'green' | 'orange' | 'purple' | 'red';
   requiredPermission?: string;
 }
 

@@ -32,7 +32,7 @@ export type {
 // From auth.ts (your existing working auth system)
 export type {
   User,
-  UserSession,
+  UserSession, // Commented out - causing error
   AuthState
 } from './auth';
 

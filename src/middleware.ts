@@ -1,43 +1,62 @@
-// src/middleware.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+export function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+  const pathname = request.nextUrl.pathname;
+
+  // ✅ Allow password reset page through WITHOUT auth redirect
+if (pathname.startsWith("/login/reset-password")) {
+  return response;
+}
+
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => req.cookies.get(name)?.value,
-        set: (name, value, options) =>
-          res.cookies.set(name, value, options),
-        remove: (name, options) =>
-          res.cookies.delete(name, options),
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set({
+              name,
+              value,
+              ...options,
+            });
+          });
+        },
       },
     }
   );
 
-  const { data } = await supabase.auth.getUser();
-  const user = data?.user;
+  // Optional: protect private routes
+  // Example:
+  // const isProtected = pathname.startsWith("/dashboard");
 
-  const isAuthPage =
-    req.nextUrl.pathname.startsWith("/login") ||
-    req.nextUrl.pathname.startsWith("/register");
+  // if (isProtected) {
+  //   const {
+  //     data: { user },
+  //   } = await supabase.auth.getUser();
+  //
+  //   if (!user) {
+  //     return NextResponse.redirect(new URL("/login", request.url));
+  //   }
+  // }
 
-  if (!user && !isAuthPage) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  if (user && isAuthPage) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  return res;
+  return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/register"],
+  matcher: [
+    /*
+     Match all paths EXCEPT:
+     - _next (Next.js internals)
+     - static files
+     - favicon
+    */
+    "/((?!_next/static|_next/image|favicon.ico).*)",
+  ],
 };
