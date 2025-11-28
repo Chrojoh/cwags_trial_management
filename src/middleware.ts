@@ -7,26 +7,26 @@ export function middleware(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
   // --------------------------------------------
-  // 🔥 CRITICAL: Allow Supabase recovery flow
+  // 🔥 CRITICAL: Allow Supabase recovery flow early return
   // --------------------------------------------
 
-  // 1️⃣ Allow URLs that contain the recovery event
+  // If the URL contains the recovery event, allow it and STOP processing
   if (searchParams.get("type") === "recovery") {
-    return NextResponse.next();
+    return NextResponse.next();  // <-- EARLY RETURN
   }
 
-  // 2️⃣ Allow URLs that carry auth tokens
+  // Allow URLs that carry auth tokens
   if (searchParams.has("access_token") || searchParams.has("token_hash")) {
-    return NextResponse.next();
+    return NextResponse.next();  // <-- EARLY RETURN
   }
 
-  // 3️⃣ Allow the actual reset-password page
+  // Allow the actual reset-password page
   if (pathname.startsWith("/login/reset-password")) {
-    return response;
+    return response;             // <-- EARLY RETURN
   }
 
   // --------------------------------------------
-  // Supabase SSR Client (unchanged)
+  // ❗ ONLY after recovery is handled, create SSR client
   // --------------------------------------------
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -48,20 +48,6 @@ export function middleware(request: NextRequest) {
       },
     }
   );
-
-  // --------------------------------------------
-  // (Optional) Protected routes
-  // --------------------------------------------
-  // Example:
-  // const isProtected = pathname.startsWith("/dashboard");
-  // if (isProtected) {
-  //   const {
-  //     data: { user },
-  //   } = await supabase.auth.getUser();
-  //   if (!user) {
-  //     return NextResponse.redirect(new URL("/login", request.url));
-  //   }
-  // }
 
   return response;
 }
