@@ -14,12 +14,33 @@ function ResetPasswordForm() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Detect PASSWORD_RECOVERY event
+    // Check if we have recovery parameters in the URL
+    const params = new URLSearchParams(window.location.search);
+    const hasRecoveryParams = params.get("type") === "recovery" || params.has("token_hash");
+    
+    console.log("Recovery params detected:", hasRecoveryParams);
+
+    // Detect PASSWORD_RECOVERY event or verify existing session
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      console.log("Auth event:", event); // Debug log
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth event:", event, "Session:", !!session);
+      
+      // If we have recovery params and any session, we're ready
+      if (hasRecoveryParams && session) {
+        setReady(true);
+      }
+      
+      // Also check for the PASSWORD_RECOVERY event
       if (event === "PASSWORD_RECOVERY") {
+        setReady(true);
+      }
+    });
+
+    // Also check immediately for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (hasRecoveryParams && session) {
+        console.log("Existing recovery session found");
         setReady(true);
       }
     });
