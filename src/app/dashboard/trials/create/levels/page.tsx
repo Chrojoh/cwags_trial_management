@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -82,6 +82,7 @@ function TrialLevelsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trialId = searchParams.get('trial');
+  const supabase = getSupabaseBrowser();
   const isEditMode = searchParams.get('mode') === 'edit';
   
   const [trial, setTrial] = useState<Trial | null>(null);

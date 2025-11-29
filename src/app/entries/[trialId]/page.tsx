@@ -30,7 +30,7 @@ import {
   Edit
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 // ============================================
 // INTERFACES
@@ -167,6 +167,7 @@ export default function PublicEntryForm() {
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
   const [loading, setLoading] = useState(true);
+  const supabase = getSupabaseBrowser();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
