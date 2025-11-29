@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { supabase } from '@/lib/supabase';
+ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import {
   FileSpreadsheet,
   Users,
@@ -81,7 +81,7 @@ export default function ClassSummaryPage() {
   const params = useParams();
   const { user } = useAuth();
   const trialId = params.trialId as string;
-
+  const supabase = getSupabaseBrowser();
   const [summaryData, setSummaryData] = useState<{
     trial: Trial;
     classes: TrialClass[];
@@ -90,6 +90,7 @@ export default function ClassSummaryPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

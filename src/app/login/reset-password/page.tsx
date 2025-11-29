@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
 function ResetPasswordForm() {
-  const supabase = getSupabaseBrowser(); // ✅ use correct shared client
+  const supabase = getSupabaseBrowser();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -14,17 +15,30 @@ function ResetPasswordForm() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // 🔥 CRITICAL: detect PASSWORD_RECOVERY
+    // Check if we have the recovery parameters in URL
+    const hasRecoveryParams = 
+      searchParams.get("type") === "recovery" && 
+      searchParams.has("token_hash");
+
+    if (hasRecoveryParams) {
+      console.log("✅ Recovery parameters detected");
+      setReady(true);
+      return;
+    }
+
+    // Also listen for PASSWORD_RECOVERY event as backup
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
+      console.log("Auth event:", event);
       if (event === "PASSWORD_RECOVERY") {
-        setReady(true); // allow form to appear
+        console.log("✅ PASSWORD_RECOVERY event received");
+        setReady(true);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +63,9 @@ function ResetPasswordForm() {
     return (
       <div className="p-6 text-center">
         <p>Verifying reset link...</p>
+        <p className="text-sm text-gray-500 mt-2">
+          If this takes more than 5 seconds, the link may be invalid or expired.
+        </p>
       </div>
     );
   }
@@ -64,6 +81,7 @@ function ResetPasswordForm() {
         value={password}
         onChange={(e) => setPassword(e.target.value)}
         required
+        minLength={6}
       />
 
       <button

@@ -8,6 +8,7 @@ import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getDivisionColor } from '@/lib/divisionUtils';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,7 @@ import DigitalScoreEntry from '@/components/trials/DigitalScoreEntry';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/lib/supabase';
+ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -276,6 +277,7 @@ export default function LiveEventManagementPage() {
   const [saving, setSaving] = useState(false);
   const [showDigitalScoreEntry, setShowDigitalScoreEntry] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const supabase = getSupabaseBrowser();
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<ClassEntry | null>(null);
@@ -1676,7 +1678,12 @@ const exportScoreSheetsForDay = async (dayId: string) => {
         const isFeo = selection.entry_type === 'feo';
         const dogName = isFeo
           ? `${entry.dog_call_name} (FEO)`
-          : (entry.dog_call_name || '');
+                    : (entry.dog_call_name || '');
+                    {entry.division && (
+  <Badge className={`ml-2 ${getDivisionColor(entry.division)}`}>
+    {entry.division}
+  </Badge>
+)}
         roundEntries.push({
           runningOrder: selection.running_position || 0,
           cwagsNumber: entry.cwags_number || '',

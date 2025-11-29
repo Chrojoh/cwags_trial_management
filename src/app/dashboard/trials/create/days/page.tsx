@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Calendar,
@@ -37,6 +37,7 @@ interface TrialDay {
 function TrialDaysPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = getSupabaseBrowser();
   const trialId = searchParams.get('trial');
   const isEditMode = searchParams.get('mode') === 'edit';
   

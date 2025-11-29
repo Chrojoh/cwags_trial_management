@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { getDivisionColor } from '@/lib/divisionUtils';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -24,6 +26,7 @@ interface EntryScore {
   cwagsNumber: string;
   dogName: string;
   handlerName: string;
+   division?: string | null;
   // Scent fields
   scent1: string;
   scent2: string;
@@ -114,6 +117,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
               cwagsNumber: entry.cwags_number || '',
               dogName: entry.dog_call_name || '',
               handlerName: entry.handler_name || '',
+              division: selection.division || null,  // ⬅️ ADD THIS LINE
               scent1: score.scent1 ?? '',
               scent2: score.scent2 ?? '',
               scent3: score.scent3 ?? '',
@@ -351,10 +355,23 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   {entries.map((entry, idx) => (
                     <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
                       <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                      <td className="border p-2 text-sm">
-                        <div className="font-semibold">{entry.dogName}</div>
-                        <div className="text-gray-600">{entry.handlerName}</div>
-                      </td>
+                     <td className="border p-2 text-sm">
+  <div className="font-semibold">
+    {entry.dogName}
+    {entry.division && (
+      <span className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${
+        entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
+        entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
+        entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
+        entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
+        'bg-gray-100 text-gray-700'
+      }`}>
+        {entry.division}
+      </span>
+    )}
+  </div>
+  <div className="text-gray-600">{entry.handlerName}</div>
+</td>
                       <td className="border p-1 w-32">
                         <Input
                           value={entry.numerical_score}

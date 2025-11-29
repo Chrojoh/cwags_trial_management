@@ -6,6 +6,7 @@ import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getDivisionColor } from '@/lib/divisionUtils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -553,6 +554,29 @@ export default function TrialEntriesPage() {
                                 Junior Handler
                               </Badge>
                             )}
+                            {/* Show unique divisions from entry selections */}
+{(() => {
+  const divisions = [...new Set(
+    entry.entry_selections
+      .map((sel: any) => sel.division)
+      .filter((div: any) => div != null)
+  )];
+  
+  return divisions.map((division: string) => (
+    <Badge 
+      key={division}
+      className={
+        division === 'A' ? 'bg-orange-100 text-orange-700 border-orange-300' :
+        division === 'B' ? 'bg-green-100 text-green-700 border-green-300' :
+        division === 'TO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+        division === 'JR' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+        'bg-gray-100 text-gray-700'
+      }
+    >
+      Div {division}
+    </Badge>
+  ));
+})()}
                           </div>
                         </div>
                         

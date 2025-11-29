@@ -2096,63 +2096,36 @@ if (selections.length > 0 && classSelections.length === 0) {
   }
 });
 
-      // Filter entries with scores (EXCLUDING FEO)
-      const entriesWithScores = classEntries.filter((entry: any) => {
-        const selection = entry.selections?.find((sel: any) => {
-          if (cls.class_type === 'games' && targetSubclass) {
-            return sel.trial_rounds?.trial_class_id === baseClassId && 
-                   sel.games_subclass === targetSubclass;
-          }
-          return sel.trial_rounds?.trial_class_id === cls.id;
-        });
-        
-        // EXCLUDE FEO from statistics
-        return selection && 
-               selection.entry_type !== 'FEO' && 
-               selection.scores && 
-               selection.scores.length > 0;
-      });
+     // Calculate statistics - scores are directly on entry objects
+const passCount = classEntries.filter((entry: any) => 
+  entry.scores?.some((s: any) => 
+    s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
+  )
+).length;
 
-      // Calculate statistics (EXCLUDING FEO)
-      const passCount = entriesWithScores.filter((entry: any) => {
-        const selection = entry.selections?.find((sel: any) => {
-          if (cls.class_type === 'games' && targetSubclass) {
-            return sel.trial_rounds?.trial_class_id === baseClassId && 
-                   sel.games_subclass === targetSubclass;
-          }
-          return sel.trial_rounds?.trial_class_id === cls.id;
-        });
-        return selection?.scores?.some((s: any) => s.pass_fail === 'Pass');
-      }).length;
+const failCount = classEntries.filter((entry: any) => 
+  entry.scores?.some((s: any) => s.pass_fail === 'Fail')
+).length;
 
-      const failCount = entriesWithScores.filter((entry: any) => {
-        const selection = entry.selections?.find((sel: any) => {
-          if (cls.class_type === 'games' && targetSubclass) {
-            return sel.trial_rounds?.trial_class_id === baseClassId && 
-                   sel.games_subclass === targetSubclass;
-          }
-          return sel.trial_rounds?.trial_class_id === cls.id;
-        });
-        return selection?.scores?.some((s: any) => s.pass_fail === 'Fail');
-      }).length;
+const completedRuns = classEntries.filter((entry: any) => 
+  entry.scores?.some((s: any) => s.pass_fail !== null)
+).length;
 
-      const completedRuns = entriesWithScores.length;
-
-      return {
-        id: cls.id,
-        class_name: cls.class_name,
-        class_type: cls.class_type || 'scent',
-        games_subclass: targetSubclass || null,
-        judge_name: judge,
-        trial_date: cls.trial_days?.trial_date || '',
-        trial_day_id: cls.trial_day_id,
-        participant_count: classEntries.length,
-        pass_count: passCount,
-        fail_count: failCount,
-        completed_runs: completedRuns,
-        entries: entriesWithScores,
-        total_rounds: roundsResult.data?.length || 1
-      };
+    return {
+  id: cls.id,
+  class_name: cls.class_name,
+  class_type: cls.class_type || 'scent',
+  games_subclass: targetSubclass || null,
+  judge_name: judge,
+  trial_date: cls.trial_days?.trial_date || '',
+  trial_day_id: cls.trial_day_id,
+  participant_count: classEntries.length,
+  pass_count: passCount,
+  fail_count: failCount,
+  completed_runs: completedRuns,
+  entries: classEntries,  // ← Changed from entriesWithScores
+  total_rounds: roundsResult.data?.length || 1
+};
     } catch (error) {
       console.error('Error processing class:', error);
       return null;

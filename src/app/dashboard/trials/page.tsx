@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 interface Trial {
   id: string;
@@ -68,6 +68,7 @@ export default function TrialsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TrialStatus | 'all'>('all');
   const [trials, setTrials] = useState<Trial[]>([]);
+  const supabase = getSupabaseBrowser();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
