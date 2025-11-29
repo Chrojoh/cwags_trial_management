@@ -14,33 +14,63 @@ function ResetPasswordForm() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Check if we have recovery parameters in the URL
-    const params = new URLSearchParams(window.location.search);
-    const hasRecoveryParams = params.get("type") === "recovery" || params.has("token_hash");
-    
-    console.log("Recovery params detected:", hasRecoveryParams);
+    const handleRecoveryFlow = async () => {
+      // Check URL parameters
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const searchParams = new URLSearchParams(window.location.search);
+      
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const type = searchParams.get("type");
+      
+      console.log("Recovery flow check:", {
+        type,
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken
+      });
 
-    // Detect PASSWORD_RECOVERY event or verify existing session
+      // If we have access token in hash, manually set the session
+      if (accessToken && refreshToken) {
+        console.log("Found tokens in URL hash, setting session...");
+        
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+        
+        console.log("Session set result:", { session: !!data.session, error });
+        
+        if (data.session) {
+          setReady(true);
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } else {
+          setMessage("Invalid or expired reset link. Please request a new one.");
+        }
+        return;
+      }
+
+      // Otherwise check for existing session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      console.log("Existing session check:", { session: !!session, error, type });
+      
+      if (session && type === "recovery") {
+        setReady(true);
+      } else if (type === "recovery") {
+        setMessage("Reset link processing... If this persists, request a new link.");
+      }
+    };
+
+    handleRecoveryFlow();
+
+    // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth event:", event, "Session:", !!session);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change:", event, "Session:", !!session);
       
-      // If we have recovery params and any session, we're ready
-      if (hasRecoveryParams && session) {
-        setReady(true);
-      }
-      
-      // Also check for the PASSWORD_RECOVERY event
-      if (event === "PASSWORD_RECOVERY") {
-        setReady(true);
-      }
-    });
-
-    // Also check immediately for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (hasRecoveryParams && session) {
-        console.log("Existing recovery session found");
+      if (event === "PASSWORD_RECOVERY" || (session && event === "INITIAL_SESSION")) {
         setReady(true);
       }
     });
