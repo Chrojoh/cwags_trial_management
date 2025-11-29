@@ -2045,12 +2045,13 @@ const classEntries: any[] = [];
 (entriesResult.data || []).forEach((entry: any) => {
   const selections = entry.entry_selections || [];
   
-// Get selections for this specific class
-const classSelections = selections.filter((selection: any) => {
-  // Match by trial_round_id (which should match the actual round ID)
-  const roundMatches = selection.trial_round_id === roundId;  // ✅ Use roundId, not baseClassId
+  // Get selections for this specific class
+  const classSelections = selections.filter((selection: any) => {
+    // Match by trial_round_id - use baseClassId for Games
+    const roundMatches = selection.trial_round_id === roundId || 
+                        selection.trial_round_id === baseClassId;
     
-    // For Games, also check subclass matches
+    // For Games, ALSO check games_subclass matches
     let subclassMatches = true;
     if (cls.class_type === 'games' && targetSubclass) {
       subclassMatches = selection.games_subclass === targetSubclass;
