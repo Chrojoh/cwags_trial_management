@@ -216,16 +216,18 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
     return '-'; // No score yet
   }
   
-  // Normal scoring logic for other class types (scent, games)
-  if (score?.pass_fail === 'Pass') {
-    // Handle Games subclass results
-    if (selectedClass?.class_type === 'games' && selectedClass?.games_subclass) {
-      return selectedClass.games_subclass; // GB, BJ, C, T, P
-    }
-    return 'Pass';
-  } else if (score?.pass_fail === 'Fail') {
-    return 'Fail';
-  }
+// Normal scoring logic for other class types (scent, games)
+// Check if it's a Games subclass result FIRST
+const gamesSubclasses = ['GB', 'BJ', 'T', 'P', 'C'];
+if (score && gamesSubclasses.includes(score.pass_fail || '')) {
+  return score.pass_fail!; // Show the subclass letter
+}
+
+if (score?.pass_fail === 'Pass') {
+  return 'Pass';
+} else if (score?.pass_fail === 'Fail') {
+  return 'Fail';
+}
   
   // No score yet
   return '-';

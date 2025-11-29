@@ -1990,23 +1990,38 @@ console.log('Raw classes with round data:', classesResult.data);
 
     // Process each class to calculate statistics (EXCLUDING FEO)
     // ✅ First, expand Games classes with multiple subclasses
-const expandedClasses: any[] = [];
+// DON'T expand Games classes - keep them consolidated
+// Consolidate Games classes with same name but different subclasses
+const classMap = new Map<string, any>();
+
 (classesResult.data || []).forEach((cls: any) => {
-  if (cls.class_type === 'games' && cls.games_subclass && cls.games_subclass.includes(',')) {
-    // Split Games class by subclasses
-    const subclasses = cls.games_subclass.split(',').map((s: string) => s.trim());
-    subclasses.forEach((subclass: string) => {
-      expandedClasses.push({
-        ...cls,
-        id: `${cls.id}-${subclass}`, // Compound ID
-        games_subclass: subclass // Single subclass
-      });
-    });
+  const key = `${cls.class_name}-${cls.trial_day_id}`;
+  
+  if (classMap.has(key)) {
+    // Class already exists - merge subclasses
+    const existing = classMap.get(key);
+    if (cls.class_type === 'games' && cls.games_subclass) {
+      // Combine subclasses
+      const subclasses = [
+        ...(existing.games_subclass || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+        ...(cls.games_subclass || '').split(',').map((s: string) => s.trim()).filter(Boolean)
+      ];
+      existing.games_subclass = [...new Set(subclasses)].join(', ');
+      
+      // Track all class IDs for fetching rounds/entries later
+      existing.allClassIds = existing.allClassIds || [existing.id];
+      existing.allClassIds.push(cls.id);
+    }
   } else {
-    // Non-Games or Games with single subclass
-    expandedClasses.push(cls);
+    // New class
+    classMap.set(key, {
+      ...cls,
+      allClassIds: [cls.id]
+    });
   }
 });
+
+const expandedClasses = Array.from(classMap.values());
 
 const classesWithStatsRaw = await Promise.all(
   expandedClasses.map(async (cls: any) => {
@@ -2014,87 +2029,54 @@ const classesWithStatsRaw = await Promise.all(
     if (!cls) return null;
     
     try {
-     // Extract base class ID for Games with compound IDs
-let baseClassId = cls.id;
-let targetSubclass = cls.games_subclass;
+ // For consolidated Games classes, get rounds from ALL class IDs
+const classIdsToCheck = cls.allClassIds || [cls.id];
 
-if (cls.class_type === 'games' && typeof cls.id === 'string' && cls.id.includes('-')) {
-  const parts = cls.id.split('-');
-  const lastPart = parts[parts.length - 1];
-  
-  if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-    baseClassId = parts.slice(0, -1).join('-');
-    targetSubclass = lastPart;
-  }
-}
+// Get all rounds for all class IDs
+const allRoundsResults = await Promise.all(
+  classIdsToCheck.map((classId: string) => this.getTrialRounds(classId))
+);
 
-// Get judge info and round ID using base class ID
-const roundsResult = await this.getTrialRounds(baseClassId);
-const judge = roundsResult.success && roundsResult.data.length > 0 
-  ? roundsResult.data[0].judge_name 
-  : 'Not Assigned';
+// Collect all round IDs
+const allRoundIds = allRoundsResults
+  .filter(result => result.success)
+  .flatMap(result => result.data.map((round: any) => round.id));
 
-// ✅ Get the actual round ID to match against entry selections
-const roundId = roundsResult.success && roundsResult.data.length > 0
-  ? roundsResult.data[0].id
-  : baseClassId;
+// Get all judges
+const allJudges = allRoundsResults
+  .filter(result => result.success)
+  .flatMap(result => result.data.map((round: any) => round.judge_name))
+  .filter((name, index, self) => name && self.indexOf(name) === index); // unique
 
-      // Filter entries for this specific class/subclass
-      // Filter entries for this class/subclass
+const judge = cls.class_type === 'games' 
+  ? '' // Leave blank for Games
+  : (allJudges[0] || 'Not Assigned');
+
+// Filter entries - check if selection matches ANY of the round IDs
 const classEntries: any[] = [];
 (entriesResult.data || []).forEach((entry: any) => {
   const selections = entry.entry_selections || [];
   
-  // Get selections for this specific class
   const classSelections = selections.filter((selection: any) => {
-    // Match by trial_round_id - use baseClassId for Games
-    const roundMatches = selection.trial_round_id === roundId || 
-                        selection.trial_round_id === baseClassId;
-    
-    // For Games, ALSO check games_subclass matches
-    let subclassMatches = true;
-    if (cls.class_type === 'games' && targetSubclass) {
-      subclassMatches = selection.games_subclass === targetSubclass;
-    }
-    
-    return roundMatches && subclassMatches;
+    return allRoundIds.includes(selection.trial_round_id);
   });
   
-  // ✅ ADD THIS DEBUG LOG
-console.log(`Class ${cls.class_name} (${baseClassId}, subclass: ${targetSubclass}): Found ${classSelections.length} selections`);
-if (selections.length > 0 && classSelections.length === 0) {
-  console.log('Selection trial_round_ids:', selections.map((s: any) => s.trial_round_id));
-  console.log('Selection games_subclasses:', selections.map((s: any) => s.games_subclass));
-}
-  // Check if this entry has any valid selections
-  const hasValidSelections = classSelections.some((selection: any) => {
+  classSelections.forEach((selection: any) => {
     const isFeo = selection.entry_type?.toLowerCase() === 'feo';
     const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
-    return !isFeo && !isWithdrawn;
+    
+    if (!isFeo && !isWithdrawn) {
+      classEntries.push({
+        ...selection,
+        entry_id: entry.id,
+        entries: {
+          handler_name: entry.handler_name,
+          dog_call_name: entry.dog_call_name,
+          cwags_number: entry.cwags_number
+        }
+      });
+    }
   });
-  
-  if (hasValidSelections) {
-    classSelections.forEach((selection: any) => {
-      const isFeo = selection.entry_type?.toLowerCase() === 'feo';
-      const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
-      
-      if (!isFeo && !isWithdrawn) {
-        classEntries.push({
-          id: selection.id,
-          entry_id: entry.id,
-          running_position: selection.running_position || 1,
-          entry_type: selection.entry_type || 'regular',
-          entry_status: selection.entry_status,
-          entries: {
-            handler_name: entry.handler_name,
-            dog_call_name: entry.dog_call_name,
-            cwags_number: entry.cwags_number
-          },
-          scores: selection.scores || []
-        });
-      }
-    });
-  }
 });
 
      // Calculate statistics - scores are directly on entry objects
@@ -2111,12 +2093,12 @@ const failCount = classEntries.filter((entry: any) =>
 const completedRuns = classEntries.filter((entry: any) => 
   entry.scores?.some((s: any) => s.pass_fail !== null)
 ).length;
-
-    return {
+   
+ return {
   id: cls.id,
   class_name: cls.class_name,
   class_type: cls.class_type || 'scent',
-  games_subclass: targetSubclass || null,
+  games_subclass: cls.games_subclass || null,
   judge_name: judge,
   trial_date: cls.trial_days?.trial_date || '',
   trial_day_id: cls.trial_day_id,
@@ -2124,8 +2106,8 @@ const completedRuns = classEntries.filter((entry: any) =>
   pass_count: passCount,
   fail_count: failCount,
   completed_runs: completedRuns,
-  entries: classEntries,  // ← Changed from entriesWithScores
-  total_rounds: roundsResult.data?.length || 1
+  entries: classEntries,
+  total_rounds: allRoundsResults.filter(r => r.success).reduce((sum, r) => sum + r.data.length, 0) || 1
 };
     } catch (error) {
       console.error('Error processing class:', error);

@@ -687,9 +687,15 @@ const generateExcelReport = async () => {
     return { result: '-', color: 'text-gray-500' };
   }
 
-  // Handle Games subclass results
-  if (classInfo.class_type === 'games' && score.pass_fail === 'Pass' && classInfo.games_subclass) {
-    return { result: classInfo.games_subclass, color: 'text-purple-600 font-semibold' };
+  // Check for Games subclass results FIRST
+  const gamesSubclasses = ['GB', 'BJ', 'T', 'P', 'C'];
+  if (gamesSubclasses.includes(score.pass_fail)) {
+    return { result: score.pass_fail, color: 'text-purple-600 font-semibold' };
+  }
+
+  // FEO entries
+  if (score.pass_fail === 'FEO') {
+    return { result: 'FEO', color: 'text-yellow-600 font-semibold' };
   }
 
   // Handle rally/obedience classes - show score or NQ
@@ -707,11 +713,6 @@ const generateExcelReport = async () => {
     } else {
       return { result: 'NQ', color: 'text-red-600 font-semibold' };
     }
-  }
-
-  // FEO entries
-  if (score.pass_fail === 'FEO') {
-    return { result: 'FEO', color: 'text-yellow-600 font-semibold' };
   }
 
   // Handle other class types
