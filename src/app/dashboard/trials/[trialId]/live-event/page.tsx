@@ -1524,21 +1524,34 @@ const addNewEntry = async () => {
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
-    // ✅ UPDATED: Create entry selection with games_subclass
-    const insertData: any = {
-      entry_id: entryResult.data.id,
-      trial_round_id: roundToUse.id,
-      entry_type: newEntryData.entry_type,
-      fee: calculatedFee,
-      running_position: nextPosition,
-      entry_status: 'entered'
-    };
+   // ✅ FIXED: Extract base UUID from compound ID for Games classes
+let actualRoundId = roundToUse.id;
+if (selectedClass.class_type?.toLowerCase() === 'games' && roundToUse.id.includes('-')) {
+  const parts = roundToUse.id.split('-');
+  const lastPart = parts[parts.length - 1];
+  
+  // If last part is a Games subclass code, remove it to get the base UUID
+  if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+    actualRoundId = parts.slice(0, -1).join('-');
+    console.log('Extracted base round ID:', actualRoundId, 'from compound:', roundToUse.id);
+  }
+}
 
-   // Add games_subclass if this is a Games class
-    if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
-      insertData.games_subclass = selectedGamesSubclass;
-      console.log('Adding games_subclass to entry:', selectedGamesSubclass);
-    }
+// ✅ UPDATED: Create entry selection with games_subclass
+const insertData: any = {
+  entry_id: entryResult.data.id,
+  trial_round_id: actualRoundId,  // Use the extracted UUID, not the compound ID
+  entry_type: newEntryData.entry_type,
+  fee: calculatedFee,
+  running_position: nextPosition,
+  entry_status: 'entered'
+};
+
+// Add games_subclass if this is a Games class
+if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
+  insertData.games_subclass = selectedGamesSubclass;
+  console.log('Adding games_subclass to entry:', selectedGamesSubclass);
+}
 
     const { error: insertError } = await supabase
       .from('entry_selections')
