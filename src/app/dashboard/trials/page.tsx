@@ -517,7 +517,13 @@ export default function TrialsPage() {
       Summary
     </Button>
   </Link>
-  <Link href={`/dashboard/trials/${trial.id}`}>
+     <Link href={`/dashboard/trials/${trial.id}/financials`}>
+     <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+      <FileText className="h-4 w-4 mr-1" />
+    Financial Summary
+    </Button>
+    </Link>
+    <Link href={`/dashboard/trials/${trial.id}`}>
     <Button size="sm" disabled={deleting === trial.id}>
       Manage
     </Button>
