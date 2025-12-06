@@ -450,46 +450,49 @@ if (window.dispatchEvent) {
               </table>
             )}
 
-            {scoreSheetType === 'games' && (
-              <table className="w-full">
-                <thead className="bg-orange-300">
-                  <tr>
-                    <th className="border p-2 text-sm">C-WAGS #</th>
-                    <th className="border p-2 text-sm">Dog / Handler</th>
-                    <th className="border p-2 text-sm w-32">Result</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {entries.map((entry, idx) => (
-                    <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
-                      <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                      <td className="border p-2 text-sm">
-                        <div className="font-semibold">{entry.dogName}</div>
-                        <div className="text-gray-600">{entry.handlerName}</div>
-                      </td>
-                      <td className="border p-1 w-32">
-                        <Select
-                          value={entry.pass_fail || 'none'}
-                          onValueChange={value => updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)}
-                        >
-                          <SelectTrigger className="h-8 bg-white">
-                            <SelectValue placeholder="-" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="none">-</SelectItem>
-                            <SelectItem value="Pass">Pass</SelectItem>
-                            <SelectItem value="Fail">F</SelectItem>
-                            <SelectItem value="ABS">Abs</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
+          {scoreSheetType === 'games' && (
+  <table className="w-full">
+    <thead className="bg-orange-300">
+      <tr>
+        <th className="border p-2 text-sm">C-WAGS #</th>
+        <th className="border p-2 text-sm">Dog / Handler</th>
+        <th className="border p-2 text-sm w-32">Result</th>
+      </tr>
+    </thead>
+    <tbody>
+      {entries.map((entry, idx) => (
+        <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
+          <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
+          <td className="border p-2 text-sm">
+            <div className="font-semibold">{entry.dogName}</div>
+            <div className="text-gray-600">{entry.handlerName}</div>
+          </td>
+          <td className="border p-1 w-32">
+            <Select
+              value={entry.pass_fail || 'none'}
+              onValueChange={value => updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)}
+            >
+              <SelectTrigger className="h-8 bg-white">
+                <SelectValue placeholder="-" />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="none">-</SelectItem>
+                <SelectItem value="GB">GB</SelectItem>
+                <SelectItem value="BJ">BJ</SelectItem>
+                <SelectItem value="T">T</SelectItem>
+                <SelectItem value="P">P</SelectItem>
+                <SelectItem value="C">C</SelectItem>
+                <SelectItem value="Fail">Fail</SelectItem>
+                <SelectItem value="ABS">Abs</SelectItem>
+              </SelectContent>
+            </Select>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+ </div>
           <div className="mt-6 flex justify-end">
             <Button onClick={saveAllScores} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
