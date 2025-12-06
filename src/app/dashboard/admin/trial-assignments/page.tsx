@@ -427,10 +427,10 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
               <div>
                 <Label>Trial *</Label>
                 <Select value={selectedTrialId} onValueChange={setSelectedTrialId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-orange-50 border-red hover:bg-white">
                     <SelectValue placeholder="Select a trial" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {trials.map((trial) => (
                       <SelectItem key={trial.id} value={trial.id}>
                         {trial.trial_name} ({new Date(trial.start_date).toLocaleDateString()})
@@ -443,10 +443,10 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
               <div>
                 <Label>Secretary *</Label>
                 <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-orange-50 border-red hover:bg-white">
                     <SelectValue placeholder="Select a secretary" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {secretaries.map((secretary) => (
                       <SelectItem key={secretary.id} value={secretary.id}>
                         {secretary.first_name} {secretary.last_name} ({secretary.email})

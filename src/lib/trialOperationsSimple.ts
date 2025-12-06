@@ -289,7 +289,7 @@ async getTrial(trialId: string): Promise<OperationResult> {
 // =========================
 async getAllTrials(): Promise<OperationResult> {
   try {
-    const supabase = getSupabaseBrowser(); // ensure authenticated client
+    const supabase = getSupabaseBrowser();
 
     // Get the logged-in user
     const { data: authData } = await supabase.auth.getUser();
@@ -314,21 +314,37 @@ async getAllTrials(): Promise<OperationResult> {
 
     const isAdmin = userRecord.role === "administrator";
 
-    // Build query based on role
-    let query = supabase.from("trials").select("*");
+    if (isAdmin) {
+      // Admins see all trials
+      const { data, error } = await supabase
+        .from("trials")
+        .select("*")
+        .order("start_date", { ascending: false });
 
-    if (!isAdmin) {
-      query = query.eq("created_by", user.id);
+      if (error) {
+        console.error("Error fetching trials:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } else {
+      // Non-admins see trials they created OR are assigned to
+      const { data, error } = await supabase
+        .from("trials")
+        .select(`
+          *,
+          trial_assignments!inner(user_id)
+        `)
+        .or(`created_by.eq.${user.id},trial_assignments.user_id.eq.${user.id}`)
+        .order("start_date", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching trials:", error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
     }
-
-    const { data, error } = await query.order("start_date", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching trials:", error);
-      return { success: false, error: error.message };
-    }
-
-    return { success: true, data };
   } catch (err: any) {
     console.error("Unexpected getAllTrials error:", err);
     return { success: false, error: "Unexpected error fetching trials" };
