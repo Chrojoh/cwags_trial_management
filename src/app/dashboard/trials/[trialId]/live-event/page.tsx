@@ -3163,7 +3163,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
                     <SelectItem value="regular">regular</SelectItem>
                     <SelectItem value="feo">feo</SelectItem>
                   </SelectContent>
