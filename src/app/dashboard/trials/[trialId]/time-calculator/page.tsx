@@ -7,6 +7,7 @@ import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -60,7 +61,8 @@ export default function TrialTimeCalculatorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
-
+  const [editingAllotment, setEditingAllotment] = useState<Record<string, number>>({});
+  const [editingMinutes, setEditingMinutes] = useState<Record<string, number>>({});
   useEffect(() => {
     if (trialId && user) {
       loadData();
@@ -312,7 +314,44 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
       setSaving(false);
     }
   };
+const handleAllotmentChange = (dayId: string, value: string) => {
+  setEditingAllotment(prev => ({
+    ...prev,
+    [dayId]: parseInt(value) || 0
+  }));
+};
 
+const handleAllotmentSave = async (dayId: string) => {
+  const newValue = editingAllotment[dayId];
+  if (newValue !== undefined) {
+    await updateDailyAllotment(dayId, newValue);
+    // Clear the editing state
+    setEditingAllotment(prev => {
+      const updated = { ...prev };
+      delete updated[dayId];
+      return updated;
+    });
+  }
+};
+const handleMinutesChange = (configId: string, value: string) => {
+  setEditingMinutes(prev => ({
+    ...prev,
+    [configId]: parseFloat(value) || 0
+  }));
+};
+
+const handleMinutesSave = async (configId: string) => {
+  const newValue = editingMinutes[configId];
+  if (newValue !== undefined) {
+    await updateMinutesPerRun(configId, newValue);
+    // Clear the editing state
+    setEditingMinutes(prev => {
+      const updated = { ...prev };
+      delete updated[configId];
+      return updated;
+    });
+  }
+};
   const formatDate = (dateString: string) => {
     const date = new Date(dateString + 'T12:00:00');
     return date.toLocaleDateString('en-US', {
@@ -420,11 +459,15 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
         const isExpanded = expandedDays.includes(dayData.day_id);
 
         return (
-          <Button
+         <Button
   key={dayData.day_id}
   variant={isExpanded ? "default" : "outline"}
   className={`h-auto py-4 px-4 ${
-    isOvertime ? 'border-red-300 hover:border-red-400' : ''
+    isExpanded 
+      ? 'bg-white text-black hover:bg-white border-2 border-orange-600' 
+      : isOvertime 
+        ? 'border-red-300 hover:border-red-400' 
+        : ''
   }`}
   onClick={() => {
     // Expand the day
@@ -439,24 +482,29 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
   }}
 >
   <div className="text-left w-full space-y-2">
-    <div className="font-bold text-base text-gray-900">{/* Add text-gray-900 */}
+    {/* Day Number - Always dark, easier to read */}
+    <div className="font-bold text-base text-gray-900">
       Day {dayData.day_number}
     </div>
-    <div className="text-sm text-gray-700">{/* Change to text-gray-700 */}
+    
+    {/* Date */}
+    <div className="text-sm text-gray-700">
       {new Date(dayData.trial_date + 'T12:00:00').toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
         year: 'numeric'
       })}
     </div>
-    <div className="text-sm text-gray-700">{/* Change to text-gray-700 */}
+    
+    {/* Usage Stats */}
+    <div className="text-sm text-gray-700">
       <div>Used: {totalMinutes.toFixed(0)} min</div>
       <div>Allotment: {dayData.allotted_minutes} min</div>
     </div>
+    
+    {/* Status */}
     <div className={`text-sm font-bold ${
-      isExpanded 
-        ? (isOvertime ? 'text-red-100' : 'text-green-100')  // White-ish when selected
-        : (isOvertime ? 'text-red-700' : 'text-green-700')  // Darker when not selected
+      isOvertime ? 'text-red-700' : 'text-green-700'
     }`}>
       {isOvertime ? '⚠️ Over by ' : '✓ '}
       {Math.abs(remaining).toFixed(0)} min
@@ -513,21 +561,31 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
             </CardDescription>
           </div>
           <div className="text-right flex items-center space-x-4">
-            <div>
-              <Label className="text-sm">Daily Allotment (minutes)</Label>
-              <Input
-                type="number"
-                value={dayData.allotted_minutes}
-                onChange={(e) => {
-                  e.stopPropagation(); // Prevent card expansion when clicking input
-                  updateDailyAllotment(dayData.day_id, parseInt(e.target.value) || 0);
-                }}
-                onClick={(e) => e.stopPropagation()} // Prevent expansion
-                className="w-24 mt-1"
-                min="0"
-              />
-            </div>
-          </div>
+  <div>
+    <Label className="text-sm">Daily Allotment (minutes)</Label>
+    <Input
+      type="number"
+      value={editingAllotment[dayData.day_id] ?? dayData.allotted_minutes}
+      onChange={(e) => {
+        e.stopPropagation();
+        handleAllotmentChange(dayData.day_id, e.target.value);
+      }}
+      onBlur={() => handleAllotmentSave(dayData.day_id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleAllotmentSave(dayData.day_id);
+          e.currentTarget.blur(); // Remove focus after saving
+        }
+      }}
+      onClick={(e) => e.stopPropagation()}
+      className="w-24 mt-1"
+      min="0"
+      placeholder="250"
+    />
+    <p className="text-xs text-gray-500 mt-1">Press Enter to save</p>
+  </div>
+</div>
         </div>
       </CardHeader>
       
@@ -547,26 +605,32 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dayData.scent_configs.map((config) => (
-                  <TableRow key={config.id}>
-                    <TableCell className="font-medium">{config.class_name}</TableCell>
-                   <TableCell className="text-center">
+  {dayData.scent_configs
+    .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name))
+    .map((config) => (
+      <TableRow key={config.id}>
+        <TableCell className="font-medium">{config.class_name}</TableCell>
+       <TableCell className="text-center">
   <Input
     type="number"
     step="0.25"
-    value={config.minutes_per_run}
-    onChange={(e) => updateMinutesPerRun(config.id!, parseFloat(e.target.value) || 0)}
-    className="w-20 mx-auto text-center"  // Add mx-auto here
+    value={editingMinutes[config.id!] ?? config.minutes_per_run}
+    onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
+    onBlur={() => handleMinutesSave(config.id!)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleMinutesSave(config.id!);
+        e.currentTarget.blur();
+      }
+    }}
+    className="w-20 mx-auto text-center"
     min="0"
   />
 </TableCell>
-                    <TableCell className="text-center">{config.entry_count}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {config.total_minutes.toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
+      </TableRow>
+    ))}
+</TableBody>
             </Table>
           </div>
 
@@ -586,20 +650,24 @@ console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
                 {dayData.rally_configs.map((config) => (
                   <TableRow key={config.id}>
                     <TableCell className="font-medium">{config.class_name}</TableCell>
-                    <TableCell className="text-center">
+                   <TableCell className="text-center">
   <Input
     type="number"
     step="0.25"
-    value={config.minutes_per_run}
-    onChange={(e) => updateMinutesPerRun(config.id!, parseFloat(e.target.value) || 0)}
-    className="w-20 mx-auto text-center"  // Add mx-auto here
+    value={editingMinutes[config.id!] ?? config.minutes_per_run}
+    onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
+    onBlur={() => handleMinutesSave(config.id!)}
+    onKeyDown={(e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleMinutesSave(config.id!);
+        e.currentTarget.blur();
+      }
+    }}
+    className="w-20 mx-auto text-center"
     min="0"
   />
 </TableCell>
-                    <TableCell className="text-center">{config.entry_count}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {config.total_minutes.toFixed(2)}
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
