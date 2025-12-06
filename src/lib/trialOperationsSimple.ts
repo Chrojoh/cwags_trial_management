@@ -328,22 +328,49 @@ async getAllTrials(): Promise<OperationResult> {
 
       return { success: true, data };
     } else {
-      // Non-admins see trials they created OR are assigned to
-      const { data, error } = await supabase
+      // Non-admins: Get trials they created
+      const { data: createdTrials, error: createdError } = await supabase
         .from("trials")
-        .select(`
-          *,
-          trial_assignments!inner(user_id)
-        `)
-        .or(`created_by.eq.${user.id},trial_assignments.user_id.eq.${user.id}`)
-        .order("start_date", { ascending: false });
+        .select("*")
+        .eq("created_by", user.id);
 
-      if (error) {
-        console.error("Error fetching trials:", error);
-        return { success: false, error: error.message };
+      if (createdError) {
+        console.error("Error fetching created trials:", createdError);
+        return { success: false, error: createdError.message };
       }
 
-      return { success: true, data };
+      // Get trials they're assigned to
+      const { data: assignments, error: assignmentError } = await supabase
+        .from("trial_assignments")
+        .select(`
+          trial_id,
+          trials (*)
+        `)
+        .eq("user_id", user.id);
+
+      if (assignmentError) {
+        console.error("Error fetching assigned trials:", assignmentError);
+        return { success: false, error: assignmentError.message };
+      }
+
+      // Combine and deduplicate trials
+      const assignedTrials = (assignments || [])
+        .map((a: any) => a.trials)
+        .filter((t: any) => t !== null);
+
+      const allTrials = [...(createdTrials || []), ...assignedTrials];
+      
+      // Remove duplicates by ID
+      const uniqueTrials = allTrials.filter((trial, index, self) =>
+        index === self.findIndex((t) => t.id === trial.id)
+      );
+
+      // Sort by start date
+      uniqueTrials.sort((a, b) => 
+        new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+      );
+
+      return { success: true, data: uniqueTrials };
     }
   } catch (err: any) {
     console.error("Unexpected getAllTrials error:", err);
@@ -524,7 +551,92 @@ async getAllTrials(): Promise<OperationResult> {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
+// Add trial assignment
+async assignUserToTrial(trialId: string, userId: string, notes?: string): Promise<OperationResult> {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUser = authData?.user;
 
+    if (!currentUser) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const { data, error } = await supabase
+      .from('trial_assignments')
+      .insert({
+        trial_id: trialId,
+        user_id: userId,
+        assigned_by: currentUser.id,
+        notes: notes || null
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error assigning user to trial:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error assigning user:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
+
+// Remove trial assignment
+async removeUserFromTrial(trialId: string, userId: string): Promise<OperationResult> {
+  try {
+    const { error } = await supabase
+      .from('trial_assignments')
+      .delete()
+      .eq('trial_id', trialId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error removing assignment:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: null };
+  } catch (error) {
+    console.error('Error removing assignment:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
+
+// Get all users assigned to a trial
+async getTrialAssignments(trialId: string): Promise<OperationResult> {
+  try {
+    const { data, error } = await supabase
+      .from('trial_assignments')
+      .select(`
+        *,
+        users!trial_assignments_user_id_fkey(
+          id,
+          email,
+          first_name,
+          last_name,
+          role
+        ),
+        assigned_by_user:users!trial_assignments_assigned_by_fkey(
+          first_name,
+          last_name
+        )
+      `)
+      .eq('trial_id', trialId);
+
+    if (error) {
+      console.error('Error loading assignments:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error loading assignments:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
   // Enhanced Trial Rounds Operations with FK constraint handling
   async saveTrialRounds(trialClassId: string, rounds: any[]): Promise<OperationResult> {
     try {
