@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +26,18 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
   const { signOut } = useAuth();
+  
+  // ✅ Clock state that updates every second
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleString());
+
+  // ✅ Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date().toLocaleString());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   if (!user) {
     return (
@@ -40,8 +52,6 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
   const handleLogout = () => {
     signOut();
   };
-
-  const currentTime = new Date().toLocaleString();
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -64,101 +74,63 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
 
         {/* Left Section */}
         <div className="flex items-center space-x-4">
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={onMenuClick}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center space-x-5">
-            <Image
-              src="/cwags-logo.png"
-              alt="C-WAGS Logo"
-              width={70}
-              height={70}
-              className="rounded-lg object-contain"
-            />
-
-            <div className="hidden sm:block">
-              <h1 className="text-xl font-bold text-gray-900">C-WAGS</h1>
-              <p className="text-xs text-gray-500 -mt-1">Trial Management</p>
+          <Link href="/dashboard" className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+              C-WAGS
             </div>
+            <span className="hidden md:block text-xl font-bold text-gray-900">
+              Trial Management
+            </span>
           </Link>
         </div>
 
-        {/* Center Section - Current Time */}
-        <div className="hidden md:flex items-center space-x-2 text-med text-gray-600">
-          <span>{currentTime}</span>
+        {/* Center Section - Clock */}
+        <div className="flex items-center justify-center">
+          <div className="text-sm font-medium text-gray-700">
+            {currentTime}
+          </div>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center space-x-6">
-
-          {/* User Menu */}
+        {/* Right Section - User Menu */}
+        <div className="flex items-center space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center space-x-2 p-2">
-                {/* Avatar */}
-                <div className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
-                  <UserIcon className="h-4 w-4 text-gray-600" />
+              <Button variant="ghost" className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                  <UserIcon className="w-5 h-5 text-orange-600" />
                 </div>
-
-                {/* Name + Role */}
-                <div className="hidden md:flex flex-col items-start">
-                  <span className="text-sm font-medium text-gray-900">
-                    {user.first_name} {user.last_name}
-                  </span>
-                  <Badge 
-                    variant="secondary" 
-                    className={`text-xs ${getRoleBadgeColor(user.role)}`}
-                  >
+                <div className="hidden md:block text-left">
+                  <div className="text-sm font-medium text-gray-900">
+                    {user.email}
+                  </div>
+                  <Badge className={`text-xs ${getRoleBadgeColor(user.role)}`}>
                     {formatRoleName(user.role)}
                   </Badge>
                 </div>
               </Button>
             </DropdownMenuTrigger>
 
-            {/* Dropdown Menu */}
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">
-                    {user.first_name} {user.last_name}
-                  </p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
-                  {user.club_name && (
-                    <p className="text-xs text-gray-500">{user.club_name}</p>
-                  )}
-                </div>
-              </DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-56 bg-white">
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/profile" className="flex items-center cursor-pointer">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
-
-              <DropdownMenuItem 
-                onClick={handleLogout}
-                className="text-red-600 focus:text-red-600"
-              >
+              
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Sign out</span>
+                <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* CWAGS Logo on the Right */}
-          <Image
-            src="/cwags-logo.png"
-            alt="C-WAGS Logo"
-            width={70}
-            height={70}
-            className="rounded-lg object-contain"
-          />
-
         </div>
+
       </div>
     </header>
   );

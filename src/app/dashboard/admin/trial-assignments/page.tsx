@@ -122,7 +122,7 @@ export default function TrialAssignmentsPage() {
     // Load assignments
 console.log('Loading assignments...');
 const { data: assignmentsData, error: assignmentsError } = await supabase
-  .from('trial_secretaries')
+  .from('trial_assignments')  // ✅ FIXED
   .select(`
     *,
     trials(id, trial_name, start_date, end_date, location, trial_status),
@@ -158,14 +158,15 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
       setSaving(true);
       setError(null);
 
-      const { error: insertError } = await supabase
-        .from('trial_secretaries')
-        .insert({
-          trial_id: selectedTrialId,
-          user_id: selectedUserId,
-          assigned_by: user?.id,
-          notes: notes || null
-        });
+     const { error: insertError } = await supabase
+  .from('trial_assignments')  // ✅ FIXED
+  .insert({
+    trial_id: selectedTrialId,
+    user_id: selectedUserId,
+    assigned_by: user?.id,
+    assigned_role: 'trial_secretary',  // ✅ ADD THIS - it's required!
+    notes: notes || null
+  });
 
       if (insertError) {
         if (insertError.code === '23505') {
@@ -202,10 +203,10 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
       setSaving(true);
       setError(null);
 
-      const { error: deleteError } = await supabase
-        .from('trial_secretaries')
-        .delete()
-        .eq('id', assignmentId);
+     const { error: deleteError } = await supabase
+  .from('trial_assignments')  // ✅ FIXED
+  .delete()
+  .eq('id', assignmentId);
 
       if (deleteError) throw deleteError;
 
