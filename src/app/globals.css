@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 @layer base {
+  /* Larger base font size */
+  html {
+    font-size: 20px; /* Up from 16px */
+  }
+  
+  /* Mobile gets even larger */
+  @media (max-width: 640px) {
+    html {
+      font-size: 20px;
+    }
+  }
+  
+  /* Desktop slightly smaller but still comfortable */
+  @media (min-width: 641px) {
+    html {
+      font-size: 18px;
+    }
+  }
+  
+  /* Make small text not too small */
+  .text-sm {
+    font-size: 0.9375rem !important; /* 15px instead of 14px */
+  }
+  
+  .text-xs {
+    font-size: 0.8125rem !important; /* 13px instead of 12px */
+  }
+  
   /* Prevent text size adjustment on orientation change */
   html {
     -webkit-text-size-adjust: 100%;
