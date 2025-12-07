@@ -202,17 +202,29 @@ export default function TrialFinancialsPage() {
   };
 
   const openPaymentModal = (competitor: CompetitorFinancial) => {
-    setSelectedCompetitor(competitor);
-    const remaining = competitor.amount_owed - competitor.amount_paid;
-    setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '');
-    setPaymentMethod('');
-    setPaymentReceivedBy('');
-    setPaymentDate(new Date().toISOString().split('T')[0]);
-    setPaymentNotes('');
-    setShowPaymentModal(true);
-  };
+  setSelectedCompetitor(competitor);
+
+  const effectiveOwed = competitor.fees_waived
+    ? 0
+    : competitor.amount_owed;
+
+  const remaining = effectiveOwed - competitor.amount_paid;
+
+  setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '');
+  setPaymentMethod('');
+  setPaymentReceivedBy('');
+  setPaymentDate(new Date().toISOString().split('T')[0]);
+  setPaymentNotes('');
+  setShowPaymentModal(true);
+};
+
 
   const recordPayment = async () => {
+  if (selectedCompetitor?.fees_waived) {
+    alert('Payments cannot be recorded for waived entries.');
+    return;
+  }
+
     if (!selectedCompetitor || !paymentAmount || parseFloat(paymentAmount) <= 0) {
       alert('Please enter a valid payment amount');
       return;
@@ -295,8 +307,16 @@ export default function TrialFinancialsPage() {
 
   const calculateTotals = () => {
     const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const totalOwed = competitors.reduce((sum, comp) => sum + comp.amount_owed, 0);
-    const totalPaid = competitors.reduce((sum, comp) => sum + comp.amount_paid, 0);
+   const totalOwed = competitors.reduce((sum, comp) => {
+  if (comp.fees_waived) return sum;
+  return sum + comp.amount_owed;
+}, 0);
+
+const totalPaid = competitors.reduce((sum, comp) => {
+  if (comp.fees_waived) return sum;
+  return sum + comp.amount_paid;
+}, 0);
+
     const totalOutstanding = totalOwed - totalPaid;
     const netIncome = totalPaid - totalExpenses;
 
@@ -558,12 +578,16 @@ export default function TrialFinancialsPage() {
           </tr>
         </thead>
         <tbody>
-          {competitors.map((comp, compIndex) => {
-            const balance = comp.amount_owed - comp.amount_paid;
-            const payments = comp.payment_history || [];
-            const hasPayments = payments.length > 0;
+         {competitors.map((comp, compIndex) => {
+  const payments = comp.payment_history || [];
+  const hasPayments = payments.length > 0;
 
-            return (
+  // ✅ FIX: Effective amounts that respect fee waivers
+  const effectiveOwed = comp.fees_waived ? 0 : comp.amount_owed;
+  const balance = effectiveOwed - comp.amount_paid;
+
+  return (
+
               <React.Fragment key={compIndex}>
                 {/* Main Entry Row - Amount Owed */}
                 <tr className={`border-b ${compIndex % 2 === 0 ? 'bg-orange-50' : 'bg-white'}`}>
@@ -590,21 +614,24 @@ export default function TrialFinancialsPage() {
                   <td className="p-2 text-gray-400">-</td>
                   <td className="p-2 text-gray-400">-</td>
                   <td className="p-2 text-right font-mono font-semibold">
-                    ${comp.amount_owed.toFixed(2)}
+                    ${effectiveOwed.toFixed(2)}
+
                   </td>
                   <td className="p-2 text-right font-mono font-semibold">
-                    ${comp.amount_owed.toFixed(2)}
+                   ${effectiveOwed.toFixed(2)}
+
                   </td>
                   <td className="p-2" rowSpan={hasPayments ? payments.length + 2 : 2}>
                     <div className="flex flex-col space-y-1">
                       {!comp.fees_waived && (
                         <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openPaymentModal(comp)}
-                          disabled={comp.amount_owed <= 0}
-                          className="w-full"
-                        >
+  size="sm"
+  variant="outline"
+  onClick={() => openPaymentModal(comp)}
+  disabled={effectiveOwed <= 0}
+  className="w-full"
+>
+
                           <CreditCard className="h-3 w-3 mr-1" />
                           Pay
                         </Button>
@@ -636,9 +663,10 @@ export default function TrialFinancialsPage() {
 
                 {/* Payment Rows */}
                 {payments.map((payment, paymentIndex) => {
-                  const remainingAfterThisPayment = comp.amount_owed - payments
-                    .slice(0, paymentIndex + 1)
-                    .reduce((sum, p) => sum + p.amount, 0);
+                  const remainingAfterThisPayment = effectiveOwed - payments
+  .slice(0, paymentIndex + 1)
+  .reduce((sum, p) => sum + p.amount, 0);
+
 
                   return (
                     <tr 
@@ -732,13 +760,29 @@ export default function TrialFinancialsPage() {
               )}
               
               <div>
-                <Label>Amount Owed: ${selectedCompetitor?.amount_owed.toFixed(2)}</Label>
-                <br />
-                <Label>Already Paid: ${selectedCompetitor?.amount_paid.toFixed(2)}</Label>
-                <br />
-                <Label className="text-orange-600 font-bold">
-                  Remaining: ${(selectedCompetitor ? selectedCompetitor.amount_owed - selectedCompetitor.amount_paid : 0).toFixed(2)}
-                </Label>
+               {(() => {
+  const owed = selectedCompetitor
+    ? selectedCompetitor.fees_waived
+      ? 0
+      : selectedCompetitor.amount_owed
+    : 0;
+
+  const paid = selectedCompetitor?.amount_paid ?? 0;
+  const remaining = owed - paid;
+
+  return (
+    <>
+      <Label>Amount Owed: ${owed.toFixed(2)}</Label>
+      <br />
+      <Label>Already Paid: ${paid.toFixed(2)}</Label>
+      <br />
+      <Label className="text-orange-600 font-bold">
+        Remaining: ${remaining.toFixed(2)}
+      </Label>
+    </>
+  );
+})()}
+
               </div>
 
               <div>

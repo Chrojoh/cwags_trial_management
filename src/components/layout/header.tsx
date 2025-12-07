@@ -72,15 +72,32 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
     <header className="bg-white shadow-sm border-b border-gray-200 z-30">
       <div className="flex items-center justify-between h-16 px-4 lg:px-6">
 
-        {/* Left Section */}
+       {/* Left Section */}
         <div className="flex items-center space-x-4">
-          <Link href="/dashboard" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              C-WAGS
+          {/* Mobile Menu Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          {/* Logo */}
+          <Link href="/dashboard" className="flex items-center space-x-5">
+            <Image
+              src="/cwags-logo.png"
+              alt="C-WAGS Logo"
+              width={70}
+              height={70}
+              className="rounded-lg object-contain"
+            />
+
+            <div className="hidden sm:block">
+              <h1 className="text-xl font-bold text-gray-900">C-WAGS</h1>
+              <p className="text-xs text-gray-500 -mt-1">Trial Management</p>
             </div>
-            <span className="hidden md:block text-xl font-bold text-gray-900">
-              Trial Management
-            </span>
           </Link>
         </div>
 
@@ -129,6 +146,14 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+           {/* CWAGS Logo on the Right */}
+          <Image
+            src="/cwags-logo.png"
+            alt="C-WAGS Logo"
+            width={70}
+            height={70}
+            className="rounded-lg object-contain"
+          />
         </div>
 
       </div>
