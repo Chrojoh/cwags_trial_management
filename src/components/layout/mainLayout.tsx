@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { MobileNavigation } from '@/components/ui/mobileNavigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Header } from './header';
 import { Breadcrumbs } from './breadcrumbs';
@@ -21,6 +22,7 @@ function MainLayout({
   fullWidth = false // Default to false for backward compatibility
 }: MainLayoutProps) {
   const { user, loading, isAuthenticated } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
   // Show loading spinner while checking authentication
@@ -53,11 +55,16 @@ function MainLayout({
   return (
     <div className="flex h-screen bg-gray-50">
    
-
+      <MobileNavigation 
+     isOpen={isMobileMenuOpen} 
+     onClose={() => setIsMobileMenuOpen(false)} 
+   />
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header - Now guaranteed to have user */}
-        <Header user={user} onMenuClick={() => {}} />
+        <Header 
+     user={user} 
+     onMenuClick={() => setIsMobileMenuOpen(true)}
+   />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
