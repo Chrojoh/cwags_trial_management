@@ -405,11 +405,12 @@ if (results.length === 1) {
                     value={newDogForm.handler_name}
                     onChange={(e) => setNewDogForm({...newDogForm, handler_name: e.target.value})}
                     placeholder="e.g., John Smith"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Changed from grid-cols-2 to grid-cols-1 sm:grid-cols-2 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
                     <input
@@ -417,7 +418,7 @@ if (results.length === 1) {
                       value={newDogForm.handler_email}
                       onChange={(e) => setNewDogForm({...newDogForm, handler_email: e.target.value})}
                       placeholder="email@example.com"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -427,12 +428,13 @@ if (results.length === 1) {
                       value={newDogForm.handler_phone}
                       onChange={(e) => setNewDogForm({...newDogForm, handler_phone: e.target.value})}
                       placeholder="(555) 123-4567"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Changed from grid-cols-2 to grid-cols-1 sm:grid-cols-2 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Breed</label>
                     <input
@@ -440,7 +442,7 @@ if (results.length === 1) {
                       value={newDogForm.breed}
                       onChange={(e) => setNewDogForm({...newDogForm, breed: e.target.value})}
                       placeholder="e.g., Border Collie"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
@@ -448,7 +450,7 @@ if (results.length === 1) {
                     <select
                       value={newDogForm.dog_sex}
                       onChange={(e) => setNewDogForm({...newDogForm, dog_sex: e.target.value})}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select</option>
                       <option value="Male">Male</option>

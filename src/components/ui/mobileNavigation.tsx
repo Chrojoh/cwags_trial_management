@@ -87,6 +87,25 @@ const navigation: NavigationItem[] = [
 export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  
+  // Swipe-to-close functionality
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 150) {
+      // Swiped left - close menu
+      onClose();
+    }
+  };
 
   // Close on route change
   useEffect(() => {
@@ -122,12 +141,17 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
     <div className="fixed inset-0 z-50 lg:hidden">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50"
+        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={onClose}
       />
 
-      {/* Slide-out menu */}
-      <div className="fixed top-0 left-0 bottom-0 w-64 bg-white shadow-xl">
+      {/* Slide-out menu with swipe support */}
+      <div 
+        className="fixed top-0 left-0 bottom-0 w-64 sm:w-80 bg-white shadow-xl transform transition-transform"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-3">
@@ -143,13 +167,14 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
             variant="ghost"
             size="sm"
             onClick={onClose}
+            className="min-h-[44px] min-w-[44px]"
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 180px)' }}>
           <ul className="space-y-1">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
@@ -159,15 +184,15 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                      "flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors min-h-[44px]",
                       isActive
                         ? "bg-orange-50 text-orange-700 border-l-4 border-orange-700"
                         : "text-gray-700 hover:bg-gray-100"
                     )}
                     onClick={onClose}
                   >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.name}</span>
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="flex-1">{item.name}</span>
                     {item.badge && (
                       <span className="ml-auto px-2 py-1 text-xs bg-orange-500 text-white rounded-full">
                         {item.badge}
@@ -187,7 +212,7 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
               <p className="font-medium text-gray-900">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="text-gray-600 capitalize">
+              <p className="text-gray-600 capitalize text-xs sm:text-sm">
                 {user.role?.replace('_', ' ')}
               </p>
               {user.club_name && (

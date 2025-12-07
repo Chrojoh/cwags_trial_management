@@ -157,17 +157,17 @@ See you at the trial!`;
         </div>
       </div>
 
-      {/* QR Code Display */}
+     {/* QR Code Display */}
       {showQR && (
-        <div className="mt-4 p-4 bg-white border-2 border-green-200 rounded-lg text-center">
-          <p className="text-sm text-gray-600 mb-3">
+        <div className="mt-4 p-3 sm:p-4 bg-white border-2 border-green-200 rounded-lg text-center">
+          <p className="text-xs sm:text-sm text-gray-600 mb-3">
             Scan this QR code to open the entry form
           </p>
-          <div className="inline-block p-4 bg-white">
+          <div className="inline-block p-2 sm:p-4 bg-white">
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedUrl}`}
               alt="QR Code for entry form"
-              className="w-48 h-48"
+              className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 mx-auto"
             />
           </div>
           <p className="text-xs text-gray-500 mt-2">

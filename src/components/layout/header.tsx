@@ -70,92 +70,81 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 z-30">
-      <div className="flex items-center justify-between h-16 px-4 lg:px-6">
+      <div className="flex items-center justify-between h-14 sm:h-16 px-2 sm:px-4 lg:px-6">
 
        {/* Left Section */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Mobile Menu Button */}
           <Button
             variant="ghost"
             size="sm"
-            className="lg:hidden"
+            className="lg:hidden p-2 min-h-[44px] min-w-[44px]"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
           </Button>
 
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center space-x-5">
+          <Link href="/dashboard" className="flex items-center space-x-2 sm:space-x-5">
             <Image
               src="/cwags-logo.png"
               alt="C-WAGS Logo"
-              width={70}
-              height={70}
-              className="rounded-lg object-contain"
+              width={50}
+              height={50}
+              className="w-[50px] h-[50px] sm:w-[70px] sm:h-[70px] rounded-lg object-contain"
             />
 
             <div className="hidden sm:block">
-              <h1 className="text-xl font-bold text-gray-900">C-WAGS</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">C-WAGS</h1>
               <p className="text-xs text-gray-500 -mt-1">Trial Management</p>
             </div>
           </Link>
         </div>
 
-        {/* Center Section - Clock */}
-        <div className="flex items-center justify-center">
+        {/* Center Section - Clock - Hidden on mobile */}
+        <div className="hidden md:flex items-center justify-center">
           <div className="text-sm font-medium text-gray-700">
             {currentTime}
           </div>
         </div>
 
         {/* Right Section - User Menu */}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-orange-600" />
+              <Button variant="ghost" className="flex items-center space-x-2 min-h-[44px] p-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-orange-600 flex items-center justify-center text-white font-semibold">
+                  {user.first_name[0]}{user.last_name[0]}
                 </div>
-                <div className="hidden md:block text-left">
-                  <div className="text-sm font-medium text-gray-900">
-                    {user.email}
-                  </div>
-                  <Badge className={`text-xs ${getRoleBadgeColor(user.role)}`}>
+                <div className="hidden sm:block text-left">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user.first_name} {user.last_name}
+                  </p>
+                  <p className="text-xs text-gray-500">
                     {formatRoleName(user.role)}
-                  </Badge>
+                  </p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-
             <DropdownMenuContent align="end" className="w-56 bg-white">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                  <p className="text-xs text-gray-500">{formatRoleName(user.role)}</p>
+                  {user.club_name && (
+                    <p className="text-xs text-gray-500">{user.club_name}</p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/profile" className="flex items-center cursor-pointer">
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              </DropdownMenuItem>
-
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-700 focus:bg-red-50">
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>Sign Out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-           {/* CWAGS Logo on the Right */}
-          <Image
-            src="/cwags-logo.png"
-            alt="C-WAGS Logo"
-            width={70}
-            height={70}
-            className="rounded-lg object-contain"
-          />
         </div>
-
       </div>
     </header>
   );

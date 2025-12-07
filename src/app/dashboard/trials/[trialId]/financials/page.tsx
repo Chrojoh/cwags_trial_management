@@ -463,90 +463,87 @@ const totalPaid = competitors.reduce((sum, comp) => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left p-2 text-sm font-semibold w-40">Category</th>
-                    <th className="text-left p-2 text-sm font-semibold">Description / Judge Name</th>
-                    <th className="text-left p-2 text-sm font-semibold w-32">Amount</th>
-                    <th className="text-left p-2 text-sm font-semibold">Paid To</th>
-                    <th className="text-left p-2 text-sm font-semibold w-40">Payment Date</th>
-                    <th className="text-left p-2 text-sm font-semibold w-20"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {expenses.map((expense, index) => (
-                    <tr key={index} className="border-b hover:bg-gray-50">
-                      <td className="p-2">
-                        <Select
-                          value={expense.expense_category}
-                          onValueChange={(value) => updateExpense(index, 'expense_category', value)}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            {EXPENSE_CATEGORIES.map(cat => (
-                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          value={expense.description || ''}
-                          onChange={(e) => updateExpense(index, 'description', e.target.value)}
-                          placeholder={expense.expense_category === 'Judge Fees' ? 'Judge name, rate, hours...' : 'Details...'}
-                          className="bg-white"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={expense.amount || ''}
-                          onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          className="bg-white text-right"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          value={expense.paid_to || ''}
-                          onChange={(e) => updateExpense(index, 'paid_to', e.target.value)}
-                          placeholder="Payee name"
-                          className="bg-white"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Input
-                          type="date"
-                          value={expense.payment_date || ''}
-                          onChange={(e) => updateExpense(index, 'payment_date', e.target.value)}
-                          className="bg-white"
-                        />
-                      </td>
-                      <td className="p-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteExpense(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </td>
+            {/* Mobile-responsive table wrapper */}
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <table className="w-full min-w-[640px]">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold w-32 sm:w-40">Category</th>
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold">Description / Judge Name</th>
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold w-24 sm:w-32">Amount</th>
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold">Paid To</th>
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold w-32 sm:w-40">Payment Date</th>
+                      <th className="text-left p-2 text-xs sm:text-sm font-semibold w-16 sm:w-20"></th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="p-2" colSpan={2}>Total Expenses</td>
-                    <td className="p-2 text-right">${totals.totalExpenses.toFixed(2)}</td>
-                    <td colSpan={3}></td>
-                  </tr>
-                </tfoot>
-              </table>
+                  </thead>
+                  <tbody>
+                    {expenses.map((expense, index) => (
+                      <tr key={index} className="border-b hover:bg-gray-50">
+                        <td className="p-2">
+                          <Select
+                            value={expense.expense_category}
+                            onValueChange={(value) => updateExpense(index, 'expense_category', value)}
+                          >
+                            <SelectTrigger className="bg-white text-xs sm:text-sm min-h-[44px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              {EXPENSE_CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            value={expense.description || ''}
+                            onChange={(e) => updateExpense(index, 'description', e.target.value)}
+                            placeholder={expense.expense_category === 'Judge Fees' ? 'Judge name' : 'Description'}
+                            className="text-xs sm:text-sm py-3 sm:py-2"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={expense.amount || ''}
+                            onChange={(e) => updateExpense(index, 'amount', e.target.value)}
+                            placeholder="0.00"
+                            className="text-xs sm:text-sm py-3 sm:py-2"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            value={expense.paid_to || ''}
+                            onChange={(e) => updateExpense(index, 'paid_to', e.target.value)}
+                            placeholder="Payee name"
+                            className="text-xs sm:text-sm py-3 sm:py-2"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Input
+                            type="date"
+                            value={expense.payment_date || ''}
+                            onChange={(e) => updateExpense(index, 'payment_date', e.target.value)}
+                            className="text-xs sm:text-sm py-3 sm:py-2"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                           onClick={() => deleteExpense(index)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 min-h-[44px] min-w-[44px]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </CardContent>
         </Card>

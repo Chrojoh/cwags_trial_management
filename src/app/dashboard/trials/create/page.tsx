@@ -137,8 +137,8 @@ interface TrialFormData {
   secretary_email: string;
   secretary_phone: string;
   max_entries_per_day: number;
-  default_entry_fee: number;      // ✅ NEW: Default regular entry fee
-  default_feo_price: number;      // ✅ NEW: Default FEO price
+  default_entry_fee: number;
+  default_feo_price: number;
   waiver_text: string;
   notes: string;
 }
@@ -163,13 +163,13 @@ export default function CreateTrialPage() {
     secretary_email: '',
     secretary_phone: '',
     max_entries_per_day: 50,
-    default_entry_fee: 25,          // ✅ NEW: Default to $25
-    default_feo_price: 15,           // ✅ NEW: Default to $15
+    default_entry_fee: 25,
+    default_feo_price: 15,
     waiver_text: DEFAULT_WAIVER,
     notes: ''
   });
 
- const [errors, setErrors] = useState<Partial<Record<keyof TrialFormData, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof TrialFormData, string>>>({});
 
   // Auto-fill form fields when user data is available
   useEffect(() => {
@@ -186,8 +186,8 @@ export default function CreateTrialPage() {
     }
   }, [user]);
 
- const validateStep = (step: number): boolean => {
-  const newErrors: Partial<Record<keyof TrialFormData, string>> = {};
+  const validateStep = (step: number): boolean => {
+    const newErrors: Partial<Record<keyof TrialFormData, string>> = {};
 
     if (step === 1) {
       if (!trialData.trial_name.trim()) newErrors.trial_name = 'Trial name is required';
@@ -204,7 +204,6 @@ export default function CreateTrialPage() {
         newErrors.end_date = 'End date must be after start date';
       }
       
-      // ✅ NEW: Validate entry fees
       if (trialData.default_entry_fee < 0) {
         newErrors.default_entry_fee = 'Entry fee must be 0 or greater';
       }
@@ -225,76 +224,76 @@ export default function CreateTrialPage() {
   };
 
   const handleNext = async () => {
-  if (!validateForm()) {
-    alert('Please fill in all required fields before continuing.');
-    return;
-  }
-
-  if (!user) {
-    alert('User session expired. Please log in again.');
-    return;
-  }
-
-  setLoading(true);
-  try {
-    // If we already have a saved trial ID (from Save Draft), just navigate
-    if (savedTrialId) {
-      console.log('Using existing trial ID:', savedTrialId);
-      router.push(`/dashboard/trials/create/days?trial=${savedTrialId}`);
+    if (!validateForm()) {
+      alert('Please fill in all required fields before continuing.');
       return;
     }
 
-    // Otherwise, create a new trial
-    const locationParts = [
-      trialData.venue_name,
-      trialData.city,
-      trialData.province,
-      trialData.country
-    ].filter(part => part.trim());
-    
-    const location = locationParts.join(', ');
-
-    const trialToSave = {
-      trial_name: trialData.trial_name,
-      club_name: trialData.club_name,
-      location: location,
-      start_date: trialData.start_date,
-      end_date: trialData.end_date,
-      created_by: user.id,
-      trial_status: 'draft',
-      premium_published: false,
-      entries_open: false,
-      entries_close_date: null,
-      max_entries_per_day: trialData.max_entries_per_day,
-      default_entry_fee: trialData.default_entry_fee,
-      default_feo_price: trialData.default_feo_price,
-      trial_secretary: trialData.trial_secretary,
-      secretary_email: trialData.secretary_email,
-      secretary_phone: trialData.secretary_phone || null,
-      waiver_text: trialData.waiver_text,
-      fee_configuration: {},
-      notes: trialData.notes || null
-    };
-
-    console.log('Saving trial data:', trialToSave);
-
-    const result = await simpleTrialOperations.createTrial(trialToSave);
-    
-    if (result.success && result.data) {
-      console.log('Trial created successfully:', result.data);
-      setSavedTrialId(result.data.id); // ✅ Store the trial ID
-      router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
-    } else {
-      console.error('Error creating trial:', result.error);
-      alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
+    if (!user) {
+      alert('User session expired. Please log in again.');
+      return;
     }
-  } catch (error) {
-    console.error('Error saving trial:', error);
-    alert('Error creating trial. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+    try {
+      // If we already have a saved trial ID (from Save Draft), just navigate
+      if (savedTrialId) {
+        console.log('Using existing trial ID:', savedTrialId);
+        router.push(`/dashboard/trials/create/days?trial=${savedTrialId}`);
+        return;
+      }
+
+      // Otherwise, create a new trial
+      const locationParts = [
+        trialData.venue_name,
+        trialData.city,
+        trialData.province,
+        trialData.country
+      ].filter(part => part.trim());
+      
+      const location = locationParts.join(', ');
+
+      const trialToSave = {
+        trial_name: trialData.trial_name,
+        club_name: trialData.club_name,
+        location: location,
+        start_date: trialData.start_date,
+        end_date: trialData.end_date,
+        created_by: user.id,
+        trial_status: 'draft',
+        premium_published: false,
+        entries_open: false,
+        entries_close_date: null,
+        max_entries_per_day: trialData.max_entries_per_day,
+        default_entry_fee: trialData.default_entry_fee,
+        default_feo_price: trialData.default_feo_price,
+        trial_secretary: trialData.trial_secretary,
+        secretary_email: trialData.secretary_email,
+        secretary_phone: trialData.secretary_phone || null,
+        waiver_text: trialData.waiver_text,
+        fee_configuration: {},
+        notes: trialData.notes || null
+      };
+
+      console.log('Saving trial data:', trialToSave);
+
+      const result = await simpleTrialOperations.createTrial(trialToSave);
+      
+      if (result.success && result.data) {
+        console.log('Trial created successfully:', result.data);
+        setSavedTrialId(result.data.id);
+        router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
+      } else {
+        console.error('Error creating trial:', result.error);
+        alert(`Error creating trial: ${result.error?.toString() || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error saving trial:', error);
+      alert('Error creating trial. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const saveTrialAndProceed = async () => {
     if (!user) {
@@ -325,8 +324,8 @@ export default function CreateTrialPage() {
         entries_open: false,
         entries_close_date: null,
         max_entries_per_day: trialData.max_entries_per_day,
-        default_entry_fee: trialData.default_entry_fee,      // ✅ NEW: Save default entry fee
-        default_feo_price: trialData.default_feo_price,      // ✅ NEW: Save default FEO price
+        default_entry_fee: trialData.default_entry_fee,
+        default_feo_price: trialData.default_feo_price,
         trial_secretary: trialData.trial_secretary,
         secretary_email: trialData.secretary_email,
         secretary_phone: trialData.secretary_phone || null,
@@ -354,111 +353,107 @@ export default function CreateTrialPage() {
     }
   };
 
-const validateForm = (): boolean => {
-  const newErrors: { [key: string]: string } = {};
+  const validateForm = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
 
-  if (!trialData.trial_name?.trim()) {
-    newErrors.trial_name = 'Trial name is required';
-  }
-  if (!trialData.club_name?.trim()) {
-    newErrors.club_name = 'Club name is required';
-  }
-  if (!trialData.start_date) {
-    newErrors.start_date = 'Start date is required';
-  }
-  if (!trialData.end_date) {
-    newErrors.end_date = 'End date is required';
-  }
-  if (trialData.start_date && trialData.end_date && trialData.start_date > trialData.end_date) {
-    newErrors.end_date = 'End date must be after start date';
-  }
-  if (!trialData.trial_secretary?.trim()) {
-    newErrors.trial_secretary = 'Trial secretary name is required';
-  }
-  if (!trialData.secretary_email?.trim()) {
-    newErrors.secretary_email = 'Secretary email is required';
-  }
-  if (!trialData.max_entries_per_day || trialData.max_entries_per_day < 1) {
-    newErrors.max_entries_per_day = 'Max entries per day must be at least 1';
-  }
+    if (!trialData.trial_name?.trim()) {
+      newErrors.trial_name = 'Trial name is required';
+    }
+    if (!trialData.club_name?.trim()) {
+      newErrors.club_name = 'Club name is required';
+    }
+    if (!trialData.start_date) {
+      newErrors.start_date = 'Start date is required';
+    }
+    if (!trialData.end_date) {
+      newErrors.end_date = 'End date is required';
+    }
+    if (trialData.start_date && trialData.end_date && trialData.start_date > trialData.end_date) {
+      newErrors.end_date = 'End date must be after start date';
+    }
+    if (!trialData.trial_secretary?.trim()) {
+      newErrors.trial_secretary = 'Trial secretary name is required';
+    }
+    if (!trialData.secretary_email?.trim()) {
+      newErrors.secretary_email = 'Secretary email is required';
+    }
+    if (!trialData.max_entries_per_day || trialData.max_entries_per_day < 1) {
+      newErrors.max_entries_per_day = 'Max entries per day must be at least 1';
+    }
 
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
-};
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-const handleSaveDraft = async () => {
-  if (!user) return;
+  const handleSaveDraft = async () => {
+    if (!user) return;
 
-  setLoading(true);
-  try {
-    const locationParts = [
-      trialData.venue_name || 'TBD',
-      trialData.city || 'TBD',
-      trialData.province || 'AB',
-      trialData.country || 'Canada'
-    ].filter(part => part.trim());
-    
-    const location = locationParts.join(', ');
-
-    const trialToSave = {
-      trial_name: trialData.trial_name || 'Draft Trial',
-      club_name: trialData.club_name || user.club_name || 'Unknown Club',
-      location: location,
-      start_date: trialData.start_date || new Date().toISOString().split('T')[0],
-      end_date: trialData.end_date || new Date().toISOString().split('T')[0],
-      created_by: user.id,
-      trial_status: 'draft',
-      premium_published: false,
-      entries_open: false,
-      entries_close_date: null,
-      max_entries_per_day: trialData.max_entries_per_day,
-      default_entry_fee: trialData.default_entry_fee,
-      default_feo_price: trialData.default_feo_price,
-      trial_secretary: trialData.trial_secretary,
-      secretary_email: trialData.secretary_email,
-      secretary_phone: trialData.secretary_phone || null,
-      waiver_text: trialData.waiver_text,
-      fee_configuration: {},
-      notes: trialData.notes || null
-    };
-
-    console.log('Saving draft:', trialToSave);
-
-    // ✅ CHECK if we're updating an existing trial or creating a new one
-    const urlParams = new URLSearchParams(window.location.search);
-    const existingTrialId = urlParams.get('trial');
-
-    let result;
-    if (existingTrialId) {
-      // UPDATE existing trial
-      console.log('Updating existing trial:', existingTrialId);
-      result = await simpleTrialOperations.updateTrial(existingTrialId, trialToSave);
-    } else {
-      // CREATE new trial
-      console.log('Creating new trial');
-      result = await simpleTrialOperations.createTrial(trialToSave);
+    setLoading(true);
+    try {
+      const locationParts = [
+        trialData.venue_name || 'TBD',
+        trialData.city || 'TBD',
+        trialData.province || 'AB',
+        trialData.country || 'Canada'
+      ].filter(part => part.trim());
       
-      // If creation was successful, update the URL with the trial ID
-      if (result.success && result.data) {
-        const newUrl = `${window.location.pathname}?trial=${result.data.id}`;
-        window.history.replaceState({}, '', newUrl);
+      const location = locationParts.join(', ');
+
+      const trialToSave = {
+        trial_name: trialData.trial_name || 'Draft Trial',
+        club_name: trialData.club_name || user.club_name || 'Unknown Club',
+        location: location,
+        start_date: trialData.start_date || new Date().toISOString().split('T')[0],
+        end_date: trialData.end_date || new Date().toISOString().split('T')[0],
+        created_by: user.id,
+        trial_status: 'draft',
+        premium_published: false,
+        entries_open: false,
+        entries_close_date: null,
+        max_entries_per_day: trialData.max_entries_per_day,
+        default_entry_fee: trialData.default_entry_fee,
+        default_feo_price: trialData.default_feo_price,
+        trial_secretary: trialData.trial_secretary,
+        secretary_email: trialData.secretary_email,
+        secretary_phone: trialData.secretary_phone || null,
+        waiver_text: trialData.waiver_text,
+        fee_configuration: {},
+        notes: trialData.notes || null
+      };
+
+      console.log('Saving draft:', trialToSave);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const existingTrialId = urlParams.get('trial');
+
+      let result;
+      if (existingTrialId) {
+        console.log('Updating existing trial:', existingTrialId);
+        result = await simpleTrialOperations.updateTrial(existingTrialId, trialToSave);
+      } else {
+        console.log('Creating new trial');
+        result = await simpleTrialOperations.createTrial(trialToSave);
+        
+        if (result.success && result.data) {
+          const newUrl = `${window.location.pathname}?trial=${result.data.id}`;
+          window.history.replaceState({}, '', newUrl);
+        }
       }
+      
+      if (result.success) {
+        console.log('Draft saved successfully:', result.data);
+        alert('Draft saved successfully!');
+      } else {
+        console.error('Error saving draft:', result.error);
+        alert(`Error saving draft: ${result.error?.toString() || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      alert('Error saving draft. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    if (result.success) {
-      console.log('Draft saved successfully:', result.data);
-      alert('Draft saved successfully!');
-    } else {
-      console.error('Error saving draft:', result.error);
-      alert(`Error saving draft: ${result.error?.toString() || 'Unknown error'}`);
-    }
-  } catch (error) {
-    console.error('Error saving draft:', error);
-    alert('Error saving draft. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   if (!user) {
     return (
@@ -500,7 +495,7 @@ const handleSaveDraft = async () => {
         )}
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center space-x-8 mb-8">
+        <div className="flex items-center justify-center space-x-4 sm:space-x-8 mb-8">
           {stepTitles.map((title, index) => {
             const stepNumber = index + 1;
             const isActive = stepNumber === currentStep;
@@ -520,10 +515,10 @@ const handleSaveDraft = async () => {
                   }`}>
                     {stepNumber}
                   </div>
-                  <span className="text-sm font-medium">{title}</span>
+                  <span className="text-xs sm:text-sm font-medium hidden sm:inline">{title}</span>
                 </div>
                 {index < stepTitles.length - 1 && (
-                  <div className={`ml-4 w-16 h-0.5 ${
+                  <div className={`ml-2 sm:ml-4 w-8 sm:w-16 h-0.5 ${
                     stepNumber < currentStep ? 'bg-green-600' : 'bg-gray-200'
                   }`} />
                 )}
@@ -553,7 +548,7 @@ const handleSaveDraft = async () => {
                     value={trialData.trial_name}
                     onChange={(e) => handleInputChange('trial_name', e.target.value)}
                     placeholder="e.g., Spring Championship Trial"
-                    className={errors.trial_name ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.trial_name ? 'border-red-500' : ''}`}
                   />
                   {errors.trial_name && (
                     <p className="text-sm text-red-600">{errors.trial_name}</p>
@@ -571,7 +566,7 @@ const handleSaveDraft = async () => {
                     value={trialData.club_name}
                     onChange={(e) => handleInputChange('club_name', e.target.value)}
                     placeholder="e.g., Toronto Working Dogs Club"
-                    className={errors.club_name ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.club_name ? 'border-red-500' : ''}`}
                   />
                   {errors.club_name && (
                     <p className="text-sm text-red-600">{errors.club_name}</p>
@@ -584,7 +579,7 @@ const handleSaveDraft = async () => {
                     <MapPin className="h-4 w-4 text-orange-600" />
                     <span>Trial Location</span>
                   </Label>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pl-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pl-6">
                     <div className="space-y-2">
                       <Label htmlFor="venue_name">Venue Name</Label>
                       <Input
@@ -592,6 +587,7 @@ const handleSaveDraft = async () => {
                         value={trialData.venue_name}
                         onChange={(e) => handleInputChange('venue_name', e.target.value)}
                         placeholder="e.g., Training Center"
+                        className="py-3 sm:py-2 text-base sm:text-sm"
                       />
                     </div>
 
@@ -602,7 +598,7 @@ const handleSaveDraft = async () => {
                         value={trialData.city}
                         onChange={(e) => handleInputChange('city', e.target.value)}
                         placeholder="e.g., Calgary"
-                        className={errors.city ? 'border-red-500' : ''}
+                        className={`py-3 sm:py-2 text-base sm:text-sm ${errors.city ? 'border-red-500' : ''}`}
                       />
                       {errors.city && (
                         <p className="text-sm text-red-600">{errors.city}</p>
@@ -618,7 +614,7 @@ const handleSaveDraft = async () => {
                           handleInputChange('province', '');
                         }}
                       >
-                        <SelectTrigger className={errors.country ? 'border-red-500' : ''}>
+                        <SelectTrigger className={`min-h-[44px] text-base sm:text-sm ${errors.country ? 'border-red-500' : ''}`}>
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
                         <SelectContent className="bg-white">
@@ -641,7 +637,7 @@ const handleSaveDraft = async () => {
                         onValueChange={(value) => handleInputChange('province', value)}
                         disabled={!trialData.country}
                       >
-                        <SelectTrigger className={errors.province ? 'border-red-500' : ''}>
+                        <SelectTrigger className={`min-h-[44px] text-base sm:text-sm ${errors.province ? 'border-red-500' : ''}`}>
                           <SelectValue placeholder={
                             trialData.country === 'Canada' ? 'Select province' : 
                             trialData.country === 'United States' ? 'Select state' : 
@@ -670,6 +666,7 @@ const handleSaveDraft = async () => {
                       onChange={(e) => handleInputChange('full_address', e.target.value)}
                       placeholder="Complete address with postal code for GPS navigation..."
                       rows={2}
+                      className="py-3 sm:py-2 text-base sm:text-sm"
                     />
                   </div>
                 </div>
@@ -681,7 +678,7 @@ const handleSaveDraft = async () => {
                     type="date"
                     value={trialData.start_date}
                     onChange={(e) => handleInputChange('start_date', e.target.value)}
-                    className={errors.start_date ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.start_date ? 'border-red-500' : ''}`}
                   />
                   {errors.start_date && (
                     <p className="text-sm text-red-600">{errors.start_date}</p>
@@ -695,7 +692,7 @@ const handleSaveDraft = async () => {
                     type="date"
                     value={trialData.end_date}
                     onChange={(e) => handleInputChange('end_date', e.target.value)}
-                    className={errors.end_date ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.end_date ? 'border-red-500' : ''}`}
                   />
                   {errors.end_date && (
                     <p className="text-sm text-red-600">{errors.end_date}</p>
@@ -713,7 +710,7 @@ const handleSaveDraft = async () => {
                     value={trialData.trial_secretary}
                     onChange={(e) => handleInputChange('trial_secretary', e.target.value)}
                     placeholder="Secretary's full name"
-                    className={errors.trial_secretary ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.trial_secretary ? 'border-red-500' : ''}`}
                   />
                   {errors.trial_secretary && (
                     <p className="text-sm text-red-600">{errors.trial_secretary}</p>
@@ -732,7 +729,7 @@ const handleSaveDraft = async () => {
                     value={trialData.secretary_email}
                     onChange={(e) => handleInputChange('secretary_email', e.target.value)}
                     placeholder="secretary@email.com"
-                    className={errors.secretary_email ? 'border-red-500' : ''}
+                    className={`py-3 sm:py-2 text-base sm:text-sm ${errors.secretary_email ? 'border-red-500' : ''}`}
                   />
                   {errors.secretary_email && (
                     <p className="text-sm text-red-600">{errors.secretary_email}</p>
@@ -750,6 +747,7 @@ const handleSaveDraft = async () => {
                     value={trialData.secretary_phone}
                     onChange={(e) => handleInputChange('secretary_phone', e.target.value)}
                     placeholder="(555) 123-4567"
+                    className="py-3 sm:py-2 text-base sm:text-sm"
                   />
                 </div>
 
@@ -762,10 +760,11 @@ const handleSaveDraft = async () => {
                     max="200"
                     value={trialData.max_entries_per_day}
                     onChange={(e) => handleInputChange('max_entries_per_day', parseInt(e.target.value) || 50)}
+                    className="py-3 sm:py-2 text-base sm:text-sm"
                   />
                 </div>
 
-                {/* ✅ NEW: Default Entry Fees Section */}
+                {/* Default Entry Fees Section */}
                 <div className="space-y-2 md:col-span-2">
                   <Label className="text-base font-medium flex items-center space-x-2">
                     <DollarSign className="h-4 w-4 text-orange-600" />
@@ -784,7 +783,7 @@ const handleSaveDraft = async () => {
                         step="0.01"
                         value={trialData.default_entry_fee}
                         onChange={(e) => handleInputChange('default_entry_fee', parseFloat(e.target.value) || 0)}
-                        className={errors.default_entry_fee ? 'border-red-500' : ''}
+                        className={`py-3 sm:py-2 text-base sm:text-sm ${errors.default_entry_fee ? 'border-red-500' : ''}`}
                       />
                       {errors.default_entry_fee && (
                         <p className="text-sm text-red-600">{errors.default_entry_fee}</p>
@@ -801,7 +800,7 @@ const handleSaveDraft = async () => {
                         step="0.01"
                         value={trialData.default_feo_price}
                         onChange={(e) => handleInputChange('default_feo_price', parseFloat(e.target.value) || 0)}
-                        className={errors.default_feo_price ? 'border-red-500' : ''}
+                        className={`py-3 sm:py-2 text-base sm:text-sm ${errors.default_feo_price ? 'border-red-500' : ''}`}
                       />
                       {errors.default_feo_price && (
                         <p className="text-sm text-red-600">{errors.default_feo_price}</p>
@@ -819,6 +818,7 @@ const handleSaveDraft = async () => {
                     onChange={(e) => handleInputChange('notes', e.target.value)}
                     placeholder="Any additional information about this trial..."
                     rows={3}
+                    className="py-3 sm:py-2 text-base sm:text-sm"
                   />
                 </div>
               </div>
@@ -833,7 +833,7 @@ const handleSaveDraft = async () => {
                 </div>
               )}
 
-              {/* ✅ NEW: Fee Preview */}
+              {/* Fee Preview */}
               {(trialData.default_entry_fee > 0 || trialData.default_feo_price > 0) && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <Label className="text-sm font-medium text-green-900">Default Fees:</Label>
@@ -871,7 +871,7 @@ const handleSaveDraft = async () => {
                     value={trialData.waiver_text}
                     onChange={(e) => handleInputChange('waiver_text', e.target.value)}
                     rows={15}
-                    className="font-mono text-sm"
+                    className="font-mono text-sm py-3 sm:py-2"
                   />
                   <p className="text-sm text-gray-600">
                     You can copy and paste custom waiver text or modify the default text above.
@@ -895,7 +895,7 @@ const handleSaveDraft = async () => {
                     value={DEFAULT_NOTICE}
                     readOnly
                     rows={15}
-                    className="font-mono text-sm bg-gray-50"
+                    className="font-mono text-sm bg-gray-50 py-3 sm:py-2"
                   />
                   <p className="text-sm text-gray-600">
                     This is the standard C-WAGS notice to exhibitors.
@@ -907,38 +907,39 @@ const handleSaveDraft = async () => {
         )}
 
         {/* Action Buttons */}
-<div className="flex items-center justify-between pt-6 border-t">
-  <div>
-    {currentStep > 1 && (
-      <Button
-        variant="outline"
-        onClick={() => setCurrentStep(currentStep - 1)}
-        disabled={loading}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Previous
-      </Button>
-    )}
-  </div>
+        <div className="flex items-center justify-between pt-6 border-t">
+          <div>
+            {currentStep > 1 && (
+              <Button
+                variant="outline"
+                onClick={() => setCurrentStep(currentStep - 1)}
+                disabled={loading}
+                className="min-h-[44px]"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+              </Button>
+            )}
+          </div>
 
-  <Button
-    onClick={handleNext}
-    disabled={loading}
-    className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700"
-  >
-    {loading ? (
-      <>
-        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        <span>Saving...</span>
-      </>
-    ) : (
-      <>
-        <span>{currentStep === 2 ? 'Save & Continue to Days' : 'Save & Continue'}</span>
-        <ArrowRight className="h-4 w-4" />
-      </>
-    )}
-  </Button>
-</div>
+          <Button
+            onClick={handleNext}
+            disabled={loading}
+            className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 min-h-[44px]"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <span>{currentStep === 2 ? 'Save & Continue to Days' : 'Save & Continue'}</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </MainLayout>
   );

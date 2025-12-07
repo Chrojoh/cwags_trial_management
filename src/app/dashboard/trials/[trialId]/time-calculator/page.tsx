@@ -593,104 +593,104 @@ const handleMinutesSave = async (configId: string) => {
       {expandedDays.includes(dayData.day_id) && (
         <CardContent className="space-y-6">
           {/* Scent Table */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Scent</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Class</TableHead>
-                  <TableHead className="text-center">Min/Run</TableHead>
-                  <TableHead className="text-center">Entries</TableHead>
-                  <TableHead className="text-right">Total (min)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-  {dayData.scent_configs
-    .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name))
-    .map((config) => (
-   <TableRow key={config.id}>
-  <TableCell className="font-medium">{config.class_name}</TableCell>
-
-  <TableCell className="text-center">
-    <Input
-      type="number"
-      step="0.25"
-      value={editingMinutes[config.id!] ?? config.minutes_per_run}
-      onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
-      onBlur={() => handleMinutesSave(config.id!)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleMinutesSave(config.id!);
-          e.currentTarget.blur();
-        }
-      }}
-      className="w-20 mx-auto text-center"
-      min="0"
-    />
-  </TableCell>
-
-  {/* ✅ ENTRY COUNT */}
-  <TableCell className="text-center">
-    {config.entry_count}
-  </TableCell>
-
-  {/* ✅ TOTAL MINUTES */}
-  <TableCell className="text-right">
-    {config.total_minutes.toFixed(2)}
-  </TableCell>
-</TableRow>
-    ))}
-</TableBody>
-            </Table>
+         <div>
+            <h3 className="text-base sm:text-lg font-semibold mb-3">Scent Classes</h3>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sm:text-sm">Class</TableHead>
+                    <TableHead className="text-center text-xs sm:text-sm">Min/Run</TableHead>
+                    <TableHead className="text-center text-xs sm:text-sm">Entries</TableHead>
+                    <TableHead className="text-right text-xs sm:text-sm">Total (min)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dayData.scent_configs.map((config) => (
+                    <TableRow key={config.id}>
+                      <TableCell className="font-medium text-xs sm:text-sm whitespace-normal sm:whitespace-nowrap">
+                        {config.class_name}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          step="0.25"
+                          value={editingMinutes[config.id!] ?? config.minutes_per_run}
+                          onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
+                          onBlur={() => handleMinutesSave(config.id!)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleMinutesSave(config.id!);
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="w-16 sm:w-20 mx-auto text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center text-xs sm:text-sm">
+                        {config.entry_count}
+                      </TableCell>
+                      <TableCell className="text-right text-xs sm:text-sm">
+                        {config.total_minutes.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
+
           {/* Rally / Obedience / Games Table */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Rally / Obedience / Games</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Class</TableHead>
-                  <TableHead className="text-center">Min/Run</TableHead>
-                  <TableHead className="text-center">Entries</TableHead>
-                  <TableHead className="text-right">Total (min)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dayData.rally_configs.map((config) => (
-                  <TableRow key={config.id}>
-                    <TableCell className="font-medium">{config.class_name}</TableCell>
-                   <TableCell className="text-center">
-  <Input
-    type="number"
-    step="0.25"
-    value={editingMinutes[config.id!] ?? config.minutes_per_run}
-    onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
-    onBlur={() => handleMinutesSave(config.id!)}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleMinutesSave(config.id!);
-        e.currentTarget.blur();
-      }
-    }}
-    className="w-20 mx-auto text-center"
-    min="0"
-  />
-</TableCell>
-<TableCell className="text-center">
-  {config.entry_count}
-</TableCell>
-
-<TableCell className="text-right">
-  {config.total_minutes.toFixed(2)}
-</TableCell>
-
+         <div>
+            <h3 className="text-base sm:text-lg font-semibold mb-3">Rally / Obedience / Games</h3>
+            <div className="overflow-x-auto -mx-4 sm:mx-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs sm:text-sm">Class</TableHead>
+                    <TableHead className="text-center text-xs sm:text-sm">Min/Run</TableHead>
+                    <TableHead className="text-center text-xs sm:text-sm">Entries</TableHead>
+                    <TableHead className="text-right text-xs sm:text-sm">Total (min)</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {dayData.rally_configs.map((config) => (
+                    <TableRow key={config.id}>
+                      <TableCell className="font-medium text-xs sm:text-sm whitespace-normal sm:whitespace-nowrap">
+                        {config.class_name}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Input
+                          type="number"
+                          step="0.25"
+                          value={editingMinutes[config.id!] ?? config.minutes_per_run}
+                          onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
+                          onBlur={() => handleMinutesSave(config.id!)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleMinutesSave(config.id!);
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          className="w-16 sm:w-20 mx-auto text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                          min="0"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center text-xs sm:text-sm">
+                        {config.entry_count}
+                      </TableCell>
+                      <TableCell className="text-right text-xs sm:text-sm">
+                        {config.total_minutes.toFixed(2)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           {/* Summary */}

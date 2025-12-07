@@ -56,62 +56,83 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-sm mx-auto mt-24 p-6 border rounded-lg shadow">
-      <h1 className="text-xl font-bold mb-4">Login</h1>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-sm w-full space-y-8">
+        <div className="bg-white p-6 sm:p-8 border rounded-lg shadow-lg">
+          <h1 className="text-xl sm:text-2xl font-bold mb-4 text-center">Login</h1>
 
-      {error && (
-        <p className="mb-3 text-red-600 text-sm border border-red-300 p-2 rounded">
-          {error}
-        </p>
-      )}
+          {error && (
+            <p className="mb-3 text-red-600 text-sm border border-red-300 p-3 rounded bg-red-50">
+              {error}
+            </p>
+          )}
 
-      {resetMessage && (
-        <p className="mb-3 text-green-600 text-sm border border-green-300 p-2 rounded">
-          {resetMessage}
-        </p>
-      )}
+          {resetMessage && (
+            <p className="mb-3 text-green-600 text-sm border border-green-300 p-3 rounded bg-green-50">
+              {resetMessage}
+            </p>
+          )}
 
-      <form onSubmit={handleLogin} className="space-y-4">
-        <input
-          type="email"
-          required
-          className="w-full border p-2 rounded"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                className="w-full border border-gray-300 p-3 sm:p-2 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
 
-        <input
-          type="password"
-          required
-          minLength={6}
-          className="w-full border p-2 rounded"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                className="w-full border border-gray-300 p-3 sm:p-2 rounded-lg text-base sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
 
-        <button
-          type="submit"
-          className="w-full bg-orange-600 text-white p-2 rounded hover:bg-orange-700"
-        >
-          Sign In
-        </button>
+            <button
+              type="submit"
+              className="w-full bg-orange-600 text-white p-3 rounded-lg hover:bg-orange-700 transition-colors font-medium min-h-[44px] text-base"
+            >
+              Sign In
+            </button>
 
-        <button
-          type="button"
-          onClick={handlePasswordReset}
-          className="w-full text-sm text-orange-600 underline"
-        >
-          Forgot your password?
-        </button>
+            <button
+              type="button"
+              onClick={handlePasswordReset}
+              className="w-full text-sm text-orange-600 underline hover:text-orange-700 transition-colors min-h-[44px]"
+            >
+              Forgot your password?
+            </button>
 
-        <div className="text-center mt-4">
-          <a href="/register" className="text-orange-600 hover:underline">
-            Need an account? Register here
-          </a>
+            <div className="text-center mt-6 pt-6 border-t">
+              <a 
+                href="/register" 
+                className="text-orange-600 hover:text-orange-700 hover:underline transition-colors text-sm sm:text-base"
+              >
+                Need an account? Register here
+              </a>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
