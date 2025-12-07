@@ -2790,10 +2790,16 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 
 
             <div className="flex items-center space-x-2">
-             <Button onClick={() => setShowAddEntryModal(true)} variant="outline">
-                <Users className="h-4 w-4 mr-2" />
-                Add Entry
-              </Button>
+             <Button onClick={() => {
+  // Auto-select the currently displayed round
+  if (selectedClass?.round_number) {
+    setSelectedRound(selectedClass.round_number);
+  }
+  setShowAddEntryModal(true);
+}} variant="outline">
+  <Users className="h-4 w-4 mr-2" />
+  Add Entry
+</Button>
              <Button onClick={handleExportRunningOrder} variant="outline">
               <FileDown className="h-4 w-4 mr-2" />
                Export Running Order
