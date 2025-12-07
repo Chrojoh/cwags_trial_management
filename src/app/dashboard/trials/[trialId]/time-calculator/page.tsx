@@ -608,27 +608,38 @@ const handleMinutesSave = async (configId: string) => {
   {dayData.scent_configs
     .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name))
     .map((config) => (
-      <TableRow key={config.id}>
-        <TableCell className="font-medium">{config.class_name}</TableCell>
-       <TableCell className="text-center">
-  <Input
-    type="number"
-    step="0.25"
-    value={editingMinutes[config.id!] ?? config.minutes_per_run}
-    onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
-    onBlur={() => handleMinutesSave(config.id!)}
-    onKeyDown={(e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleMinutesSave(config.id!);
-        e.currentTarget.blur();
-      }
-    }}
-    className="w-20 mx-auto text-center"
-    min="0"
-  />
-</TableCell>
-      </TableRow>
+   <TableRow key={config.id}>
+  <TableCell className="font-medium">{config.class_name}</TableCell>
+
+  <TableCell className="text-center">
+    <Input
+      type="number"
+      step="0.25"
+      value={editingMinutes[config.id!] ?? config.minutes_per_run}
+      onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
+      onBlur={() => handleMinutesSave(config.id!)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleMinutesSave(config.id!);
+          e.currentTarget.blur();
+        }
+      }}
+      className="w-20 mx-auto text-center"
+      min="0"
+    />
+  </TableCell>
+
+  {/* ✅ ENTRY COUNT */}
+  <TableCell className="text-center">
+    {config.entry_count}
+  </TableCell>
+
+  {/* ✅ TOTAL MINUTES */}
+  <TableCell className="text-right">
+    {config.total_minutes.toFixed(2)}
+  </TableCell>
+</TableRow>
     ))}
 </TableBody>
             </Table>
@@ -668,6 +679,14 @@ const handleMinutesSave = async (configId: string) => {
     min="0"
   />
 </TableCell>
+<TableCell className="text-center">
+  {config.entry_count}
+</TableCell>
+
+<TableCell className="text-right">
+  {config.total_minutes.toFixed(2)}
+</TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>
