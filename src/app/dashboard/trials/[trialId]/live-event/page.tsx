@@ -731,30 +731,30 @@ const loadClassEntries = async () => {
           // FILTER OUT WITHDRAWN ENTRIES
           const entryStatus = selection.entry_status || 'entered';
           if (entryStatus.toLowerCase() !== 'withdrawn') {
-            classEntriesData.push({
-              id: selection.id,
-              entry_id: entry.id,
-              running_position: selection.running_position || 0,
-              entry_type: selection.entry_type || 'regular',
-              entry_status: entryStatus,
-              round_number: selectedClass.round_number || 1,
-              round_id: selectedClass.id,
-              division: selection.division || null,
-              entries: {
-                handler_name: entry.handler_name,
-                dog_call_name: entry.dog_call_name,
-                cwags_number: entry.cwags_number
-              },
-              trial_rounds: {
-                judge_name: selectedClass.judge_name,
-                trial_classes: {
-                  class_name: selectedClass.class_name,
-                  class_type: selectedClass.class_type,
-                  games_subclass: selectedClass.games_subclass
-                }
-              },
-              scores: selection.scores || []
-            });
+           classEntriesData.push({
+  id: selection.id,
+  entry_id: entry.id,
+  running_position: selection.running_position || 0,
+  entry_type: selection.entry_type || 'regular',
+  entry_status: entryStatus,
+  round_number: selectedClass.round_number || 1,
+  round_id: selectedClass.id,
+  division: selection.division || null,
+  entries: {
+    handler_name: selection.substitute_handler_name || entry.handler_name,  // ✅ Use substitute if exists
+    dog_call_name: selection.substitute_dog_name || entry.dog_call_name,      // ✅ Use substitute if exists
+    cwags_number: selection.substitute_cwags_number || entry.cwags_number      // ✅ Use substitute if exists
+  },
+  trial_rounds: {
+    judge_name: selectedClass.judge_name,
+    trial_classes: {
+      class_name: selectedClass.class_name,
+      class_type: selectedClass.class_type,
+      games_subclass: selectedClass.games_subclass
+    }
+  },
+  scores: selection.scores || []
+});
           }
         }
       });
@@ -875,54 +875,62 @@ const updateEntryField = async (entryId: string, field: string, value: string | 
     loadClassEntries();
   }
 };
-const substituteDog = async (entrySelectionId: string, newCwagsNumber: string) => {
+const substituteDog = async (entrySelectionId: string, newCwags: string) => {
+  if (!newCwags) return;
+  
   try {
-    setSaving(true);
+    // Look up the substitute dog in registry
+    const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(newCwags);
     
-    // Format C-WAGS number
-    const formatted = formatCwagsNumber(newCwagsNumber);
-    
-    // Look up the dog in the registry
-    const dogData = await lookupCwagsNumber(formatted);
-    
-    // ✅ Add proper type check
-    if (!dogData || !dogData.dog_call_name || !dogData.handler_name) {
-      alert(`C-WAGS number ${formatted} not found in registry. Please check the number.`);
-      return;
+    if (!registryResult.success || !registryResult.data) {
+      if (!confirm('Dog not found in registry. Continue with manual entry?')) {
+        return;
+      }
+      
+      const subDogName = prompt('Enter substitute dog name:');
+      const subHandlerName = prompt('Enter substitute handler name:');
+      
+      if (!subDogName || !subHandlerName) return;
+      
+      // Update with manual entry
+      const { error } = await supabase
+        .from('entry_selections')
+        .update({ 
+          substitute_cwags_number: newCwags,
+          substitute_dog_name: subDogName,
+          substitute_handler_name: subHandlerName
+        })
+        .eq('id', entrySelectionId);
+
+      if (error) throw error;
+      
+      await loadClassEntries();
+      setSubstitutingEntryId(null);
+      setNewCwagsNumber('');
+      alert(`Substitute dog set: ${subDogName} (${newCwags}) for this round only!`);
+      
+    } else {
+      // Found in registry - use that data
+      const { error } = await supabase
+        .from('entry_selections')
+        .update({ 
+          substitute_cwags_number: newCwags,
+          substitute_dog_name: registryResult.data.dog_call_name,
+          substitute_handler_name: registryResult.data.handler_name
+        })
+        .eq('id', entrySelectionId);
+
+      if (error) throw error;
+      
+      await loadClassEntries();
+      setSubstitutingEntryId(null);
+      setNewCwagsNumber('');
+      alert(`Substitute dog set: ${registryResult.data.dog_call_name} (${newCwags}) for this round only!`);
     }
-    
-    // Find the entry selection
-    const entrySelection = classEntries.find(e => e.id === entrySelectionId);
-    if (!entrySelection) {
-      alert('Entry not found');
-      return;
-    }
-    
-    // Update the main entry record with new dog info
-    const updateResult = await simpleTrialOperations.updateEntry(entrySelection.entry_id, {
-      cwags_number: formatted,
-      dog_call_name: dogData.dog_call_name,
-      handler_name: dogData.handler_name
-    });
-    
-    if (!updateResult.success) {
-      throw new Error(updateResult.error as string);
-    }
-    
-    // Reload the entries to show updated dog
-    await loadClassEntries();
-    await loadAllClassCounts();
-    
-    setSubstitutingEntryId(null);
-    setNewCwagsNumber('');
-    
-    alert(`Dog substituted successfully!\n\nNew Dog: ${dogData.dog_call_name}\nHandler: ${dogData.handler_name}`);
     
   } catch (error) {
-    console.error('Error substituting dog:', error);
-    alert('Failed to substitute dog. Please try again.');
-  } finally {
-    setSaving(false);
+    console.error('Error setting substitute dog:', error);
+    setError('Failed to set substitute dog');
   }
 };
 const saveScore = async (entrySelectionId: string) => {
@@ -1620,21 +1628,7 @@ if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass
     }
   };
 
-  const editDogName = async (entryId: string, currentName: string) => {
-    const newName = prompt('Enter new dog name:', currentName);
-    if (newName && newName !== currentName) {
-      try {
-        const entry = classEntries.find(e => e.id === entryId);
-        if (entry) {
-          await updateEntryField(entry.entry_id, 'dog_call_name', newName);
-          await loadClassEntries();
-        }
-      } catch (error) {
-        console.error('Error updating dog name:', error);
-        setError('Failed to update dog name');
-      }
-    }
-  };
+
 
 // Update the existing Export to Excel button click to set the type:
 const handleExportRunningOrder = () => {
