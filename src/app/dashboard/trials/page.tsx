@@ -31,6 +31,7 @@ import {
   Clock,
   TrendingUp,
   FileText,
+  CheckCircle,
   AlertCircle,
   Loader2
 } from 'lucide-react';
@@ -432,10 +433,60 @@ export default function TrialsPage() {
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Trial
                           </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Duplicate Trial
-                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+<DropdownMenuLabel>Change Status</DropdownMenuLabel>
+{trial.trial_status === 'draft' && (
+  <DropdownMenuItem 
+    onClick={async () => {
+      const result = await simpleTrialOperations.publishTrial(trial.id);
+      if (result.success) {
+        alert('Trial published!');
+        loadTrials();
+      } else {
+        alert('Error publishing trial');
+      }
+    }}
+  >
+    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+    Publish Trial
+  </DropdownMenuItem>
+)}
+{trial.trial_status === 'published' && (
+  <DropdownMenuItem 
+    onClick={async () => {
+      if (confirm(`Mark "${trial.trial_name}" as Active?`)) {
+        const result = await simpleTrialOperations.updateTrialStatus(trial.id, 'active');
+        if (result.success) {
+          await loadTrials();  // ← Make sure this line is here
+          alert('Trial marked as Active!');
+        } else {
+          alert('Error updating status');
+        }
+      }
+    }}
+  >
+    <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+    Mark as Active
+  </DropdownMenuItem>
+)}
+{trial.trial_status === 'active' && (
+  <DropdownMenuItem 
+    onClick={async () => {
+      if (confirm(`Mark "${trial.trial_name}" as Completed?`)) {
+        const result = await simpleTrialOperations.updateTrialStatus(trial.id, 'completed');
+        if (result.success) {
+          alert('Trial marked as Completed!');
+          loadTrials();
+        } else {
+          alert('Error updating status');
+        }
+      }
+    }}
+  >
+    <CheckCircle className="h-4 w-4 mr-2 text-purple-600" />
+    Mark as Completed
+  </DropdownMenuItem>
+)}
                           <DropdownMenuSeparator />
                           {trial.trial_status === 'draft' && (
                             <DropdownMenuItem 

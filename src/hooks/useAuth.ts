@@ -9,67 +9,123 @@ export function useAuth() {
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true; // Prevent state updates after unmount
+
     async function loadUser() {
-      const params = new URLSearchParams(window.location.search);
+      try {
+        const params = new URLSearchParams(window.location.search);
 
-      // 🔥 BLOCK AUTH LOGIC DURING PASSWORD RECOVERY
-      if (
-        params.get("type") === "recovery" ||
-        params.has("access_token") ||
-        params.has("token_hash")
-      ) {
-        setUser(null);
-        setLoading(false);
-        return;
+        // 🔥 BLOCK AUTH LOGIC DURING PASSWORD RECOVERY
+        if (
+          params.get("type") === "recovery" ||
+          params.has("access_token") ||
+          params.has("token_hash")
+        ) {
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // 🔥 NORMAL LOGIN FLOW
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+
+        // Handle auth errors
+        if (authError) {
+          console.error("Auth error:", authError);
+          if (isMounted) {
+            setError(authError.message);
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // No user found
+        if (!authData?.user) {
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const authUser = authData.user;
+
+        // 🔥 Load full user profile from users table
+        const { data: profile, error: profileError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", authUser.id)
+          .single();
+
+        if (profileError) {
+          console.error("Failed to load user profile:", profileError);
+          if (isMounted) {
+            setError("Failed to load user profile");
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Ensure profile exists and has all required fields
+        if (!profile) {
+          console.error("Profile not found for user:", authUser.id);
+          if (isMounted) {
+            setError("User profile not found");
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Set the complete user object
+        if (isMounted) {
+          setUser({
+            id: profile.id,
+            email: profile.email,
+            first_name: profile.first_name || "",
+            last_name: profile.last_name || "",
+            role: profile.role,
+            club_name: profile.club_name || null,
+            phone: profile.phone || null,
+            is_active: profile.is_active ?? true,
+            created_at: profile.created_at,
+            updated_at: profile.updated_at,
+          });
+          setError(null);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Unexpected error in loadUser:", err);
+        if (isMounted) {
+          setError(err instanceof Error ? err.message : "Unknown error");
+          setUser(null);
+          setLoading(false);
+        }
       }
-
-      // 🔥 NORMAL LOGIN FLOW
-      const { data: authData } = await supabase.auth.getUser();
-
-      if (!authData?.user) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
-      const authUser = authData.user;
-
-      // 🔥 Load full user profile from users table
-      const { data: profile, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", authUser.id)
-        .single();
-
-      if (error || !profile) {
-        console.error("Failed to load user profile:", error);
-        setUser(null);
-      } else {
-        setUser({
-          id: profile.id,
-          email: profile.email,
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          role: profile.role,
-          club_name: profile.club_name,
-          phone: profile.phone,
-          is_active: profile.is_active,
-          created_at: profile.created_at,
-          updated_at: profile.updated_at,
-        });
-      }
-
-      setLoading(false);
     }
 
     loadUser();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
   }, [supabase]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    try {
+      await supabase.auth.signOut();
+      window.location.href = "/login";
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
   };
 
   const getFullName = () => {
@@ -93,8 +149,9 @@ export function useAuth() {
   return {
     user,
     loading,
+    error,
     signOut,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && !error,
     getFullName,
     getDisplayInfo,
   };

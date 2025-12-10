@@ -283,10 +283,8 @@ async getTrial(trialId: string): Promise<OperationResult> {
   }
 },
 
-  // Added from original - needed for dashboard
-// =========================
+
 //  SAFE UPDATED getAllTrials
-// =========================
 async getAllTrials(): Promise<OperationResult> {
   try {
     const supabase = getSupabaseBrowser();
@@ -378,7 +376,48 @@ async getAllTrials(): Promise<OperationResult> {
   }
 },
 
+// Update trial status (FIXED - handles data correctly)
+async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active' | 'closed' | 'completed'): Promise<OperationResult> {
+  try {
+    console.log('=== UPDATE TRIAL STATUS DEBUG ===');
+    console.log('Trial ID:', trialId);
+    console.log('New Status:', status);
 
+    const updateData = {
+      trial_status: status,
+      updated_at: new Date().toISOString()
+    };
+
+    // First, check if the trial exists
+    const { data: existingTrial, error: checkError } = await supabase
+      .from('trials')
+      .select('id')
+      .eq('id', trialId)
+      .single();
+
+    if (checkError || !existingTrial) {
+      console.error('Trial not found:', trialId);
+      return { success: false, error: 'Trial not found' };
+    }
+
+    // Now update it
+    const { error: updateError } = await supabase
+      .from('trials')
+      .update(updateData)
+      .eq('id', trialId);
+
+    if (updateError) {
+      console.error('Update error:', updateError);
+      return { success: false, error: updateError.message || 'Failed to update trial' };
+    }
+
+    console.log('Trial status updated successfully to:', status);
+    return { success: true, data: { ...existingTrial, trial_status: status } };
+  } catch (error) {
+    console.error('Caught Exception:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+},
 
 
   // Enhanced Trial Days Operations

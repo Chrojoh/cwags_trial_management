@@ -360,7 +360,7 @@ const formatDate = (dateString: string) => {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="w-full flex overflow-x-auto md:grid md:grid-cols-5 gap-1">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="days" className="relative group">
               <span>Days ({trialDays.length})</span>
@@ -745,30 +745,74 @@ const formatDate = (dateString: string) => {
               <CardContent>
                 <div className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-600">Current Status</Label>
-                    <div className="mt-2">
-                      <Badge className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}>
-                        {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
-                      </Badge>
-                    </div>
-                    {trial.trial_status === 'draft' && (
-                      <div className="mt-4">
-                        <Button 
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          onClick={async () => {
-                            const result = await simpleTrialOperations.publishTrial(trialId);
-                            if (result.success) {
-                              alert('Trial published successfully!');
-                              loadTrialData();
-                            }
-                          }}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Publish Trial
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+  <Label className="text-sm font-medium text-gray-600">Current Status</Label>
+  <div className="mt-2 flex items-center gap-3">
+    <Badge className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}>
+      {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
+    </Badge>
+    
+    {/* Draft → Published */}
+    {trial.trial_status === 'draft' && (
+      <Button 
+        className="bg-green-600 hover:bg-green-700 text-white"
+        onClick={async () => {
+          const result = await simpleTrialOperations.publishTrial(trialId);
+          if (result.success) {
+            alert('Trial published successfully!');
+            loadTrialData();
+          }
+        }}
+      >
+        <CheckCircle className="h-4 w-4 mr-2" />
+        Publish Trial
+      </Button>
+    )}
+    
+    {/* Published → Active */}
+    {trial.trial_status === 'published' && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-green-600 border-green-600 hover:bg-green-50"
+        onClick={async () => {
+          if (confirm('Mark this trial as Active?')) {
+            const result = await simpleTrialOperations.updateTrialStatus(trialId, 'active');
+            if (result.success) {
+              alert('Trial marked as Active!');
+              loadTrialData();
+            } else {
+              alert('Error updating status');
+            }
+          }
+        }}
+      >
+        Mark Active
+      </Button>
+    )}
+    
+    {/* Active → Completed */}
+    {trial.trial_status === 'active' && (
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-purple-600 border-purple-600 hover:bg-purple-50"
+        onClick={async () => {
+          if (confirm('Mark this trial as Completed?')) {
+            const result = await simpleTrialOperations.updateTrialStatus(trialId, 'completed');
+            if (result.success) {
+              alert('Trial marked as Completed!');
+              loadTrialData();
+            } else {
+              alert('Error updating status');
+            }
+          }
+        }}
+      >
+        Mark Completed
+      </Button>
+    )}
+  </div>
+</div>
 
                   {/* Entry Management Section */}
                   <div className="pt-4 border-t">

@@ -60,7 +60,7 @@ export interface Database {
           start_date: string
           end_date: string
           created_by: string
-          trial_status: 'draft' | 'published' | 'closed' | 'completed'
+          trial_status: 'draft' | 'published' | 'active' | 'closed' | 'completed'
           premium_published: boolean
           entries_open: boolean
           entries_close_date: string | null
@@ -82,7 +82,7 @@ export interface Database {
           start_date: string
           end_date: string
           created_by: string
-          trial_status?: 'draft' | 'published' | 'closed' | 'completed'
+          trial_status?: 'draft' | 'published' | 'active' | 'closed' | 'completed'
           premium_published?: boolean
           entries_open?: boolean
           entries_close_date?: string | null
@@ -104,7 +104,7 @@ export interface Database {
           start_date?: string
           end_date?: string
           created_by?: string
-          trial_status?: 'draft' | 'published' | 'closed' | 'completed'
+          trial_status?: 'draft' | 'published' | 'active' | 'closed' | 'completed'
           premium_published?: boolean
           entries_open?: boolean
           entries_close_date?: string | null

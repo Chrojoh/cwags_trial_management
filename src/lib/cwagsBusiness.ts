@@ -128,35 +128,6 @@ export const validateTrialDateTime = (
   }
 };
 
-export const getTrialStatusWithTimezone = (
-  trialDate: string,
-  trialTimezone: string,
-  currentStatus: string,
-  currentDate: Date = new Date()
-): string => {
-  if (currentStatus === TRIAL_STATUS.CANCELLED || 
-      currentStatus === TRIAL_STATUS.COMPLETED) {
-    return currentStatus;
-  }
-  
-  const entryWindow = getEntryWindowStatus(trialDate, trialTimezone, currentDate);
-  const trialDateTime = new Date(trialDate);
-  
-  if (currentDate > trialDateTime) {
-    return TRIAL_STATUS.COMPLETED;
-  }
-  
-  if (entryWindow === 'open') {
-    return TRIAL_STATUS.ENTRIES_OPEN;
-  }
-  
-  if (entryWindow === 'late') {
-    return TRIAL_STATUS.ENTRIES_OPEN;
-  }
-  
-  return TRIAL_STATUS.ENTRIES_CLOSED;
-};
-
 export const formatTrialSchedule = (
   trialDate: string,
   trialTimezone: string,

@@ -1,34 +1,30 @@
+// src/components/auth/AuthGuard.tsx
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { Header } from './header';
-import { Breadcrumbs } from './breadcrumbs';
 import { LoadingSpinner } from '@/components/ui/loadingSpinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 
-export interface MainLayoutProps {
+interface AuthGuardProps {
   children: React.ReactNode;
-  title?: string;
-  breadcrumbItems?: Array<{ label: string; href?: string }>;
-  fullWidth?: boolean;
+  fallback?: React.ReactNode;
 }
 
-function MainLayout({ 
-  children, 
-  title, 
-  breadcrumbItems,
-  fullWidth = false 
-}: MainLayoutProps) {
-  const { user, loading, error, isAuthenticated, signOut } = useAuth();
+/**
+ * AuthGuard component ensures authentication is complete before rendering children.
+ * This prevents race conditions where components try to access user data before it's loaded.
+ */
+export function AuthGuard({ children, fallback }: AuthGuardProps) {
+  const { user, loading, error, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Show loading spinner while checking authentication
+  // Loading state
   if (loading) {
-    return (
+    return fallback || (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <LoadingSpinner size="lg" />
@@ -38,7 +34,7 @@ function MainLayout({
     );
   }
 
-  // Show error state if there's an authentication error
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -69,7 +65,7 @@ function MainLayout({
     );
   }
 
-  // Redirect to login if not authenticated
+  // Not authenticated or user is null
   if (!isAuthenticated || !user) {
     if (typeof window !== 'undefined') {
       window.location.pathname = '/login';
@@ -84,38 +80,6 @@ function MainLayout({
     );
   }
 
-  // At this point, user is guaranteed to exist
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header - Now guaranteed to have user */}
-        <Header user={user} onMenuClick={() => {}} />
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Breadcrumbs */}
-          {(breadcrumbItems && breadcrumbItems.length > 0) && (
-            <div className="bg-white border-b border-gray-200 px-4 py-3">
-              <Breadcrumbs items={breadcrumbItems} />
-            </div>
-          )}
-
-          {/* Page Header */}
-          {title && (
-            <div className="bg-white border-b border-gray-200 px-4 py-4 lg:px-6">
-              <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            </div>
-          )}
-
-          {/* Page Content - Conditional padding based on fullWidth prop */}
-          <main className={`flex-1 overflow-y-auto ${fullWidth ? '' : 'p-4 lg:p-6'}`}>
-            {children}
-          </main>
-        </div>
-      </div>
-    </div>
-  );
+  // User is authenticated and loaded - safe to render children
+  return <>{children}</>;
 }
-
-export default MainLayout;
