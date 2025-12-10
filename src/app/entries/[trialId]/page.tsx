@@ -866,31 +866,39 @@ export default function PublicEntryForm() {
 
 if (success) {
   // Build detailed list of selected classes
-  const selectedClassDetails = formData.selected_rounds.map(roundId => {
-    const round = trialRounds.find(r => r.id === roundId);
-    if (!round) return null;
+const selectedClassDetails = formData.selected_rounds.map(roundId => {
+  const round = trialRounds.find(r => r.id === roundId);
+  if (!round) return null;
+  
+  const isFeo = formData.feo_selections.includes(roundId);
+  const division = formData.division_selections[roundId];
+  const fee = isFeo && round.trial_classes?.feo_price 
+    ? round.trial_classes.feo_price 
+    : round.trial_classes?.entry_fee || 0;
+  
+  // ✅ FIX: Manual date parsing to avoid timezone shift
+  let dayInfo = 'TBD';
+  if (round.trial_classes?.trial_days?.trial_date) {
+    const dateString = round.trial_classes.trial_days.trial_date;
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
     
-    const isFeo = formData.feo_selections.includes(roundId);
-    const division = formData.division_selections[roundId];
-    const fee = isFeo && round.trial_classes?.feo_price 
-      ? round.trial_classes.feo_price 
-      : round.trial_classes?.entry_fee || 0;
-    
-    return {
-      className: round.trial_classes?.class_name || 'Unknown',
-      roundNumber: round.round_number || 1,
-      entryType: isFeo ? 'FEO' : 'Regular',
-      division: division || null,
-      fee: fee,
-      dayInfo: round.trial_classes?.trial_days?.trial_date 
-        ? new Date(round.trial_classes.trial_days.trial_date).toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
-          })
-        : 'TBD'
-    };
-  }).filter((item): item is NonNullable<typeof item> => item !== null);
+    dayInfo = date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  }
+  
+  return {
+    className: round.trial_classes?.class_name || 'Unknown',
+    roundNumber: round.round_number || 1,
+    entryType: isFeo ? 'FEO' : 'Regular',
+    division: division || null,
+    fee: fee,
+    dayInfo: dayInfo
+  };
+}).filter((item): item is NonNullable<typeof item> => item !== null);
 
   // Calculate total
   const totalFee = selectedClassDetails.reduce((sum, item) => sum + (item?.fee || 0), 0);

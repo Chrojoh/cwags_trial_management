@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDivisionColor } from '@/lib/divisionUtils';
+
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -1686,7 +1687,9 @@ const exportScoreSheets = async () => {
                 setSelectedPrintDay(day.id);
                 exportRunningOrderToExcel(day.id);
               } else {
-                exportScoreSheetsForDay(day.id);
+               exportScoreSheetsForDay(day.id);
+
+
               }
             }}
           >
@@ -1883,6 +1886,11 @@ const exportScoreSheetsForDay = async (dayId: string) => {
 
       // Create worksheet
       const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+      // ✅ Disable gridlines (screen + print)
+worksheet['!view'] = [{ showGridLines: false }];
+worksheet['!printGridlines'] = false;
+
+
 
       // Set ALL column widths to 8
       worksheet['!cols'] = Array(20).fill({ wch: 8});
@@ -2134,10 +2142,10 @@ const exportScoreSheetsForDay = async (dayId: string) => {
     }
 
     const fileName = `Score-Sheets-${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}-${formattedDate.replace(/[,\/]/g, '')}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+ XLSX.writeFile(workbook, fileName);
+alert(`Score sheets exported successfully`);
 
-    setShowDaySelector(false);
-    alert(`Score sheets exported successfully with ${roundsForDay.length} rounds!`);
+
 
   } catch (error) {
     console.error('Error exporting score sheets:', error);
@@ -2443,6 +2451,9 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
 
     // Add worksheet to workbook
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Running Order');
+    // ✅ Excel view settings (no gridlines)
+worksheet['!view'] = [{ showGridLines: false }];
+
 
     // Download as Excel file
     const fileName = `Running-Order-${selectedDay.formatted_date.replace(/[,\/]/g, '')}.xlsx`;
