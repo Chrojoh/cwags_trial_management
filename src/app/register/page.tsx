@@ -40,14 +40,45 @@ export default function RegisterPage() {
     try {
       console.log("Starting registration for:", email);
 
-      // Step 1: Create auth user
+      // Step 1: Check if user already exists in users table
+      const { data: existingProfile, error: checkError } = await supabase
+        .from("users")
+        .select("id, email")
+        .eq("email", email.trim())
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error("Error checking existing user:", checkError);
+        throw new Error("Failed to check existing user");
+      }
+
+      if (existingProfile) {
+        setLoading(false);
+        return setError("An account with this email already exists. Please log in instead.");
+      }
+
+      // Step 2: Create auth user
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: email.trim(),
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            first_name: first.trim(),
+            last_name: last.trim(),
+          }
+        }
       });
 
       if (signUpError) {
         console.error("Sign up error:", signUpError);
+        
+        // Handle specific error cases
+        if (signUpError.message.includes("already registered")) {
+          setLoading(false);
+          return setError("This email is already registered. Please log in instead.");
+        }
+        
         throw new Error(signUpError.message);
       }
 
@@ -57,7 +88,24 @@ export default function RegisterPage() {
 
       console.log("Auth user created:", data.user.id);
 
-      // Step 2: Insert into users table with error handling
+      // Step 3: Check if profile was auto-created (shouldn't happen, but safety check)
+      const { data: autoProfile } = await supabase
+        .from("users")
+        .select("id")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (autoProfile) {
+        console.log("User profile already exists (auto-created)");
+        setLoading(false);
+        alert(
+          "Registration successful! Please check your email to verify your account, then log in."
+        );
+        router.push("/login");
+        return;
+      }
+
+      // Step 4: Insert into users table
       const { error: insertError } = await supabase.from("users").insert([
         {
           id: data.user.id,
@@ -70,137 +118,186 @@ export default function RegisterPage() {
 
       if (insertError) {
         console.error("User profile insert error:", insertError);
-        // Try to clean up the auth user if profile creation fails
-        await supabase.auth.admin.deleteUser(data.user.id);
+        
+        // Handle duplicate key error specifically
+        if (insertError.code === '23505') {
+          console.log("Profile already exists, proceeding anyway");
+          setLoading(false);
+          alert(
+            "Registration successful! Please check your email to verify your account, then log in."
+          );
+          router.push("/login");
+          return;
+        }
+        
         throw new Error(`Failed to create user profile: ${insertError.message}`);
       }
 
       console.log("User profile created successfully:", {
         id: data.user.id,
-        email,
+        email: email.trim(),
         first_name: first.trim(),
         last_name: last.trim(),
       });
 
+      setLoading(false);
       alert(
         "Registration successful! Please check your email to verify your account, then log in."
       );
       router.push("/login");
-    } catch (err: any) {
+      
+    } catch (err) {
       console.error("Registration error:", err);
-      setError(err.message || "An error occurred during registration");
-    } finally {
+      setError(
+        err instanceof Error ? err.message : "Registration failed. Please try again."
+      );
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 border rounded-lg shadow-lg space-y-4">
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-        <p className="text-sm text-gray-600 mt-2">
-          Register for C-WAGS Trial Management
-        </p>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg">
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            First Name *
-          </label>
-          <input
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            placeholder="First Name"
-            required
-            value={first}
-            onChange={(e) => setFirst(e.target.value)}
-            disabled={loading}
-          />
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Create your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Register for C-WAGS Trial Management
+          </p>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Last Name *
-          </label>
-          <input
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            placeholder="Last Name"
-            required
-            value={last}
-            onChange={(e) => setLast(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-5 w-5 text-red-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address *
-          </label>
-          <input
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            type="email"
-            placeholder="Email Address"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+          <div className="rounded-md shadow-sm space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="first-name" className="sr-only">
+                  First name
+                </label>
+                <input
+                  id="first-name"
+                  name="first-name"
+                  type="text"
+                  required
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                  placeholder="First name"
+                  value={first}
+                  onChange={(e) => setFirst(e.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="last-name" className="sr-only">
+                  Last name
+                </label>
+                <input
+                  id="last-name"
+                  name="last-name"
+                  type="text"
+                  required
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                  placeholder="Last name"
+                  value={last}
+                  onChange={(e) => setLast(e.target.value)}
+                />
+              </div>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Password *
-          </label>
-          <input
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            type="password"
-            placeholder="Password (minimum 6 characters)"
-            minLength={6}
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+            <div>
+              <label htmlFor="email-address" className="sr-only">
+                Email address
+              </label>
+              <input
+                id="email-address"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Confirm Password *
-          </label>
-          <input
-            className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            type="password"
-            placeholder="Confirm Password"
-            minLength={6}
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={loading}
-          />
-        </div>
+            <div>
+              <label htmlFor="password" className="sr-only">
+                Password
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                placeholder="Password (min 6 characters)"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
-        >
-          {loading ? "Creating Account..." : "Register"}
-        </button>
-      </form>
+            <div>
+              <label htmlFor="confirm-password" className="sr-only">
+                Confirm password
+              </label>
+              <input
+                id="confirm-password"
+                name="confirm-password"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-orange-500 focus:border-orange-500 focus:z-10 sm:text-sm"
+                placeholder="Confirm password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          </div>
 
-      <div className="text-center pt-4 border-t">
-        <p className="text-sm text-gray-600">
-          Already have an account?{" "}
-          <a href="/login" className="text-orange-600 hover:underline font-medium">
-            Sign in here
-          </a>
-        </p>
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {loading ? "Creating account..." : "Create account"}
+            </button>
+          </div>
+
+          <div className="text-center text-sm">
+            <span className="text-gray-600">Already have an account? </span>
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="font-medium text-orange-600 hover:text-orange-500"
+            >
+              Sign in
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
