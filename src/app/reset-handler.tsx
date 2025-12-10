@@ -1,11 +1,11 @@
 // src/app/reset-handler.tsx
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 
-export default function ResetHandler() {
+function ResetHandlerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = getSupabaseBrowser();
@@ -70,4 +70,12 @@ export default function ResetHandler() {
   }, [router, supabase, searchParams]);
 
   return null;
+}
+
+export default function ResetHandler() {
+  return (
+    <Suspense fallback={null}>
+      <ResetHandlerContent />
+    </Suspense>
+  );
 }
