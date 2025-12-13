@@ -19,7 +19,9 @@ import {
   Info,
   Plus,
   Trash2,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -206,7 +208,7 @@ function TrialDaysPageContent() {
   useEffect(() => {
     loadTrialData();
   }, [loadTrialData]);
-
+ 
   const handleDayToggle = (dayIndex: number) => {
     setTrialDays(prev => 
       prev.map((day, index) => 
@@ -220,6 +222,128 @@ function TrialDaysPageContent() {
       setErrors([]);
     }
   };
+
+  // NEW CALENDAR FUNCTIONS - ADD THESE
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const dateToString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const isInTrialRange = (date: Date): boolean => {
+    if (!trial?.start_date || !trial?.end_date) return false;
+    const dateStr = dateToString(date);
+    return dateStr >= trial.start_date && dateStr <= trial.end_date;
+  };
+
+  const isDateSelected = (date: Date): boolean => {
+    const dateStr = dateToString(date);
+    const day = trialDays.find(d => d.trial_date === dateStr);
+    return day?.selected || false;
+  };
+
+  const toggleDateInCalendar = (date: Date) => {
+    if (!isInTrialRange(date)) return;
+    
+    const dateStr = dateToString(date);
+    const existingDay = trialDays.find(d => d.trial_date === dateStr);
+    
+    if (existingDay) {
+      setTrialDays(prev =>
+        prev.map(d =>
+          d.trial_date === dateStr ? { ...d, selected: !d.selected } : d
+        )
+      );
+    } else {
+      const newDay: TrialDay = {
+        trial_date: dateStr,
+        selected: true,
+        max_entries: trial?.max_entries_per_day || 50,
+        notes: '',
+        day_number: trialDays.length + 1,
+        isCustom: true
+      };
+      setTrialDays(prev => [...prev, newDay].sort((a, b) => 
+        a.trial_date.localeCompare(b.trial_date)
+      ));
+    }
+    
+    if (errors.length > 0) {
+      setErrors([]);
+    }
+  };
+
+  const generateMonth = (year: number, month: number) => {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startingDayOfWeek = firstDay.getDay();
+    const daysInMonth = lastDay.getDate();
+
+    const calendar = [];
+    let week = Array(startingDayOfWeek).fill(null);
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      week.push(date);
+
+      if (week.length === 7) {
+        calendar.push(week);
+        week = [];
+      }
+    }
+
+    if (week.length > 0) {
+      while (week.length < 7) week.push(null);
+      calendar.push(week);
+    }
+
+    return calendar;
+  };
+
+  const getTrialMonthRange = () => {
+    if (!trial?.start_date || !trial?.end_date) return { start: new Date(), end: new Date() };
+    
+    const startParts = trial.start_date.split('-');
+    const endParts = trial.end_date.split('-');
+    
+    const start = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, 1);
+    const end = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, 1);
+    
+    return { start, end };
+  };
+
+  const monthRange = getTrialMonthRange();
+
+  const goToPreviousMonth = () => {
+    const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
+    if (newMonth >= monthRange.start) {
+      setCurrentMonth(newMonth);
+    }
+  };
+
+  const goToNextMonth = () => {
+    const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+    if (newMonth <= monthRange.end) {
+      setCurrentMonth(newMonth);
+    }
+  };
+
+  const canGoPrevious = currentMonth > monthRange.start;
+  const canGoNext = currentMonth < monthRange.end;
+
+  // Initialize current month to trial start date
+  useEffect(() => {
+    if (trial?.start_date && currentMonth.getTime() === new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) {
+      const parts = trial.start_date.split('-');
+      setCurrentMonth(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1));
+    }
+  }, [trial]);
 
   const handleMaxEntriesChange = (dayIndex: number, value: number) => {
     setTrialDays(prev => 
@@ -599,140 +723,191 @@ function TrialDaysPageContent() {
           </Alert>
         )}
 
-        {/* Days Selection */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Select Trial Days</CardTitle>
-                <CardDescription>
-                  Choose which days will be part of this trial
-                </CardDescription>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddDay(!showAddDay)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Custom Day
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            
-            {/* Add Custom Day Form */}
-            {showAddDay && (
-              <div className="p-4 border rounded-lg bg-gray-50 space-y-3">
+       {/* Days Selection - Calendar View */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* LEFT: CALENDAR (2/3 width) */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold">Add Custom Day</h4>
+                  <div>
+                    <CardTitle>Select Trial Days</CardTitle>
+                    <CardDescription>
+                      Click dates in the trial range to select/deselect them
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {/* Month Navigation */}
+                <div className="flex items-center justify-between mb-6">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      setShowAddDay(false);
-                      setNewDayDate('');
-                    }}
+                    onClick={goToPreviousMonth}
+                    disabled={!canGoPrevious}
                   >
-                    <X className="h-4 w-4" />
+                    <ChevronLeft className="h-5 w-5" />
                   </Button>
-                </div>
-                <div className="flex gap-3">
-                  <Input
-                    type="date"
-                    value={newDayDate}
-                    onChange={(e) => setNewDayDate(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Button onClick={handleAddCustomDay}>
-                    Add Day
-                  </Button>
-                </div>
-              </div>
-            )}
 
-            {/* Day List */}
-            {trialDays.map((day, index) => (
-              <div 
-                key={index}
-                className={`p-4 border rounded-lg ${
-                  day.selected ? 'border-orange-300 bg-orange-50' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <Checkbox
-                    checked={day.selected}
-                    onCheckedChange={() => handleDayToggle(index)}
-                    className="mt-1"
-                  />
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">
-                            Day {day.day_number}: {formatDateForDisplay(day.trial_date)}
-                          </span>
-                          {day.isCustom && (
-                            <Badge variant="secondary" className="text-xs">
-                              Custom
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">
-                          {formatDate(day.trial_date)}
-                        </p>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </h3>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={goToNextMonth}
+                    disabled={!canGoNext}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Calendar Grid */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-7 gap-2 mb-3">
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                      <div key={day} className="text-center font-semibold text-gray-600 text-sm py-2">
+                        {day}
                       </div>
-                      {day.isCustom && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveDay(index)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                    ))}
+                  </div>
+
+                  {generateMonth(currentMonth.getFullYear(), currentMonth.getMonth()).map((week, weekIdx) => (
+                    <div key={weekIdx} className="grid grid-cols-7 gap-2">
+                      {week.map((date, dayIdx) => {
+                        const inRange = date ? isInTrialRange(date) : false;
+                        const selected = date ? isDateSelected(date) : false;
+
+                        return (
+                          <button
+                            key={dayIdx}
+                            onClick={() => date && toggleDateInCalendar(date)}
+                            disabled={!date || !inRange}
+                            className={`
+                              aspect-square p-3 rounded-lg text-base font-medium transition-all
+                              ${!date ? 'invisible' : ''}
+                              ${!inRange && date ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : ''}
+                              ${inRange && !selected ? 'bg-white border-2 border-orange-200 text-gray-700 hover:bg-orange-50 hover:border-orange-400 hover:shadow-md cursor-pointer' : ''}
+                              ${selected ? 'bg-orange-600 text-white border-2 border-orange-600 shadow-lg transform scale-105 hover:bg-orange-700' : ''}
+                            `}
+                          >
+                            {date ? date.getDate() : ''}
+                          </button>
+                        );
+                      })}
                     </div>
+                  ))}
+                </div>
 
-                    {day.selected && (
-                      <div className="space-y-3 pl-6 border-l-2 border-orange-300">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label htmlFor={`max-entries-${index}`} className="text-sm">
-                              Max Entries for this Day
-                            </Label>
-                            <Input
-                              id={`max-entries-${index}`}
-                              type="number"
-                              min="1"
-                              value={day.max_entries}
-                              onChange={(e) => handleMaxEntriesChange(index, parseInt(e.target.value))}
-                              className="mt-1"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor={`notes-${index}`} className="text-sm">
-                            Day Notes (Optional)
-                          </Label>
-                          <Textarea
-                            id={`notes-${index}`}
-                            placeholder="Special notes for this day..."
-                            value={day.notes}
-                            onChange={(e) => handleNotesChange(index, e.target.value)}
-                            className="mt-1"
-                            rows={2}
-                          />
-                        </div>
-                      </div>
-                    )}
+                {/* Legend */}
+                <div className="mt-6 pt-4 border-t border-gray-200 flex gap-6 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-orange-600"></div>
+                    <span className="text-gray-600">Selected</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded border-2 border-orange-200 bg-white"></div>
+                    <span className="text-gray-600">Available</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-gray-50"></div>
+                    <span className="text-gray-600">Outside Range</span>
                   </div>
                 </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT: SELECTED DAYS PANEL (1/3 width) */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    Selected Days ({trialDays.filter(d => d.selected).length})
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {trialDays.filter(d => d.selected).length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500 text-sm">No days selected</p>
+                    <p className="text-gray-400 text-xs mt-1">Click dates on the calendar</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                    {trialDays
+                      .filter(d => d.selected)
+                      .sort((a, b) => a.trial_date.localeCompare(b.trial_date))
+                      .map((day, index) => {
+                        const dayIndex = trialDays.findIndex(d => d.trial_date === day.trial_date);
+                        return (
+                          <div key={day.trial_date} className="border border-gray-200 rounded-lg p-3 hover:border-orange-300 transition-colors">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900 text-sm">
+                                  Day {index + 1}
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  {formatDateForDisplay(day.trial_date)}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDayToggle(dayIndex)}
+                                className="text-gray-400 hover:text-red-600 transition-colors"
+                                title="Remove day"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+
+                            <div className="space-y-2">
+                              <div>
+                                <Label className="text-xs font-medium text-gray-700">
+                                  Max Entries
+                                </Label>
+                                <Input
+                                  type="number"
+                                  value={day.max_entries}
+                                  onChange={(e) => handleMaxEntriesChange(dayIndex, parseInt(e.target.value) || 50)}
+                                  className="mt-1 text-sm"
+                                  min="1"
+                                />
+                              </div>
+
+                              <div>
+                                <Label className="text-xs font-medium text-gray-700">
+                                  Notes (optional)
+                                </Label>
+                                <Textarea
+                                  value={day.notes}
+                                  onChange={(e) => handleNotesChange(dayIndex, e.target.value)}
+                                  className="mt-1 text-sm resize-none"
+                                  rows={2}
+                                  placeholder="e.g., Opening day, Finals..."
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
+                {trialDays.filter(d => d.selected).length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600">
+                      <strong>Total:</strong> {trialDays.filter(d => d.selected).length} day{trialDays.filter(d => d.selected).length !== 1 ? 's' : ''} selected
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex items-center justify-between">
