@@ -30,6 +30,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 
 interface TrialData {
   id: string;
@@ -141,7 +142,17 @@ export default function TrialDetailPage() {
 
       setTrial(trialResult.data);
       setTrialDays(daysResult.data || []);
-      setTrialClasses(classesResult.data || []);
+      const sortedClasses = (classesResult.data || []).sort((a: any, b: any) => {
+  // First sort by day number
+  const dayA = a.trial_days?.day_number || 0;
+  const dayB = b.trial_days?.day_number || 0;
+  if (dayA !== dayB) return dayA - dayB;
+  
+  // Then sort by the official CWAGS class order
+  return getClassOrder(a.class_name) - getClassOrder(b.class_name);
+});
+
+setTrialClasses(sortedClasses);
       setTrialRounds(roundsResult.data || []);
 
       console.log('Trial data loaded successfully');
