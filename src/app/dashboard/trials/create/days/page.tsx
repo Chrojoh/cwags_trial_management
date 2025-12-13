@@ -224,10 +224,10 @@ function TrialDaysPageContent() {
   };
 
   // NEW CALENDAR FUNCTIONS - ADD THESE
-  const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  });
+ const [currentMonth, setCurrentMonth] = useState(() => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1, 12, 0, 0);
+});
 
   const dateToString = (date: Date): string => {
     const year = date.getFullYear();
@@ -280,70 +280,70 @@ function TrialDaysPageContent() {
   };
 
   const generateMonth = (year: number, month: number) => {
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startingDayOfWeek = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
+  const firstDay = new Date(year, month, 1, 12, 0, 0);
+  const lastDay = new Date(year, month + 1, 0, 12, 0, 0);
+  const startingDayOfWeek = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
 
-    const calendar = [];
-    let week = Array(startingDayOfWeek).fill(null);
+  const calendar = [];
+  let week = Array(startingDayOfWeek).fill(null);
 
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      week.push(date);
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(year, month, day, 12, 0, 0); // Set to noon
+    week.push(date);
 
-      if (week.length === 7) {
-        calendar.push(week);
-        week = [];
-      }
-    }
-
-    if (week.length > 0) {
-      while (week.length < 7) week.push(null);
+    if (week.length === 7) {
       calendar.push(week);
+      week = [];
     }
+  }
 
-    return calendar;
-  };
+  if (week.length > 0) {
+    while (week.length < 7) week.push(null);
+    calendar.push(week);
+  }
 
-  const getTrialMonthRange = () => {
-    if (!trial?.start_date || !trial?.end_date) return { start: new Date(), end: new Date() };
-    
-    const startParts = trial.start_date.split('-');
-    const endParts = trial.end_date.split('-');
-    
-    const start = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, 1);
-    const end = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, 1);
-    
-    return { start, end };
-  };
+  return calendar;
+};
+
+ const getTrialMonthRange = () => {
+  if (!trial?.start_date || !trial?.end_date) return { start: new Date(), end: new Date() };
+  
+  const startParts = trial.start_date.split('-');
+  const endParts = trial.end_date.split('-');
+  
+  const start = new Date(parseInt(startParts[0]), parseInt(startParts[1]) - 1, 1, 12, 0, 0);
+  const end = new Date(parseInt(endParts[0]), parseInt(endParts[1]) - 1, 1, 12, 0, 0);
+  
+  return { start, end };
+};
 
   const monthRange = getTrialMonthRange();
 
-  const goToPreviousMonth = () => {
-    const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1);
-    if (newMonth >= monthRange.start) {
-      setCurrentMonth(newMonth);
-    }
-  };
+const goToPreviousMonth = () => {
+  const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1, 12, 0, 0);
+  if (newMonth >= monthRange.start) {
+    setCurrentMonth(newMonth);
+  }
+};
 
-  const goToNextMonth = () => {
-    const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-    if (newMonth <= monthRange.end) {
-      setCurrentMonth(newMonth);
-    }
-  };
+const goToNextMonth = () => {
+  const newMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1, 12, 0, 0);
+  if (newMonth <= monthRange.end) {
+    setCurrentMonth(newMonth);
+  }
+};
 
   const canGoPrevious = currentMonth > monthRange.start;
   const canGoNext = currentMonth < monthRange.end;
 
   // Initialize current month to trial start date
   useEffect(() => {
-    if (trial?.start_date && currentMonth.getTime() === new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) {
-      const parts = trial.start_date.split('-');
-      setCurrentMonth(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1));
-    }
-  }, [trial]);
+  if (trial?.start_date && currentMonth.getTime() === new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12, 0, 0).getTime()) {
+    const parts = trial.start_date.split('-');
+    setCurrentMonth(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, 1, 12, 0, 0));
+  }
+}, [trial]);
 
   const handleMaxEntriesChange = (dayIndex: number, value: number) => {
     setTrialDays(prev => 
