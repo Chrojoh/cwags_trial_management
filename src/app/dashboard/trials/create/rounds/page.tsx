@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Clock, Users, UserCheck, ArrowRight, ArrowLeft, Save, Plus, Trash2, Edit, Settings } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { getClassOrder } from '@/lib/cwagsClassNames';
+
 
 interface DatabaseJudge {
   id: string;
@@ -206,7 +208,18 @@ function CreateRoundsPageContent() {
         }
       }
 
-      setTrialClasses(allClasses);
+      // Sort classes by day number first, then by official CWAGS class order
+const sortedClasses = allClasses.sort((a, b) => {
+  // First sort by day number
+  const dayA = a.trial_days?.day_number || 0;
+  const dayB = b.trial_days?.day_number || 0;
+  if (dayA !== dayB) return dayA - dayB;
+  
+  // Then sort by the official CWAGS class order
+  return getClassOrder(a.class_name) - getClassOrder(b.class_name);
+});
+
+setTrialClasses(sortedClasses);
 
       const judgesResult = await simpleTrialOperations.getAllJudges();
       if (judgesResult.success) {
@@ -368,6 +381,72 @@ function CreateRoundsPageContent() {
     return isValid;
   };
 
+ const handleSaveProgress = async () => {
+    // No validation for Save Progress - allow partial saves!
+    setLoading(true);
+    try {
+      let savedCount = 0;
+      let skippedCount = 0;
+
+      for (const [classId, classRounds] of Object.entries(rounds)) {
+        // Only save rounds that have at least a judge assigned
+        const completeRounds = classRounds.filter(round => 
+          round.judge_name && round.judge_email
+        );
+
+        if (completeRounds.length === 0) {
+          console.log(`Skipping class ${classId} - no judges assigned yet`);
+          skippedCount++;
+          continue;
+        }
+
+        const roundsData = completeRounds.map(round => ({
+          id: round.id,
+          round_number: round.round_number,
+          judge_name: round.judge_name,
+          judge_email: round.judge_email,
+          feo_available: true,
+          round_status: 'scheduled',
+          start_time: round.start_time || null,
+          estimated_duration: round.estimated_duration || null,
+          max_entries: round.max_entries,
+          has_reset: round.has_reset,
+          reset_judge_name: round.reset_judge_name || null,
+          reset_judge_email: round.reset_judge_email || null,
+          notes: round.notes || null
+        }));
+
+        const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
+        
+        if (!result.success) {
+          const errorMessage = typeof result.error === 'string' 
+            ? result.error 
+            : result.error?.message || 'Failed to save rounds';
+          throw new Error(errorMessage);
+        }
+        
+        savedCount++;
+      }
+
+      const message = savedCount > 0
+        ? `Saved ${savedCount} class(es) successfully!${skippedCount > 0 ? ` Skipped ${skippedCount} class(es) without judges.` : ''}`
+        : 'No rounds with judges assigned to save yet. Assign at least one judge to save progress.';
+      
+      alert(message);
+      
+      // Reload the data to get the saved round IDs
+      if (savedCount > 0) {
+        await loadTrialData();
+      }
+      
+    } catch (error) {
+      console.error('Error saving rounds:', error);
+      alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!validateRounds()) {
       alert('Please fix the errors before saving.');
@@ -403,12 +482,9 @@ function CreateRoundsPageContent() {
         }
       }
 
-      alert('Rounds saved successfully!');
-      if (!isEditMode) {
-        router.push(`/dashboard/trials/${trialId}`);
-      } else {
-        await loadTrialData();
-      }
+     alert('Rounds saved successfully!');
+      // Always navigate after "Save & Continue"
+      router.push(`/dashboard/trials/${trialId}`);
     } catch (error) {
       console.error('Error saving rounds:', error);
       alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
@@ -806,7 +882,7 @@ function CreateRoundsPageContent() {
           </Card>
         </div>
 
-        {/* Action Buttons */}
+       {/* Action Buttons */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between">
@@ -818,24 +894,46 @@ function CreateRoundsPageContent() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={loading}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    {isEditMode ? 'Save Changes' : 'Save & Continue'}
-                  </>
-                )}
-              </Button>
-            </div>
+              
+              <div className="flex gap-3">
+                {/* NEW: Save Progress Button */}
+                <Button
+                  onClick={handleSaveProgress}
+                  variant="outline"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Progress
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={loading}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      {isEditMode ? 'Save Changes' : 'Save & Continue'}
+                    </>
+                  )}
+                </Button>
+              </div>  {/* ← ADD THIS LINE - closes "flex gap-3" */}
+            </div>    {/* ← This closes "flex justify-between" */}
           </CardContent>
         </Card>
       </div>
