@@ -423,24 +423,64 @@ export default function PublicEntryForm() {
 
     try {
       const existingResult = await simpleTrialOperations.getCwagsRegistryByNumber(formData.cwags_number);
+      
       if (existingResult.success && existingResult.data) {
+        // Dog exists - update ONLY null fields
+        const existing = existingResult.data;
+        const updates: any = {};
+        
+        // Only update fields that are currently null/empty in the registry
+        if (!existing.handler_email && formData.handler_email) {
+          updates.handler_email = formData.handler_email;
+        }
+        if (!existing.handler_phone && formData.handler_phone) {
+          updates.handler_phone = formData.handler_phone;
+        }
+        if (!existing.emergency_contact && formData.emergency_contact) {
+          updates.emergency_contact = formData.emergency_contact;
+        }
+        if (!existing.breed && formData.dog_breed) {
+          updates.breed = formData.dog_breed;
+        }
+        if (!existing.dog_sex && formData.dog_sex) {
+          updates.dog_sex = formData.dog_sex;
+        }
+        
+        // If there are any fields to update, update them
+        if (Object.keys(updates).length > 0) {
+          console.log('Updating registry with new data:', updates);
+          
+          const { error } = await supabase
+            .from('cwags_registry')
+            .update(updates)
+            .eq('id', existing.id);
+          
+          if (error) {
+            console.warn('Failed to update registry:', error);
+          } else {
+            console.log('✅ Successfully updated registry with missing information');
+          }
+        }
+        
         return;
       }
 
+      // Dog doesn't exist - create new entry with all data
       const registryData = {
         cwags_number: formData.cwags_number,
         dog_call_name: formData.dog_call_name,
         handler_name: formData.handler_name,
-        handler_email: formData.handler_email || null,           // ✅ NEW
-        handler_phone: formData.handler_phone || null,           // ✅ NEW
-        emergency_contact: formData.emergency_contact || null,   // ✅ NEW
-        breed: formData.dog_breed || null,                       // ✅ NEW
-        dog_sex: formData.dog_sex || null,                       // ✅ NEW
-        is_junior_handler: formData.is_junior_handler || false,  // ✅ NEW
+        handler_email: formData.handler_email || null,
+        handler_phone: formData.handler_phone || null,
+        emergency_contact: formData.emergency_contact || null,
+        breed: formData.dog_breed || null,
+        dog_sex: formData.dog_sex || null,
+        is_junior_handler: formData.is_junior_handler || false,
         is_active: true
       };
 
       await simpleTrialOperations.createRegistryEntry(registryData);
+      console.log('✅ Created new registry entry');
     } catch (error) {
       console.warn('Failed to save to registry:', error);
     }
