@@ -194,26 +194,28 @@ if (entriesData) {
 
 console.log('Entry counts for day', day.day_number, ':', classEntryCounts);
 
-          // Separate scent and rally configs
-          const scentConfigs = existingConfigs
-            .filter(c => c.discipline === 'scent')
-            .map(c => ({
-              id: c.id,
-              class_name: c.class_name,
-              minutes_per_run: c.minutes_per_run,
-              entry_count: classEntryCounts[c.class_name] || 0,
-              total_minutes: c.minutes_per_run * (classEntryCounts[c.class_name] || 0)
-            }));
+         // Separate scent and rally configs
+const scentConfigs = existingConfigs
+  .filter(c => c.discipline === 'scent')
+  .map(c => ({
+    id: c.id,
+    class_name: c.class_name,
+    minutes_per_run: c.minutes_per_run,
+    entry_count: classEntryCounts[c.class_name] || 0,
+    total_minutes: c.minutes_per_run * (classEntryCounts[c.class_name] || 0)
+  }))
+  .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name)); // ✅ ADD THIS
 
-          const rallyConfigs = existingConfigs
-            .filter(c => c.discipline === 'rally_obedience_games')
-            .map(c => ({
-              id: c.id,
-              class_name: c.class_name,
-              minutes_per_run: c.minutes_per_run,
-              entry_count: classEntryCounts[c.class_name] || 0,
-              total_minutes: c.minutes_per_run * (classEntryCounts[c.class_name] || 0)
-            }));
+const rallyConfigs = existingConfigs
+  .filter(c => c.discipline === 'rally_obedience_games')
+  .map(c => ({
+    id: c.id,
+    class_name: c.class_name,
+    minutes_per_run: c.minutes_per_run,
+    entry_count: classEntryCounts[c.class_name] || 0,
+    total_minutes: c.minutes_per_run * (classEntryCounts[c.class_name] || 0)
+  }))
+  .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name)); // ✅ ADD THIS
 
           return {
             day_id: day.id,
