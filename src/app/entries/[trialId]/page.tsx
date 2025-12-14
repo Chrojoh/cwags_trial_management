@@ -566,14 +566,20 @@ export default function PublicEntryForm() {
   // SUBMISSION
   // ============================================
   const performSubmit = async () => {
-    if (!formData.waiver_accepted) {
-      setError('You must accept the waiver before submitting');
-      return;
-    }
+  // Check required fields
+  if (!formData.handler_email || !formData.handler_email.trim()) {
+    setError('Handler email is required');
+    return;
+  }
 
-    if (!validateDivisions()) {
-      return;
-    }
+  if (!formData.waiver_accepted) {
+    setError('You must accept the waiver before submitting');
+    return;
+  }
+
+  if (!validateDivisions()) {
+    return;
+  }
 
     if (existingEntry && originalFormData) {
       const currentSelections = formData.selected_rounds.length;
@@ -1391,7 +1397,7 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
                         Class Entries
                       </CardTitle>
                       <CardDescription>
-                        Select the class entries/rounds you want to enter  REMEMBER TO ACCEPT WAIVER
+                        Select the class entries/rounds you want to enter  REMEMBER TO ACCEPT WAIVER AND ENTER EMAIL
                       </CardDescription>
                     </div>
                     
