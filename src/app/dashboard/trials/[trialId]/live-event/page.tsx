@@ -1440,6 +1440,9 @@ const handleKeyNavigation = (e: React.KeyboardEvent<HTMLDivElement>, entry: Clas
   };
 
 // FIXED addNewEntry function for live event page
+// FIND THIS FUNCTION IN: src/app/dashboard/trials/[trialId]/live-event/page.tsx
+// REPLACE THE ENTIRE addNewEntry FUNCTION WITH THIS:
+
 const addNewEntry = async () => {
   if (!selectedClass || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number) {
     setError('All entry fields are required');
@@ -1451,7 +1454,7 @@ const addNewEntry = async () => {
     return;
   }
 
-  // ✅ ADD: For Games classes, require subclass selection
+  // For Games classes, require subclass selection
   if (selectedClass.class_type?.toLowerCase() === 'games' && !selectedGamesSubclass) {
     setError('Please select a Games subclass (GB, BJ, T, P, or C)');
     return;
@@ -1478,51 +1481,66 @@ const addNewEntry = async () => {
     let calculatedFee = 0;
     const isFeO = newEntryData.entry_type.toLowerCase() === 'feo';
     
-    console.log('Fee calculation debug:', {
-      entry_type: newEntryData.entry_type,
-      isFeO: isFeO,
-      feo_available: roundToUse.feo_available,
-      entry_fee: roundToUse.entry_fee,
-      feo_price: roundToUse.feo_price
-    });
-
     if (isFeO) {
       if (roundToUse.feo_available && roundToUse.feo_price !== undefined) {
         calculatedFee = roundToUse.feo_price;
-        console.log('Using FEO pricing from database:', calculatedFee);
       } else if (roundToUse.entry_fee) {
         calculatedFee = Math.round(roundToUse.entry_fee * 0.5);
-        console.log('Using 50% of regular fee for FEO:', calculatedFee);
       } else {
         calculatedFee = 0;
-        console.log('FEO entry set to free');
       }
     } else {
       calculatedFee = roundToUse.entry_fee || 0;
-      console.log('Using regular pricing:', calculatedFee);
     }
 
-    console.log('Final calculated fee:', calculatedFee);
+    // ✅ NEW: Check if an entry already exists for this dog in this trial
+    const existingEntriesResult = await simpleTrialOperations.getTrialEntries(trialId);
+    let entryId: string;
+    let isNewEntry = false;
 
-    // Create the main entry record WITH the calculated total fee
-    const entryResult = await simpleTrialOperations.createEntry({
-      trial_id: trialId,
-      handler_name: newEntryData.handler_name,
-      dog_call_name: newEntryData.dog_call_name,
-      cwags_number: newEntryData.cwags_number,
-      dog_breed: null,
-      dog_sex: null,
-      handler_email: '',
-      handler_phone: '',
-      is_junior_handler: false,
-      waiver_accepted: true,
-      total_fee: calculatedFee,
-      payment_status: 'pending',
-      entry_status: 'submitted'
-    });
+    if (existingEntriesResult.success && existingEntriesResult.data) {
+      const existingEntry = existingEntriesResult.data.find((e: any) => 
+        e.cwags_number === newEntryData.cwags_number &&
+        e.handler_name === newEntryData.handler_name &&
+        e.dog_call_name === newEntryData.dog_call_name
+      );
 
-    if (!entryResult.success) {
-      throw new Error(entryResult.error as string);
+      if (existingEntry) {
+        console.log('✅ Found existing entry, reusing entry_id:', existingEntry.id);
+        entryId = existingEntry.id;
+        
+        // Update the total_fee to include the new class
+        const newTotalFee = existingEntry.total_fee + calculatedFee;
+        await simpleTrialOperations.updateEntry(entryId, { total_fee: newTotalFee });
+      } else {
+        console.log('🆕 No existing entry found, creating new one');
+        isNewEntry = true;
+        
+        // Create new entry record
+        const entryResult = await simpleTrialOperations.createEntry({
+          trial_id: trialId,
+          handler_name: newEntryData.handler_name,
+          dog_call_name: newEntryData.dog_call_name,
+          cwags_number: newEntryData.cwags_number,
+          dog_breed: null,
+          dog_sex: null,
+          handler_email: '',
+          handler_phone: '',
+          is_junior_handler: false,
+          waiver_accepted: true,
+          total_fee: calculatedFee,
+          payment_status: 'pending',
+          entry_status: 'submitted'
+        });
+
+        if (!entryResult.success) {
+          throw new Error(entryResult.error as string);
+        }
+        
+        entryId = entryResult.data.id;
+      }
+    } else {
+      throw new Error('Failed to check for existing entries');
     }
 
     // Calculate next running position for the SELECTED round
@@ -1533,34 +1551,33 @@ const addNewEntry = async () => {
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
-   // ✅ FIXED: Extract base UUID from compound ID for Games classes
-let actualRoundId = roundToUse.id;
-if (selectedClass.class_type?.toLowerCase() === 'games' && roundToUse.id.includes('-')) {
-  const parts = roundToUse.id.split('-');
-  const lastPart = parts[parts.length - 1];
-  
-  // If last part is a Games subclass code, remove it to get the base UUID
-  if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-    actualRoundId = parts.slice(0, -1).join('-');
-    console.log('Extracted base round ID:', actualRoundId, 'from compound:', roundToUse.id);
-  }
-}
+    // Extract base UUID from compound ID for Games classes
+    let actualRoundId = roundToUse.id;
+    if (selectedClass.class_type?.toLowerCase() === 'games' && roundToUse.id.includes('-')) {
+      const parts = roundToUse.id.split('-');
+      const lastPart = parts[parts.length - 1];
+      
+      if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+        actualRoundId = parts.slice(0, -1).join('-');
+        console.log('Extracted base round ID:', actualRoundId, 'from compound:', roundToUse.id);
+      }
+    }
 
-// ✅ UPDATED: Create entry selection with games_subclass
-const insertData: any = {
-  entry_id: entryResult.data.id,
-  trial_round_id: actualRoundId,  // Use the extracted UUID, not the compound ID
-  entry_type: newEntryData.entry_type,
-  fee: calculatedFee,
-  running_position: nextPosition,
-  entry_status: 'entered'
-};
+    // Create entry selection with games_subclass
+    const insertData: any = {
+      entry_id: entryId,  // ✅ Use the found or created entry_id
+      trial_round_id: actualRoundId,
+      entry_type: newEntryData.entry_type,
+      fee: calculatedFee,
+      running_position: nextPosition,
+      entry_status: 'entered'
+    };
 
-// Add games_subclass if this is a Games class
-if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
-  insertData.games_subclass = selectedGamesSubclass;
-  console.log('Adding games_subclass to entry:', selectedGamesSubclass);
-}
+    // Add games_subclass if this is a Games class
+    if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
+      insertData.games_subclass = selectedGamesSubclass;
+      console.log('Adding games_subclass to entry:', selectedGamesSubclass);
+    }
 
     const { error: insertError } = await supabase
       .from('entry_selections')
@@ -1582,10 +1599,10 @@ if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass
       entry_type: 'regular'
     });
     setSelectedRound(1);
-    setSelectedGamesSubclass(null); // ✅ Reset games subclass
+    setSelectedGamesSubclass(null);
     setShowAddEntryModal(false);
 
-    alert(`Entry added successfully to Round ${selectedRound} with fee: $${calculatedFee}!`);
+    alert(`Entry ${isNewEntry ? 'added' : 'selection added to existing entry'} successfully to Round ${selectedRound} with fee: $${calculatedFee}!`);
 
   } catch (error) {
     console.error('Error adding entry:', error);
