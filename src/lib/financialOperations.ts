@@ -32,11 +32,11 @@ export interface PaymentTransaction {
 
 export interface CompetitorFinancial {
   entry_id: string;
-  entry_ids?: string[]; // All entry IDs for this owner
+  entry_ids?: string[];
   handler_name: string;
   cwags_number: string;
   dog_call_name: string;
-  dogs?: Array<{ // List of all dogs
+  dogs?: Array<{
     dog_call_name: string;
     cwags_number: string;
     regular_runs: number;
@@ -44,6 +44,8 @@ export interface CompetitorFinancial {
   }>;
   regular_runs: number;
   feo_runs: number;
+  waived_regular_runs: number;  // ADD THIS
+  waived_feo_runs: number;       // ADD THIS
   amount_owed: number;
   amount_paid: number;
   payment_history?: PaymentTransaction[];
@@ -132,6 +134,8 @@ export const financialOperations = {
 
   // Get competitor financial summary with payment history
  // Get competitor financial summary grouped by owner
+// COMPLETE REPLACEMENT for getCompetitorFinancials in src/lib/financialOperations.ts
+
 async getCompetitorFinancials(trialId: string): Promise<OperationResult<CompetitorFinancial[]>> {
   try {
     const { data: entries, error: entriesError } = await supabase
@@ -184,7 +188,7 @@ async getCompetitorFinancials(trialId: string): Promise<OperationResult<Competit
 
       // Extract owner ID from C-WAGS number (middle 4 digits)
       const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
-      const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name; // Fallback to handler name
+      const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
       
       if (!ownerGroups[ownerId]) {
         ownerGroups[ownerId] = {
@@ -194,6 +198,8 @@ async getCompetitorFinancials(trialId: string): Promise<OperationResult<Competit
           entry_ids: [],
           regular_runs: 0,
           feo_runs: 0,
+          waived_regular_runs: 0,
+          waived_feo_runs: 0,
           amount_owed: 0,
           amount_paid: 0,
           payment_history: [],
@@ -202,21 +208,28 @@ async getCompetitorFinancials(trialId: string): Promise<OperationResult<Competit
         };
       }
 
+      // Count runs separately for paid vs waived
+      const regularRuns = activeSelections.filter((s: any) => s.entry_type === 'regular').length;
+      const feoRuns = activeSelections.filter((s: any) => s.entry_type === 'feo').length;
+
+      // CRITICAL: Track waived runs separately from paid runs
+      if (entry.fees_waived) {
+        ownerGroups[ownerId].waived_regular_runs += regularRuns;
+        ownerGroups[ownerId].waived_feo_runs += feoRuns;
+      } else {
+        ownerGroups[ownerId].regular_runs += regularRuns;
+        ownerGroups[ownerId].feo_runs += feoRuns;
+      }
+
       // Add dog to owner's list
       ownerGroups[ownerId].dogs.push({
         dog_call_name: entry.dog_call_name,
         cwags_number: entry.cwags_number,
-        regular_runs: activeSelections.filter((s: any) => s.entry_type === 'regular').length,
-        feo_runs: activeSelections.filter((s: any) => s.entry_type === 'feo').length
+        regular_runs: regularRuns,
+        feo_runs: feoRuns
       });
 
       ownerGroups[ownerId].entry_ids.push(entry.id);
-
-      // Sum up runs
-      const regularRuns = activeSelections.filter((s: any) => s.entry_type === 'regular').length;
-      const feoRuns = activeSelections.filter((s: any) => s.entry_type === 'feo').length;
-      ownerGroups[ownerId].regular_runs += regularRuns;
-      ownerGroups[ownerId].feo_runs += feoRuns;
 
       // Sum up fees
       const calculatedOwed = activeSelections.reduce((sum: number, s: any) => sum + (s.fee || 0), 0);
@@ -244,14 +257,16 @@ async getCompetitorFinancials(trialId: string): Promise<OperationResult<Competit
       );
 
       return {
-        entry_id: group.entry_ids[0], // Use first entry ID for actions
-        entry_ids: group.entry_ids, // Keep all entry IDs
+        entry_id: group.entry_ids[0],
+        entry_ids: group.entry_ids,
         handler_name: group.handler_name,
         dog_call_name: `${group.dogs.length} dog${group.dogs.length > 1 ? 's' : ''}`,
         cwags_number: `Owner ID: ${group.owner_id}`,
-        dogs: group.dogs, // List of all dogs
+        dogs: group.dogs,
         regular_runs: group.regular_runs,
         feo_runs: group.feo_runs,
+        waived_regular_runs: group.waived_regular_runs,
+        waived_feo_runs: group.waived_feo_runs,
         amount_owed: group.amount_owed,
         amount_paid: totalPaid,
         payment_history: group.payment_history,

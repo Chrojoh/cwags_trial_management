@@ -27,7 +27,8 @@ interface EntryScore {
   cwagsNumber: string;
   dogName: string;
   handlerName: string;
-   division?: string | null;
+  division?: string | null;
+  entry_type: 'regular' | 'feo';  // ✅ ADDED
   // Scent fields
   scent1: string;
   scent2: string;
@@ -77,21 +78,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
       setLoading(true);
 
       const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trial.id);
-if (!entriesResult.success) {
-  throw new Error('Failed to load entries');
-}
+      if (!entriesResult.success) {
+        throw new Error('Failed to load entries');
+      }
 
-// DEBUG: Check what data we're getting
-console.log('📊 SCORE ENTRY - Full entries result:', entriesResult.data);
-if (entriesResult.data && entriesResult.data[0]) {
-  console.log('📊 SCORE ENTRY - First entry:', entriesResult.data[0]);
-  if (entriesResult.data[0].entry_selections && entriesResult.data[0].entry_selections[0]) {
-    console.log('📊 SCORE ENTRY - First selection:', entriesResult.data[0].entry_selections[0]);
-    console.log('📊 SCORE ENTRY - Scores array:', entriesResult.data[0].entry_selections[0].scores);
-  }
-}
-
-const roundEntries: EntryScore[] = [];
+      const roundEntries: EntryScore[] = [];
 
       (entriesResult.data || []).forEach((entry: any) => {
         const selections = entry.entry_selections || [];
@@ -121,22 +112,33 @@ const roundEntries: EntryScore[] = [];
           }
           
           if (roundMatches && subclassMatches && selection.entry_status !== 'withdrawn') {
-           // ✅ FIX: Normalize scores to always be an array
-const scoresArray = Array.isArray(selection.scores) 
-  ? selection.scores 
-  : selection.scores 
-    ? [selection.scores] 
-    : [];
+            const scoresArray = Array.isArray(selection.scores) 
+              ? selection.scores 
+              : selection.scores 
+                ? [selection.scores] 
+                : [];
 
-const score = scoresArray[0] || {};
+            const score = scoresArray[0] || {};
+
+            // ✅ AUTO-FILL FEO ENTRIES
+            let passFail = score.pass_fail ?? '';
+            if (selection.entry_type === 'feo' && !passFail) {
+              passFail = 'FEO';
+            }
+
+            // ✅ USE SUBSTITUTE DOG INFO IF EXISTS
+            const cwagsNumber = selection.substitute_cwags_number || entry.cwags_number || '';
+            const dogName = selection.substitute_dog_name || entry.dog_call_name || '';
+            const handlerName = selection.substitute_handler_name || entry.handler_name || '';
 
             roundEntries.push({
               id: selection.id,
               runningOrder: selection.running_position || 0,
-              cwagsNumber: entry.cwags_number || '',
-              dogName: entry.dog_call_name || '',
-              handlerName: entry.handler_name || '',
-              division: selection.division || null,  // ⬅️ ADD THIS LINE
+              cwagsNumber,
+              dogName,
+              handlerName,
+              division: selection.division || null,
+              entry_type: selection.entry_type || 'regular',  // ✅ ADDED
               scent1: score.scent1 ?? '',
               scent2: score.scent2 ?? '',
               scent3: score.scent3 ?? '',
@@ -149,16 +151,14 @@ const score = scoresArray[0] || {};
               numerical_score: score.numerical_score !== null && score.numerical_score !== undefined
                 ? String(score.numerical_score)
                 : '',
-              pass_fail: score.pass_fail ?? '',
+              pass_fail: passFail,  // ✅ AUTO-FILLED FOR FEO
             });
           }
         });
       });
 
-      // ✅ Sort by running position instead of C-WAGS number
-
-roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
-setEntries(roundEntries);
+      roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
+      setEntries(roundEntries);
     } catch (error) {
       console.error('Error loading entries:', error);
       alert('Failed to load entries');
@@ -170,7 +170,14 @@ setEntries(roundEntries);
   const updateEntry = (index: number, field: keyof EntryScore, value: string) => {
     setEntries(prev => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      const entry = updated[index];
+      
+      // ✅ PREVENT EDITING FEO PASS/FAIL
+      if (entry.entry_type === 'feo' && field === 'pass_fail') {
+        return prev; // Don't allow changes to FEO pass_fail
+      }
+      
+      updated[index] = { ...entry, [field]: value };
       
       // Auto-calculate pass/fail for rally/obedience
       if (scoreSheetType === 'rally_obedience' && field === 'numerical_score') {
@@ -178,10 +185,11 @@ setEntries(roundEntries);
         const passingScore = selectedClass.class_name?.toLowerCase().includes('obedience 5') ? 120 : 70;
         
         if (!isNaN(numScore)) {
-          if (numScore >= passingScore) {
-            updated[index].pass_fail = 'Pass';
+          // ✅ FEO ENTRIES ALWAYS GET "FEO"
+          if (entry.entry_type === 'feo') {
+            updated[index].pass_fail = 'FEO';
           } else {
-            updated[index].pass_fail = 'Fail';
+            updated[index].pass_fail = numScore >= passingScore ? 'Pass' : 'Fail';
           }
         }
       }
@@ -191,100 +199,84 @@ setEntries(roundEntries);
     setSaved(false);
   };
 
-const saveAllScores = async () => {
-  try {
-    setSaving(true);
+  const saveAllScores = async () => {
+    try {
+      setSaving(true);
 
-    for (const entry of entries) {
-      let scoreData: any = {};
+      for (const entry of entries) {
+        let scoreData: any = {};
 
-      if (scoreSheetType === 'scent') {
-        scoreData = {
-          scent1: entry.scent1 || null,
-          scent2: entry.scent2 || null,
-          scent3: entry.scent3 || null,
-          scent4: entry.scent4 || null,
-          fault1: entry.fault1 || null,
-          fault2: entry.fault2 || null,
-          time_seconds: entry.time_seconds && !isNaN(parseFloat(entry.time_seconds)) 
-            ? parseFloat(entry.time_seconds) 
-            : null,
-          pass_fail: entry.pass_fail || null,
-        };
-      } else if (scoreSheetType === 'rally_obedience') {
-        const numScore = entry.numerical_score && !isNaN(parseFloat(entry.numerical_score))
-          ? parseFloat(entry.numerical_score)
-          : null;
-        scoreData = {
-          numerical_score: numScore,
-          pass_fail: entry.pass_fail || null,
-        };
-      } else if (scoreSheetType === 'games') {
-        let passFail = entry.pass_fail || null;
-        if (passFail === 'Pass' && selectedClass?.games_subclass) {
-          passFail = selectedClass.games_subclass;
+        if (scoreSheetType === 'scent') {
+          scoreData = {
+            scent1: entry.scent1 || null,
+            scent2: entry.scent2 || null,
+            scent3: entry.scent3 || null,
+            scent4: entry.scent4 || null,
+            fault1: entry.fault1 || null,
+            fault2: entry.fault2 || null,
+            time_seconds: entry.time_seconds && !isNaN(parseFloat(entry.time_seconds)) 
+              ? parseFloat(entry.time_seconds) 
+              : null,
+            pass_fail: entry.pass_fail || null,
+          };
+        } else if (scoreSheetType === 'rally_obedience') {
+          const numScore = entry.numerical_score && !isNaN(parseFloat(entry.numerical_score))
+            ? parseFloat(entry.numerical_score)
+            : null;
+          scoreData = {
+            numerical_score: numScore,
+            pass_fail: entry.pass_fail || null,
+          };
+        } else if (scoreSheetType === 'games') {
+          let passFail = entry.pass_fail || null;
+          if (passFail === 'Pass' && selectedClass?.games_subclass) {
+            passFail = selectedClass.games_subclass;
+          }
+          scoreData = {
+            pass_fail: passFail,
+          };
         }
-        scoreData = {
-          pass_fail: passFail,
-        };
-      }
 
-      // Extract base round ID for Games classes with compound IDs
-      let roundIdForScore = selectedClass.id;
-      
-      if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
-        const parts = selectedClass.id.split('-');
-        const lastPart = parts[parts.length - 1];
+        // Extract base round ID for Games classes with compound IDs
+        let roundIdForScore = selectedClass.id;
         
-        if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-          roundIdForScore = parts.slice(0, -1).join('-');
+        if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
+          const parts = selectedClass.id.split('-');
+          const lastPart = parts[parts.length - 1];
+          
+          if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+            roundIdForScore = parts.slice(0, -1).join('-');
+          }
+        }
+
+        const result = await simpleTrialOperations.upsertScore({
+          entry_selection_id: entry.id,
+          trial_round_id: roundIdForScore,
+          ...scoreData,
+        });
+
+        if (!result.success) {
+          console.error('❌ Failed to save score for', entry.dogName);
         }
       }
+
+      setSaved(true);
+      alert('All scores saved successfully!');
       
-      // ✅ ADD DETAILED LOGGING
-      console.log('💾 Attempting to save score:', {
-        entry_selection_id: entry.id,
-        trial_round_id: roundIdForScore,
-        dogName: entry.dogName,
-        handler: entry.handlerName,
-        scoreData: scoreData
-      });
+      await loadEntries();
 
-      const result = await simpleTrialOperations.upsertScore({
-        entry_selection_id: entry.id,
-        trial_round_id: roundIdForScore,
-        ...scoreData,
-      });
-
-      // ✅ ADD MORE DETAILED RESULT LOGGING
-      if (!result.success) {
-        console.error('❌ Failed to save score for', entry.dogName, ':', {
-          error: result.error,
-          entry_selection_id: entry.id,
-          trial_round_id: roundIdForScore
-        });
-      } else {
-        console.log('✅ Score saved successfully for', entry.dogName);
+      // Trigger reload of parent component
+      if (window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('scoresUpdated'));
       }
+      
+    } catch (error) {
+      console.error('Error saving scores:', error);
+      alert('Failed to save scores. Please try again.');
+    } finally {
+      setSaving(false);
     }
-
-    setSaved(true);
-    alert('All scores saved successfully!');
-    
-    await loadEntries();
-
-    // ✅ ADD THIS: Trigger reload of parent component (Running Order Setup)
-if (window.dispatchEvent) {
-  window.dispatchEvent(new CustomEvent('scoresUpdated'));
-}
-    
-  } catch (error) {
-    console.error('Error saving scores:', error);
-    alert('Failed to save scores. Please try again.');
-  } finally {
-    setSaving(false);
-  }
-};
+  };
 
   if (loading) {
     return <div className="p-8 text-center">Loading scores...</div>;
@@ -324,17 +316,46 @@ if (window.dispatchEvent) {
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => (
-                    <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
+                    <tr 
+                      key={entry.id} 
+                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                        entry.entry_type === 'feo' ? 'opacity-75' : ''
+                      }`}
+                    >
                       <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
                       <td className="border p-2 text-sm">
-                        <div className="font-semibold">{entry.dogName}</div>
-                        <div className="text-gray-600">{entry.handlerName}</div>
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="font-semibold flex items-center gap-2">
+                              {entry.dogName}
+                              {entry.division && (
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
+                                  entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
+                                  entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
+                                  entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {entry.division}
+                                </span>
+                              )}
+                              {/* ✅ FEO BADGE */}
+                              {entry.entry_type === 'feo' && (
+                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                  FEO
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-gray-600">{entry.handlerName}</div>
+                          </div>
+                        </div>
                       </td>
                       {(['scent1', 'scent2', 'scent3', 'scent4'] as const).map(field => (
                         <td className="border p-1 w-20" key={field}>
                           <Select
                             value={entry[field] || '-'}
                             onValueChange={value => updateEntry(idx, field, value === '-' ? '' : value)}
+                            disabled={entry.entry_type === 'feo'}
                           >
                             <SelectTrigger className="h-8 bg-white">
                               <SelectValue placeholder="-" />
@@ -353,6 +374,7 @@ if (window.dispatchEvent) {
                             value={entry[field]}
                             onChange={e => updateEntry(idx, field, e.target.value)}
                             className="w-full h-8 text-center text-sm"
+                            disabled={entry.entry_type === 'feo'}
                           />
                         </td>
                       ))}
@@ -364,12 +386,14 @@ if (window.dispatchEvent) {
                           step="0.01"
                           className="w-full h-8 text-center text-sm"
                           placeholder="0.00"
+                          disabled={entry.entry_type === 'feo'}
                         />
                       </td>
                       <td className="border p-1 w-24">
                         <Select
                           value={entry.pass_fail || ''}
                           onValueChange={value => updateEntry(idx, 'pass_fail', value)}
+                          disabled={entry.entry_type === 'feo'}
                         >
                           <SelectTrigger className="h-8 bg-white">
                             <SelectValue placeholder="-" />
@@ -398,25 +422,36 @@ if (window.dispatchEvent) {
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => (
-                    <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
+                    <tr 
+                      key={entry.id} 
+                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                        entry.entry_type === 'feo' ? 'opacity-75' : ''
+                      }`}
+                    >
                       <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                     <td className="border p-2 text-sm">
-  <div className="font-semibold">
-    {entry.dogName}
-    {entry.division && (
-      <span className={`ml-2 px-2 py-0.5 rounded text-xs font-medium ${
-        entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
-        entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
-        entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
-        entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
-        'bg-gray-100 text-gray-700'
-      }`}>
-        {entry.division}
-      </span>
-    )}
-  </div>
-  <div className="text-gray-600">{entry.handlerName}</div>
-</td>
+                      <td className="border p-2 text-sm">
+                        <div className="font-semibold flex items-center gap-2">
+                          {entry.dogName}
+                          {entry.division && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
+                              entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
+                              entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
+                              entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {entry.division}
+                            </span>
+                          )}
+                          {/* ✅ FEO BADGE */}
+                          {entry.entry_type === 'feo' && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                              FEO
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600">{entry.handlerName}</div>
+                      </td>
                       <td className="border p-1 w-32">
                         <Input
                           value={entry.numerical_score}
@@ -426,20 +461,78 @@ if (window.dispatchEvent) {
                           max={selectedClass.class_name?.toLowerCase().includes('obedience 5') ? 150 : 100}
                           className="w-full h-8 text-center text-sm"
                           placeholder={selectedClass.class_name?.toLowerCase().includes('obedience 5') ? '120-150' : '70-100'}
+                          disabled={entry.entry_type === 'feo'}
                         />
                       </td>
                       <td className="border p-1 w-24">
+                        <div className="h-8 flex items-center justify-center font-semibold">
+                          {entry.pass_fail || '-'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {scoreSheetType === 'games' && (
+              <table className="w-full">
+                <thead className="bg-orange-300">
+                  <tr>
+                    <th className="border p-2 text-sm">C-WAGS #</th>
+                    <th className="border p-2 text-sm">Dog / Handler</th>
+                    <th className="border p-2 text-sm w-32">Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry, idx) => (
+                    <tr 
+                      key={entry.id} 
+                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                        entry.entry_type === 'feo' ? 'opacity-75' : ''
+                      }`}
+                    >
+                      <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
+                      <td className="border p-2 text-sm">
+                        <div className="font-semibold flex items-center gap-2">
+                          {entry.dogName}
+                          {entry.division && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
+                              entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
+                              entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
+                              entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {entry.division}
+                            </span>
+                          )}
+                          {/* ✅ FEO BADGE */}
+                          {entry.entry_type === 'feo' && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                              FEO
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-gray-600">{entry.handlerName}</div>
+                      </td>
+                      <td className="border p-1 w-32">
                         <Select
                           value={entry.pass_fail || 'none'}
                           onValueChange={value => updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)}
+                          disabled={entry.entry_type === 'feo'}
                         >
                           <SelectTrigger className="h-8 bg-white">
                             <SelectValue placeholder="-" />
                           </SelectTrigger>
                           <SelectContent className="bg-white">
                             <SelectItem value="none">-</SelectItem>
-                            <SelectItem value="Pass">Pass</SelectItem>
-                            <SelectItem value="Fail">NQ</SelectItem>
+                            <SelectItem value="GB">GB</SelectItem>
+                            <SelectItem value="BJ">BJ</SelectItem>
+                            <SelectItem value="T">T</SelectItem>
+                            <SelectItem value="P">P</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
+                            <SelectItem value="Fail">Fail</SelectItem>
                             <SelectItem value="ABS">Abs</SelectItem>
                           </SelectContent>
                         </Select>
@@ -449,50 +542,8 @@ if (window.dispatchEvent) {
                 </tbody>
               </table>
             )}
+          </div>
 
-          {scoreSheetType === 'games' && (
-  <table className="w-full">
-    <thead className="bg-orange-300">
-      <tr>
-        <th className="border p-2 text-sm">C-WAGS #</th>
-        <th className="border p-2 text-sm">Dog / Handler</th>
-        <th className="border p-2 text-sm w-32">Result</th>
-      </tr>
-    </thead>
-    <tbody>
-      {entries.map((entry, idx) => (
-        <tr key={entry.id} className={idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'}>
-          <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-          <td className="border p-2 text-sm">
-            <div className="font-semibold">{entry.dogName}</div>
-            <div className="text-gray-600">{entry.handlerName}</div>
-          </td>
-          <td className="border p-1 w-32">
-            <Select
-              value={entry.pass_fail || 'none'}
-              onValueChange={value => updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)}
-            >
-              <SelectTrigger className="h-8 bg-white">
-                <SelectValue placeholder="-" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="none">-</SelectItem>
-                <SelectItem value="GB">GB</SelectItem>
-                <SelectItem value="BJ">BJ</SelectItem>
-                <SelectItem value="T">T</SelectItem>
-                <SelectItem value="P">P</SelectItem>
-                <SelectItem value="C">C</SelectItem>
-                <SelectItem value="Fail">Fail</SelectItem>
-                <SelectItem value="ABS">Abs</SelectItem>
-              </SelectContent>
-            </Select>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-)}
- </div>
           <div className="mt-6 flex justify-end">
             <Button onClick={saveAllScores} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
