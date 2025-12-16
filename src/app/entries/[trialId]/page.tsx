@@ -664,36 +664,9 @@ export default function PublicEntryForm() {
         console.log('✅ Created new entry record:', primaryEntryId);
       }
       
-      // Sync entry_selections
-      const { data: existingSelections, error: selectionsError } = await supabase
-        .from('entry_selections')
-        .select('id, trial_round_id, entry_type')
-        .eq('entry_id', primaryEntryId);
-      
-      if (selectionsError) {
-        console.error('Error fetching existing selections:', selectionsError);
-      }
-      
-      const existingRoundIds = new Set(existingSelections?.map(s => s.trial_round_id) || []);
-      const newRoundIds = new Set(formData.selected_rounds);
-      
-      const selectionsToDelete = existingSelections?.filter(s => 
-        !newRoundIds.has(s.trial_round_id)
-      ) || [];
-      
-      const roundsToAdd = formData.selected_rounds.filter(roundId => 
-        !existingRoundIds.has(roundId)
-      );
-      
-      const selectionsToUpdate = existingSelections?.filter(s => {
-        if (!newRoundIds.has(s.trial_round_id)) return false;
-        
-        const shouldBeFeo = formData.feo_selections.includes(s.trial_round_id);
-        const isFeo = s.entry_type === 'feo';
-        
-        return shouldBeFeo !== isFeo;
-      }) || [];
-      
+      // ============================================
+      // SYNC ENTRY SELECTIONS (Score-Aware)
+      // ============================================
       console.log('🔄 Using score-aware sync for entry selections...');
 
       // Build the complete list of desired selections
@@ -735,25 +708,24 @@ export default function PublicEntryForm() {
 
       if (syncResult.warning) {
         console.warn('⚠️ SCORE PROTECTION:', syncResult.warning);
-        // Scored runs were preserved - this is expected behavior
       }
       
       console.log('✅ Entry selections synced successfully');
-      
-      // Recalculate total fee
-      const { data: finalSelections, error: finalSelectionsError } = await supabase
+
+      // Recalculate total_fee after sync
+      const { data: postSyncSelections, error: feeRecalcError } = await supabase
         .from('entry_selections')
         .select('fee')
         .eq('entry_id', primaryEntryId);
       
-      if (!finalSelectionsError && finalSelections) {
-        const finalTotalFee = finalSelections.reduce((sum, s) => sum + (s.fee || 0), 0);
+      if (!feeRecalcError && postSyncSelections) {
+        const recalculatedTotalFee = postSyncSelections.reduce((sum, s) => sum + (s.fee || 0), 0);
         
         await simpleTrialOperations.updateEntry(primaryEntryId, {
-          total_fee: finalTotalFee
+          total_fee: recalculatedTotalFee
         });
         
-        console.log(`✅ Updated total fee: $${finalTotalFee}`);
+        console.log(`✅ Recalculated total fee: $${recalculatedTotalFee} (based on ${postSyncSelections.length} selections)`);
       }
 
       setSuccess(true);
