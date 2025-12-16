@@ -694,117 +694,51 @@ export default function PublicEntryForm() {
         return shouldBeFeo !== isFeo;
       }) || [];
       
-      console.log(`📊 Sync summary:
-        - Existing selections: ${existingSelections?.length || 0}
-        - New selections from form: ${formData.selected_rounds.length}
-        - To DELETE: ${selectionsToDelete.length}
-        - To ADD: ${roundsToAdd.length}
-        - To UPDATE: ${selectionsToUpdate.length}`);
-      
-      // DELETE
-      if (selectionsToDelete.length > 0) {
-        const deleteIds = selectionsToDelete.map(s => s.id);
-        const { error: deleteError } = await supabase
-          .from('entry_selections')
-          .delete()
-          .in('id', deleteIds);
-        
-        if (deleteError) {
-          console.error('Error deleting selections:', deleteError);
-        } else {
-          console.log(`✅ Deleted ${deleteIds.length} old selections`);
-        }
-      }
-      //ADD
- if (roundsToAdd.length > 0) {
-  const newSelections = roundsToAdd.map((roundId, index) => {
-    const round = trialRounds.find(r => r.id === roundId);
-    const isFeo = formData.feo_selections.includes(roundId);
-    const division = formData.division_selections[roundId] || null;
-    
-    let entryFee = round?.trial_classes?.entry_fee || 0;
-    let entryType = 'regular';
-    
-    if (isFeo && round?.trial_classes?.feo_price) {
-      entryFee = round.trial_classes.feo_price;
-      entryType = 'feo';
-    }
-    
-    // ✅ Extract games_subclass from the round's trial_classes
-    const gamesSubclass = round?.trial_classes?.games_subclass || null;
-    
-    console.log(`📝 Creating selection for round ${roundId}:`, {
-      entry_type: entryType,
-      division: division,
-      fee: entryFee,
-      isFeo: isFeo,
-      games_subclass: gamesSubclass
-    });
-    
-    return {
-      entry_id: primaryEntryId,
-      trial_round_id: roundId,
-      entry_type: entryType,
-      fee: entryFee,
-      running_position: (existingSelections?.length || 0) + index + 1,
-      entry_status: 'entered',
-      division: division,
-      games_subclass: gamesSubclass  // ✅ ADD THIS LINE
-    };
-  });
-  const { error: insertError } = await supabase
-    .from('entry_selections')
-    .insert(newSelections);
+      console.log('🔄 Using score-aware sync for entry selections...');
 
-  if (insertError) {
-    throw new Error('Failed to add new selections: ' + insertError.message);
-  }
-  
-  console.log(`✅ Added ${newSelections.length} new selections`);
-}
+      // Build the complete list of desired selections
+      const allDesiredSelections = formData.selected_rounds.map((roundId, index) => {
+        const round = trialRounds.find(r => r.id === roundId);
+        const division = formData.division_selections[roundId] || null;
+        const isFeo = formData.feo_selections.includes(roundId);
+        
+        let entryFee = round?.trial_classes?.entry_fee || 0;
+        let entryType: 'regular' | 'feo' = 'regular';
+        
+        if (isFeo && round?.trial_classes?.feo_price) {
+          entryFee = round.trial_classes.feo_price;
+          entryType = 'feo';
+        }
+        
+        const gamesSubclass = round?.trial_classes?.games_subclass || null;
+        
+        return {
+          trial_round_id: roundId,
+          entry_type: entryType,
+          fee: entryFee,
+          running_position: index + 1,
+          entry_status: 'entered' as const,
+          division: division,
+          games_subclass: gamesSubclass
+        };
+      });
+
+      // This will preserve selections with scores!
+      const syncResult = await simpleTrialOperations.createEntrySelections(
+        primaryEntryId,
+        allDesiredSelections
+      );
+
+      if (!syncResult.success) {
+        throw new Error(syncResult.error as string);
+      }
+
+      if (syncResult.warning) {
+        console.warn('⚠️ SCORE PROTECTION:', syncResult.warning);
+        // Scored runs were preserved - this is expected behavior
+      }
       
-      // UPDATE
-      if (selectionsToUpdate.length > 0) {
-  for (const selection of selectionsToUpdate) {
-    const shouldBeFeo = formData.feo_selections.includes(selection.trial_round_id);
-    const round = trialRounds.find(r => r.id === selection.trial_round_id);
-    
-    // Get the division for this round from formData
-    const division = formData.division_selections[selection.trial_round_id] || null;
-    
-    let newFee = round?.trial_classes?.entry_fee || 0;
-    let newType = 'regular';
-    
-    if (shouldBeFeo && round?.trial_classes?.feo_price) {
-      newFee = round.trial_classes.feo_price;
-      newType = 'feo';
-    }
-    
-    console.log(`🔄 Updating selection ${selection.id} for round ${selection.trial_round_id}:`, {
-      entry_type: newType,
-      division: division,
-      fee: newFee
-    });
-    
-    // ✅ FIX: Now updating division field along with entry_type and fee
-    const { error: updateError } = await supabase
-      .from('entry_selections')
-      .update({
-        entry_type: newType,
-        fee: newFee,
-        division: division  // ✅ ADDED: Update division field
-      })
-      .eq('id', selection.id);
-    
-    if (updateError) {
-      console.error('Error updating selection:', updateError);
-    } else {
-      console.log(`✅ Updated selection ${selection.id} - Type: ${newType}, Division: ${division || 'none'}`);
-    }
-  }
-  
-  console.log(`✅ Updated ${selectionsToUpdate.length} selections`);
-}
+      console.log('✅ Entry selections synced successfully');
       
       // Recalculate total fee
       const { data: finalSelections, error: finalSelectionsError } = await supabase

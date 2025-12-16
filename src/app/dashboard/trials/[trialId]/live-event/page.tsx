@@ -115,6 +115,7 @@ interface ClassEntry {
   round_number: number; // Add this
   round_id: string; // Add this
   division?: string | null;
+  fee: number;
   entries: {
     handler_name: string;
     dog_call_name: string;
@@ -741,6 +742,7 @@ const loadClassEntries = async () => {
   round_number: selectedClass.round_number || 1,
   round_id: selectedClass.id,
   division: selection.division || null,
+  fee: selection.fee || 0,
   entries: {
     handler_name: selection.substitute_handler_name || entry.handler_name,  // ✅ Use substitute if exists
     dog_call_name: selection.substitute_dog_name || entry.dog_call_name,      // ✅ Use substitute if exists
@@ -1612,39 +1614,83 @@ const addNewEntry = async () => {
   }
 };
 
-  const removeEntry = async (entryId: string, entryName: string) => {
-    if (!confirm(`Remove ${entryName} from this class? This cannot be undone.`)) {
-      return;
+ const removeEntry = async (entryId: string, entryName: string) => {
+  if (!confirm(`Are you sure you want to remove ${entryName}? This will permanently delete this entry.`)) {
+    return;
+  }
+
+  try {
+    setSaving(true);
+
+    const entry = classEntries.find(e => e.id === entryId);
+    if (!entry) {
+      throw new Error('Entry not found');
     }
 
-    try {
-      setSaving(true);
+    console.log('🗑️ Deleting entry selection:', entryId);
 
-      const entry = classEntries.find(e => e.id === entryId);
-      if (!entry) {
-        throw new Error('Entry not found');
-      }
+    // Step 1: Delete any scores first (foreign key constraint)
+    const { error: scoresError } = await supabase
+      .from('scores')
+      .delete()
+      .eq('entry_selection_id', entryId);
 
-      const result = await simpleTrialOperations.updateEntrySelection(entryId, {
-        entry_status: 'withdrawn'
-      });
-
-      if (!result.success) {
-        throw new Error(result.error as string);
-      }
-
-      await loadClassEntries();
-      await loadAllClassCounts();
-
-      alert(`${entryName} removed from class successfully!`);
-
-    } catch (error) {
-      console.error('Error removing entry:', error);
-      setError(error instanceof Error ? error.message : 'Failed to remove entry');
-    } finally {
-      setSaving(false);
+    if (scoresError) {
+      console.error('Error deleting scores:', scoresError);
+      throw new Error('Failed to delete scores: ' + scoresError.message);
     }
-  };
+
+    console.log('✅ Scores deleted (if any existed)');
+
+    // Step 2: Get the fee before deleting so we can update total_fee
+    const entryFee = entry.fee || 0;
+
+    // Step 3: Delete the entry_selection
+    const { error: deleteError } = await supabase
+      .from('entry_selections')
+      .delete()
+      .eq('id', entryId);
+
+    if (deleteError) {
+      console.error('Error deleting entry selection:', deleteError);
+      throw new Error('Failed to delete entry: ' + deleteError.message);
+    }
+
+    console.log('✅ Entry selection deleted');
+
+    // Step 4: Update the main entry's total_fee (subtract the removed fee)
+    if (entry.entry_id) {
+      const { data: mainEntry } = await supabase
+        .from('entries')
+        .select('total_fee')
+        .eq('id', entry.entry_id)
+        .single();
+
+      if (mainEntry) {
+        const newTotalFee = Math.max(0, (mainEntry.total_fee || 0) - entryFee);
+        
+        await supabase
+          .from('entries')
+          .update({ total_fee: newTotalFee })
+          .eq('id', entry.entry_id);
+
+        console.log('✅ Updated main entry total_fee:', newTotalFee);
+      }
+    }
+
+    // Step 5: Reload the display
+    await loadClassEntries();
+    await loadAllClassCounts();
+
+    alert(`${entryName} removed from class successfully!`);
+
+  } catch (error) {
+    console.error('Error removing entry:', error);
+    setError(error instanceof Error ? error.message : 'Failed to remove entry');
+  } finally {
+    setSaving(false);
+  }
+};
 
 
 
