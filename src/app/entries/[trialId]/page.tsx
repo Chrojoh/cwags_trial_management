@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,8 +22,10 @@ import {
   Dog,
   User,
   Search,
+  Clock,
   AlertCircle,
   CheckCircle,
+  Lock,
   Calendar,
   Loader2,
   Shield,
@@ -42,6 +45,7 @@ interface Trial {
   location: string;
   start_date: string;
   end_date: string;
+  entry_status?: 'draft' | 'open' | 'closed'; 
   trial_secretary: string;
   secretary_email: string;
   waiver_text: string;
@@ -812,9 +816,84 @@ export default function PublicEntryForm() {
       </div>
     );
   }
+  // Check entry status
+  if (trial.entry_status === 'draft') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-6">
+        <Card className="max-w-2xl w-full">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Clock className="h-16 w-16 text-blue-600" />
+            </div>
+            <CardTitle className="text-3xl mb-2">{trial.trial_name}</CardTitle>
+            <CardDescription className="text-lg">
+              {new Date(trial.start_date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <Badge className="bg-blue-100 text-blue-800 text-lg px-6 py-2">
+              Registration Opening Soon
+            </Badge>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Entries for this trial are not yet open. Please check back later
+                or contact the trial secretary for more information.
+              </AlertDescription>
+            </Alert>
+            <p className="text-gray-600">
+              This page will be updated once registration opens.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-// REPLACE the success section in src/app/entries/[trialId]/page.tsx
-// This shows detailed information about all selected classes
+  if (trial.entry_status === 'closed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center p-6">
+        <Card className="max-w-2xl w-full">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Lock className="h-16 w-16 text-red-600" />
+            </div>
+            <CardTitle className="text-3xl mb-2">{trial.trial_name}</CardTitle>
+            <CardDescription className="text-lg">
+              {new Date(trial.start_date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+              })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <Badge className="bg-red-100 text-red-800 text-lg px-6 py-2">
+              Registration Closed
+            </Badge>
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                This trial is no longer accepting new entries. Please contact the
+                trial secretary if you have questions.
+              </AlertDescription>
+            </Alert>
+            {trial.secretary_email && (
+              <p className="text-gray-600">
+                Trial Secretary: {trial.secretary_email}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
 if (success) {
   // Build detailed list of selected classes

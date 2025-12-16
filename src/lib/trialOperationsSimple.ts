@@ -27,6 +27,7 @@ export interface TrialData {
   waiver_text: string;
   fee_configuration: any | null;
   notes: string | null;
+  entry_status?: 'draft' | 'open' | 'closed';
   created_at?: string;
   updated_at?: string;
 }
@@ -38,6 +39,7 @@ export interface TrialDay {
   trial_date: string;
   day_status: string;
   notes: string | null;
+  is_accepting_entries?: boolean;
   created_at?: string;
 }
 

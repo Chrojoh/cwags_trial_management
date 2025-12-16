@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import EntryControlPanel from '@/components/trial/EntryControlPanel';
 
 interface TrialData {
   id: string;
@@ -40,6 +41,7 @@ interface TrialData {
   start_date: string;
   end_date: string;
   trial_status: string;
+  entry_status?: 'draft' | 'open' | 'closed';
   trial_secretary: string;
   secretary_email: string;
   secretary_phone: string;
@@ -368,6 +370,12 @@ const formatDate = (dateString: string) => {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        {/* Entry Control Panel */}
+        <EntryControlPanel 
+          trialId={trialId} 
+          currentStatus={trial.entry_status || 'draft'} 
+        />
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="basic" className="w-full">
