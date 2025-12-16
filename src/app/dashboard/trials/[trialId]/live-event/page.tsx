@@ -1575,12 +1575,70 @@ const addNewEntry = async () => {
       entry_status: 'entered'
     };
 
-    // Add games_subclass if this is a Games class
+   // Add games_subclass if this is a Games class
     if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
       insertData.games_subclass = selectedGamesSubclass;
       console.log('Adding games_subclass to entry:', selectedGamesSubclass);
     }
 
+    // ✅ CHECK FOR DUPLICATE BEFORE INSERTING
+    console.log('Checking for existing selection...');
+    const { data: existingSelection } = await supabase
+      .from('entry_selections')
+      .select('id, scores(id)')
+      .eq('entry_id', entryId)
+      .eq('trial_round_id', actualRoundId)
+      .maybeSingle();
+
+    if (existingSelection) {
+      // Selection already exists for this dog in this round
+      if (existingSelection.scores && existingSelection.scores.length > 0) {
+        // Has scores - cannot add duplicate
+        throw new Error(
+          `${newEntryData.dog_call_name} already has a scored run in ${selectedClass.class_name} Round ${selectedRound}. ` +
+          `Cannot create duplicate entry.`
+        );
+      } else {
+        // No scores - update the existing selection's running position
+        console.log('Found existing selection without scores, updating running position...');
+        const { error: updateError } = await supabase
+          .from('entry_selections')
+          .update({ 
+            running_position: nextPosition,
+            entry_type: insertData.entry_type,
+            fee: insertData.fee
+          })
+          .eq('id', existingSelection.id);
+        
+        if (updateError) {
+          throw new Error('Failed to update existing entry: ' + updateError.message);
+        }
+
+        // Reload and notify
+        await loadClassEntries();
+        await loadAllClassCounts();
+        
+        setNewEntryData({
+          handler_name: '',
+          dog_call_name: '',
+          cwags_number: '',
+          entry_type: 'regular'
+        });
+        setSelectedRound(1);
+        setSelectedGamesSubclass(null);
+        setShowAddEntryModal(false);
+
+        alert(
+          `${newEntryData.dog_call_name} was already entered in ${selectedClass.class_name} Round ${selectedRound}.\n\n` +
+          `Running position has been updated to #${nextPosition}.`
+        );
+        
+        return; // Exit early - don't insert duplicate
+      }
+    }
+
+    // No existing selection found - proceed with insert
+    console.log('No duplicate found, inserting new selection...');
     const { error: insertError } = await supabase
       .from('entry_selections')
       .insert(insertData);
