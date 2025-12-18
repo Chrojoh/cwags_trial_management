@@ -145,8 +145,6 @@ interface ClassEntry {
   }>;
 }
 
-// Add this function near the top of your live event page component, 
-// after the interfaces and before the component export
 const getClassOrder = (className: string): number => {
   const classOrder = [
     'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 

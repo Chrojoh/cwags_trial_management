@@ -76,6 +76,15 @@ interface ClassEntry {
   }>;
 }
 
+const abbreviateClassNameForExcel = (className: string): string => {
+  const abbreviations: Record<string, string> = {
+    'Super Sleuth': 'Super Sleuth 4',
+    'Detective Diversions': 'Det Diversions',
+    'Private Investigator': 'Private Inv'
+  };
+  
+  return abbreviations[className] || className;
+};
 export default function ClassSummaryPage() {
   const router = useRouter();
   const params = useParams();
@@ -405,14 +414,14 @@ const summarySheetData: any[][] = [
         });
       });
 
-      summarySheetData.push([
-        classData.className,
-        totalRuns,
-        actuallyRan,
-        passes,
-        fails,
-        billableRuns
-      ]);
+     summarySheetData.push([
+  abbreviateClassNameForExcel(classData.className),  // ← ADD THIS
+  totalRuns,
+  actuallyRan,
+  passes,
+  fails,
+  billableRuns
+]);
     });
 
    // Data starts at row 5 (array index 4), so adjust calculations
@@ -526,7 +535,7 @@ summarySheetData.push([
       }
       
       sheetData[0] = [summaryData.trial.trial_name];
-      sheetData[2] = ['', '', '', '', '', classData.className];
+      sheetData[2] = ['', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
       
       const row4Headers = ['', '', ''];
       classData.allRounds.forEach(round => {
@@ -661,7 +670,7 @@ summarySheetData.push([
         }
       }
       
-      let sheetName = classData.className.replace(/[:\\/?*[\]]/g, '');
+      let sheetName = abbreviateClassNameForExcel(classData.className).replace(/[:\\/?*[\]]/g, '');
       if (sheetName.length > 31) {
         sheetName = sheetName.substring(0, 31);
       }

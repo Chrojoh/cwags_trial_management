@@ -12,7 +12,9 @@ export default function ShareableEntryLink({ trialId, trialName }: ShareableEntr
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
   
-  const entryUrl = `${window.location.origin}/entries/${trialId}`;
+ // Use clean Vercel domain or custom domain
+const cleanDomain = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+const entryUrl = `${cleanDomain}/entries/${trialId}`;
   const encodedUrl = encodeURIComponent(entryUrl);
   const encodedTitle = encodeURIComponent(trialName);
 
