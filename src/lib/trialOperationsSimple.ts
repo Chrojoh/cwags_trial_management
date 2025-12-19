@@ -1850,7 +1850,8 @@ async upsertScore(scoreData: {
       const { data, error } = await supabase
         .from('cwags_registry')
         .select('*')
-        .or(`cwags_number.ilike.%${searchTerm}%,dog_call_name.ilike.%${searchTerm}%,handler_name.ilike.%${searchTerm}%`)
+        .or(`cwags_number.ilike.%${searchTerm}%,dog_call_name.ilike.%${searchTerm}%,handler_name.ilike.%${searchTerm}%,handler_email.ilike.%${searchTerm}%`)
+
         .eq('is_active', true)
         .limit(10);
 
@@ -1896,37 +1897,44 @@ async createRegistryEntry(registryData: {
   cwags_number: string;
   dog_call_name: string;
   handler_name: string;
+  handler_email: string | null;
   is_active: boolean;
 }): Promise<OperationResult> {
   try {
-    console.log('Creating C-WAGS registry entry:', registryData);
+    console.log('Creating / updating C-WAGS registry entry:', registryData);
 
     const insertData = {
       cwags_number: registryData.cwags_number,
       dog_call_name: registryData.dog_call_name,
       handler_name: registryData.handler_name,
+      handler_email: registryData.handler_email ?? null,
       is_active: registryData.is_active,
-      created_at: new Date().toISOString()
+      updated_at: new Date().toISOString()
     };
 
     const { data, error } = await supabase
       .from('cwags_registry')
-      .insert(insertData)
+      .upsert(insertData, {
+        onConflict: 'cwags_number'
+      })
       .select()
       .single();
 
     if (error) {
-      console.error('Database error creating registry entry:', error);
+      console.error('Registry upsert failed:', error);
       return { success: false, error: error.message || error };
     }
 
-    console.log('Registry entry created successfully:', data);
     return { success: true, data };
   } catch (error) {
-    console.error('Error creating registry entry:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    console.error('Error upserting registry entry:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 },
+
 
   // Entry Statistics Operations
 async getTrialEntryStats(trialId: string): Promise<OperationResult> {

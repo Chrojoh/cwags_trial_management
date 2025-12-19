@@ -363,6 +363,8 @@ export default function PublicEntryForm() {
         ...prev,
         handler_name: registryResult.data.handler_name || '',
         dog_call_name: registryResult.data.dog_call_name || '',
+        handler_email: registryResult.data.handler_email || '',
+        handler_phone: registryResult.data.handler_phone || '',
         cwags_number: cwagsNumber,
         // Clear all round selections
         selected_rounds: [],
@@ -1275,7 +1277,7 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
                 />
               </div>
               <div>
-                <Label>Handler Email *</Label>
+                <Label>Handler Email - To send your entry confirmation</Label>
                 <Input
                   type="email"
                   value={formData.handler_email}
