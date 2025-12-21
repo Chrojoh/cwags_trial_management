@@ -350,21 +350,90 @@ export default function TrialFinancialsPage() {
     }
   };
 
-  const handleSaveBreakEven = async () => {
-    setSaving(true);
-    try {
-      const result = await breakEvenOperations.saveConfig(breakEvenData);
-      if (result.success) {
-        alert('Break-even analysis saved!');
+const handleSaveBreakEven = async () => {
+  setSaving(true);
+  try {
+    // STEP 1: Update the actual expense records
+    // This ensures the expense values persist when the page reloads
+    const expenseUpdates = [
+      { category: 'Hall Rental', amount: breakEvenData.hall_rental },
+      { category: 'Ribbons', amount: breakEvenData.ribbons },
+      { category: 'Insurance', amount: breakEvenData.insurance },
+    ];
+
+    // Update each expense category
+    for (const update of expenseUpdates) {
+      const expense = expenses.find(e => e.expense_category === update.category);
+      if (expense) {
+        // Update existing expense
+        const result = await financialOperations.saveExpense({
+          ...expense,
+          amount: update.amount
+        });
+        if (!result.success) {
+          throw new Error(`Failed to save ${update.category}`);
+        }
       } else {
-        throw new Error(result.error);
+        // Create new expense if it doesn't exist
+        const result = await financialOperations.saveExpense({
+          trial_id: trialId,
+          expense_category: update.category,
+          amount: update.amount
+        });
+        if (!result.success) {
+          throw new Error(`Failed to create ${update.category}`);
+        }
       }
-    } catch (error) {
-      alert('Failed to save break-even analysis');
-    } finally {
-      setSaving(false);
     }
-  };
+
+    // Handle "Other Fixed Costs" - this needs special handling
+    // It represents the sum of all non-standard expenses
+    // We need to find or create an "Other" expense for this
+    const otherExpense = expenses.find(e => 
+      e.expense_category === 'Other' && 
+      !e.description
+    );
+    
+    if (breakEvenData.other_fixed_costs > 0) {
+      if (otherExpense) {
+        const result = await financialOperations.saveExpense({
+          ...otherExpense,
+          amount: breakEvenData.other_fixed_costs,
+          description: 'Other fixed costs'
+        });
+        if (!result.success) {
+          throw new Error('Failed to save other fixed costs');
+        }
+      } else {
+        const result = await financialOperations.saveExpense({
+          trial_id: trialId,
+          expense_category: 'Other',
+          amount: breakEvenData.other_fixed_costs,
+          description: 'Other fixed costs'
+        });
+        if (!result.success) {
+          throw new Error('Failed to create other fixed costs');
+        }
+      }
+    }
+
+    // STEP 2: Save the break-even config (rates, etc.)
+    const result = await breakEvenOperations.saveConfig(breakEvenData);
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    // STEP 3: Reload data to show updated values
+    await loadData();
+    
+    alert('Break-even analysis saved!');
+  } catch (error) {
+    console.error('Error saving break-even:', error);
+    alert('Failed to save break-even analysis: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  } finally {
+    setSaving(false);
+  }
+};
 
   const updateBreakEvenField = (field: keyof BreakEvenConfig, value: string) => {
     const numValue = parseFloat(value) || 0;
