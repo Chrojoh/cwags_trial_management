@@ -678,9 +678,8 @@ const exportToCSV = async () => {
             ) : (
               <div className="space-y-4">
                 {filteredEntries.map((entry) => {
-                  const isExpanded = expandedEntries.has(entry.cwags_number);
-                  const amountOwed = entry.total_fee - entry.amount_paid;
-                  
+                   const isExpanded = expandedEntries.has(entry.cwags_number);
+                 
                   return (
                     <div key={entry.cwags_number} className="border rounded-lg p-6 hover:bg-gray-50 transition-colors">
                       {/* Team Header */}
@@ -696,7 +695,7 @@ const exportToCSV = async () => {
                               </p>
                             </div>
                             <div className="flex items-center space-x-2">
-                              <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-2">
   <Badge className={`${getStatusColor(entry.entry_status)} border`}>
     {entry.entry_status}
   </Badge>
@@ -723,7 +722,7 @@ const exportToCSV = async () => {
         Waitlist
       </Button>
     </div>
-  )}
+      )}
   
   {/* Button for WAITLISTED entries */}
   {entry.entry_status === 'waitlisted' && (
@@ -777,14 +776,18 @@ const exportToCSV = async () => {
                             </div>
 
                             <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-                              <DollarSign className="h-5 w-5 text-green-600 flex-shrink-0" />
-                              <div>
-                                <p className="text-xs font-medium text-green-900 mb-0.5">Amount Owed</p>
-                                <p className="text-lg font-bold text-green-700">
-                                  {formatCurrency(amountOwed)}
-                                </p>
-                              </div>
-                            </div>
+  <DollarSign className="h-5 w-5 text-green-600 flex-shrink-0" />
+  <div>
+    <p className="text-xs font-medium text-green-900 mb-0.5">Entry Fee</p>
+    <p className="text-lg font-bold text-green-700">
+      {formatCurrency(entry.total_fee)}
+    </p>
+    <p className="text-xs text-green-600 mt-0.5">
+      {entry.entry_selections.length} run{entry.entry_selections.length !== 1 ? 's' : ''}
+    </p>
+  </div>
+</div>
+
                           </div>
 
                           {/* Phone */}
