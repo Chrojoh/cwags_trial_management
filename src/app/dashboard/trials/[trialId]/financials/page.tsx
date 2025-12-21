@@ -248,10 +248,9 @@ export default function TrialFinancialsPage() {
   };
 
   const openPaymentModal = (competitor: CompetitorFinancial) => {
-    setSelectedCompetitor(competitor);
+  setSelectedCompetitor(competitor);
 
-    const effectiveOwed = competitor.fees_waived ? 0 : competitor.amount_owed;
-    const remaining = effectiveOwed - competitor.amount_paid;
+  const remaining = competitor.fees_waived ? 0 : (competitor.amount_owed - competitor.amount_paid);
 
     setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '');
     setPaymentMethod('');
@@ -805,7 +804,7 @@ End of Report
                         const payments = comp.payment_history || [];
                         const hasPayments = payments.length > 0;
                         const effectiveOwed = comp.fees_waived ? 0 : comp.amount_owed;
-                        const balance = effectiveOwed - comp.amount_paid;
+                        const balance = comp.fees_waived ? 0 : (comp.amount_owed - comp.amount_paid);
 
                         return (
                           <React.Fragment key={compIndex}>

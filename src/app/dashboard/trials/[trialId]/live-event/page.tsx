@@ -672,6 +672,19 @@ setTrialClasses(allClassRounds);  // Now they're sorted!
   }
 };
 
+const getStatusBackgroundColor = (status: string): string => {
+  switch (status?.toLowerCase()) {
+    case 'waitlisted':
+      return 'FFF9C4'; // Light yellow background for waitlisted
+    case 'confirmed':
+      return 'C8E6C9'; // Light green for confirmed
+    case 'withdrawn':
+      return 'FFCDD2'; // Light red for withdrawn
+    default:
+      return 'FFFFFF'; // White for others
+  }
+};
+
 
 const loadClassEntries = async () => {
   if (!selectedClass) return;
@@ -730,7 +743,7 @@ const loadClassEntries = async () => {
         if (roundMatches && subclassMatches) {
           // FILTER OUT WITHDRAWN ENTRIES
           const entryStatus = selection.entry_status || 'entered';
-          if (entryStatus.toLowerCase() !== 'withdrawn') {
+          if (entryStatus.toLowerCase() !== 'withdrawn' && entryStatus.toLowerCase() !== 'waitlisted') {
            classEntriesData.push({
   id: selection.id,
   entry_id: entry.id,

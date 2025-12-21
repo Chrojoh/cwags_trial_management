@@ -422,7 +422,10 @@ export default function PublicEntryForm() {
     }
   };
 
- const saveToRegistry = async () => {
+ // COMPLETE REPLACEMENT: Delete lines 665-730 in your current code
+// Replace with this entire section:
+
+  const saveToRegistry = async () => {
     if (!formData.cwags_number || !formData.handler_name || !formData.dog_call_name) {
       return;
     }
@@ -431,47 +434,99 @@ export default function PublicEntryForm() {
       const existingResult = await simpleTrialOperations.getCwagsRegistryByNumber(formData.cwags_number);
       
       if (existingResult.success && existingResult.data) {
-        // Dog exists - update ONLY null fields
+        // Dog exists - BIDIRECTIONAL SYNC
         const existing = existingResult.data;
-        const updates: any = {};
+        const registryUpdates: any = {};
         
-        // Only update fields that are currently null/empty in the registry
+        console.log('🔄 Starting bidirectional sync...');
+        console.log('Registry data:', existing);
+        console.log('Entry data:', {
+          email: formData.handler_email,
+          phone: formData.handler_phone,
+          emergency: formData.emergency_contact
+        });
+        
+        // REGISTRY UPDATES: Update registry if it's missing data that the entry has
         if (!existing.handler_email && formData.handler_email) {
-          updates.handler_email = formData.handler_email;
+          registryUpdates.handler_email = formData.handler_email;
+          console.log('📝 Will update registry email:', formData.handler_email);
         }
         if (!existing.handler_phone && formData.handler_phone) {
-          updates.handler_phone = formData.handler_phone;
+          registryUpdates.handler_phone = formData.handler_phone;
+          console.log('📝 Will update registry phone:', formData.handler_phone);
         }
         if (!existing.emergency_contact && formData.emergency_contact) {
-          updates.emergency_contact = formData.emergency_contact;
+          registryUpdates.emergency_contact = formData.emergency_contact;
+          console.log('📝 Will update registry emergency contact:', formData.emergency_contact);
         }
         if (!existing.breed && formData.dog_breed) {
-          updates.breed = formData.dog_breed;
+          registryUpdates.breed = formData.dog_breed;
+          console.log('📝 Will update registry breed:', formData.dog_breed);
         }
         if (!existing.dog_sex && formData.dog_sex) {
-          updates.dog_sex = formData.dog_sex;
+          registryUpdates.dog_sex = formData.dog_sex;
+          console.log('📝 Will update registry sex:', formData.dog_sex);
         }
         
-        // If there are any fields to update, update them
-        if (Object.keys(updates).length > 0) {
-          console.log('Updating registry with new data:', updates);
+        // ENTRY UPDATES: Update entry form if it's missing data that the registry has
+        let formUpdated = false;
+        
+        if (!formData.handler_email && existing.handler_email) {
+          setFormData(prev => ({ ...prev, handler_email: existing.handler_email }));
+          formUpdated = true;
+          console.log('📝 Updated entry form email from registry:', existing.handler_email);
+        }
+        if (!formData.handler_phone && existing.handler_phone) {
+          setFormData(prev => ({ ...prev, handler_phone: existing.handler_phone }));
+          formUpdated = true;
+          console.log('📝 Updated entry form phone from registry:', existing.handler_phone);
+        }
+        if (!formData.emergency_contact && existing.emergency_contact) {
+          setFormData(prev => ({ ...prev, emergency_contact: existing.emergency_contact }));
+          formUpdated = true;
+          console.log('📝 Updated entry form emergency contact from registry:', existing.emergency_contact);
+        }
+        if (!formData.dog_breed && existing.breed) {
+          setFormData(prev => ({ ...prev, dog_breed: existing.breed }));
+          formUpdated = true;
+          console.log('📝 Updated entry form breed from registry:', existing.breed);
+        }
+        if (!formData.dog_sex && existing.dog_sex) {
+          setFormData(prev => ({ ...prev, dog_sex: existing.dog_sex }));
+          formUpdated = true;
+          console.log('📝 Updated entry form sex from registry:', existing.dog_sex);
+        }
+        
+        // Update registry if there are changes
+        if (Object.keys(registryUpdates).length > 0) {
+          console.log('💾 Updating registry with:', registryUpdates);
           
           const { error } = await supabase
             .from('cwags_registry')
-            .update(updates)
+            .update(registryUpdates)
             .eq('id', existing.id);
           
           if (error) {
-            console.warn('Failed to update registry:', error);
+            console.warn('⚠️ Failed to update registry:', error);
           } else {
             console.log('✅ Successfully updated registry with missing information');
           }
         }
         
+        if (formUpdated) {
+          console.log('✅ Successfully updated entry form with registry information');
+        }
+        
+        if (Object.keys(registryUpdates).length === 0 && !formUpdated) {
+          console.log('ℹ️ No bidirectional sync needed - all fields are populated');
+        }
+        
         return;
       }
 
-      // Dog doesn't exist - create new entry with all data
+      // Dog doesn't exist - create new registry entry with all data
+      console.log('📝 Creating new registry entry for:', formData.cwags_number);
+      
       const registryData = {
         cwags_number: formData.cwags_number,
         dog_call_name: formData.dog_call_name,
@@ -481,14 +536,20 @@ export default function PublicEntryForm() {
         emergency_contact: formData.emergency_contact || null,
         breed: formData.dog_breed || null,
         dog_sex: formData.dog_sex || null,
-        is_junior_handler: formData.is_junior_handler || false,
+        is_junior_handler: formData.is_junior_handler,
         is_active: true
       };
 
-      await simpleTrialOperations.createRegistryEntry(registryData);
-      console.log('✅ Created new registry entry');
+      const createResult = await simpleTrialOperations.createRegistryEntry(registryData);
+      
+      if (createResult.success) {
+        console.log('✅ Successfully created new registry entry');
+      } else {
+        console.warn('⚠️ Failed to create registry entry:', createResult.error);
+      }
+
     } catch (error) {
-      console.warn('Failed to save to registry:', error);
+      console.error('❌ Error in saveToRegistry:', error);
     }
   };
 
@@ -603,10 +664,36 @@ export default function PublicEntryForm() {
 
   const handleConfirmedSubmit = async () => {
     setShowConfirmDialog(false);
+    
+    // ✅ FIX 1: Prevent double submission - check if already submitting
+    if (submitting) {
+      console.log('⚠️ Submission already in progress, ignoring duplicate click');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
     try {
+      // ✅ FIX 2: Check for recent duplicate submissions (within last 60 seconds)
+      const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
+      
+      const { data: recentDuplicates, error: dupCheckError } = await supabase
+        .from('entries')
+        .select('id, submitted_at')
+        .eq('trial_id', trialId)
+        .eq('cwags_number', formData.cwags_number)
+        .gte('submitted_at', sixtySecondsAgo);
+      
+      if (dupCheckError) {
+        console.warn('Could not check for recent duplicates:', dupCheckError);
+      } else if (recentDuplicates && recentDuplicates.length > 0) {
+        const secondsAgo = Math.floor((Date.now() - new Date(recentDuplicates[0].submitted_at).getTime()) / 1000);
+        setError(`This entry was just submitted ${secondsAgo} seconds ago. Please wait before resubmitting.`);
+        setSubmitting(false);
+        return;
+      }
+
       await saveToRegistry();
 
       const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
@@ -661,6 +748,7 @@ export default function PublicEntryForm() {
           entry_status: 'submitted'
         };
 
+        // ✅ FIX 3: createEntry now has duplicate checking built in
         const createResult = await simpleTrialOperations.createEntry(entryData);
         if (!createResult.success) {
           throw new Error(createResult.error as string);
@@ -741,6 +829,7 @@ export default function PublicEntryForm() {
       console.error('❌ Error submitting entry:', err);
       setError(err instanceof Error ? err.message : 'Failed to submit entry');
     } finally {
+      // ✅ FIX 4: Always re-enable after attempt
       setSubmitting(false);
     }
   };

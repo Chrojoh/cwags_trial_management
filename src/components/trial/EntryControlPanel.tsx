@@ -125,15 +125,18 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
     );
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long', 
-      month: 'long', 
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
+ const formatDate = (dateString: string) => {
+  // Manual date parsing to avoid timezone shift
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0);
+  
+  return date.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
 
   if (loading) {
     return (

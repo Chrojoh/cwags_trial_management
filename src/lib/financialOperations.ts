@@ -320,24 +320,44 @@ async getCompetitorFinancials(trialId: string): Promise<OperationResult<Competit
 async waiveFees(entryIds: string | string[], reason: string): Promise<OperationResult> {
   try {
     const ids = Array.isArray(entryIds) ? entryIds : [entryIds];
-    
-    const { data, error } = await supabase
-      .from('entries')
-      .update({
-        fees_waived: true,
-        waiver_reason: reason,
-        amount_owed: 0
-      })
-      .in('id', ids)
-      .select();
 
-    if (error) throw error;
-    return { success: true, data };
+    for (const entryId of ids) {
+      // Get current amounts
+      const { data: entry, error } = await supabase
+        .from('entries')
+        .select('amount_owed, amount_paid')
+        .eq('id', entryId)
+        .single();
+
+      if (error) throw error;
+
+      const amountOwed = entry?.amount_owed ?? 0;
+      const amountPaid = entry?.amount_paid ?? 0;
+
+      // Waive only the remaining balance
+      const remainingBalance = Math.max(amountOwed - amountPaid, 0);
+
+      await supabase
+        .from('entries')
+        .update({
+          fees_waived: true,
+          waiver_reason: reason,
+          // Make owed == paid so balance becomes 0
+          amount_owed: amountPaid
+        })
+        .eq('id', entryId);
+    }
+
+    return { success: true };
   } catch (error) {
     console.error('Error waiving fees:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 },
+
 
 // Unwaive fees for all of an owner's entries
 async unwaiveFees(entryIds: string | string[]): Promise<OperationResult> {

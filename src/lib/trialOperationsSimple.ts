@@ -957,47 +957,72 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
   // NEW ENTRY OPERATIONS
   
   // Create new entry
-  async createEntry(entryData: Omit<EntryData, 'id'>): Promise<OperationResult> {
-    try {
-      console.log('Creating entry with data:', entryData);
+ async createEntry(entryData: Omit<EntryData, 'id'>): Promise<OperationResult> {
+  try {
+    console.log('Creating entry with data:', entryData);
 
-      const insertData = {
-        trial_id: entryData.trial_id,
-        handler_name: entryData.handler_name,
-        dog_call_name: entryData.dog_call_name,
-        cwags_number: entryData.cwags_number,
-        dog_breed: entryData.dog_breed || null,  // ✅ Add || null
-        dog_sex: entryData.dog_sex || null, 
-        handler_email: entryData.handler_email,
-        handler_phone: entryData.handler_phone,
-        is_junior_handler: entryData.is_junior_handler,
-        waiver_accepted: entryData.waiver_accepted,
-        total_fee: entryData.total_fee,
-        payment_status: entryData.payment_status || 'pending',
-        entry_status: entryData.entry_status || 'submitted',
-        submitted_at: new Date().toISOString(),
-        audit_trail: entryData.audit_trail || 'Entry created',
-        created_at: new Date().toISOString()
+    // ✅ DUPLICATE CHECK: Check if entry already exists for this trial + C-WAGS number
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('entries')
+      .select('id, submitted_at')
+      .eq('trial_id', entryData.trial_id)
+      .eq('cwags_number', entryData.cwags_number)
+      .maybeSingle();
+
+    if (existingEntry) {
+      const timeSince = Date.now() - new Date(existingEntry.submitted_at).getTime();
+      const minutesAgo = Math.floor(timeSince / 60000);
+      
+      console.warn(`⚠️ Entry already exists (submitted ${minutesAgo} minutes ago)`);
+      console.warn(`⚠️ Existing entry ID: ${existingEntry.id}`);
+      
+      return {
+        success: false,
+        error: `This dog is already entered in this trial (Entry ID: ${existingEntry.id}). Cannot create duplicate entry.`
       };
-
-      const { data, error } = await supabase
-        .from('entries')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Database error creating entry:', error);
-        return { success: false, error: error.message || error };
-      }
-
-      console.log('Entry created successfully:', data);
-      return { success: true, data };
-    } catch (error) {
-      console.error('Error creating entry:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-  },
+
+    // No duplicate found - proceed with insert
+    const insertData = {
+      trial_id: entryData.trial_id,
+      handler_name: entryData.handler_name,
+      dog_call_name: entryData.dog_call_name,
+      cwags_number: entryData.cwags_number,
+      dog_breed: entryData.dog_breed || null,
+      dog_sex: entryData.dog_sex || null,
+      handler_email: entryData.handler_email,
+      handler_phone: entryData.handler_phone,
+      is_junior_handler: entryData.is_junior_handler,
+      waiver_accepted: entryData.waiver_accepted,
+      total_fee: entryData.total_fee,
+      payment_status: entryData.payment_status || 'pending',
+      entry_status: entryData.entry_status || 'submitted',
+      submitted_at: new Date().toISOString(),
+      audit_trail: entryData.audit_trail || 'Entry created',
+      created_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('entries')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Database error creating entry:', error);
+      return { success: false, error: error.message || error };
+    }
+
+    console.log('✅ Entry created successfully:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error creating entry:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+},
 
 async getTrialEntries(trialId: string): Promise<OperationResult> {
   try {
@@ -1376,7 +1401,7 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
     )
   `)
   .eq('trial_id', trialId)
-  .order('submitted_at', { ascending: false });
+  .order('created_at', { ascending: true });
 
     if (entriesError) {
       console.error('Error getting entries:', entriesError);
@@ -1892,12 +1917,16 @@ async upsertScore(scoreData: {
     }
   },
 
-// Add this single function after getCwagsRegistryByNumber
 async createRegistryEntry(registryData: {
   cwags_number: string;
   dog_call_name: string;
   handler_name: string;
   handler_email: string | null;
+  handler_phone?: string | null;
+  emergency_contact?: string | null;
+  breed?: string | null;
+  dog_sex?: string | null;
+  is_junior_handler?: boolean;
   is_active: boolean;
 }): Promise<OperationResult> {
   try {
@@ -1908,6 +1937,11 @@ async createRegistryEntry(registryData: {
       dog_call_name: registryData.dog_call_name,
       handler_name: registryData.handler_name,
       handler_email: registryData.handler_email ?? null,
+      handler_phone: registryData.handler_phone ?? null,
+      emergency_contact: registryData.emergency_contact ?? null,
+      breed: registryData.breed ?? null,
+      dog_sex: registryData.dog_sex ?? null,
+      is_junior_handler: registryData.is_junior_handler ?? false,
       is_active: registryData.is_active,
       updated_at: new Date().toISOString()
     };
