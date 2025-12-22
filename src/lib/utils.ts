@@ -2,9 +2,7 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { 
-  BUSINESS_RULES, 
   SCENT_CLASSES, 
-  NUMERICAL_CLASSES,
   VALIDATION_PATTERNS,
   DEFAULT_FEES
 } from './constants';
@@ -95,21 +93,6 @@ export const searchDogs = (
     dog.cwags_number.toLowerCase().includes(searchTerm) ||
     dog.dog_call_name.toLowerCase().includes(searchTerm) ||
     dog.handler_name.toLowerCase().includes(searchTerm)
-  );
-};
-
-export const searchJudges = (
-  judges: Array<{ name: string; email: string; level?: string }>,
-  query: string
-): typeof judges => {
-  if (!query.trim()) return judges;
-  
-  const searchTerm = query.toLowerCase();
-  
-  return judges.filter(judge => 
-    judge.name.toLowerCase().includes(searchTerm) ||
-    judge.email.toLowerCase().includes(searchTerm) ||
-    (judge.level && judge.level.toLowerCase().includes(searchTerm))
   );
 };
 
