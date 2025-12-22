@@ -1,9 +1,11 @@
+// src/components/layout/mainLayout.tsx
 'use client';
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Header } from './header';
+import { Sidebar } from '@/components/layout/sidebar';
 import { Breadcrumbs } from './breadcrumbs';
 import { LoadingSpinner } from '@/components/ui/loadingSpinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -24,6 +26,8 @@ function MainLayout({
   fullWidth = false 
 }: MainLayoutProps) {
   const { user, loading, error, isAuthenticated, signOut } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  
   const router = useRouter();
 
   // Show loading spinner while checking authentication
@@ -87,10 +91,19 @@ function MainLayout({
   // At this point, user is guaranteed to exist
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Main Content */}
+      {/* ✅ SIDEBAR - Responsive with mobile slide-out */}
+      <Sidebar 
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
+
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header - Now guaranteed to have user */}
-        <Header user={user} onMenuClick={() => {}} />
+        {/* Header with hamburger menu for mobile */}
+        <Header 
+          user={user} 
+          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+        />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
