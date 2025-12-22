@@ -81,65 +81,6 @@ export const isPassingScore = (
 };
 
 // Search and Filter Functions
-export const searchDogs = (
-  dogs: Array<{ cwags_number: string; dog_call_name: string; handler_name: string }>,
-  query: string
-): typeof dogs => {
-  if (!query.trim()) return dogs;
-  
-  const searchTerm = query.toLowerCase();
-  
-  return dogs.filter(dog => 
-    dog.cwags_number.toLowerCase().includes(searchTerm) ||
-    dog.dog_call_name.toLowerCase().includes(searchTerm) ||
-    dog.handler_name.toLowerCase().includes(searchTerm)
-  );
-};
-
-// Performance Functions
-export const debounce = <T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): ((...args: Parameters<T>) => void) => {
-  let timeout: NodeJS.Timeout;
-  
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
-
-export const throttle = <T extends (...args: any[]) => any>(
-  func: T,
-  limit: number
-): ((...args: Parameters<T>) => void) => {
-  let inThrottle: boolean;
-  
-  return (...args: Parameters<T>) => {
-    if (!inThrottle) {
-      func(...args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  };
-};
-
-export const retry = async <T>(
-  fn: () => Promise<T>,
-  retries: number = 3,
-  delay: number = 1000
-): Promise<T> => {
-  try {
-    return await fn();
-  } catch (error) {
-    if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retry(fn, retries - 1, delay * 2);
-    }
-    throw error;
-  }
-};
-
 // Array Operations
 export const groupBy = <T, K extends keyof T>(
   array: T[],
@@ -170,52 +111,14 @@ export const uniqueBy = <T, K extends keyof T>(array: T[], key: K): T[] => {
 };
 
 // String Utilities
-export const slugify = (str: string): string => {
-  return str
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/[\s_-]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-};
-
 export const truncate = (str: string, length: number): string => {
   if (str.length <= length) return str;
   return str.slice(0, length).trim() + '...';
 };
 
-export const titleCase = (str: string): string => {
-  return str.replace(/\w\S*/g, (txt) => 
-    txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  );
-};
-
-export const initials = (name: string): string => {
-  return name
-    .split(' ')
-    .map(n => n.charAt(0))
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
-
 // File Utilities
-export const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes';
-  
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
 export const getFileExtension = (filename: string): string => {
   return filename.slice((filename.lastIndexOf('.') - 1 >>> 0) + 2);
-};
-
-export const isValidFileType = (filename: string, allowedTypes: string[]): boolean => {
-  const extension = getFileExtension(filename).toLowerCase();
-  return allowedTypes.includes(extension);
 };
 
 // NEW TIMEZONE-AWARE FUNCTIONS
@@ -286,59 +189,6 @@ export const getEntryDeadlineForTrial = (
   return calculateEntryDeadline(trialDateUtc, trialTimezone);
 };
 
-export const sortTrialsByDate = <T extends { trial_date: string }>(
-  trials: T[]
-): T[] => {
-  return [...trials].sort((a, b) => 
-    new Date(a.trial_date).getTime() - new Date(b.trial_date).getTime()
-  );
-};
-
-export const createTrialScheduleText = (
-  trialDateUtc: string,
-  trialTimezone: string,
-  userTimezone?: string
-): string => {
-  const trialDate = formatTrialDate(trialDateUtc, trialTimezone);
-  const trialTime = formatTrialTime(trialDateUtc, trialTimezone);
-  
-  let scheduleText = `${trialDate} at ${trialTime}`;
-  
-  if (userTimezone && userTimezone !== trialTimezone) {
-    const userTime = formatDateForDisplay(
-      trialDateUtc, 
-      userTimezone, 
-      'h:mm a zzz'
-    );
-    scheduleText += ` (${userTime} your time)`;
-  }
-  
-  return scheduleText;
-};
-
-export const getTrialStatusText = (
-  trialDateUtc: string,
-  trialTimezone: string
-): string => {
-  const now = getCurrentLocalDateTime();
-  const status = getEntryWindowStatus(trialDateUtc, trialTimezone, now);
-  
-  if (status === 'open') {
-    const deadline = calculateEntryDeadline(trialDateUtc, trialTimezone);
-    const deadlineText = formatDateForDisplay(
-      deadline.toISOString(), 
-      trialTimezone, 
-      'MMM dd h:mm a'
-    );
-    return `Entries open until ${deadlineText}`;
-  }
-  
-  if (status === 'late') {
-    return `Late entries only (+$${DEFAULT_FEES.LATE_FEE} fee)`;
-  }
-  
-  return 'Entries closed';
-};
 
 // Re-exports
 export {
