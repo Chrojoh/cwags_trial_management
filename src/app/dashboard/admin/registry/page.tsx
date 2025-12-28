@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Users, Award, Calendar, Edit2, Save, X, Dog, User, ArrowLeft, RefreshCw, Plus} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   searchByRegistryNumber,
   searchByHandlerName,
@@ -295,13 +296,19 @@ if (results.length === 1) {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAddDog(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <Plus className="h-4 w-4" />
-                Add Dog
-              </button>
+              <Link 
+  href="/dashboard/admin/registry/import"
+  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
+>
+  Import from Excel
+</Link>
+
+<button
+  onClick={() => setShowAddDog(true)}
+  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+>
+  Add New Dog
+</button>
               <button
                 onClick={handleRefresh}
                 className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"

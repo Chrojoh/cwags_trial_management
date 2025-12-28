@@ -10,6 +10,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { hasPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/lib/constants';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Calendar,
   Users,
@@ -17,6 +24,7 @@ import {
   TrendingUp,
   Clock,
   Plus,
+  Calculator,
   UserCheck,
   UserPlus,
   Settings,
@@ -51,6 +59,7 @@ export default function DashboardPage() {
     totalEntries: 0
   });
   const [recentTrials, setRecentTrials] = useState<Trial[]>([]);
+  const [allTrialsForJudgeComp, setAllTrialsForJudgeComp] = useState<Trial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, getDisplayInfo } = useAuth();
@@ -58,8 +67,10 @@ const userInfo = getDisplayInfo();
 
   
   useEffect(() => {
+  if (user) {
     loadDashboardData();
-  }, []);
+  }
+}, [user]);
 
   const loadDashboardData = async () => {
     try {
@@ -99,6 +110,12 @@ const userInfo = getDisplayInfo();
         .slice(0, 5);
       
       setRecentTrials(recentTrials);
+       if (user?.role === 'administrator') {
+        const allTrialsSorted = [...trials].sort((a: Trial, b: Trial) => 
+          new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+        );
+        setAllTrialsForJudgeComp(allTrialsSorted);
+      }
 
     } catch (err) {
       console.error('Error loading dashboard data:', err);
@@ -399,6 +416,26 @@ const userInfo = getDisplayInfo();
     <UserPlus className="h-4 w-4 mr-2" />
     Trial Assignments
   </Button>
+)}
+{hasPermission(user, PERMISSIONS.MANAGE_REGISTRY) && allTrialsForJudgeComp.length > 0 && (
+  <div className="border-t pt-3 mt-3">
+    <p className="text-xs font-medium text-gray-500 mb-2">Trial Analysis Tools</p>
+    <Select onValueChange={(trialId) => router.push(`/dashboard/admin/judge-compensation/${trialId}`)}>
+      <SelectTrigger className="w-full">
+        <div className="flex items-center">
+          <Calculator className="h-4 w-4 mr-2" />
+          <span>Judge Compensation Analysis</span>
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        {allTrialsForJudgeComp.map((trial) => (
+          <SelectItem key={trial.id} value={trial.id}>
+            {trial.trial_name} - {new Date(trial.start_date).toLocaleDateString()}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
 )}
 </CardContent>
 </Card>

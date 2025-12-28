@@ -38,11 +38,16 @@ import {
   CreditCard,
   Calculator,
   Ban,
-  Download
+  Download,
+  Edit2,
+  RefreshCcw
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { financialOperations, type TrialExpense, type CompetitorFinancial } from '@/lib/financialOperations';
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+
+const supabase = getSupabaseBrowser();
 
 const EXPENSE_CATEGORIES = [
   'Hall Rental',
@@ -104,6 +109,23 @@ export default function TrialFinancialsPage() {
   const [paymentReceivedBy, setPaymentReceivedBy] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentNotes, setPaymentNotes] = useState('');
+
+  // Edit payment modal states
+  const [showEditPaymentModal, setShowEditPaymentModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any>(null);
+  const [editPaymentAmount, setEditPaymentAmount] = useState('');
+  const [editPaymentMethod, setEditPaymentMethod] = useState('');
+  const [editPaymentReceivedBy, setEditPaymentReceivedBy] = useState('');
+  const [editPaymentDate, setEditPaymentDate] = useState('');
+  const [editPaymentNotes, setEditPaymentNotes] = useState('');
+
+  // Refund modal states
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundMethod, setRefundMethod] = useState('');
+  const [refundIssuedBy, setRefundIssuedBy] = useState('');
+  const [refundDate, setRefundDate] = useState(new Date().toISOString().split('T')[0]);
+  const [refundNotes, setRefundNotes] = useState('');
 
   // Waive fees modal state
   const [showWaiveModal, setShowWaiveModal] = useState(false);
@@ -248,8 +270,9 @@ export default function TrialFinancialsPage() {
   };
 
   const openPaymentModal = (competitor: CompetitorFinancial) => {
-  setSelectedCompetitor(competitor);
+    setSelectedCompetitor(competitor);
 
+  const effectiveOwed = competitor.fees_waived ? 0 : competitor.amount_owed;
   const remaining = competitor.fees_waived ? 0 : (competitor.amount_owed - competitor.amount_paid);
 
     setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '');
@@ -296,6 +319,119 @@ export default function TrialFinancialsPage() {
     }
   };
 
+  const openEditPaymentModal = (payment: any, competitor: CompetitorFinancial) => {
+    setEditingPayment(payment);
+    setSelectedCompetitor(competitor);
+    setEditPaymentAmount(payment.amount.toString());
+    setEditPaymentMethod(payment.payment_method || '');
+    setEditPaymentReceivedBy(payment.payment_received_by || '');
+    setEditPaymentDate(payment.payment_date || new Date().toISOString().split('T')[0]);
+    setEditPaymentNotes(payment.notes || '');
+    setShowEditPaymentModal(true);
+  };
+
+  const updatePayment = async () => {
+    if (!editingPayment || !editPaymentAmount || parseFloat(editPaymentAmount) <= 0) {
+      alert('Please enter a valid payment amount');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      // Update the payment transaction
+      const { error: updateError } = await supabase
+        .from('entry_payment_transactions')
+        .update({
+          amount: parseFloat(editPaymentAmount),
+          payment_method: editPaymentMethod,
+          payment_received_by: editPaymentReceivedBy,
+          payment_date: editPaymentDate,
+          notes: editPaymentNotes
+        })
+        .eq('id', editingPayment.id);
+
+      if (updateError) throw updateError;
+
+      // Recalculate total paid for the entry
+      const { data: payments } = await supabase
+        .from('entry_payment_transactions')
+        .select('amount')
+        .eq('entry_id', editingPayment.entry_id);
+
+      const totalPaid = (payments || []).reduce((sum: any, p: any) => sum + p.amount, 0);
+
+      await supabase
+        .from('entries')
+        .update({ amount_paid: totalPaid })
+        .eq('id', editingPayment.entry_id);
+
+      alert('Payment updated successfully!');
+      setShowEditPaymentModal(false);
+      setEditingPayment(null);
+      await loadData();
+
+    } catch (err) {
+      console.error('Error updating payment:', err);
+      alert('Failed to update payment');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openRefundModal = (competitor: CompetitorFinancial) => {
+    setSelectedCompetitor(competitor);
+    
+    // Calculate overpayment amount (negative balance means overpaid)
+    const balance = competitor.fees_waived ? 0 : (competitor.amount_owed - competitor.amount_paid);
+    const overpayment = balance < 0 ? Math.abs(balance) : 0;
+
+    setRefundAmount(overpayment > 0 ? overpayment.toFixed(2) : '');
+    setRefundMethod('');
+    setRefundIssuedBy('');
+    setRefundDate(new Date().toISOString().split('T')[0]);
+    setRefundNotes('');
+    setShowRefundModal(true);
+  };
+
+  const processRefund = async () => {
+    if (!selectedCompetitor || !refundAmount || parseFloat(refundAmount) <= 0) {
+      alert('Please enter a valid refund amount');
+      return;
+    }
+
+    if (!refundMethod) {
+      alert('Please select a refund method');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      
+      // Create a negative payment transaction to represent the refund
+      const result = await financialOperations.addPaymentTransaction({
+        entry_id: selectedCompetitor.entry_id,
+        amount: -parseFloat(refundAmount), // Negative amount for refund
+        payment_method: refundMethod,
+        payment_received_by: refundIssuedBy,
+        payment_date: refundDate,
+        notes: `REFUND: ${refundNotes || 'Overpayment refund'}`
+      });
+
+      if (!result.success) throw new Error('Failed to process refund');
+
+      alert('Refund processed successfully!');
+      setShowRefundModal(false);
+      await loadData();
+
+    } catch (err) {
+      console.error('Error processing refund:', err);
+      alert('Failed to process refund');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openWaiveModal = (competitor: CompetitorFinancial) => {
     setSelectedCompetitor(competitor);
     setWaiveReason(competitor.waiver_reason || '');
@@ -303,16 +439,17 @@ export default function TrialFinancialsPage() {
   };
 
   const waiveFees = async () => {
-  if (!selectedCompetitor || !waiveReason.trim()) {
-    alert('Please provide a reason for waiving fees');
-    return;
-  }
+    if (!selectedCompetitor || !waiveReason.trim()) {
+      alert('Please provide a reason for waiving fees');
+      return;
+    }
 
-  try {
-    setSaving(true);
-    // Use entry_ids (plural) to waive ALL entries for this owner
-    const entryIds = selectedCompetitor.entry_ids || [selectedCompetitor.entry_id];
-    const result = await financialOperations.waiveFees(entryIds, waiveReason);
+    try {
+      setSaving(true);
+      // Use entry_ids (plural) to waive ALL entries for this owner
+      const entryIds = selectedCompetitor.entry_ids || [selectedCompetitor.entry_id];
+      const result = await financialOperations.waiveFees(entryIds, waiveReason);
+      
       if (!result.success) throw new Error('Failed to waive fees');
 
       alert('Fees waived successfully!');
@@ -328,18 +465,15 @@ export default function TrialFinancialsPage() {
   };
 
   const unwaiveFees = async (entryId: string) => {
-  if (!confirm('Remove fee waiver and restore original fees?')) return;
+    if (!confirm('Remove fee waiver and restore original fees?')) return;
 
-  try {
-    setSaving(true);
-    // Find the competitor to get ALL their entry IDs
-    const competitor = competitors.find(c => c.entry_id === entryId);
-    const entryIds = competitor?.entry_ids || [entryId];
-    const result = await financialOperations.unwaiveFees(entryIds);
+    try {
+      setSaving(true);
+      const result = await financialOperations.unwaiveFees(entryId);
       
       if (!result.success) throw new Error('Failed to unwaive fees');
 
-      alert('Fee waiver removed!');
+      alert('Fee waiver removed successfully!');
       await loadData();
 
     } catch (err) {
@@ -350,172 +484,58 @@ export default function TrialFinancialsPage() {
     }
   };
 
-const handleSaveBreakEven = async () => {
-  setSaving(true);
-  try {
-    // STEP 1: Update the actual expense records
-    // This ensures the expense values persist when the page reloads
-    const expenseUpdates = [
-      { category: 'Hall Rental', amount: breakEvenData.hall_rental },
-      { category: 'Ribbons', amount: breakEvenData.ribbons },
-      { category: 'Insurance', amount: breakEvenData.insurance },
-    ];
+  const handleSaveBreakEven = async () => {
+    try {
+      setSaving(true);
+      setError(null);
 
-    // Update each expense category
-    for (const update of expenseUpdates) {
-      const expense = expenses.find(e => e.expense_category === update.category);
-      if (expense) {
-        // Update existing expense
-        const result = await financialOperations.saveExpense({
-          ...expense,
-          amount: update.amount
-        });
-        if (!result.success) {
-          throw new Error(`Failed to save ${update.category}`);
-        }
-      } else {
-        // Create new expense if it doesn't exist
-        const result = await financialOperations.saveExpense({
-          trial_id: trialId,
-          expense_category: update.category,
-          amount: update.amount
-        });
-        if (!result.success) {
-          throw new Error(`Failed to create ${update.category}`);
-        }
-      }
+      const result = await breakEvenOperations.saveConfig(breakEvenData);
+      if (!result.success) throw new Error('Failed to save break-even configuration');
+
+      alert('Break-even analysis saved successfully!');
+
+    } catch (err) {
+      console.error('Error saving break-even:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save break-even analysis');
+    } finally {
+      setSaving(false);
     }
-
-    // Handle "Other Fixed Costs" - this needs special handling
-    // It represents the sum of all non-standard expenses
-    // We need to find or create an "Other" expense for this
-    const otherExpense = expenses.find(e => 
-      e.expense_category === 'Other' && 
-      !e.description
-    );
-    
-    if (breakEvenData.other_fixed_costs > 0) {
-      if (otherExpense) {
-        const result = await financialOperations.saveExpense({
-          ...otherExpense,
-          amount: breakEvenData.other_fixed_costs,
-          description: 'Other fixed costs'
-        });
-        if (!result.success) {
-          throw new Error('Failed to save other fixed costs');
-        }
-      } else {
-        const result = await financialOperations.saveExpense({
-          trial_id: trialId,
-          expense_category: 'Other',
-          amount: breakEvenData.other_fixed_costs,
-          description: 'Other fixed costs'
-        });
-        if (!result.success) {
-          throw new Error('Failed to create other fixed costs');
-        }
-      }
-    }
-
-    // STEP 2: Save the break-even config (rates, etc.)
-    const result = await breakEvenOperations.saveConfig(breakEvenData);
-    if (!result.success) {
-      throw new Error(result.error);
-    }
-
-    // STEP 3: Reload data to show updated values
-    await loadData();
-    
-    alert('Break-even analysis saved!');
-  } catch (error) {
-    console.error('Error saving break-even:', error);
-    alert('Failed to save break-even analysis: ' + (error instanceof Error ? error.message : 'Unknown error'));
-  } finally {
-    setSaving(false);
-  }
-};
-
-  const updateBreakEvenField = (field: keyof BreakEvenConfig, value: string) => {
-    const numValue = parseFloat(value) || 0;
-    setBreakEvenData(prev => ({ ...prev, [field]: numValue }));
   };
 
-  const calculateTotals = () => {
-    const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.amount || 0), 0);
-    const totalOwed = competitors.reduce((sum, comp) => {
-      if (comp.fees_waived) return sum;
-      return sum + comp.amount_owed;
-    }, 0);
-
-    const totalPaid = competitors.reduce((sum, comp) => {
-      if (comp.fees_waived) return sum;
-      return sum + comp.amount_paid;
-    }, 0);
-
-    const totalOutstanding = totalOwed - totalPaid;
-    const netIncome = totalPaid - totalExpenses;
-
-    return { totalExpenses, totalOwed, totalPaid, totalOutstanding, netIncome };
-  };
-
-  const totals = calculateTotals();
-
-  // UPDATED BREAK-EVEN CALCULATIONS WITH WAIVED RUNS
-  // Separate PAID runs from WAIVED runs
-  const paidRegularRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.regular_runs || 0), 0);
-  const paidFeoRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.feo_runs || 0), 0);
-  const waivedRegularRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.waived_regular_runs || 0), 0);
-  const waivedFeoRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.waived_feo_runs || 0), 0);
-  
-  const totalFixedCosts = breakEvenData.hall_rental + breakEvenData.ribbons + breakEvenData.insurance + breakEvenData.other_fixed_costs;
-  
-  // Net per PAID run (revenue after costs)
-  const regularNetPerRun = breakEvenData.regular_entry_fee - breakEvenData.regular_cwags_fee - breakEvenData.regular_judge_fee;
-  const feoNetPerRun = breakEvenData.feo_entry_fee - breakEvenData.feo_judge_fee;
-  
-  // Revenue from PAID runs
-  const paidRegularRevenue = paidRegularRuns * regularNetPerRun;
-  const paidFeoRevenue = paidFeoRuns * feoNetPerRun;
-  
-  // COST per WAIVED run (we pay fees but get no income)
-  const waivedRegularCostPerRun = breakEvenData.regular_cwags_fee + breakEvenData.regular_judge_fee;
-  const waivedFeoCostPerRun = breakEvenData.feo_judge_fee; // No CWAGS fee for FEO
-  
-  // Total COSTS from waived runs
-  const waivedRegularCosts = waivedRegularRuns * waivedRegularCostPerRun;
-  const waivedFeoCosts = waivedFeoRuns * waivedFeoCostPerRun;
-  const totalWaivedCosts = waivedRegularCosts + waivedFeoCosts;
-  
-  // Total revenue and costs
-  const totalNetRevenue = paidRegularRevenue + paidFeoRevenue;
-  const totalAllCosts = totalFixedCosts + totalWaivedCosts;
-  const currentNetIncome = totalNetRevenue - totalAllCosts;
-  
-  // Total runs
-  const totalPaidRuns = paidRegularRuns + paidFeoRuns;
-  const totalWaivedRuns = waivedRegularRuns + waivedFeoRuns;
-  const totalRuns = totalPaidRuns + totalWaivedRuns;
-  
-  // For break-even, we need to cover: fixed costs + waived run costs
-  // Using only PAID runs (waived runs only add cost, not revenue)
-  const weightedAvgNetPerRun = totalPaidRuns > 0 
-    ? (paidRegularRevenue + paidFeoRevenue) / totalPaidRuns 
-    : regularNetPerRun;
-  
-  const breakEvenRuns = weightedAvgNetPerRun > 0 
-    ? Math.ceil(totalAllCosts / weightedAvgNetPerRun)
-    : 0;
-  
-  const paidRunsNeeded = breakEvenRuns - totalPaidRuns;
-  const isProfitable = currentNetIncome >= 0;
-
-  // Export function with waived runs
   const exportBreakEvenAnalysis = () => {
-    const analysis = `
-BREAK-EVEN ANALYSIS REPORT
-Trial: ${trial?.trial_name || 'Unknown Trial'}
-Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+    // Calculate totals
+    const totalFixedCosts = 
+      breakEvenData.hall_rental + 
+      breakEvenData.ribbons + 
+      breakEvenData.insurance + 
+      breakEvenData.other_fixed_costs;
 
+    const regularNetPerRun = 
+      breakEvenData.regular_entry_fee - 
+      breakEvenData.regular_cwags_fee - 
+      breakEvenData.regular_judge_fee;
+
+    const feoNetPerRun = 
+      breakEvenData.feo_entry_fee - 
+      breakEvenData.feo_judge_fee;
+
+    // Calculate current status
+    const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
+    const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
+    const totalWaivedRegular = competitors.reduce((sum, c) => sum + (c.waived_regular_runs || 0), 0);
+    const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
+
+    const currentRevenue = (totalPaidRuns * regularNetPerRun) + (totalFeoRuns * feoNetPerRun);
+    const currentNetIncome = currentRevenue - totalFixedCosts;
+
+    const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
+    const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
+
+    const analysis = `
+═══════════════════════════════════════════════════════════
+                 BREAK-EVEN ANALYSIS REPORT
+                   ${trial?.trial_name || 'Trial'}
+           Generated: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════
 
 FIXED COSTS
@@ -527,76 +547,35 @@ Other Fixed Costs:    $${breakEvenData.other_fixed_costs.toFixed(2)}
 ───────────────────────────────────────────────────────────
 TOTAL FIXED COSTS:    $${totalFixedCosts.toFixed(2)}
 
-═══════════════════════════════════════════════════════════
-
-PER-RUN RATES
+ENTRY FEE STRUCTURE
 ───────────────────────────────────────────────────────────
-REGULAR RUNS (PAID):
-  Entry Fee:          $${breakEvenData.regular_entry_fee.toFixed(2)}
-  CWAGS Fee:         -$${breakEvenData.regular_cwags_fee.toFixed(2)}
-  Judge Fee:         -$${breakEvenData.regular_judge_fee.toFixed(2)}
-  ─────────────────────────────────────
+Regular Entry Fee:    $${breakEvenData.regular_entry_fee.toFixed(2)}
+  - C-WAGS Fee:       $${breakEvenData.regular_cwags_fee.toFixed(2)}
+  - Judge Fee:        $${breakEvenData.regular_judge_fee.toFixed(2)}
   NET PER RUN:        $${regularNetPerRun.toFixed(2)}
 
-FEO RUNS (PAID):
-  Entry Fee:          $${breakEvenData.feo_entry_fee.toFixed(2)}
-  CWAGS Fee:         -$0.00 (No fee for FEO)
-  Judge Fee:         -$${breakEvenData.feo_judge_fee.toFixed(2)}
-  ─────────────────────────────────────
+FEO Entry Fee:        $${breakEvenData.feo_entry_fee.toFixed(2)}
+  - Judge Fee:        $${breakEvenData.feo_judge_fee.toFixed(2)}
   NET PER RUN:        $${feoNetPerRun.toFixed(2)}
-
-WAIVED RUNS (COSTS ONLY - NO REVENUE):
-  Regular Waived:    -$${waivedRegularCostPerRun.toFixed(2)} per run
-  FEO Waived:        -$${waivedFeoCostPerRun.toFixed(2)} per run
-
-═══════════════════════════════════════════════════════════
-
-CURRENT STATUS
-───────────────────────────────────────────────────────────
-PAID RUNS:
-  Regular Runs:       ${paidRegularRuns} runs
-  FEO Runs:           ${paidFeoRuns} runs
-  ─────────────────────────────────────
-  Total Paid Runs:    ${totalPaidRuns} runs
-
-WAIVED RUNS:
-  Regular Waived:     ${waivedRegularRuns} runs
-  FEO Waived:         ${waivedFeoRuns} runs
-  ─────────────────────────────────────
-  Total Waived Runs:  ${totalWaivedRuns} runs
-
-TOTAL ALL RUNS:       ${totalRuns} runs
-
-═══════════════════════════════════════════════════════════
-
-REVENUE & COST ANALYSIS
-───────────────────────────────────────────────────────────
-REVENUE (from paid runs):
-  Regular Revenue:    $${paidRegularRevenue.toFixed(2)}
-  FEO Revenue:        $${paidFeoRevenue.toFixed(2)}
-  ─────────────────────────────────────
-  Total Revenue:      $${totalNetRevenue.toFixed(2)}
-
-COSTS:
-  Fixed Costs:       -$${totalFixedCosts.toFixed(2)}
-  Waived Run Costs:  -$${totalWaivedCosts.toFixed(2)}
-    (${waivedRegularRuns} reg @ $${waivedRegularCostPerRun.toFixed(2)} + ${waivedFeoRuns} feo @ $${waivedFeoCostPerRun.toFixed(2)})
-  ─────────────────────────────────────
-  Total Costs:       -$${totalAllCosts.toFixed(2)}
-
-───────────────────────────────────────────────────────────
-NET INCOME:           $${currentNetIncome.toFixed(2)}
-
-═══════════════════════════════════════════════════════════
 
 BREAK-EVEN CALCULATION
 ───────────────────────────────────────────────────────────
-Costs to Cover:       $${totalAllCosts.toFixed(2)}
-Avg Net per Paid Run: $${weightedAvgNetPerRun.toFixed(2)}
-Paid Runs Needed:     ${breakEvenRuns} runs
-Current Paid Runs:    ${totalPaidRuns} runs
+Runs needed:          ${breakEvenRuns} regular paid runs
+At $${regularNetPerRun.toFixed(2)}/run to cover $${totalFixedCosts.toFixed(2)} in costs
+
+CURRENT STATUS
 ───────────────────────────────────────────────────────────
-STATUS:               ${isProfitable 
+Paid Regular Runs:    ${totalPaidRuns}
+Paid FEO Runs:        ${totalFeoRuns}
+Waived Regular Runs:  ${totalWaivedRegular}
+Waived FEO Runs:      ${totalWaivedFeo}
+
+Revenue Generated:    $${currentRevenue.toFixed(2)}
+Net Income:           $${currentNetIncome.toFixed(2)}
+
+ANALYSIS
+───────────────────────────────────────────────────────────
+${currentNetIncome >= 0 
   ? `✓ PROFITABLE - $${Math.abs(currentNetIncome).toFixed(2)} above break-even`
   : `⚠ Need ${paidRunsNeeded} more PAID runs - $${Math.abs(currentNetIncome).toFixed(2)} short`
 }
@@ -617,6 +596,20 @@ End of Report
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
+
+  // Calculate totals
+  const totals = {
+    totalExpenses: expenses.reduce((sum, e) => sum + (e.amount || 0), 0),
+    totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
+    totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
+    totalOutstanding: competitors.reduce((sum, c) => {
+    const balance = c.fees_waived ? 0 : (c.amount_owed - c.amount_paid);
+    return sum + Math.max(0, balance);
+  }, 0),
+    netIncome: 0
+  };
+
+  totals.netIncome = totals.totalPaid - totals.totalExpenses;
 
   if (loading) {
     return (
@@ -741,48 +734,44 @@ End of Report
                     )}
                     Net Income
                   </div>
-                  <div className={`text-2xl font-bold ${totals.netIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <div className={`text-2xl font-bold ${totals.netIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ${totals.netIncome.toFixed(2)}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Expenses Section */}
+            {/* Trial Expenses */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="flex items-center space-x-2">
-                      <DollarSign className="h-5 w-5 text-orange-600" />
-                      <span>Trial Expenses</span>
-                    </CardTitle>
-                    <CardDescription>Track all expenses including judge fees</CardDescription>
+                    <CardTitle>Trial Expenses</CardTitle>
+                    <CardDescription>Track all expenses for this trial</CardDescription>
                   </div>
                   <div className="flex space-x-2">
                     <Button
+                      onClick={() => addExpenseRow('Judge Fees')}
                       variant="outline"
                       size="sm"
-                      onClick={() => addExpenseRow('Judge Fees')}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
+                      <Plus className="h-4 w-4 mr-1" />
                       Add Judge
                     </Button>
                     <Button
+                      onClick={() => addExpenseRow()}
                       variant="outline"
                       size="sm"
-                      onClick={() => addExpenseRow()}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Row
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Expense
                     </Button>
                     <Button
-                      size="sm"
                       onClick={saveExpenses}
                       disabled={saving}
                       className="bg-orange-600 hover:bg-orange-700"
                     >
-                      <Save className="h-4 w-4 mr-2" />
+                      <Save className="h-4 w-4 mr-1" />
                       {saving ? 'Saving...' : 'Save All'}
                     </Button>
                   </div>
@@ -797,11 +786,11 @@ End of Report
                           value={expense.expense_category}
                           onValueChange={(value) => updateExpense(index, 'expense_category', value)}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
-                            {EXPENSE_CATEGORIES.map(cat => (
+                          <SelectContent className="bg-white">
+                              {EXPENSE_CATEGORIES.map(cat => (
                               <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                             ))}
                           </SelectContent>
@@ -845,7 +834,7 @@ End of Report
               </CardContent>
             </Card>
 
-            {/* Competitor Payments - keeping existing table */}
+            {/* Competitor Payments */}
             <Card>
               <CardHeader>
                 <CardTitle>Entry Payments</CardTitle>
@@ -865,6 +854,7 @@ End of Report
                         <th className="text-left p-2 text-sm font-semibold w-32">Date</th>
                         <th className="text-right p-2 text-sm font-semibold w-32">Amount</th>
                         <th className="text-right p-2 text-sm font-semibold w-32">Balance</th>
+                        <th className="text-center p-2 text-sm font-semibold w-20"></th>
                         <th className="text-center p-2 text-sm font-semibold w-24">Actions</th>
                       </tr>
                     </thead>
@@ -873,7 +863,7 @@ End of Report
                         const payments = comp.payment_history || [];
                         const hasPayments = payments.length > 0;
                         const effectiveOwed = comp.fees_waived ? 0 : comp.amount_owed;
-                        const balance = comp.fees_waived ? 0 : (comp.amount_owed - comp.amount_paid);
+                        const balance = comp.fees_waived ? 0 : (comp.amount_owed - comp.amount_paid); 
 
                         return (
                           <React.Fragment key={compIndex}>
@@ -906,18 +896,29 @@ End of Report
                               <td className="p-2 text-right font-mono font-semibold">
                                 ${effectiveOwed.toFixed(2)}
                               </td>
+                              <td className="p-2"></td>
                               <td className="p-2" rowSpan={hasPayments ? payments.length + 2 : 2}>
                                 <div className="flex flex-col space-y-1">
-                                  {!comp.fees_waived && (
+                                  {!comp.fees_waived && balance > 0 && (
                                     <Button
                                       size="sm"
                                       variant="outline"
                                       onClick={() => openPaymentModal(comp)}
-                                      disabled={effectiveOwed <= 0}
                                       className="w-full"
                                     >
                                       <CreditCard className="h-3 w-3 mr-1" />
                                       Pay
+                                    </Button>
+                                  )}
+                                  {!comp.fees_waived && balance < 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openRefundModal(comp)}
+                                      className="w-full border-purple-600 text-purple-600 hover:bg-purple-50"
+                                    >
+                                      <RefreshCcw className="h-3 w-3 mr-1" />
+                                      Refund
                                     </Button>
                                   )}
                                   {comp.fees_waived ? (
@@ -950,22 +951,37 @@ End of Report
                                 .slice(0, paymentIndex + 1)
                                 .reduce((sum, p) => sum + p.amount, 0);
 
+                              const isRefund = payment.amount < 0;
+
                               return (
                                 <tr 
                                   key={`payment-${paymentIndex}`} 
                                   className={`border-b ${compIndex % 2 === 0 ? 'bg-orange-50' : 'bg-white'}`}
                                 >
-                                  <td className="p-2 text-sm text-gray-600">{payment.notes || 'Payment'}</td>
+                                  <td className="p-2 text-sm text-gray-600">
+                                    {isRefund ? '🔄 REFUND: ' : ''}{payment.notes || 'Payment'}
+                                  </td>
                                   <td className="p-2 text-sm">{payment.payment_method}</td>
                                   <td className="p-2 text-sm">{payment.payment_received_by || '-'}</td>
                                   <td className="p-2 text-sm">
                                     {new Date(payment.payment_date || '').toLocaleDateString()}
                                   </td>
-                                  <td className="p-2 text-right font-mono text-green-600">
-                                    ${payment.amount.toFixed(2)}
+                                  <td className={`p-2 text-right font-mono ${isRefund ? 'text-purple-600' : 'text-green-600'}`}>
+                                    {isRefund ? '-' : ''}${Math.abs(payment.amount).toFixed(2)}
                                   </td>
                                   <td className="p-2 text-right font-mono">
                                     ${remainingAfterThisPayment.toFixed(2)}
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => openEditPaymentModal(payment, comp)}
+                                      className="h-7 px-2"
+                                    >
+                                      <Edit2 className="h-3 w-3 mr-1" />
+                                      Edit
+                                    </Button>
                                   </td>
                                 </tr>
                               );
@@ -982,6 +998,7 @@ End of Report
                               }`}>
                                 ${balance.toFixed(2)}
                               </td>
+                              <td className="p-2"></td>
                             </tr>
                           </React.Fragment>
                         );
@@ -993,10 +1010,12 @@ End of Report
                         <td className="p-3 text-right">${totals.totalOwed.toFixed(2)}</td>
                         <td className="p-3 text-right text-lg">${totals.totalOutstanding.toFixed(2)}</td>
                         <td></td>
+                        <td></td>
                       </tr>
                       <tr className="bg-gray-100 font-semibold">
                         <td className="p-2" colSpan={7}>Total Collected</td>
                         <td className="p-2 text-right text-green-600">${totals.totalPaid.toFixed(2)}</td>
+                        <td></td>
                         <td></td>
                         <td></td>
                       </tr>
@@ -1007,7 +1026,7 @@ End of Report
             </Card>
           </>
         ) : (
-          /* BREAK-EVEN TAB WITH WAIVED RUNS */
+          /* BREAK-EVEN TAB */
           <div className="space-y-6">
             {/* Header with Export Button */}
             <div className="flex items-center justify-between">
@@ -1030,418 +1049,313 @@ End of Report
                   className="bg-orange-600 hover:bg-orange-700"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Analysis'}
+                  {saving ? 'Saving...' : 'Save Configuration'}
                 </Button>
               </div>
             </div>
 
-            {/* Status Alert */}
-            {totalPaidRuns > 0 && (
-              <Alert className={isProfitable ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'}>
-                {isProfitable ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 text-orange-600" />
-                )}
-                <AlertDescription className={isProfitable ? 'text-green-800' : 'text-orange-800'}>
-                  {isProfitable ? (
-                    <span className="font-semibold">
-                      ✓ Profitable! You're ${Math.abs(currentNetIncome).toFixed(2)} above break-even
-                    </span>
-                  ) : (
-                    <span className="font-semibold">
-                      Need {paidRunsNeeded} more PAID run{paidRunsNeeded !== 1 ? 's' : ''} to break even (${Math.abs(currentNetIncome).toFixed(2)} short)
-                    </span>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Waived Runs Warning */}
-            {totalWaivedRuns > 0 && (
-              <Alert className="border-purple-300 bg-purple-50">
-                <AlertCircle className="h-4 w-4 text-purple-600" />
-                <AlertDescription className="text-purple-800">
-                  <span className="font-semibold">
-                    Note: You have {totalWaivedRuns} waived run{totalWaivedRuns !== 1 ? 's' : ''} costing $-{totalWaivedCosts.toFixed(2)} 
-                    ({waivedRegularRuns} regular @ ${waivedRegularCostPerRun.toFixed(2)}/run, {waivedFeoRuns} FEO @ ${waivedFeoCostPerRun.toFixed(2)}/run)
-                  </span>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Fixed Costs Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <DollarSign className="h-5 w-5 mr-2 text-red-600" />
-                    Fixed Costs
-                  </CardTitle>
-                  <CardDescription>One-time expenses (auto-filled from expenses)</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Hall Rental</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.hall_rental}
-                        onChange={(e) => updateBreakEvenField('hall_rental', e.target.value)}
-                        className="pl-7"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Ribbons</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.ribbons}
-                        onChange={(e) => updateBreakEvenField('ribbons', e.target.value)}
-                        className="pl-7"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Insurance</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.insurance}
-                        onChange={(e) => updateBreakEvenField('insurance', e.target.value)}
-                        className="pl-7"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Other Fixed Costs</Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.other_fixed_costs}
-                        onChange={(e) => updateBreakEvenField('other_fixed_costs', e.target.value)}
-                        className="pl-7"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Cleaning, Food, Theme Materials, etc.</p>
-                  </div>
-
-                  <div className="pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">Total Fixed Costs:</span>
-                      <span className="text-xl font-bold text-red-600">
-                        ${totalFixedCosts.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Per-Run Rates Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Calculator className="h-5 w-5 mr-2 text-blue-600" />
-                    Per-Run Rates
-                  </CardTitle>
-                  <CardDescription>Configure rates for this trial</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Regular Runs */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-900 border-b pb-2">Regular Runs (Paid)</h3>
-                    
-                    <div>
-                      <Label>Entry Fee</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.regular_entry_fee}
-                          onChange={(e) => updateBreakEvenField('regular_entry_fee', e.target.value)}
-                          className="pl-7"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>CWAGS Fee per Run</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.regular_cwags_fee}
-                          onChange={(e) => updateBreakEvenField('regular_cwags_fee', e.target.value)}
-                          className="pl-7"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>Judge Fee per Run</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.regular_judge_fee}
-                          onChange={(e) => updateBreakEvenField('regular_judge_fee', e.target.value)}
-                          className="pl-7"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Net per Paid Run:</span>
-                        <span className="font-bold text-green-700">
-                          ${regularNetPerRun.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Cost per Waived Run:</span>
-                        <span className="font-bold text-red-700">
-                          -${waivedRegularCostPerRun.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* FEO Runs */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-900 border-b pb-2">FEO Runs (Paid)</h3>
-                    
-                    <div>
-                      <Label>Entry Fee</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.feo_entry_fee}
-                          onChange={(e) => updateBreakEvenField('feo_entry_fee', e.target.value)}
-                          className="pl-7"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>CWAGS Fee per Run</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          value="0.00"
-                          disabled
-                          className="pl-7 bg-gray-100 cursor-not-allowed"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">No CWAGS fee for FEO runs</p>
-                    </div>
-
-                    <div>
-                      <Label>Judge Fee per Run</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.feo_judge_fee}
-                          onChange={(e) => updateBreakEvenField('feo_judge_fee', e.target.value)}
-                          className="pl-7"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Net per Paid Run:</span>
-                        <span className="font-bold text-purple-700">
-                          ${feoNetPerRun.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Cost per Waived Run:</span>
-                        <span className="font-bold text-red-700">
-                          -${waivedFeoCostPerRun.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Break-Even Summary */}
-            <Card className="border-2 border-orange-200 bg-gradient-to-br from-orange-50 to-white">
+            {/* Break-Even Configuration */}
+            <Card>
               <CardHeader>
-                <CardTitle className="text-2xl flex items-center">
-                  <TrendingUp className="h-6 w-6 mr-2 text-orange-600" />
-                  Break-Even Summary
-                </CardTitle>
+                <CardTitle>Fixed Costs</CardTitle>
+                <CardDescription>These are auto-populated from your expenses</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {/* Current Runs */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-700 border-b pb-2">Current Runs</h3>
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold text-gray-500 uppercase">Paid Runs</div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Regular:</span>
-                        <span className="font-semibold">{paidRegularRuns}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">FEO:</span>
-                        <span className="font-semibold">{paidFeoRuns}</span>
-                      </div>
-                      <div className="flex justify-between pt-1 border-t">
-                        <span className="text-sm font-semibold text-gray-700">Subtotal:</span>
-                        <span className="font-bold">{totalPaidRuns}</span>
-                      </div>
-                      
-                      {totalWaivedRuns > 0 && (
-                        <>
-                          <div className="text-xs font-semibold text-purple-600 uppercase mt-3">Waived Runs</div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">Regular:</span>
-                            <span className="font-semibold text-purple-700">{waivedRegularRuns}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-sm text-gray-600">FEO:</span>
-                            <span className="font-semibold text-purple-700">{waivedFeoRuns}</span>
-                          </div>
-                          <div className="flex justify-between pt-1 border-t">
-                            <span className="text-sm font-semibold text-gray-700">Subtotal:</span>
-                            <span className="font-bold text-purple-700">{totalWaivedRuns}</span>
-                          </div>
-                        </>
-                      )}
-                      
-                      <div className="flex justify-between pt-2 border-t-2 border-gray-400">
-                        <span className="text-sm font-bold text-gray-900">Total Runs:</span>
-                        <span className="font-bold text-lg">{totalRuns}</span>
-                      </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Hall Rental</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={breakEvenData.hall_rental}
+                      onChange={(e) => setBreakEvenData({...breakEvenData, hall_rental: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div>
+                    <Label>Ribbons</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={breakEvenData.ribbons}
+                      onChange={(e) => setBreakEvenData({...breakEvenData, ribbons: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div>
+                    <Label>Insurance</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={breakEvenData.insurance}
+                      onChange={(e) => setBreakEvenData({...breakEvenData, insurance: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div>
+                    <Label>Other Fixed Costs</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={breakEvenData.other_fixed_costs}
+                      onChange={(e) => setBreakEvenData({...breakEvenData, other_fixed_costs: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Entry Fee Structure</CardTitle>
+                <CardDescription>Configure your entry fees and costs per run</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>Regular Entry Fee</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={breakEvenData.regular_entry_fee}
+                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_entry_fee: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <Label>C-WAGS Fee (per run)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={breakEvenData.regular_cwags_fee}
+                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_cwags_fee: parseFloat(e.target.value) || 0})}
+                      />
+                    </div>
+                    <div>
+                      <Label>Judge Fee (per run)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={breakEvenData.regular_judge_fee}
+                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_judge_fee: parseFloat(e.target.value) || 0})}
+                      />
                     </div>
                   </div>
 
-                  {/* Revenue from Paid */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-700 border-b pb-2">Revenue (Paid)</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Regular:</span>
-                        <span className="font-semibold text-green-700">${paidRegularRevenue.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">FEO:</span>
-                        <span className="font-semibold text-purple-700">${paidFeoRevenue.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t">
-                        <span className="text-sm font-semibold text-gray-700">Total Revenue:</span>
-                        <span className="font-bold text-lg text-green-700">${totalNetRevenue.toFixed(2)}</span>
-                      </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>FEO Entry Fee</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={breakEvenData.feo_entry_fee}
+                        onChange={(e) => setBreakEvenData({...breakEvenData, feo_entry_fee: parseFloat(e.target.value) || 0})}
+                      />
                     </div>
-                  </div>
-
-                  {/* Costs */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-700 border-b pb-2">Costs</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Fixed Costs:</span>
-                        <span className="font-semibold text-red-700">-${totalFixedCosts.toFixed(2)}</span>
-                      </div>
-                      {totalWaivedRuns > 0 && (
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">Waived Costs:</span>
-                          <span className="font-semibold text-red-700">-${totalWaivedCosts.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between pt-2 border-t">
-                        <span className="text-sm font-semibold text-gray-700">Total Costs:</span>
-                        <span className="font-bold text-lg text-red-700">-${totalAllCosts.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t-2 border-gray-400">
-                        <span className="text-sm font-bold text-gray-900">Net Income:</span>
-                        <span className={`font-bold text-lg ${currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          ${currentNetIncome.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Break-Even Target */}
-                  <div className="space-y-3">
-                    <h3 className="font-semibold text-gray-700 border-b pb-2">Break-Even</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Avg Net/Run:</span>
-                        <span className="font-semibold">${weightedAvgNetPerRun.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Runs Needed:</span>
-                        <span className="font-semibold">{breakEvenRuns}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Current Paid:</span>
-                        <span className="font-semibold">{totalPaidRuns}</span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t">
-                        <span className="text-sm font-semibold text-gray-700">Status:</span>
-                        <span className={`font-bold text-lg ${isProfitable ? 'text-green-700' : 'text-orange-700'}`}>
-                          {isProfitable ? '✓ Profit' : `Need ${paidRunsNeeded}`}
-                        </span>
-                      </div>
+                    <div>
+                      <Label>FEO Judge Fee (per run)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={breakEvenData.feo_judge_fee}
+                        onChange={(e) => setBreakEvenData({...breakEvenData, feo_judge_fee: parseFloat(e.target.value) || 0})}
+                      />
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Visual Progress Bar */}
-                {totalPaidRuns > 0 && (
-                  <div className="mt-6 pt-6 border-t">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-700">Progress to Break-Even (Paid Runs Only)</span>
-                      <span className="text-sm text-gray-600">
-                        {totalPaidRuns} / {breakEvenRuns} runs ({Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))}%)
-                      </span>
+            {/* Break-Even Results */}
+            <Card className="border-orange-300">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calculator className="h-5 w-5 mr-2 text-orange-600" />
+                  Break-Even Analysis Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const totalFixedCosts = 
+                    breakEvenData.hall_rental + 
+                    breakEvenData.ribbons + 
+                    breakEvenData.insurance + 
+                    breakEvenData.other_fixed_costs;
+
+                  const regularNetPerRun = 
+                    breakEvenData.regular_entry_fee - 
+                    breakEvenData.regular_cwags_fee - 
+                    breakEvenData.regular_judge_fee;
+
+                  const feoNetPerRun = 
+                    breakEvenData.feo_entry_fee - 
+                    breakEvenData.feo_judge_fee;
+
+                  const breakEvenRuns = regularNetPerRun > 0 
+                    ? Math.ceil(totalFixedCosts / regularNetPerRun) 
+                    : 0;
+
+                  // Calculate current status with waived runs separated
+                  const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
+                  const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
+                  const totalWaivedRegular = competitors.reduce((sum, c) => sum + (c.waived_regular_runs || 0), 0);
+                  const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
+
+                  // Calculate waived run costs
+                  const waivedRegularCostPerRun = breakEvenData.regular_cwags_fee + breakEvenData.regular_judge_fee;
+                  const waivedFeoCostPerRun = breakEvenData.feo_judge_fee;
+                  const waivedRegularCosts = totalWaivedRegular * waivedRegularCostPerRun;
+                  const waivedFeoCosts = totalWaivedFeo * waivedFeoCostPerRun;
+                  const totalWaivedCosts = waivedRegularCosts + waivedFeoCosts;
+
+                  const currentRevenue = (totalPaidRuns * regularNetPerRun) + (totalFeoRuns * feoNetPerRun);
+                  const totalAllCosts = totalFixedCosts + totalWaivedCosts;
+                  const currentNetIncome = currentRevenue - totalAllCosts;
+                  const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded">
+                          <div className="text-sm text-gray-600">Total Fixed Costs</div>
+                          <div className="text-2xl font-bold text-red-600">
+                            ${totalFixedCosts.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded">
+                          <div className="text-sm text-gray-600">Net Per Regular Run</div>
+                          <div className="text-2xl font-bold text-green-600">
+                            ${regularNetPerRun.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Break-Even Point:</strong> You need <strong>{breakEvenRuns} paid regular runs</strong> to cover 
+                          ${totalFixedCosts.toFixed(2)} in fixed costs at ${regularNetPerRun.toFixed(2)} net profit per run.
+                        </AlertDescription>
+                      </Alert>
+
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                          <div className="text-sm text-blue-600">Paid Regular Runs</div>
+                          <div className="text-2xl font-bold text-blue-700">{totalPaidRuns}</div>
+                        </div>
+                        <div className="bg-green-50 p-4 rounded border border-green-200">
+                          <div className="text-sm text-green-600">Paid FEO Runs</div>
+                          <div className="text-2xl font-bold text-green-700">{totalFeoRuns}</div>
+                        </div>
+                        <div className="bg-purple-50 p-4 rounded border border-purple-200">
+                          <div className="text-sm text-purple-600">Waived Regular</div>
+                          <div className="text-2xl font-bold text-purple-700">{totalWaivedRegular}</div>
+                        </div>
+                        <div className="bg-purple-50 p-4 rounded border border-purple-200">
+                          <div className="text-sm text-purple-600">Waived FEO</div>
+                          <div className="text-2xl font-bold text-purple-700">{totalWaivedFeo}</div>
+                        </div>
+                      </div>
+
+                      {/* Waived Runs Expense Display */}
+                      {(totalWaivedRegular > 0 || totalWaivedFeo > 0) && (
+                        <Alert className="bg-purple-50 border-purple-300">
+                          <Ban className="h-4 w-4 text-purple-700" />
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              <div className="font-semibold text-purple-900">Waived Runs Expense (No Revenue):</div>
+                              {totalWaivedRegular > 0 && (
+                                <div className="text-sm text-purple-800">
+                                  • Regular Waived: {totalWaivedRegular} runs × ${waivedRegularCostPerRun.toFixed(2)} = 
+                                  <span className="font-semibold ml-1">-${waivedRegularCosts.toFixed(2)}</span>
+                                </div>
+                              )}
+                              {totalWaivedFeo > 0 && (
+                                <div className="text-sm text-purple-800">
+                                  • FEO Waived: {totalWaivedFeo} runs × ${waivedFeoCostPerRun.toFixed(2)} = 
+                                  <span className="font-semibold ml-1">-${waivedFeoCosts.toFixed(2)}</span>
+                                </div>
+                              )}
+                              <div className="text-sm font-bold text-purple-900 pt-2 border-t border-purple-300">
+                                Total Waived Expense: -${totalWaivedCosts.toFixed(2)}
+                              </div>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="bg-green-50 p-4 rounded border border-green-200">
+                          <div className="text-sm text-green-600">Revenue (Paid Runs)</div>
+                          <div className="text-2xl font-bold text-green-700">
+                            ${currentRevenue.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="bg-red-50 p-4 rounded border border-red-200">
+                          <div className="text-sm text-red-600">Total Costs</div>
+                          <div className="text-sm text-red-500 font-medium">
+                            Fixed: ${totalFixedCosts.toFixed(2)}<br/>
+                            Waived: ${totalWaivedCosts.toFixed(2)}
+                          </div>
+                          <div className="text-2xl font-bold text-red-700">
+                            ${totalAllCosts.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className={`p-4 rounded border ${
+                          currentNetIncome >= 0 
+                            ? 'bg-green-50 border-green-200' 
+                            : 'bg-red-50 border-red-200'
+                        }`}>
+                          <div className={`text-sm ${currentNetIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            Net Income
+                          </div>
+                          <div className={`text-2xl font-bold ${currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                            ${currentNetIncome.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {currentNetIncome >= 0 ? (
+                        <Alert className="bg-green-50 border-green-200">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            <strong>✓ Profitable!</strong> You are ${Math.abs(currentNetIncome).toFixed(2)} above break-even.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <strong>⚠ Need more entries:</strong> You need <strong>{paidRunsNeeded} more PAID regular runs</strong> to 
+                            break even. Currently ${Math.abs(currentNetIncome).toFixed(2)} short.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {breakEvenRuns > 0 && (
+                        <div className="bg-gray-50 p-4 rounded">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Progress to Break-Even</span>
+                            <span className="text-sm font-bold">
+                              {Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-4">
+                            <div 
+                              className={`h-4 rounded-full transition-all ${
+                                totalPaidRuns >= breakEvenRuns ? 'bg-green-600' : 'bg-orange-600'
+                              }`}
+                              style={{ width: `${Math.min(100, (totalPaidRuns / breakEvenRuns) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          isProfitable ? 'bg-green-600' : 'bg-orange-600'
-                        }`}
-                        style={{ width: `${Math.min(100, (totalPaidRuns / breakEvenRuns) * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
           </div>
         )}
 
-        {/* Payment Modal - keep existing */}
+        {/* Payment Modal */}
         <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
           <DialogContent className="bg-white">
             <DialogHeader>
@@ -1483,10 +1397,10 @@ End of Report
               <div>
                 <Label>Payment Method *</Label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Select method" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white">
                     {PAYMENT_METHODS.map(method => (
                       <SelectItem key={method} value={method}>{method}</SelectItem>
                     ))}
@@ -1534,7 +1448,180 @@ End of Report
           </DialogContent>
         </Dialog>
 
-        {/* Waive Fees Modal - keep existing */}
+        {/* Edit Payment Modal */}
+        <Dialog open={showEditPaymentModal} onOpenChange={setShowEditPaymentModal}>
+          <DialogContent className="bg-white">
+            <DialogHeader>
+              <DialogTitle>Edit Payment</DialogTitle>
+              <DialogDescription>
+                Correct the payment details
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Editing this payment will recalculate the entry balance automatically.
+                </AlertDescription>
+              </Alert>
+
+              <div>
+                <Label>Payment Amount *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editPaymentAmount}
+                  onChange={(e) => setEditPaymentAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <Label>Payment Method *</Label>
+                <Select value={editPaymentMethod} onValueChange={setEditPaymentMethod}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    {PAYMENT_METHODS.map(method => (
+                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Received By</Label>
+                <Input
+                  value={editPaymentReceivedBy}
+                  onChange={(e) => setEditPaymentReceivedBy(e.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <Label>Payment Date</Label>
+                <Input
+                  type="date"
+                  value={editPaymentDate}
+                  onChange={(e) => setEditPaymentDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={editPaymentNotes}
+                  onChange={(e) => setEditPaymentNotes(e.target.value)}
+                  placeholder="Optional notes"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowEditPaymentModal(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={updatePayment} disabled={saving}>
+                  {saving ? 'Saving...' : 'Update Payment'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Refund Modal */}
+        <Dialog open={showRefundModal} onOpenChange={setShowRefundModal}>
+          <DialogContent className="bg-white">
+            <DialogHeader>
+              <DialogTitle>Process Refund</DialogTitle>
+              <DialogDescription>
+                {selectedCompetitor?.handler_name} - {selectedCompetitor?.dog_call_name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Alert className="bg-purple-50 border-purple-200">
+                <AlertCircle className="h-4 w-4 text-purple-600" />
+                <AlertDescription className="text-purple-800">
+                  This competitor has overpaid. Process a refund to correct the balance.
+                  {selectedCompetitor && (() => {
+                    const effectiveOwed = selectedCompetitor.fees_waived ? 0 : selectedCompetitor.amount_owed;
+                    const overpayment = selectedCompetitor.amount_paid - effectiveOwed;
+                    return overpayment > 0 ? ` Overpayment: $${overpayment.toFixed(2)}` : '';
+                  })()}
+                </AlertDescription>
+              </Alert>
+
+              <div>
+                <Label>Refund Amount *</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <Label>Refund Method *</Label>
+                <Select value={refundMethod} onValueChange={setRefundMethod}>
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Select method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(method => (
+                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Issued By</Label>
+                <Input
+                  value={refundIssuedBy}
+                  onChange={(e) => setRefundIssuedBy(e.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
+
+              <div>
+                <Label>Refund Date</Label>
+                <Input
+                  type="date"
+                  value={refundDate}
+                  onChange={(e) => setRefundDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <Label>Notes</Label>
+                <Textarea
+                  value={refundNotes}
+                  onChange={(e) => setRefundNotes(e.target.value)}
+                  placeholder="Reason for refund"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setShowRefundModal(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={processRefund} 
+                  disabled={saving}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {saving ? 'Processing...' : 'Process Refund'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Waive Fees Modal */}
         <Dialog open={showWaiveModal} onOpenChange={setShowWaiveModal}>
           <DialogContent className="bg-white">
             <DialogHeader>
