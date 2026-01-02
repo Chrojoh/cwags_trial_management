@@ -699,7 +699,7 @@ End of Report
 
               <Card>
                 <CardContent className="pt-6">
-                  <div className="text-sm text-gray-600">Entry Fees Owed</div>
+                  <div className="text-sm text-gray-600">Total Entry Fees</div>
                   <div className="text-2xl font-bold text-gray-900">
                     ${totals.totalOwed.toFixed(2)}
                   </div>
@@ -708,7 +708,7 @@ End of Report
 
               <Card>
                 <CardContent className="pt-6">
-                  <div className="text-sm text-gray-600">Fees Collected</div>
+                  <div className="text-sm text-gray-600">Entry Fees Collected</div>
                   <div className="text-2xl font-bold text-green-600">
                     ${totals.totalPaid.toFixed(2)}
                   </div>
@@ -717,7 +717,7 @@ End of Report
 
               <Card>
                 <CardContent className="pt-6">
-                  <div className="text-sm text-gray-600">Outstanding</div>
+                  <div className="text-sm text-gray-600">Entry Fees Outstanding</div>
                   <div className={`text-2xl font-bold ${totals.totalOutstanding > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
                     ${totals.totalOutstanding.toFixed(2)}
                   </div>
