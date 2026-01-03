@@ -15,6 +15,13 @@ export interface BreakEvenConfig {
   regular_judge_fee: number;
   feo_entry_fee: number;
   feo_judge_fee: number;
+  waived_entry_fee: number;
+  waived_cwags_fee: number;
+  waived_judge_fee: number;
+  waived_feo_entry_fee: number;
+  waived_feo_judge_fee: number;
+  judge_volunteer_rate: number;
+  feo_volunteer_rate: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -58,7 +65,7 @@ export const breakEvenOperations = {
 
       if (existing) {
         // Update existing
-        const { data, error } = await supabase
+       const { data, error } = await supabase
           .from('trial_break_even_config')
           .update({
             hall_rental: config.hall_rental,
@@ -70,6 +77,13 @@ export const breakEvenOperations = {
             regular_judge_fee: config.regular_judge_fee,
             feo_entry_fee: config.feo_entry_fee,
             feo_judge_fee: config.feo_judge_fee,
+            waived_entry_fee: config.waived_entry_fee,
+            waived_cwags_fee: config.waived_cwags_fee,
+            waived_judge_fee: config.waived_judge_fee,
+            waived_feo_entry_fee: config.waived_feo_entry_fee,
+            waived_feo_judge_fee: config.waived_feo_judge_fee,
+            judge_volunteer_rate: config.judge_volunteer_rate,
+            feo_volunteer_rate: config.feo_volunteer_rate,
             updated_at: new Date().toISOString()
           })
           .eq('trial_id', config.trial_id)
@@ -80,7 +94,7 @@ export const breakEvenOperations = {
         return { success: true, data };
       } else {
         // Insert new
-        const { data, error } = await supabase
+       const { data, error } = await supabase
           .from('trial_break_even_config')
           .insert([{
             trial_id: config.trial_id,
@@ -92,7 +106,14 @@ export const breakEvenOperations = {
             regular_cwags_fee: config.regular_cwags_fee,
             regular_judge_fee: config.regular_judge_fee,
             feo_entry_fee: config.feo_entry_fee,
-            feo_judge_fee: config.feo_judge_fee
+            feo_judge_fee: config.feo_judge_fee,
+            waived_entry_fee: config.waived_entry_fee,
+            waived_cwags_fee: config.waived_cwags_fee,
+            waived_judge_fee: config.waived_judge_fee,
+            waived_feo_entry_fee: config.waived_feo_entry_fee,
+            waived_feo_judge_fee: config.waived_feo_judge_fee,
+            judge_volunteer_rate: config.judge_volunteer_rate,
+            feo_volunteer_rate: config.feo_volunteer_rate
           }])
           .select()
           .single();

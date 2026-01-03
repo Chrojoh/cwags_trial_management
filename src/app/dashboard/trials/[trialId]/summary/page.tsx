@@ -1006,67 +1006,113 @@ summarySheetData.push([
             </div>
           </>
         ) : (
-          // Individual Class Detail View
-          selectedClassData && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-3">
-                    <span>Class Summary: {getDisplayClassName(selectedClassData)}</span>
-                    {selectedClassData.class_type === 'games' && selectedClassData.games_subclass && (
-                      <Badge className="bg-purple-100 text-purple-800">
-                        <Trophy className="h-3 w-3 mr-1" />
-                        Games: {selectedClassData.games_subclass}
-                      </Badge>
-                    )}
-                  </CardTitle>
-                  <CardDescription>
-                    {summaryData.trial.trial_name} • {selectedClassData.judge_name} • {selectedClassData.entries.length} Participants
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="border border-gray-300 px-3 py-2 text-left font-semibold">C-WAGS Number</th>
-                          <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Dog Name</th>
-                          <th className="border border-gray-300 px-3 py-2 text-left font-semibold">Handler Name</th>
-                          <th className="border border-gray-300 px-3 py-2 text-center font-semibold">
-                            {selectedClassData.judge_name}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedClassData.entries
-                          .sort((a, b) => a.running_position - b.running_position)
-                          .map(entry => {
-                            const { result, color } = getResultDisplay(entry, selectedClassData);
-                            
-                            return (
-                              <tr key={entry.id} className="hover:bg-gray-50">
-                                <td className="border border-gray-300 px-3 py-2 font-mono text-sm">
-                                  {entry.entries.cwags_number}
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2 font-medium">
-                                  {entry.entries.dog_call_name}
-                                </td>
-                                <td className="border border-gray-300 px-3 py-2">
-                                  {entry.entries.handler_name}
-                                </td>
-                                <td className={`border border-gray-300 px-3 py-2 text-center ${color}`}>
-                                  {result}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+          // Individual Class Detail View with Excel-style formatting
+selectedClassData && (
+  <>
+    <Card>
+      <CardContent className="pt-6">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <tbody>
+              {/* Row 1: Trial Name (merged across columns) */}
+              <tr>
+                <td colSpan={7} className="px-3 py-2 text-xl font-normal">
+                  {summaryData.trial.trial_name}
+                </td>
+              </tr>
+              
+              {/* Row 2: Blank */}
+              <tr>
+                <td colSpan={7} className="py-1"></td>
+              </tr>
+              
+              {/* Row 3: Class Name at column F */}
+              <tr>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2"></td>
+                <td className="px-3 py-2 text-xl font-bold text-center">
+                  {getDisplayClassName(selectedClassData)}
+                </td>
+                <td className="px-3 py-2"></td>
+              </tr>
+              
+              {/* Row 4: Headers */}
+              <tr className="bg-gray-50">
+                <th className="border border-gray-300 px-3 py-2"></th>
+                <th className="border border-gray-300 px-3 py-2"></th>
+                <th className="border border-gray-300 px-3 py-2"></th>
+                <th className="border border-gray-300 px-3 py-2 text-center font-bold">C-WAGS Number</th>
+                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Dog Name</th>
+                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Handler Name</th>
+                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Result</th>
+              </tr>
+              
+              {/* Row 5: Judge Name at column G */}
+              <tr>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2 text-center font-bold text-sm">
+                  {selectedClassData.judge_name}
+                </td>
+              </tr>
+              
+              {/* Row 6: Date at column G */}
+              <tr>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2"></td>
+                <td className="border border-gray-300 px-3 py-2 text-center font-bold text-sm">
+                  {new Date(selectedClassData.trial_date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: '2-digit',
+                    year: 'numeric'
+                  })}
+                </td>
+              </tr>
+              
+              {/* Row 7+: Participant Data */}
+              {selectedClassData.entries
+                .sort((a, b) => a.running_position - b.running_position)
+                .map(entry => {
+                  const { result, color } = getResultDisplay(entry, selectedClassData);
+                  
+                  return (
+                    <tr key={entry.id} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-3 py-2"></td>
+                      <td className="border border-gray-300 px-3 py-2"></td>
+                      <td className="border border-gray-300 px-3 py-2"></td>
+                      <td className="border border-gray-300 px-3 py-2 font-mono text-sm text-center">
+                        {entry.entries.cwags_number}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 font-medium text-center">
+                        {entry.entries.dog_call_name}
+                      </td>
+                      <td className="border border-gray-300 px-3 py-2 text-center">
+                        {entry.entries.handler_name}
+                      </td>
+                      <td className={`border border-gray-300 px-3 py-2 text-center ${color}`}>
+                        {result}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
 
-              {/* Individual Class Statistics */}
+                  {/* Individual Class Statistics */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardContent className="text-center p-4">

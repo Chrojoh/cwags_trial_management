@@ -47,6 +47,7 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
+  DollarSign,
   Clock,
   Trophy
 } from 'lucide-react';
@@ -2000,16 +2001,16 @@ const exportScoreSheetsForDay = async (dayId: string) => {
       wsData.push(['Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less then half.', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
 
       // Row 9: Column headers
-      wsData.push(['Registration Number', '', 'Handler / Dog', '', '', '', 'Scent 1', 'Scent 2', 'Scent 3', 'Scent 4', 'Fault 1', '', '', 'Fault 2', '', '', 'TIME', '', 'Pass / Fail', '']);
+wsData.push(['Running Order Position', '', 'Handler / Dog', '', '', '', 'Scent 1', 'Scent 2', 'Scent 3', 'Scent 4', 'Fault 1', '', '', 'Fault 2', '', '', 'TIME', '', 'Pass / Fail', '']);
 
-      // Rows 10+: Entry data (2 rows per entry)
-      roundEntries.forEach((entry) => {
-        // First row of entry
-        wsData.push([entry.cwagsNumber, '', entry.handlerName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-        // Second row of entry
-        wsData.push(['', '', entry.dogName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-      });
-
+// Rows 10+: Entry data (2 rows per entry)
+// ✅ MODIFIED: Running order on top, CWAGS number on bottom (NO MERGE)
+roundEntries.forEach((entry) => {
+  // First row of entry: Running Order Position in column A
+  wsData.push([entry.runningOrder, '', entry.handlerName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+  // Second row of entry: CWAGS Number in column A
+  wsData.push([entry.cwagsNumber, '', entry.dogName, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+});
       // Add empty rows to reach row 57 (2-row entries until A56:B57)
       while (wsData.length < 49) {
         wsData.push([...emptyRow]);
@@ -2091,8 +2092,11 @@ worksheet['!printGridlines'] = false;
       for (let i = 0; i < totalEntrySlots; i++) {
         const rowIndex = 9 + (i * 2);  // Each entry is 2 rows
         
-        // Registration number (A:B vertical merge across 2 rows)
-        merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex + 1, c: 1 } });
+        
+// First row of entry: merge A-B for running order
+merges.push({ s: { r: rowIndex, c: 0 }, e: { r: rowIndex, c: 1 } });
+// Second row of entry: merge A-B for CWAGS number
+merges.push({ s: { r: rowIndex + 1, c: 0 }, e: { r: rowIndex + 1, c: 1 } });
         
         // Handler name (C:F first row)
         merges.push({ s: { r: rowIndex, c: 2 }, e: { r: rowIndex, c: 5 } });
@@ -2136,26 +2140,37 @@ worksheet['!printGridlines'] = false;
           const isDataRow = R >= 9;
           const entryRowIndex = isDataRow ? (R - 9) % 2 : -1;
           
-          // NO BORDERS for rows 1-6 (R 0-5)
-          // BORDERS for rows 7-57 (R >= 6)
-          let border;
-          if (R >= 5) {
-            border = {
-              top: { style: 'thin', color: { rgb: '000000' } },
-              bottom: { style: 'thin', color: { rgb: '000000' } },
-              left: { style: 'thin', color: { rgb: '000000' } },
-              right: { style: 'thin', color: { rgb: '000000' } }
-            };
-            
-            // Special case: C-F columns in data rows - remove middle border
-            if (isHandlerDogColumn && isDataRow) {
-              if (entryRowIndex === 0) {
-                border.bottom = { style: 'thin', color: { rgb: 'FFFFFF' } };
-              } else if (entryRowIndex === 1) {
-                border.top = { style: 'thin', color: { rgb: 'FFFFFF' } };
-              }
-            }
-          }
+         // NO BORDERS for rows 1-6 (R 0-5)
+// BORDERS for rows 7-57 (R >= 6)
+let border;
+if (R >= 5) {
+  border = {
+    top: { style: 'thin', color: { rgb: '000000' } },
+    bottom: { style: 'thin', color: { rgb: '000000' } },
+    left: { style: 'thin', color: { rgb: '000000' } },
+    right: { style: 'thin', color: { rgb: '000000' } }
+  };
+  
+  // ✅ NEW: A-B columns (Running Order/CWAGS) - remove middle border
+  const isRunningOrderCWAGSColumn = C >= 0 && C <= 1;
+  
+  if (isRunningOrderCWAGSColumn && isDataRow) {
+    if (entryRowIndex === 0) {
+      border.bottom = { style: 'thin', color: { rgb: 'FFFFFF' } };
+    } else if (entryRowIndex === 1) {
+      border.top = { style: 'thin', color: { rgb: 'FFFFFF' } };
+    }
+  }
+  
+  // Special case: C-F columns in data rows - remove middle border
+  if (isHandlerDogColumn && isDataRow) {
+    if (entryRowIndex === 0) {
+      border.bottom = { style: 'thin', color: { rgb: 'FFFFFF' } };
+    } else if (entryRowIndex === 1) {
+      border.top = { style: 'thin', color: { rgb: 'FFFFFF' } };
+    }
+  }
+}
 
           // Rows 1-7: Font size 28, BOLD
          if (R <= 6) {
@@ -3071,7 +3086,7 @@ worksheet['!view'] = [{ showGridLines: false }];
         {resultDisplay || 'Pending'}
       </Badge>
     </div>
-            
+          
           </div>
         </div>
 

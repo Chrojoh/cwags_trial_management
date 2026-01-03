@@ -1498,10 +1498,11 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
   },
 
   // Update entry selection (entry type, status, etc.)
-  async updateEntrySelection(entrySelectionId: string, updates: {
+   async updateEntrySelection(entrySelectionId: string, updates: {
   entry_type?: string;
   entry_status?: string;
   running_position?: number;
+  fee?: number;
 }): Promise<OperationResult> {
   try {
     console.log('Updating entry selection:', entrySelectionId, updates);

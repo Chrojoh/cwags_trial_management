@@ -88,17 +88,24 @@ export default function TrialFinancialsPage() {
   const [activeTab, setActiveTab] = useState<'expenses' | 'breakeven'>('expenses');
   
   // Break-even state
-  const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
+const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
     trial_id: trialId,
     hall_rental: 0,
     ribbons: 0,
     insurance: 0,
     other_fixed_costs: 0,
-    regular_entry_fee: 25.00,
-    regular_cwags_fee: 3.00,
-    regular_judge_fee: 2.00,
-    feo_entry_fee: 12.50,
-    feo_judge_fee: 2.00
+    regular_entry_fee: 0,
+    regular_cwags_fee: 0,
+    regular_judge_fee: 0,
+    feo_entry_fee: 0,
+    feo_judge_fee: 0,
+    waived_entry_fee: 0,
+    waived_cwags_fee: 0,
+    waived_judge_fee: 0,
+    waived_feo_entry_fee: 0,
+    waived_feo_judge_fee: 0,
+    judge_volunteer_rate: 0,
+    feo_volunteer_rate: 0
   });
 
   // Payment modal state
@@ -130,6 +137,9 @@ export default function TrialFinancialsPage() {
   // Waive fees modal state
   const [showWaiveModal, setShowWaiveModal] = useState(false);
   const [waiveReason, setWaiveReason] = useState('');
+
+   // Judge/Volunteer status tracking
+  const [judgeVolunteerStatus, setJudgeVolunteerStatus] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadData();
@@ -175,6 +185,26 @@ export default function TrialFinancialsPage() {
       setTrial(trialResult.data);
       setExpenses(expensesResult.data);
       setCompetitors(competitorsResult.data || []);
+      
+      // Load J/V status for each competitor
+      const jvStatus: Record<string, boolean> = {};
+      (competitorsResult.data || []).forEach((comp: CompetitorFinancial) => {
+        // Check the first entry ID for J/V status
+        const checkJVStatus = async () => {
+          const { data } = await supabase
+            .from('entries')
+            .select('is_judge_volunteer')
+            .eq('id', comp.entry_id)
+            .single();
+          
+          if (data) {
+            jvStatus[comp.entry_id] = data.is_judge_volunteer || false;
+          }
+        };
+        checkJVStatus();
+      });
+      
+      setJudgeVolunteerStatus(jvStatus);
 
       // Load break-even config if exists
       if (breakEvenResult.success && breakEvenResult.data) {
@@ -436,6 +466,106 @@ export default function TrialFinancialsPage() {
     setSelectedCompetitor(competitor);
     setWaiveReason(competitor.waiver_reason || '');
     setShowWaiveModal(true);
+  };
+
+  const toggleJudgeVolunteer = async (competitor: CompetitorFinancial) => {
+    const currentStatus = judgeVolunteerStatus[competitor.entry_id] || false;
+    const newStatus = !currentStatus;
+    
+    try {
+      setSaving(true);
+      
+      // Update database
+      const entryIds = competitor.entry_ids || [competitor.entry_id];
+      
+      for (const entryId of entryIds) {
+        await supabase
+          .from('entries')
+          .update({ is_judge_volunteer: newStatus })
+          .eq('id', entryId);
+      }
+      
+      // Update local state
+      setJudgeVolunteerStatus(prev => ({
+        ...prev,
+        [competitor.entry_id]: newStatus
+      }));
+      
+      // Recalculate fees if enabling J/V
+      if (newStatus && !competitor.fees_waived) {
+        await recalculateFeesForJV(competitor, newStatus);
+      } else if (!newStatus) {
+        // Restore original fees
+        await recalculateFeesForJV(competitor, newStatus);
+      }
+      
+      await loadData();
+      
+    } catch (err) {
+      console.error('Error toggling J/V status:', err);
+      alert('Failed to update J/V status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const recalculateFeesForJV = async (competitor: CompetitorFinancial, isJV: boolean) => {
+    // Get entry selections to recalculate fees
+    const { data: entries } = await supabase
+      .from('entries')
+      .select(`
+        id,
+        entry_selections (
+          id,
+          entry_type,
+          fee
+        )
+      `)
+      .in('id', competitor.entry_ids || [competitor.entry_id]);
+    
+    if (!entries) return;
+    
+    // Calculate new fees based on J/V status
+    for (const entry of entries) {
+      let newTotalFee = 0;
+      
+      for (const selection of entry.entry_selections) {
+        let newFee = selection.fee;
+        
+        if (isJV) {
+          // Apply J/V rates
+          if (selection.entry_type === 'feo') {
+            newFee = breakEvenData.feo_volunteer_rate || selection.fee;
+          } else {
+            newFee = breakEvenData.judge_volunteer_rate || selection.fee;
+          }
+        } else {
+          // Restore original rates
+          if (selection.entry_type === 'feo') {
+            newFee = breakEvenData.feo_entry_fee || selection.fee;
+          } else {
+            newFee = breakEvenData.regular_entry_fee || selection.fee;
+          }
+        }
+        
+        // Update selection fee
+        await supabase
+          .from('entry_selections')
+          .update({ fee: newFee })
+          .eq('id', selection.id);
+        
+        newTotalFee += newFee;
+      }
+      
+      // Update total fee on entry
+      await supabase
+        .from('entries')
+        .update({ 
+          amount_owed: newTotalFee,
+          total_fee: newTotalFee 
+        })
+        .eq('id', entry.id);
+    }
   };
 
   const waiveFees = async () => {
@@ -848,6 +978,7 @@ End of Report
                         <th className="text-left p-2 text-sm font-semibold">Handler / Dog</th>
                         <th className="text-center p-2 text-sm font-semibold w-24">Regular</th>
                         <th className="text-center p-2 text-sm font-semibold w-24">FEO</th>
+                        <th className="text-center p-2 text-sm font-semibold w-16">J/V</th>
                         <th className="text-left p-2 text-sm font-semibold w-48">Description</th>
                         <th className="text-left p-2 text-sm font-semibold w-32">Method</th>
                         <th className="text-left p-2 text-sm font-semibold w-32">Received By</th>
@@ -882,11 +1013,21 @@ End of Report
                                 {comp.regular_runs || comp.waived_regular_runs || 0}
                               </td>
                               <td className="p-2 text-center" rowSpan={hasPayments ? payments.length + 2 : 2}>
-                                {comp.feo_runs || comp.waived_feo_runs || 0}
-                              </td>
-                              <td className="p-2">
-                                <span className="font-semibold text-gray-700">Total Entry Fees</span>
-                              </td>
+  {comp.feo_runs || comp.waived_feo_runs || 0}
+</td>
+<td className="p-2 text-center" rowSpan={hasPayments ? payments.length + 2 : 2}>
+  <input
+    type="checkbox"
+    checked={judgeVolunteerStatus[comp.entry_id] || false}
+    onChange={() => toggleJudgeVolunteer(comp)}
+    className="w-4 h-4 cursor-pointer"
+    disabled={comp.fees_waived || saving}
+    title={comp.fees_waived ? "Cannot modify waived entries" : "Apply Judge/Volunteer reduced rate"}
+  />
+</td>
+<td className="p-2">
+  <span className="font-semibold text-gray-700">Total Entry Fees</span>
+</td>
                               <td className="p-2 text-gray-400">-</td>
                               <td className="p-2 text-gray-400">-</td>
                               <td className="p-2 text-gray-400">-</td>
@@ -1157,6 +1298,163 @@ End of Report
                         value={breakEvenData.feo_judge_fee}
                         onChange={(e) => setBreakEvenData({...breakEvenData, feo_judge_fee: parseFloat(e.target.value) || 0})}
                       />
+                    </div>
+                 </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* WAIVED FEE STRUCTURE - NEW SECTION */}
+            <Card className="border-purple-300">
+              <CardHeader>
+                <CardTitle>Waived Fee Structure</CardTitle>
+                <CardDescription>
+                  Configure fees that can be waived. When fees are waived, competitors pay $0, 
+                  but these are still organizational expenses unless also waived by the provider.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Regular Run Waived Fees */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900 border-b pb-2">Regular Run Waived Fees</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Waived Entry Fee</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.waived_entry_fee}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_entry_fee: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Typical entry fee amount</p>
+                      </div>
+                      <div>
+                        <Label>Waived C-WAGS Fee</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.waived_cwags_fee}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_cwags_fee: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Org still pays this expense</p>
+                      </div>
+                      <div>
+                        <Label>Waived Judge Fee</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.waived_judge_fee}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_judge_fee: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">If judge also waives their fee</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-sm mb-2">Regular Run Expense Impact When Waiving:</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Competitor pays:</span>
+                          <span className="font-mono">$0.00</span>
+                        </div>
+                        <div className="flex justify-between text-red-600">
+                          <span>Organization expense:</span>
+                          <span className="font-mono">
+                            ${(breakEvenData.waived_cwags_fee + breakEvenData.waived_judge_fee).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-semibold border-t pt-1">
+                          <span>Net per waived entry:</span>
+                          <span className="font-mono text-red-600">
+                            -${(breakEvenData.waived_cwags_fee + breakEvenData.waived_judge_fee).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FEO Run Waived Fees */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-gray-900 border-b pb-2">FEO Run Waived Fees</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Waived FEO Entry Fee</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.waived_feo_entry_fee}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_feo_entry_fee: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Typical FEO entry fee amount</p>
+                      </div>
+                      <div>
+                        <Label>Waived FEO Judge Fee</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.waived_feo_judge_fee}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_feo_judge_fee: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">If judge also waives their FEO fee</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-semibold text-sm mb-2">FEO Run Expense Impact When Waiving:</h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Competitor pays:</span>
+                          <span className="font-mono">$0.00</span>
+                        </div>
+                        <div className="flex justify-between text-gray-600">
+                          <span>C-WAGS Fee (FEO exempt):</span>
+                          <span className="font-mono">$0.00</span>
+                        </div>
+                        <div className="flex justify-between text-red-600">
+                          <span>Organization expense (Judge Fee):</span>
+                          <span className="font-mono">
+                            ${breakEvenData.waived_feo_judge_fee.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between font-semibold border-t pt-1">
+                          <span>Net per waived FEO entry:</span>
+                          <span className="font-mono text-red-600">
+                            -${breakEvenData.waived_feo_judge_fee.toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Volunteer Rates */}
+                  <div className="space-y-4 border-t pt-4">
+                    <h3 className="font-semibold text-gray-900 border-b pb-2">Reduced Volunteer/Judge Rates</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Regular Run Volunteer Rate</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.judge_volunteer_rate}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, judge_volunteer_rate: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Reduced regular entry fee for judges/volunteers (e.g., $10 or $15)
+                        </p>
+                      </div>
+                      <div>
+                        <Label>FEO Run Volunteer Rate</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={breakEvenData.feo_volunteer_rate}
+                          onChange={(e) => setBreakEvenData({...breakEvenData, feo_volunteer_rate: parseFloat(e.target.value) || 0})}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Reduced FEO entry fee for judges/volunteers (e.g., $5 or $7)
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
