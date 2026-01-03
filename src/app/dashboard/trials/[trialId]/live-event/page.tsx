@@ -108,14 +108,15 @@ interface TrialRound {
 }
 
 interface ClassEntry {
-  id: string; // entry_selection_id
+  id: string;
   entry_id: string;
   running_position: number;
   entry_type: string;
   entry_status: string;
-  round_number: number; // Add this
-  round_id: string; // Add this
+  round_number: number;
+  round_id: string;
   division?: string | null;
+  jump_height?: string | null;
   fee: number;
   entries: {
     handler_name: string;
@@ -338,11 +339,12 @@ const [savingScore, setSavingScore] = useState(false);
     formatted_date: string;
   }>>([]);
   const [selectedPrintDay, setSelectedPrintDay] = useState<string | null>(null);
-  const [newEntryData, setNewEntryData] = useState({
+ const [newEntryData, setNewEntryData] = useState({
     handler_name: '',
     dog_call_name: '',
     cwags_number: '',
-    entry_type: 'regular'
+    entry_type: 'regular',
+    jump_height: ''
   });
 
 
@@ -1577,15 +1579,20 @@ const addNewEntry = async () => {
       }
     }
 
-    // Create entry selection with games_subclass
+   // Create entry selection with games_subclass and jump_height
     const insertData: any = {
-      entry_id: entryId,  // ✅ Use the found or created entry_id
+      entry_id: entryId,
       trial_round_id: actualRoundId,
       entry_type: newEntryData.entry_type,
       fee: calculatedFee,
       running_position: nextPosition,
       entry_status: 'entered'
     };
+
+    // Add jump_height if applicable
+    if (newEntryData.jump_height && ['rally', 'obedience', 'games'].includes(selectedClass.class_type?.toLowerCase() || '')) {
+      insertData.jump_height = newEntryData.jump_height;
+    }
 
    // Add games_subclass if this is a Games class
     if (selectedClass.class_type?.toLowerCase() === 'games' && selectedGamesSubclass) {
@@ -1631,11 +1638,12 @@ const addNewEntry = async () => {
         await loadAllClassCounts();
         
         setNewEntryData({
-          handler_name: '',
-          dog_call_name: '',
-          cwags_number: '',
-          entry_type: 'regular'
-        });
+      handler_name: '',
+      dog_call_name: '',
+      cwags_number: '',
+      entry_type: 'regular',
+      jump_height: ''
+    });
         setSelectedRound(1);
         setSelectedGamesSubclass(null);
         setShowAddEntryModal(false);
@@ -1668,7 +1676,8 @@ const addNewEntry = async () => {
       handler_name: '',
       dog_call_name: '',
       cwags_number: '',
-      entry_type: 'regular'
+      entry_type: 'regular',
+      jump_height: ''
     });
     setSelectedRound(1);
     setSelectedGamesSubclass(null);
@@ -3325,7 +3334,7 @@ worksheet['!view'] = [{ showGridLines: false }];
                 />
               </div>
 
-              <div>
+             <div>
                 <Label htmlFor="entry_type">Entry Type</Label>
                 <Select
                   value={newEntryData.entry_type}
@@ -3340,6 +3349,31 @@ worksheet['!view'] = [{ showGridLines: false }];
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Jump Height - Only for Rally, Obedience, and Games */}
+              {selectedClass && ['rally', 'obedience', 'games'].includes(selectedClass.class_type?.toLowerCase() || '') && (
+                <div>
+                  <Label htmlFor="jump_height">Jump Height (inches) *</Label>
+                  <select
+                    id="jump_height"
+                    value={newEntryData.jump_height || ''}
+                    onChange={(e) => setNewEntryData(prev => ({ ...prev, jump_height: e.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-white shadow-sm focus:border-orange-500 focus:outline-none focus:ring-orange-500"
+                  >
+                    <option value="">Select Jump Height</option>
+                    <option value="4">4"</option>
+                    <option value="8">8"</option>
+                    <option value="12">12"</option>
+                    <option value="16">16"</option>
+                    <option value="20">20"</option>
+                    <option value="24">24"</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Required for Rally, Obedience, and Games classes
+                  </p>
+                </div>
+              )}
+
 {/* ✅ NEW: Games Subclass Selector */}
              {selectedClass?.class_type?.toLowerCase() === 'games' && (
                 <div>
@@ -3365,23 +3399,35 @@ worksheet['!view'] = [{ showGridLines: false }];
             </div>
 
             <div className="flex items-center justify-end space-x-2 mt-6">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowAddEntryModal(false)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={addNewEntry}
-                disabled={
-                  saving || 
-                  !newEntryData.handler_name || 
-                  !newEntryData.dog_call_name || 
-                  !newEntryData.cwags_number ||
-                  (selectedClass?.class_type?.toLowerCase() === 'games' && !selectedGamesSubclass)
-                }
-              >
+              <Button
+  variant="outline"
+  onClick={() => {
+    setShowAddEntryModal(false);
+    setNewEntryData({
+      handler_name: '',
+      dog_call_name: '',
+      cwags_number: '',
+      entry_type: 'regular',
+      jump_height: ''
+    });
+    setSelectedRound(1);
+    setSelectedGamesSubclass(null);
+  }}
+  disabled={saving}
+>
+  Cancel
+</Button>
+             <Button 
+  onClick={addNewEntry}
+  disabled={
+    saving || 
+    !newEntryData.handler_name || 
+    !newEntryData.dog_call_name || 
+    !newEntryData.cwags_number ||
+    (selectedClass?.class_type?.toLowerCase() === 'games' && !selectedGamesSubclass) ||
+    (['rally', 'obedience', 'games'].includes(selectedClass?.class_type?.toLowerCase() || '') && !newEntryData.jump_height)
+  }
+>
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                 ) : (

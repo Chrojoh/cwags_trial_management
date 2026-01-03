@@ -88,6 +88,7 @@ interface EntryFormData {
   feo_selections: string[];
   division_selections: Record<string, string>;
   waiver_accepted: boolean;
+  jump_height_selections: Record<string, string>;
 }
 
 // ============================================
@@ -190,7 +191,8 @@ export default function PublicEntryForm() {
     selected_rounds: [],
     feo_selections: [],
     division_selections: {},
-    waiver_accepted: false
+    waiver_accepted: false,
+    jump_height_selections: {}
   });
 
   const [registryLoading, setRegistryLoading] = useState(false);
@@ -340,7 +342,8 @@ export default function PublicEntryForm() {
           waiver_accepted: existingEntry.waiver_accepted || false,
           selected_rounds: selectedRoundIds,
           feo_selections: feoRoundIds,
-          division_selections: divisionMap
+          division_selections: divisionMap,
+          jump_height_selections: {}
         };
         
         console.log('Setting original form data:', originalFormData);
@@ -556,12 +559,22 @@ export default function PublicEntryForm() {
   // ============================================
   // FORM HANDLERS
   // ============================================
-  const handleDivisionChange = (roundId: string, division: string) => {
+ const handleDivisionChange = (roundId: string, division: string) => {
     setFormData(prev => ({
       ...prev,
       division_selections: {
         ...prev.division_selections,
         [roundId]: division
+      }
+    }));
+  };
+
+  const handleJumpHeightChange = (roundId: string, jumpHeight: string) => {
+    setFormData(prev => ({
+      ...prev,
+      jump_height_selections: {
+        ...prev.jump_height_selections,
+        [roundId]: jumpHeight
       }
     }));
   };
@@ -576,11 +589,15 @@ export default function PublicEntryForm() {
         const newDivisions = { ...prev.division_selections };
         delete newDivisions[roundId];
         
+        const newJumpHeights = { ...prev.jump_height_selections };
+        delete newJumpHeights[roundId];
+        
         return {
           ...prev,
           selected_rounds: prev.selected_rounds.filter(id => id !== roundId),
           feo_selections: prev.feo_selections.filter(id => id !== roundId),
-          division_selections: newDivisions
+          division_selections: newDivisions,
+          jump_height_selections: newJumpHeights
         };
       } else {
         // Select or change type
@@ -767,6 +784,7 @@ export default function PublicEntryForm() {
       const allDesiredSelections = formData.selected_rounds.map((roundId, index) => {
         const round = trialRounds.find(r => r.id === roundId);
         const division = formData.division_selections[roundId] || null;
+        const jumpHeight = formData.jump_height_selections[roundId] || null;
         const isFeo = formData.feo_selections.includes(roundId);
         
         let entryFee = round?.trial_classes?.entry_fee || 0;
@@ -786,7 +804,8 @@ export default function PublicEntryForm() {
           running_position: index + 1,
           entry_status: 'entered' as const,
           division: division,
-          games_subclass: gamesSubclass
+          games_subclass: gamesSubclass,
+          jump_height: jumpHeight
         };
       });
 
@@ -1559,6 +1578,15 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
   round.trial_classes?.feo_price > 0
 );
 
+                            // DEBUG: Log EVERY class
+                            console.log('=== CLASS DEBUG ===');
+                            console.log('Class Name:', round.trial_classes?.class_name);
+                            console.log('Class Type:', round.trial_classes?.class_type);
+                            console.log('Class Type (lowercase):', round.trial_classes?.class_type?.toLowerCase());
+                            console.log('Is Selected:', isSelected);
+                            console.log('Jump height should show:', isSelected && ['rally', 'obedience', 'games'].includes(round.trial_classes?.class_type?.toLowerCase() || ''));
+                            console.log('==================');
+
                             return (
                               <div 
                                 key={round.id}
@@ -1585,7 +1613,7 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
                                       </div>
                                     </div>
                                     
-                                    <div className="flex gap-3">
+                                   <div className="flex gap-3">
                                       {/* Regular Entry Button */}
                                       <Button
                                         type="button"
@@ -1633,33 +1661,57 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
                                           </div>
                                         </Button>
                                       )}
+                                    </div>
 
-                              {/* Division Dropdown */}
-                              {requiresDivision(round.trial_classes?.class_name) && isSelected && (
-                                <select
-                                  value={formData.division_selections[round.id] || ''}
-                                  onChange={(e) => handleDivisionChange(round.id, e.target.value)}
-                                  className="h-9 px-3 border-2 border-purple
+                                    {/* Jump Height Selector - Rally, Obedience, Games Only */}
+                                    {(() => {
+  console.log('Class check:', {
+    className: round.trial_classes?.class_name,
+    classType: round.trial_classes?.class_type,
+    classTypeLower: round.trial_classes?.class_type?.toLowerCase(),
+    isSelected: isSelected,
+    shouldShow: isSelected && ['rally', 'obedience', 'games'].includes(round.trial_classes?.class_type?.toLowerCase() || '')
+  });
+  return isSelected && ['rally', 'obedience', 'games'].includes(round.trial_classes?.class_type?.toLowerCase() || '');
+})() && (
+                                      <div className="mt-3">
+                                        <Label className="text-sm font-medium text-gray-700 mb-1">
+                                          Jump Height (inches) *
+                                        </Label>
+                                        <Select
+                                          value={formData.jump_height_selections?.[round.id] || ''}
+                                          onValueChange={(value) => handleJumpHeightChange(round.id, value)}
+                                        >
+                                          <SelectTrigger className="bg-white border-2 border-gray-300">
+                                            <SelectValue placeholder="Select height" />
+                                          </SelectTrigger>
+                                          <SelectContent className="bg-white">
+                                            <SelectItem value="4">4"</SelectItem>
+                                            <SelectItem value="8">8"</SelectItem>
+                                            <SelectItem value="12">12"</SelectItem>
+                                            <SelectItem value="16">16"</SelectItem>
+                                            <SelectItem value="20">20"</SelectItem>
+                                            <SelectItem value="24">24"</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    )}
 
--300 rounded-md text-sm font-medium bg-purple
-
--50 hover:bg-purple
-
--100 focus:outline-none focus:ring-2 focus:ring-purple
-
--500 focus:border-purple
-
--500"
-                                  required
-                                >
-                                  <option value="">Select Division *</option>
-                                  <option value="A">Division A (Beginner)</option>
-                                  <option value="B">Division B (Experienced)</option>
-                                  <option value="TO">TO (Trial Official)</option>
-                                  <option value="JR">JR (Junior Handler)</option>
-                                </select>
-                              )}
-                           </div>
+                                    {/* Division Dropdown */}
+                                    {requiresDivision(round.trial_classes?.class_name) && isSelected && (
+                                      <select
+                                        value={formData.division_selections[round.id] || ''}
+                                        onChange={(e) => handleDivisionChange(round.id, e.target.value)}
+                                        className="h-9 px-3 border-2 border-purple-300 rounded-md text-sm font-medium bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 mt-3"
+                                        required
+                                      >
+                                        <option value="">Select Division *</option>
+                                        <option value="A">Division A (Beginner)</option>
+                                        <option value="B">Division B (Experienced)</option>
+                                        <option value="TO">TO (Trial Official)</option>
+                                        <option value="JR">JR (Junior Handler)</option>
+                                      </select>
+                                    )}
                                   </div>
                                 </div>
                               </div>
