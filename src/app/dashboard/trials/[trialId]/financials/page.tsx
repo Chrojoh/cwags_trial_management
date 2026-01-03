@@ -187,21 +187,20 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
       setCompetitors(competitorsResult.data || []);
       
       // Load J/V status for each competitor
+      const jvStatusPromises = (competitorsResult.data || []).map(async (comp: CompetitorFinancial) => {
+        const { data } = await supabase
+          .from('entries')
+          .select('is_judge_volunteer')
+          .eq('id', comp.entry_id)
+          .single();
+        
+        return { entryId: comp.entry_id, isJV: data?.is_judge_volunteer || false };
+      });
+      
+      const jvResults = await Promise.all(jvStatusPromises);
       const jvStatus: Record<string, boolean> = {};
-      (competitorsResult.data || []).forEach((comp: CompetitorFinancial) => {
-        // Check the first entry ID for J/V status
-        const checkJVStatus = async () => {
-          const { data } = await supabase
-            .from('entries')
-            .select('is_judge_volunteer')
-            .eq('id', comp.entry_id)
-            .single();
-          
-          if (data) {
-            jvStatus[comp.entry_id] = data.is_judge_volunteer || false;
-          }
-        };
-        checkJVStatus();
+      jvResults.forEach(result => {
+        jvStatus[result.entryId] = result.isJV;
       });
       
       setJudgeVolunteerStatus(jvStatus);
