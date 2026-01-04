@@ -289,69 +289,76 @@ export default function PublicEntryForm() {
         const entryIds = existingEntries.map(entry => entry.id);
         console.log('Loading entry selections for all entry IDs:', entryIds);
         
-        const { data: allEntrySelections, error: selectionsError } = await supabase
-          .from('entry_selections')
-          .select('trial_round_id, entry_type, division, entry_id, jump_height')
-          .in('entry_id', entryIds);
-        
-        console.log('Entry selections query result:', allEntrySelections, selectionsError);
-        
-        let selectedRoundIds: string[] = [];
-        let feoRoundIds: string[] = [];
-        let divisionMap: Record<string, string> = {};
-        
-        if (allEntrySelections && allEntrySelections.length > 0) {
-          console.log('Processing entry selections:', allEntrySelections);
-          
-          const uniqueSelections = new Map();
-          allEntrySelections.forEach((selection: any) => {
-            const roundId = selection.trial_round_id;
-            uniqueSelections.set(roundId, {
-              type: selection.entry_type,
-              division: selection.division
-            });
-          });
-          
-          selectedRoundIds = Array.from(uniqueSelections.keys());
-          feoRoundIds = Array.from(uniqueSelections.entries())
-            .filter(([, data]) => data.type === 'feo')
-            .map(([roundId]) => roundId);
-          
-          uniqueSelections.forEach((data, roundId) => {
-            if (data.division) {
-              divisionMap[roundId] = data.division;
-            }
-          });
-        }
-        
-        console.log('Final selected round IDs:', selectedRoundIds);
-        console.log('Final FEO round IDs:', feoRoundIds);
-        console.log('Final division map:', divisionMap);
-        
-        const originalFormData: EntryFormData = {
-          handler_name: existingEntry.handler_name,
-          handler_email: existingEntry.handler_email,
-          handler_phone: existingEntry.handler_phone || '',
-          emergency_contact: '',
-          cwags_number: existingEntry.cwags_number,
-          dog_call_name: existingEntry.dog_call_name,
-          dog_breed: existingEntry.dog_breed || '',
-          dog_sex: existingEntry.dog_sex || '',
-          dog_dob: '',
-          is_junior_handler: existingEntry.is_junior_handler || false,
-          waiver_accepted: existingEntry.waiver_accepted || false,
-          selected_rounds: selectedRoundIds,
-          feo_selections: feoRoundIds,
-          division_selections: divisionMap,
-          jump_height_selections: {}
-        };
-        
-        console.log('Setting original form data:', originalFormData);
-        setOriginalFormData(originalFormData);
-        setFormData(originalFormData);
-        
-        console.log('Form populated with existing entry data and class selections');
-      } else {
+       const { data: allEntrySelections, error: selectionsError } = await supabase
+  .from('entry_selections')
+  .select('trial_round_id, entry_type, division, entry_id, jump_height')
+  .in('entry_id', entryIds);
+
+console.log('Entry selections query result:', allEntrySelections, selectionsError);
+
+let selectedRoundIds: string[] = [];
+let feoRoundIds: string[] = [];
+let divisionMap: Record<string, string> = {};
+let jumpHeightMap: Record<string, string> = {};  // ✅ ADD THIS LINE
+
+if (allEntrySelections && allEntrySelections.length > 0) {
+  console.log('Processing entry selections:', allEntrySelections);
+  
+  const uniqueSelections = new Map();
+  allEntrySelections.forEach((selection: any) => {
+    const roundId = selection.trial_round_id;
+    uniqueSelections.set(roundId, {
+      type: selection.entry_type,
+      division: selection.division,
+      jump_height: selection.jump_height  // ✅ ADD THIS LINE
+    });
+  });
+  
+  selectedRoundIds = Array.from(uniqueSelections.keys());
+  feoRoundIds = Array.from(uniqueSelections.entries())
+    .filter(([, data]) => data.type === 'feo')
+    .map(([roundId]) => roundId);
+  
+  uniqueSelections.forEach((data, roundId) => {
+    if (data.division) {
+      divisionMap[roundId] = data.division;
+    }
+    // ✅ ADD THIS BLOCK
+    if (data.jump_height) {
+      jumpHeightMap[roundId] = data.jump_height;
+    }
+  });
+}
+
+console.log('Final selected round IDs:', selectedRoundIds);
+console.log('Final FEO round IDs:', feoRoundIds);
+console.log('Final division map:', divisionMap);
+console.log('Final jump height map:', jumpHeightMap);  // ✅ ADD THIS LINE
+
+const originalFormData: EntryFormData = {
+  handler_name: existingEntry.handler_name,
+  handler_email: existingEntry.handler_email,
+  handler_phone: existingEntry.handler_phone || '',
+  emergency_contact: '',
+  cwags_number: existingEntry.cwags_number,
+  dog_call_name: existingEntry.dog_call_name,
+  dog_breed: existingEntry.dog_breed || '',
+  dog_sex: existingEntry.dog_sex || '',
+  dog_dob: '',
+  is_junior_handler: existingEntry.is_junior_handler || false,
+  waiver_accepted: existingEntry.waiver_accepted || false,
+  selected_rounds: selectedRoundIds,
+  feo_selections: feoRoundIds,
+  division_selections: divisionMap,
+  jump_height_selections: jumpHeightMap  // ✅ CHANGE FROM {} TO jumpHeightMap
+};
+
+console.log('Setting original form data:', originalFormData);
+setOriginalFormData(originalFormData);
+setFormData(originalFormData);
+
+console.log('Form populated with existing entry data and class selections');
+} else {
   console.log('No existing entry found, checking C-WAGS registry...');
   setExistingEntry(null);
   
@@ -778,33 +785,47 @@ export default function PublicEntryForm() {
       console.log('🔄 Using score-aware sync for entry selections...');
 
       // Build the complete list of desired selections
-      const allDesiredSelections = formData.selected_rounds.map((roundId, index) => {
-        const round = trialRounds.find(r => r.id === roundId);
-        const division = formData.division_selections[roundId] || null;
-        const jumpHeight = formData.jump_height_selections[roundId] || null;
-        const isFeo = formData.feo_selections.includes(roundId);
-        
-        let entryFee = round?.trial_classes?.entry_fee || 0;
-        let entryType: 'regular' | 'feo' = 'regular';
-        
-        if (isFeo && round?.trial_classes?.feo_price) {
-          entryFee = round.trial_classes.feo_price;
-          entryType = 'feo';
-        }
-        
-        const gamesSubclass = round?.trial_classes?.games_subclass || null;
-        
-        return {
-          trial_round_id: roundId,
-          entry_type: entryType,
-          fee: entryFee,
-          running_position: index + 1,
-          entry_status: 'entered' as const,
-          division: division,
-          games_subclass: gamesSubclass,
-          jump_height: jumpHeight
-        };
-      });
+      const allDesiredSelections = await Promise.all(
+    formData.selected_rounds.map(async (roundId) => {
+    const round = trialRounds.find(r => r.id === roundId);
+    const division = formData.division_selections[roundId] || null;
+    const jumpHeight = formData.jump_height_selections[roundId] || null;
+    const isFeo = formData.feo_selections.includes(roundId);
+    
+    let entryFee = round?.trial_classes?.entry_fee || 0;
+    let entryType: 'regular' | 'feo' = 'regular';
+    
+    if (isFeo && round?.trial_classes?.feo_price) {
+      entryFee = round.trial_classes.feo_price;
+      entryType = 'feo';
+    }
+    
+    const gamesSubclass = round?.trial_classes?.games_subclass || null;
+    
+    // ✅ Calculate the correct running position for THIS SPECIFIC ROUND
+    const { data: existingInRound } = await supabase
+      .from('entry_selections')
+      .select('running_position')
+      .eq('trial_round_id', roundId)
+      .order('running_position', { ascending: false })
+      .limit(1);
+    
+    const nextPosition = existingInRound && existingInRound.length > 0
+      ? (existingInRound[0].running_position || 0) + 1
+      : 1;
+    
+    return {
+      trial_round_id: roundId,
+      entry_type: entryType,
+      fee: entryFee,
+      running_position: nextPosition,  // ✅ Now correct per round!
+      entry_status: 'entered' as const,
+      division: division,
+      games_subclass: gamesSubclass,
+      jump_height: jumpHeight
+    };
+  })
+);
 
       // This will preserve selections with scores!
       const syncResult = await simpleTrialOperations.createEntrySelections(
