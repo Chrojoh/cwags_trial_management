@@ -802,17 +802,18 @@ console.log('Form populated with existing entry data and class selections');
     
     const gamesSubclass = round?.trial_classes?.games_subclass || null;
     
-    // ✅ Calculate the correct running position for THIS SPECIFIC ROUND
-    const { data: existingInRound } = await supabase
-      .from('entry_selections')
-      .select('running_position')
-      .eq('trial_round_id', roundId)
-      .order('running_position', { ascending: false })
-      .limit(1);
-    
-    const nextPosition = existingInRound && existingInRound.length > 0
-      ? (existingInRound[0].running_position || 0) + 1
-      : 1;
+    // ✅ Calculate the correct running position for THIS SPECIFIC ROUND (exclude withdrawn)
+const { data: existingInRound } = await supabase
+  .from('entry_selections')
+  .select('running_position')
+  .eq('trial_round_id', roundId)
+  .neq('entry_status', 'withdrawn')  // ✅ EXCLUDE WITHDRAWN ENTRIES
+  .order('running_position', { ascending: false })
+  .limit(1);
+
+const nextPosition = existingInRound && existingInRound.length > 0
+  ? (existingInRound[0].running_position || 0) + 1
+  : 1;
     
     return {
       trial_round_id: roundId,

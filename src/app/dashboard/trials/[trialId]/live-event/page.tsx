@@ -1560,11 +1560,14 @@ const addNewEntry = async () => {
       throw new Error('Failed to check for existing entries');
     }
 
-    // Calculate next running position for the SELECTED round
-    const roundEntries = classEntries.filter(e => e.round_number === selectedRound);
-    const nextPosition = roundEntries.length > 0 
-      ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
-      : 1;
+    // Calculate next running position for the SELECTED round (exclude withdrawn)
+const roundEntries = classEntries.filter(e => 
+  e.round_number === selectedRound &&
+  e.entry_status !== 'withdrawn'
+);
+const nextPosition = roundEntries.length > 0 
+  ? Math.max(...roundEntries.map(e => e.running_position)) + 1 
+  : 1;
 
     console.log('Next running position for round', selectedRound, ':', nextPosition);
 
