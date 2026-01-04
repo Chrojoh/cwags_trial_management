@@ -1,11 +1,6 @@
 // src/lib/trial-operations-simple.ts
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
 const supabase = getSupabaseBrowser();
-
-
-
-
-// Proper TypeScript interfaces from original
 export interface TrialData {
   id?: string;
   trial_name: string;
@@ -114,6 +109,9 @@ export interface EntrySelection {
   running_position: number;
   entry_status: string;
   created_at?: string;
+  division: string | null;
+  games_subclass: string | null;
+  jump_height: string | null;
 }
 
 // C-WAGS Level Organization
@@ -1289,7 +1287,7 @@ async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'i
       };
     }
 
-    // STEP 6: Add new selections
+   // STEP 6: Add new selections
     const selectionsWithEntryId = selections.map((selection, index) => ({
       entry_id: entryId,
       trial_round_id: selection.trial_round_id,
@@ -1297,6 +1295,9 @@ async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'i
       fee: selection.fee || 0,
       running_position: selection.running_position || index + 1,
       entry_status: selection.entry_status || 'entered',
+      division: selection.division || null,
+      games_subclass: selection.games_subclass || null,
+      jump_height: selection.jump_height || null,
       created_at: new Date().toISOString()
     }));
 

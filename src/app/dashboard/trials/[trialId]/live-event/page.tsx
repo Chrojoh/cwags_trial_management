@@ -756,6 +756,7 @@ const loadClassEntries = async () => {
   round_number: selectedClass.round_number || 1,
   round_id: selectedClass.id,
   division: selection.division || null,
+  jump_height: selection.jump_height || null,
   fee: selection.fee || 0,
   entries: {
     handler_name: selection.substitute_handler_name || entry.handler_name,  // ✅ Use substitute if exists
@@ -3071,6 +3072,14 @@ worksheet['!view'] = [{ showGridLines: false }];
               }`}
             >
               Div {entry.division}
+            </Badge>
+          )}
+          {entry.jump_height && (
+            <Badge 
+              variant="outline" 
+              className="text-xs bg-teal-100 text-teal-700 border-teal-300"
+            >
+              {entry.jump_height}" jump
             </Badge>
           )}
         </div>

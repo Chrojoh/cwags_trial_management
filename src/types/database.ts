@@ -304,7 +304,7 @@ export interface Database {
           created_at?: string
         }
       }
-      entry_selections: {
+     entry_selections: {
   Row: {
     id: string
     entry_id: string
@@ -313,7 +313,12 @@ export interface Database {
     fee: number
     running_position: number | null
     entry_status: 'confirmed' | 'withdrawn' | 'no_show'
-    division: string | null  // NEW FIELD: 'A', 'B', 'TO', 'JR', or null
+    division: string | null
+    games_subclass: string | null
+    substitute_dog_name: string | null
+    substitute_handler_name: string | null
+    substitute_cwags_number: string | null
+    jump_height: string | null
     created_at: string
   }
   Insert: {
@@ -324,7 +329,12 @@ export interface Database {
     fee: number
     running_position?: number | null
     entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
-    division?: string | null  // NEW FIELD
+    division?: string | null
+    games_subclass?: string | null
+    substitute_dog_name?: string | null
+    substitute_handler_name?: string | null
+    substitute_cwags_number?: string | null
+    jump_height?: string | null
     created_at?: string
   }
   Update: {
@@ -335,7 +345,12 @@ export interface Database {
     fee?: number
     running_position?: number | null
     entry_status?: 'confirmed' | 'withdrawn' | 'no_show'
-    division?: string | null  // NEW FIELD
+    division?: string | null
+    games_subclass?: string | null
+    substitute_dog_name?: string | null
+    substitute_handler_name?: string | null
+    substitute_cwags_number?: string | null
+    jump_height?: string | null
     created_at?: string
   }
 }

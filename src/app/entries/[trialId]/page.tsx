@@ -291,7 +291,7 @@ export default function PublicEntryForm() {
         
         const { data: allEntrySelections, error: selectionsError } = await supabase
           .from('entry_selections')
-          .select('trial_round_id, entry_type, division, entry_id')
+          .select('trial_round_id, entry_type, division, entry_id, jump_height')
           .in('entry_id', entryIds);
         
         console.log('Entry selections query result:', allEntrySelections, selectionsError);
@@ -424,9 +424,6 @@ export default function PublicEntryForm() {
       setEditModeLoading(false);
     }
   };
-
- // COMPLETE REPLACEMENT: Delete lines 665-730 in your current code
-// Replace with this entire section:
 
   const saveToRegistry = async () => {
     if (!formData.cwags_number || !formData.handler_name || !formData.dog_call_name) {
@@ -1031,13 +1028,16 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
     });
   }
   
+const jumpHeight = formData.jump_height_selections[roundId];
+  
   return {
     className: round.trial_classes?.class_name || 'Unknown',
     roundNumber: round.round_number || 1,
     entryType: isFeo ? 'FEO' : 'Regular',
     division: division || null,
     fee: fee,
-    dayInfo: dayInfo
+    dayInfo: dayInfo,
+    jumpHeight: jumpHeight || null
   };
 }).filter((item): item is NonNullable<typeof item> => item !== null);
 
@@ -1154,6 +1154,11 @@ const selectedClassDetails = formData.selected_rounds.map(roundId => {
                       {item?.division && (
                         <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                           Division {item.division}
+                        </span>
+                      )}
+                      {item?.jumpHeight && (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 border border-green-300">
+                          {item.jumpHeight}" jump
                         </span>
                       )}
                     </div>
