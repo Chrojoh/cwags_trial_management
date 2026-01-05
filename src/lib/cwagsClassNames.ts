@@ -3,13 +3,13 @@
 // DO NOT duplicate this list elsewhere - import from here instead
 
 export const CWAGS_CLASS_ORDER = [
-  // Scent Work Classes (in display order)
-  'Patrol',
-  'Detective', 
-  'Investigator',
-  'Super Sleuth',
-  'Private Investigator',
-  'Detective Diversions',
+  // Scent Work Classes (normalized display names)
+  'Patrol 1',              // ✅ Database has "Patrol", display shows "Patrol 1"
+  'Detective 2',           // ✅ Database has "Detective", display shows "Detective 2"
+  'Investigator 3',        // ✅ Database has "Investigator", display shows "Investigator 3"
+  'Super Sleuth 4',          // ✅ Database has "Super Sleuth", no normalization
+  'Private Investigator',  // ✅ Database has this exactly
+  'Detective Diversions',  // ✅ Database has this exactly
   
   // Ranger Classes
   'Ranger 1',
@@ -49,10 +49,9 @@ export const CWAGS_CLASS_ORDER = [
   'Games 4'
 ] as const;
 
-// Organized by discipline for forms/filters
 export const CWAGS_LEVELS = {
   'Scent Work': [
-    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
+    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4', 
     'Private Investigator', 'Detective Diversions',
     'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
     'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6'
@@ -71,14 +70,9 @@ export const CWAGS_LEVELS = {
 } as const;
 
 // Helper function to get class display order
+// Helper function to get class display order
 export function getClassOrder(className: string): number {
-  const index = CWAGS_CLASS_ORDER.findIndex(order => {
-    if (className.includes('Games')) {
-      return className.startsWith(order);
-    }
-    return className === order;
-  });
-  
+  const index = CWAGS_CLASS_ORDER.findIndex(order => order === className);
   return index === -1 ? 999 : index;
 }
 

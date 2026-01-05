@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/mainLayout';
@@ -11,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
- import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import {
   FileSpreadsheet,
   Users,
@@ -24,6 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 
 interface Trial {
   id: string;
@@ -99,7 +101,7 @@ export default function ClassSummaryPage() {
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
-
+  const [classDisplayData, setClassDisplayData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -107,6 +109,17 @@ export default function ClassSummaryPage() {
       loadSummaryData();
     }
   }, [trialId]);
+
+  useEffect(() => {
+  if (selectedClassId && selectedClassId !== 'all') {
+    generateClassDisplayData(selectedClassId).then(data => {
+      console.log('Generated class display data:', data);
+      setClassDisplayData(data);
+    });
+  } else {
+    setClassDisplayData(null);
+  }
+}, [selectedClassId, summaryData]);
 
   const loadSummaryData = async () => {
     try {
@@ -131,13 +144,157 @@ export default function ClassSummaryPage() {
     }
   };
 
-// Replace the generateExcelReport function in src/app/dashboard/trials/[trialId]/summary/page.tsx
-
 function safeDateFromISO(iso: string) {
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
 }
 
+const generateClassDisplayData = async (classId: string) => {
+  if (!summaryData) return null;
+
+  try {
+    // Get complete trial structure including rounds
+    const allRoundsResult = await simpleTrialOperations.getAllTrialRounds(trialId);
+    if (!allRoundsResult.success) return null;
+    const allTrialRounds = allRoundsResult.data || [];
+
+    // Get all entries with selections
+    const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    if (!entriesResult.success) return null;
+
+    // Get all scores
+    const { data: allScores } = await supabase.from('scores').select('*');
+    const scoresMap = new Map();
+    if (allScores) {
+      allScores.forEach(score => scoresMap.set(score.entry_selection_id, score));
+    }
+
+    // Find the selected class info
+    const selectedClass = summaryData.classes.find(c => c.id === classId);
+    if (!selectedClass) return null;
+
+    // Normalize class name
+    const normalizeClassName = (className: string): string => {
+      const corrections: Record<string, string> = {
+        'Patrol': 'Patrol 1',
+        'Detective': 'Detective 2',
+        'Investigator': 'Investigator 3',
+        'Super Sleuth': 'Super Sleuth 4',
+        'Private Inv': 'Private Investigator',
+        'Det Diversions': 'Detective Diversions'
+      };
+      return corrections[className] || className;
+    };
+
+    // Date conversion function (from Excel export)
+    const safeDateFromISO = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
+    };
+
+    const normalizedName = normalizeClassName(selectedClass.class_name);
+
+    // Build structure like Excel export
+    const classData: any = {
+      className: normalizedName,
+      allParticipants: new Map(),
+      allRounds: []
+    };
+
+    // Process rounds for this class - use a Map to prevent duplicates by roundId
+    const roundsMap = new Map();
+    
+    allTrialRounds.forEach((round: any) => {
+      const roundClassName = round.trial_classes?.class_name;
+      if (!roundClassName) return;
+      
+      const roundNormalized = normalizeClassName(roundClassName);
+      if (roundNormalized !== normalizedName) return;
+
+      const trialDate = round.trial_classes?.trial_days?.trial_date;
+      if (!trialDate) return;
+
+      // Only add if we haven't seen this roundId yet
+      if (!roundsMap.has(round.id)) {
+        const dateSort = safeDateFromISO(trialDate).getTime();
+        const sortOrder = dateSort + round.round_number;
+        
+        roundsMap.set(round.id, {
+          roundId: round.id,
+          judgeInfo: round.judge_name || 'TBD',
+          trialDate: trialDate,
+          roundNumber: round.round_number,
+          sortOrder: sortOrder,
+          results: new Map()
+        });
+      }
+    });
+
+    // Convert map to array and sort
+    classData.allRounds = Array.from(roundsMap.values()).sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+
+    console.log('Processed rounds for class:', classData.allRounds);
+
+    // Process entries and scores
+    (entriesResult.data || []).forEach((entry: any) => {
+      (entry.entry_selections || []).forEach((selection: any) => {
+        if (selection.entry_type?.toLowerCase() === 'feo') return;
+        if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
+
+        const roundId = selection.trial_round_id;
+        const cwagsNumber = entry.cwags_number;
+
+        // Find target round
+        const targetRound = classData.allRounds.find((r: any) => r.roundId === roundId);
+        if (!targetRound) return;
+
+        // Add participant
+        if (!classData.allParticipants.has(cwagsNumber)) {
+          classData.allParticipants.set(cwagsNumber, {
+            cwagsNumber: entry.cwags_number,
+            dogName: entry.dog_call_name,
+            handlerName: entry.handler_name
+          });
+        }
+
+        // Determine result
+        const score = scoresMap.get(selection.id);
+        let result = '-';
+
+        if (selection.entry_status === 'no_show' || selection.entry_status === 'absent') {
+          result = 'Abs';
+        } else if (score) {
+          const classType = selectedClass.class_type || 'scent';
+          const className = normalizedName;
+
+          if (classType === 'rally' || className.toLowerCase().includes('obedience')) {
+            const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
+            if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
+              result = score.numerical_score.toString();
+            } else {
+              result = 'NQ';
+            }
+          } else if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
+            result = score.pass_fail;
+          } else if (score.pass_fail === 'Pass') {
+            result = 'P';
+          } else if (score.pass_fail === 'Fail') {
+            result = 'F';
+          }
+        }
+
+        targetRound.results.set(cwagsNumber, result);
+      });
+    });
+
+    console.log('Final class data:', classData);
+    return classData;
+
+  } catch (error) {
+    console.error('Error generating class display data:', error);
+    return null;
+  }
+};
 
 const generateExcelReport = async () => {
   if (!summaryData) {
@@ -834,22 +991,24 @@ summarySheetData.push([
         </label>
 
         <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-          <SelectTrigger
-            className="border-2 border-purple-600 rounded-md hover:bg-purple-50 transition-colors"
-          >
-            <SelectValue placeholder="Select a class" />
-          </SelectTrigger>
+  <SelectTrigger
+    className="border-2 border-purple-600 rounded-md hover:bg-purple-50 transition-colors"
+  >
+    <SelectValue placeholder="Select a class" />
+  </SelectTrigger>
 
-          <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-            <SelectItem value="all">📊 Select All Classes</SelectItem>
+ <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+  <SelectItem value="all">📊 Select All Classes</SelectItem>
 
-            {summaryData.classes.map((cls) => (
-              <SelectItem key={cls.id} value={cls.id}>
-                {getDisplayClassName(cls)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+  {[...summaryData.classes]
+    .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name))
+    .map((cls) => (
+      <SelectItem key={cls.id} value={cls.id}>
+        {getDisplayClassName(cls)}
+      </SelectItem>
+    ))}
+</SelectContent>
+</Select>
       </div>
 
       {/* Export Button */}
@@ -898,15 +1057,16 @@ summarySheetData.push([
      <CardDescription>
        {summaryData.trial.trial_name} • {(() => {
          const normalizeClassName = (className: string): string => {
-           const corrections: Record<string, string> = {
-             'Patrol': 'Patrol 1',
-             'Detective': 'Detective 2',
-             'Investigator': 'Investigator 3',
-             'Private Inv': 'Private Investigator',
-             'Det Diversions': 'Detective Diversions'
-           };
-           return corrections[className] || className;
-         };
+  const corrections: Record<string, string> = {
+    'Patrol': 'Patrol 1',
+    'Detective': 'Detective 2',
+    'Investigator': 'Investigator 3',
+    'Super Sleuth': 'Super Sleuth 4',  // ✅ ADD THIS LINE
+    'Private Inv': 'Private Investigator',
+    'Det Diversions': 'Detective Diversions'
+  };
+  return corrections[className] || className;
+};
          
          const uniqueClasses = new Set(summaryData.classes.map(cls => normalizeClassName(cls.class_name)));
          return uniqueClasses.size;
@@ -928,10 +1088,12 @@ summarySheetData.push([
          <tbody>
 
 {(() => {
-  // Since the backend now provides consolidated classes with total_rounds already calculated,
-  // we can directly use the data without additional consolidation
+  // Simple sort using the master class order
+  const sortedClasses = [...summaryData.classes].sort((a, b) => 
+    getClassOrder(a.class_name) - getClassOrder(b.class_name)
+  );
   
-  return summaryData.classes.map((cls, index) => (
+  return sortedClasses.map((cls, index) => (
     <tr key={index} className="hover:bg-gray-50">
       <td className="border border-gray-300 px-4 py-3">
         <div className="flex items-center space-x-2">
@@ -1006,148 +1168,99 @@ summarySheetData.push([
             </div>
           </>
         ) : (
-          // Individual Class Detail View with Excel-style formatting
-selectedClassData && (
-  <>
-    <Card>
-      <CardContent className="pt-6">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <tbody>
-              {/* Row 1: Trial Name (merged across columns) */}
-              <tr>
-                <td colSpan={7} className="px-3 py-2 text-xl font-normal">
-                  {summaryData.trial.trial_name}
-                </td>
-              </tr>
-              
-              {/* Row 2: Blank */}
-              <tr>
-                <td colSpan={7} className="py-1"></td>
-              </tr>
-              
-              {/* Row 3: Class Name at column F */}
-              <tr>
-                <td className="px-3 py-2"></td>
-                <td className="px-3 py-2"></td>
-                <td className="px-3 py-2"></td>
-                <td className="px-3 py-2"></td>
-                <td className="px-3 py-2"></td>
-                <td className="px-3 py-2 text-xl font-bold text-center">
-                  {getDisplayClassName(selectedClassData)}
-                </td>
-                <td className="px-3 py-2"></td>
-              </tr>
-              
-              {/* Row 4: Headers */}
-              <tr className="bg-gray-50">
-                <th className="border border-gray-300 px-3 py-2"></th>
-                <th className="border border-gray-300 px-3 py-2"></th>
-                <th className="border border-gray-300 px-3 py-2"></th>
-                <th className="border border-gray-300 px-3 py-2 text-center font-bold">C-WAGS Number</th>
-                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Dog Name</th>
-                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Handler Name</th>
-                <th className="border border-gray-300 px-3 py-2 text-center font-bold">Result</th>
-              </tr>
-              
-              {/* Row 5: Judge Name at column G */}
-              <tr>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2 text-center font-bold text-sm">
-                  {selectedClassData.judge_name}
-                </td>
-              </tr>
-              
-              {/* Row 6: Date at column G */}
-              <tr>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2"></td>
-                <td className="border border-gray-300 px-3 py-2 text-center font-bold text-sm">
-                  {new Date(selectedClassData.trial_date).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: '2-digit',
-                    year: 'numeric'
-                  })}
-                </td>
-              </tr>
-              
-              {/* Row 7+: Participant Data */}
-              {selectedClassData.entries
-                .sort((a, b) => a.running_position - b.running_position)
-                .map(entry => {
-                  const { result, color } = getResultDisplay(entry, selectedClassData);
-                  
-                  return (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-3 py-2"></td>
-                      <td className="border border-gray-300 px-3 py-2"></td>
-                      <td className="border border-gray-300 px-3 py-2"></td>
-                      <td className="border border-gray-300 px-3 py-2 font-mono text-sm text-center">
-                        {entry.entries.cwags_number}
-                      </td>
-                      <td className="border border-gray-300 px-3 py-2 font-medium text-center">
-                        {entry.entries.dog_call_name}
-                      </td>
-                      <td className="border border-gray-300 px-3 py-2 text-center">
-                        {entry.entries.handler_name}
-                      </td>
-                      <td className={`border border-gray-300 px-3 py-2 text-center ${color}`}>
-                        {result}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-
-                  {/* Individual Class Statistics */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="text-center p-4">
-                    <div className="text-2xl font-bold text-orange-600">{selectedClassData.entries.length}</div>
-                    <div className="text-sm text-gray-600">Total Participants</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="text-center p-4">
-                    <div className="text-2xl font-bold text-purple-600">1</div>
-                    <div className="text-sm text-gray-600">Total Rounds</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="text-center p-4">
-                    <div className="text-2xl font-bold text-green-600 flex items-center justify-center space-x-1">
-                      <CheckCircle className="h-5 w-5" />
-                      <span>{selectedClassData.pass_count}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">Passes</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="text-center p-4">
-                    <div className="text-2xl font-bold text-red-600 flex items-center justify-center space-x-1">
-                      <XCircle className="h-5 w-5" />
-                      <span>{selectedClassData.fail_count}</span>
-                    </div>
-                    <div className="text-sm text-gray-600">Fails</div>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )
-        )}
+  // Individual Class Detail View - using processed data like Excel
+  classDisplayData && (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl">{summaryData.trial.trial_name}</CardTitle>
+          <CardDescription className="text-lg font-semibold mt-2">
+            {classDisplayData.className}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="relative overflow-x-auto">
+  <table className="w-full border-collapse text-xs sm:text-sm">
+    <thead>
+      {/* Row 1: Round headers */}
+      <tr className="bg-gray-100">
+        <th className="sticky left-0 z-20 bg-gray-100 border border-gray-300 px-2 py-2 font-bold text-xs whitespace-nowrap min-w-[110px]">
+          C-WAGS
+        </th>
+        <th className="sticky left-[110px] z-20 bg-gray-100 border border-gray-300 px-2 py-2 font-bold text-xs whitespace-nowrap min-w-[100px]">
+          Dog
+        </th>
+        <th className="sticky left-[210px] z-20 bg-gray-100 border border-gray-300 px-2 py-2 font-bold text-xs whitespace-nowrap min-w-[120px]">
+          Handler
+        </th>
+        {classDisplayData.allRounds.map((round: any) => (
+          <th key={round.roundId} className="border border-gray-300 px-3 py-2 text-center font-bold bg-orange-50 min-w-[100px] text-xs">
+            Round {round.roundNumber}
+          </th>
+        ))}
+      </tr>
+      {/* Row 2: Judge and date */}
+      <tr className="bg-gray-50">
+        <th className="sticky left-0 z-20 bg-gray-50 border border-gray-300"></th>
+        <th className="sticky left-[110px] z-20 bg-gray-50 border border-gray-300"></th>
+        <th className="sticky left-[210px] z-20 bg-gray-50 border border-gray-300"></th>
+        {classDisplayData.allRounds.map((round: any) => (
+          <th key={`judge-${round.roundId}`} className="border border-gray-300 px-2 py-1 text-center bg-orange-50">
+            <div className="text-xs font-semibold">{round.judgeInfo}</div>
+            <div className="text-[10px] font-normal text-gray-600">
+  {(() => {
+    const [y, m, d] = round.trialDate.split('-').map(Number);
+    const date = new Date(y, m - 1, d, 12, 0, 0);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  })()}
+</div>
+          </th>
+        ))}
+      </tr>
+    </thead>
+    <tbody>
+      {Array.from(classDisplayData.allParticipants.values()).map((participant: any) => (
+        <tr key={participant.cwagsNumber} className="hover:bg-gray-50">
+          <td className="sticky left-0 z-10 bg-white border border-gray-300 px-2 py-2 text-xs whitespace-nowrap">
+            {participant.cwagsNumber}
+          </td>
+          <td className="sticky left-[110px] z-10 bg-white border border-gray-300 px-2 py-2 text-xs whitespace-nowrap">
+            {participant.dogName}
+          </td>
+          <td className="sticky left-[210px] z-10 bg-white border border-gray-300 px-2 py-2 text-xs whitespace-nowrap">
+            {participant.handlerName}
+          </td>
+          {classDisplayData.allRounds.map((round: any) => {
+            const result = round.results.get(participant.cwagsNumber) || '-';
+            const isPassing = result === 'P' || ['GB', 'BJ', 'T', 'C'].includes(result) || (!isNaN(Number(result)) && result !== '-');
+            const isFailing = result === 'F' || result === 'NQ';
+            const isAbsent = result === 'Abs';
+            
+            return (
+              <td 
+                key={`${participant.cwagsNumber}-${round.roundId}`}
+                className={`border border-gray-300 px-3 py-2 text-center font-semibold text-xs ${
+                  isPassing ? 'bg-green-50 text-green-700' :
+                  isFailing ? 'bg-red-50 text-red-700' :
+                  isAbsent ? 'bg-gray-100 text-gray-500' :
+                  'text-gray-400'
+                }`}
+              >
+                {result}
+              </td>
+            );
+          })}
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+          <p className="text-xs text-gray-500 mt-2 sm:hidden text-center">← Scroll right to see all rounds →</p>
+        </CardContent>
+      </Card>
+    </>
+  )
+)}    
       </div>
     </MainLayout>
   );

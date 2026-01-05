@@ -2296,16 +2296,17 @@ const classesWithEntries = classesWithStats.filter(cls =>
     const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
 
     // Consolidate classes by normalized name AND count actual rounds
-    const normalizeClassName = (className: string): string => {
-      const corrections: Record<string, string> = {
-        'Patrol': 'Patrol 1',
-        'Detective': 'Detective 2', 
-        'Investigator': 'Investigator 3',
-        'Private Inv': 'Private Investigator',
-        'Det Diversions': 'Detective Diversions'
-      };
-      return corrections[className] || className;
-    };
+   const normalizeClassName = (className: string): string => {
+  const corrections: Record<string, string> = {
+    'Patrol': 'Patrol 1',
+    'Detective': 'Detective 2', 
+    'Investigator': 'Investigator 3',
+    'Super Sleuth': 'Super Sleuth 4',  // ✅ ADD THIS LINE
+    'Private Inv': 'Private Investigator',
+    'Det Diversions': 'Detective Diversions'
+  };
+  return corrections[className] || className;
+};
 
     const consolidatedClasses = new Map();
     const allRoundsResult = await this.getAllTrialRounds(trialId);
