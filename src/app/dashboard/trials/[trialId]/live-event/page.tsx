@@ -305,6 +305,9 @@ export default function LiveEventManagementPage() {
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [draggedEntry, setDraggedEntry] = useState<ClassEntry | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number>(0);
+  const [touchedEntry, setTouchedEntry] = useState<ClassEntry | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
   const [showDaySelector, setShowDaySelector] = useState(false);
@@ -2649,6 +2652,42 @@ worksheet['!view'] = [{ showGridLines: false }];
     setDraggedEntry(null);
   };
 
+  // Touch event handlers for mobile drag and drop
+const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, entry: ClassEntry) => {
+  setTouchStartY(e.touches[0].clientY);
+  setTouchedEntry(entry);
+  setIsDragging(false);
+};
+
+const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+  if (!touchedEntry) return;
+  
+  const touchY = e.touches[0].clientY;
+  const deltaY = Math.abs(touchY - touchStartY);
+  
+  // Start dragging if moved more than 10px
+  if (deltaY > 10 && !isDragging) {
+    setIsDragging(true);
+    setDraggedEntry(touchedEntry);
+  }
+};
+
+const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassEntry) => {
+  if (!isDragging || !draggedEntry || !targetEntry) {
+    setTouchedEntry(null);
+    setIsDragging(false);
+    return;
+  }
+  
+  if (draggedEntry.id !== targetEntry.id) {
+    updateRunningPosition(draggedEntry.id, targetEntry.running_position);
+  }
+  
+  setDraggedEntry(null);
+  setTouchedEntry(null);
+  setIsDragging(false);
+};
+  
   const getEntryStatusColor = (status: string) => {
     switch (status) {
       case 'entered': return 'bg-green-100 border-green-200';
@@ -3034,19 +3073,25 @@ worksheet['!view'] = [{ showGridLines: false }];
   const resultClass = getResultBadgeClass(resultDisplay);
 
   return (
-    <div
-      key={entry.id}
-      draggable={true}
-      onDragStart={(e) => handleDragStart(e, entry)}
-      onDragOver={handleDragOver}
-      onDrop={(e) => handleDrop(e, entry)}
-      onClick={() => setSelectedEntryId(entry.id)}
-      onKeyDown={(e) => handleKeyNavigation(e, entry)}
-      tabIndex={0}
-      className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
-        draggedEntry?.id === entry.id ? 'opacity-50' : ''
-      } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
-    >
+   <div
+  key={entry.id}
+  // Mouse drag and drop (desktop)
+  draggable={true}
+  onDragStart={(e) => handleDragStart(e, entry)}
+  onDragOver={handleDragOver}
+  onDrop={(e) => handleDrop(e, entry)}
+  // Touch drag and drop (mobile)
+  onTouchStart={(e) => handleTouchStart(e, entry)}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={(e) => handleTouchEnd(e, entry)}
+  // Selection and keyboard
+  onClick={() => setSelectedEntryId(entry.id)}
+  onKeyDown={(e) => handleKeyNavigation(e, entry)}
+  tabIndex={0}
+  className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
+    draggedEntry?.id === entry.id || isDragging && touchedEntry?.id === entry.id ? 'opacity-50 scale-95' : ''
+  } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
+>
        <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
   <div className="flex items-center space-x-2">

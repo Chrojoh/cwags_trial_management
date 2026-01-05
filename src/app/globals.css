@@ -159,3 +159,16 @@ a:active,
     height: 32px;
   }
 }
+
+/* Better mobile drag and drop feedback */
+@media (max-width: 640px) {
+  /* Make touch targets larger on mobile */
+  .cursor-pointer {
+    cursor: grab;
+    touch-action: none; /* Prevent scrolling while dragging */
+  }
+  
+  .cursor-pointer:active {
+    cursor: grabbing;
+  }
+}
