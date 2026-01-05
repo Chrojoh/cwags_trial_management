@@ -160,15 +160,22 @@ a:active,
   }
 }
 
-/* Better mobile drag and drop feedback */
+/* Mobile drag handle styling */
 @media (max-width: 640px) {
-  /* Make touch targets larger on mobile */
-  .cursor-pointer {
+  /* Make drag handle easier to grab on mobile */
+  .cursor-grab {
     cursor: grab;
-    touch-action: none; /* Prevent scrolling while dragging */
+    padding: 12px;
+    margin: -12px;
+    touch-action: none;
   }
   
-  .cursor-pointer:active {
+  .cursor-grab:active {
     cursor: grabbing;
+  }
+  
+  /* Rest of card should allow normal scrolling */
+  .cursor-pointer {
+    touch-action: auto;
   }
 }

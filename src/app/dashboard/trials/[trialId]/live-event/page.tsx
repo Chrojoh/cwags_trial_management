@@ -2645,37 +2645,37 @@ worksheet['!view'] = [{ showGridLines: false }];
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>, targetEntry: ClassEntry) => {
-    e.preventDefault();
-    if (draggedEntry && targetEntry && draggedEntry.id !== targetEntry.id) {
-      updateRunningPosition(draggedEntry.id, targetEntry.running_position);
-    }
-    setDraggedEntry(null);
-  };
+  e.preventDefault();
+  if (draggedEntry && targetEntry && draggedEntry.id !== targetEntry.id) {
+    updateRunningPosition(draggedEntry.id, targetEntry.running_position);
+  }
+  setDraggedEntry(null);
+};
 
-  // Touch event handlers for mobile drag and drop
+// ✅ ADD THESE NEW TOUCH HANDLERS:
+// Touch event handlers for mobile drag and drop - ONLY from drag handle
 const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>, entry: ClassEntry) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
   setTouchStartY(e.touches[0].clientY);
   setTouchedEntry(entry);
-  setIsDragging(false);
+  setDraggedEntry(entry);
+  setIsDragging(true);
 };
 
 const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-  if (!touchedEntry) return;
+  if (!isDragging || !draggedEntry) return;
   
-  const touchY = e.touches[0].clientY;
-  const deltaY = Math.abs(touchY - touchStartY);
-  
-  // Start dragging if moved more than 10px
-  if (deltaY > 10 && !isDragging) {
-    setIsDragging(true);
-    setDraggedEntry(touchedEntry);
-  }
+  e.preventDefault();
+  e.stopPropagation();
 };
 
 const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassEntry) => {
   if (!isDragging || !draggedEntry || !targetEntry) {
     setTouchedEntry(null);
     setIsDragging(false);
+    setDraggedEntry(null);
     return;
   }
   
@@ -2994,8 +2994,9 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
               </div>
 
               <p className="text-sm text-muted-foreground ml-7">
-                Entries can be re-arranged with up and down arrow keys or drag and drop
-              </p>
+  <span className="hidden sm:inline">Entries can be re-arranged with arrow keys or drag and drop</span>
+  <span className="sm:hidden">Touch and hold the ⋮⋮ icon to reorder entries</span>
+</p>
             </CardTitle>
 
 
@@ -3072,34 +3073,34 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
                            const resultDisplay = getDisplayResult(entry, selectedClass);
   const resultClass = getResultBadgeClass(resultDisplay);
 
-  return (
-   <div
-  key={entry.id}
-  // Mouse drag and drop (desktop)
-  draggable={true}
-  onDragStart={(e) => handleDragStart(e, entry)}
-  onDragOver={handleDragOver}
-  onDrop={(e) => handleDrop(e, entry)}
-  // Touch drag and drop (mobile)
-  onTouchStart={(e) => handleTouchStart(e, entry)}
-  onTouchMove={handleTouchMove}
-  onTouchEnd={(e) => handleTouchEnd(e, entry)}
-  // Selection and keyboard
-  onClick={() => setSelectedEntryId(entry.id)}
-  onKeyDown={(e) => handleKeyNavigation(e, entry)}
-  tabIndex={0}
-  className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
-    draggedEntry?.id === entry.id || isDragging && touchedEntry?.id === entry.id ? 'opacity-50 scale-95' : ''
-  } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
->
-       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-  <div className="flex items-center space-x-2">
-    <GripVertical className="h-4 w-4 text-gray-400" />
-    <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
-      #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-    </span>
-  </div>
+ return (
+  <div
+    key={entry.id}
+    draggable={true}
+    onDragStart={(e) => handleDragStart(e, entry)}
+    onDragOver={handleDragOver}
+    onDrop={(e) => handleDrop(e, entry)}
+    onClick={() => setSelectedEntryId(entry.id)}
+    onKeyDown={(e) => handleKeyNavigation(e, entry)}
+    tabIndex={0}
+    className={`p-4 border rounded-lg shadow-sm hover:shadow-md transition-all bg-white cursor-pointer ${getEntryStatusColor(entry.entry_status)} ${
+      draggedEntry?.id === entry.id ? 'opacity-50 scale-95' : ''
+    } ${selectedEntryId === entry.id ? 'ring-2 ring-orange-500 ring-offset-2' : ''}`}
+  >
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        {/* ✅ MODIFIED: Touch handlers ONLY on drag handle */}
+        <div 
+          className="flex items-center space-x-2"
+          onTouchStart={(e) => handleTouchStart(e, entry)}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={(e) => handleTouchEnd(e, entry)}
+        >
+          <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing" />
+          <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
+            #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
+          </span>
+        </div>
   
  <div className="flex-1">
     <div className="flex items-center space-x-3">
