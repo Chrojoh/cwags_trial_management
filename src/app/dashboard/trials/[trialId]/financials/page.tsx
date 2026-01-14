@@ -726,7 +726,7 @@ End of Report
     URL.revokeObjectURL(url);
   };
 
- // Calculate totals
+ // Calculate totals //
 const totals = {
   totalExpenses: expenses.reduce((sum, e) => sum + (e.amount || 0), 0),
   totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
