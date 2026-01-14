@@ -1089,22 +1089,31 @@ async getTrialEntries(trialId: string): Promise<OperationResult> {
   },
 
   // Update entry
-  async updateEntry(entryId: string, updates: Partial<EntryData>): Promise<OperationResult> {
-    try {
-      console.log('Updating entry:', entryId, updates);
+ async updateEntry(entryId: string, updates: Partial<EntryData>): Promise<OperationResult> {
+  try {
+    console.log('Updating entry:', entryId, updates);
 
-      // Add audit trail entry
-      const auditEntry = `Updated ${Object.keys(updates).join(', ')} at ${new Date().toISOString()}`;
-      
-      const { data, error } = await supabase
-        .from('entries')
-        .update({
-          ...updates,
-          audit_trail: auditEntry
-        })
-        .eq('id', entryId)
-        .select()
-        .single();
+    // ✅ Only add audit trail for meaningful updates (not automatic fee changes)
+    const meaningfulFields = Object.keys(updates).filter(key => 
+      key !== 'total_fee' && key !== 'amount_owed' && key !== 'audit_trail'
+    );
+    
+    let auditEntry = updates.audit_trail || null;
+    
+    // Only create audit entry if there are meaningful field changes
+    if (meaningfulFields.length > 0 && !updates.audit_trail) {
+      auditEntry = `Updated ${meaningfulFields.join(', ')} at ${new Date().toISOString()}`;
+    }
+    
+    const { data, error } = await supabase
+      .from('entries')
+      .update({
+        ...updates,
+        audit_trail: auditEntry
+      })
+      .eq('id', entryId)
+      .select()
+      .single();
 
       if (error) {
         console.error('Error updating entry:', error);

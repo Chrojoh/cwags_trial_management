@@ -539,6 +539,13 @@ export default function TrialsPage() {
                     </p>
                     
                     <div className="flex space-x-2">
+
+                     <Link href={`/dashboard/trials/${trial.id}/journal`}>
+      <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+      <FileText className="h-4 w-4 mr-1" />
+     Activity Journal
+     </Button>
+   </Link> 
   <Button 
     variant="outline" 
     size="sm"

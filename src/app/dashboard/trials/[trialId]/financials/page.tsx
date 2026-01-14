@@ -726,17 +726,17 @@ End of Report
     URL.revokeObjectURL(url);
   };
 
-  // Calculate totals
-  const totals = {
-    totalExpenses: expenses.reduce((sum, e) => sum + (e.amount || 0), 0),
-    totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
-    totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
-    totalOutstanding: competitors.reduce((sum, c) => {
+ // Calculate totals
+const totals = {
+  totalExpenses: expenses.reduce((sum, e) => sum + (e.amount || 0), 0),
+  totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
+  totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
+  totalOutstanding: competitors.reduce((sum, c) => {
     const balance = c.fees_waived ? 0 : (c.amount_owed - c.amount_paid);
-    return sum + Math.max(0, balance);
+    return sum + balance; // ✅ CORRECT - includes negative balances (refunds)
   }, 0),
-    netIncome: 0
-  };
+  netIncome: 0 // calculated below
+};
 
   totals.netIncome = totals.totalPaid - totals.totalExpenses;
 

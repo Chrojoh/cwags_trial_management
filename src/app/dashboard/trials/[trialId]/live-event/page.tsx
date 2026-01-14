@@ -3098,8 +3098,14 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
         >
           <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing" />
           <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
-            #{entry.entry_status === 'withdrawn' ? 'X' : entry.running_position}
-          </span>
+  #{entry.entry_status === 'withdrawn' 
+    ? 'X' 
+    : roundEntries
+        .filter(e => e.entry_status !== 'withdrawn')
+        .filter(e => e.running_position <= entry.running_position)
+        .length
+  }
+</span>
         </div>
   
  <div className="flex-1">

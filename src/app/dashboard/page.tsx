@@ -427,7 +427,7 @@ const userInfo = getDisplayInfo();
           <span>Judge Compensation Analysis</span>
         </div>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="bg-white">
         {allTrialsForJudgeComp.map((trial) => (
           <SelectItem key={trial.id} value={trial.id}>
             {trial.trial_name} - {new Date(trial.start_date).toLocaleDateString()}
