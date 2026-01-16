@@ -1219,69 +1219,92 @@ async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'i
     const allEntryIds = allEntries?.map(e => e.id) || [entryId];
     console.log('All entry IDs for this C-WAGS number:', allEntryIds);
 
-    // STEP 3: Check which entry selections have scores (DON'T DELETE THESE!)
-    const { data: selectionsWithScores, error: scoresError } = await supabase
-      .from('entry_selections')
-      .select(`
-        id,
-        trial_round_id,
-        entry_type,
-        scores(id)
-      `)
-      .in('entry_id', allEntryIds);
+   // STEP 3: Check which entry selections have scores - QUERY SCORES TABLE DIRECTLY
+console.log('🔍 Checking for scores using DIRECT query to scores table...');
 
-    if (scoresError) {
-      console.error('❌ Failed to check for scores:', scoresError);
-      return { success: false, error: `Failed to check for scores: ${scoresError.message}` };
-    }
+const { data: existingSelections, error: selectionsError } = await supabase
+  .from('entry_selections')
+  .select('id, trial_round_id, entry_type')
+  .in('entry_id', allEntryIds);
 
-    // Identify which selections have scores and should be preserved
-    const selectionsWithScoreIds = selectionsWithScores
-      ?.filter(sel => sel.scores && sel.scores.length > 0)
-      ?.map(sel => sel.id) || [];
+if (selectionsError) {
+  console.error('❌ Failed to get existing selections:', selectionsError);
+  return { success: false, error: `Failed to get selections: ${selectionsError.message}` };
+}
 
-    console.log(`Found ${selectionsWithScoreIds.length} entry selections with scores that will be preserved`);
+let selectionsWithScoreIds = new Set<string>();
 
-    if (selectionsWithScoreIds.length > 0) {
-      console.log(`⚠️ Found ${selectionsWithScoreIds.length} entry selections with scores - these will be preserved`);
-      
-      // Log which specific selections have scores
-      const scoredSelections = selectionsWithScores?.filter(sel => sel.scores && sel.scores.length > 0);
-      scoredSelections?.forEach(sel => {
+if (existingSelections && existingSelections.length > 0) {
+  const selectionIds = existingSelections.map(s => s.id);
+  console.log(`Checking ${selectionIds.length} selections for scores...`);
+  
+  const { data: scoresData, error: scoresError } = await supabase
+    .from('scores')
+    .select('entry_selection_id')
+    .in('entry_selection_id', selectionIds);
+
+  if (scoresError) {
+    console.error('❌ Failed to check for scores:', scoresError);
+    return { success: false, error: `Failed to check for scores: ${scoresError.message}` };
+  }
+
+  selectionsWithScoreIds = new Set(
+    (scoresData || []).map(score => score.entry_selection_id)
+  );
+
+  console.log(`Found ${selectionsWithScoreIds.size} entry selections with scores that will be preserved`);
+
+  if (selectionsWithScoreIds.size > 0) {
+    console.log(`⚠️ Found ${selectionsWithScoreIds.size} entry selections with scores`);
+    
+    existingSelections.forEach(sel => {
+      if (selectionsWithScoreIds.has(sel.id)) {
         console.log(`   - Selection ID ${sel.id} (Round: ${sel.trial_round_id}, Type: ${sel.entry_type}) has scores`);
-      });
-    }
-
-    // STEP 4: Delete only entry selections WITHOUT scores
-    const { data: allSelections, error: allSelectionsError } = await supabase
-      .from('entry_selections')
-      .select('id')
-      .in('entry_id', allEntryIds);
-
-    if (!allSelectionsError && allSelections) {
-      const selectionsToDelete = allSelections
-        .filter(sel => !selectionsWithScoreIds.includes(sel.id))
-        .map(sel => sel.id);
-
-      if (selectionsToDelete.length > 0) {
-        console.log(`🗑️ Deleting ${selectionsToDelete.length} entry selections without scores`);
-        console.log('Selection IDs to delete:', selectionsToDelete);
-        
-        const { error: deleteError } = await supabase
-          .from('entry_selections')
-          .delete()
-          .in('id', selectionsToDelete);
-
-        if (deleteError) {
-          console.error('❌ Failed to delete selections without scores:', deleteError);
-          return { success: false, error: `Failed to delete existing selections: ${deleteError.message}` };
-        }
-
-        console.log(`✅ Deleted ${selectionsToDelete.length} entry selections (preserved ${selectionsWithScoreIds.length} with scores)`);
-      } else {
-        console.log('ℹ️ No entry selections to delete (all have scores or none exist)');
       }
+    });
+  }
+
+  // STEP 4: Delete only entry selections WITHOUT scores
+  const selectionsToDelete = existingSelections
+    .filter(sel => !selectionsWithScoreIds.has(sel.id))
+    .map(sel => sel.id);
+
+  if (selectionsToDelete.length > 0) {
+    console.log(`🗑️ Deleting ${selectionsToDelete.length} entry selections without scores`);
+    
+    const { error: deleteError } = await supabase
+      .from('entry_selections')
+      .delete()
+      .in('id', selectionsToDelete);
+
+    if (deleteError) {
+      console.error('❌ Failed to delete selections:', deleteError);
+      return { success: false, error: `Failed to delete existing selections: ${deleteError.message}` };
     }
+
+    console.log(`✅ Deleted ${selectionsToDelete.length} entry selections (preserved ${selectionsWithScoreIds.size} with scores)`);
+  } else {
+    console.log('ℹ️ No entry selections to delete (all have scores or none exist)');
+  }
+} else {
+  console.log('ℹ️ No existing selections found');
+}
+
+// STEP 5: If no new selections, we're done
+if (!selections || selections.length === 0) {
+  console.log('ℹ️ No new selections to add');
+  
+  // Check if we preserved any scored selections
+  const preservedCount = selectionsWithScoreIds.size;
+  
+  return { 
+    success: true, 
+    data: [], 
+    warning: preservedCount > 0 
+      ? `${preservedCount} existing entries with scores were preserved and cannot be modified` 
+      : null
+  };
+}
 
     // STEP 5: If no new selections, we're done
     if (!selections || selections.length === 0) {
@@ -1291,8 +1314,8 @@ async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'i
       return { 
         success: true, 
         data: [], 
-        warning: selectionsWithScoreIds.length > 0 ? 
-          `${selectionsWithScoreIds.length} existing entries with scores were preserved and cannot be modified` : null
+        warning: selectionsWithScoreIds.size > 0 ? 
+          `${selectionsWithScoreIds.size} existing entries with scores were preserved and cannot be modified` : null
       };
     }
 
@@ -1327,8 +1350,8 @@ async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'i
     
     // Prepare warning message if scores were preserved
     let warningMessage = null;
-    if (selectionsWithScoreIds.length > 0) {
-      warningMessage = `${selectionsWithScoreIds.length} existing entries with scores were preserved and cannot be modified. Only entries without scores were updated.`;
+    if (selectionsWithScoreIds.size > 0) {
+      warningMessage = `${selectionsWithScoreIds.size} existing entries with scores were preserved and cannot be modified. Only entries without scores were updated.`;
     }
     
     return { 

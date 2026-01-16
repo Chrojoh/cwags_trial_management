@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { ArrowLeft, Calendar, DollarSign, FileEdit, UserPlus, Trash2, AlertCircle, Filter, X } from 'lucide-react';
+import { ArrowLeft, Calendar, DollarSign, FileEdit, UserPlus, RefreshCw, Trash2, AlertCircle, Filter, X } from 'lucide-react';
 
 interface JournalEntry {
   id: string;
   timestamp: string;
-  type: 'entry_created' | 'entry_modified' | 'payment_received' | 'entry_withdrawn' | 'fees_waived' | 'selection_modified';
+  type: 'entry_created' | 'entry_modified' | 'payment_received' | 
+      'entry_withdrawn' | 'fees_waived' | 'selection_modified' | 'dog_substituted';
   handler_name: string;
   dog_call_name: string;
   cwags_number: string;
@@ -74,7 +75,7 @@ export default function TrialJournalPage() {
         .from('trial_activity_log')
         .select('*')
         .eq('trial_id', trialId)
-        .in('activity_type', ['entry_submitted', 'entry_modified', 'fees_waived'])
+        .in('activity_type', ['entry_submitted', 'entry_modified', 'fees_waived', 'dog_substituted'])
         .order('created_at', { ascending: false });
 
       if (activityError) throw activityError;
@@ -137,7 +138,45 @@ export default function TrialJournalPage() {
             snapshot: snapshot // Store snapshot for modal (use 'after' state)
           });
         }
-        
+       else if (activity.activity_type === 'dog_substituted') {
+          const original = snapshot.original || {};
+          const substitute = snapshot.substitute || {};
+          const classDetails = snapshot.class_details || {};
+          
+          // Build position and class info (shared by both cards)
+          let classInfo = `${classDetails.class_name || 'Unknown'}, Round ${classDetails.round || 1}, Position ${classDetails.running_position || 'Unknown'}`;
+          if (classDetails.day_number) {
+            classInfo += `, Day ${classDetails.day_number}`;
+          }
+          
+          // CARD 1: Dog Added (the new dog - substitute)
+          entries.push({
+            id: `${activity.id}-add`,
+            timestamp: activity.created_at,
+            type: 'dog_substituted',
+            handler_name: substitute.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: substitute.dog_call_name || 'Unknown',
+            cwags_number: substitute.cwags_number || 'Unknown',
+            description: `✅ Added ${substitute.dog_call_name} (${substitute.cwags_number}) to ${classInfo}`,
+            entry_id: activity.entry_id,
+            snapshot: snapshot
+          });
+          
+          // CARD 2: Dog Removed (the original dog)
+          entries.push({
+            id: `${activity.id}-remove`,
+            timestamp: activity.created_at,
+            type: 'dog_substituted',
+            handler_name: original.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: original.dog_call_name || 'Unknown',
+            cwags_number: original.cwags_number || 'Unknown',
+            description: `❌ Removed ${original.dog_call_name} (${original.cwags_number}) from ${classInfo}`,
+            entry_id: activity.entry_id,
+            snapshot: snapshot
+          });
+        }
+
+
         else if (activity.activity_type === 'fees_waived') {
           entries.push({
             id: activity.id,
@@ -271,8 +310,8 @@ export default function TrialJournalPage() {
           running_position: null,
           entry_status: 'active',
           created_at: entry.timestamp,
-          day_number: classData.day_number,       
-            trial_date: classData.trial_date, 
+          day_number: classData.day_number,
+          trial_date: classData.trial_date,
           trial_rounds: {
             round_number: classData.round || 1,
             trial_classes: {
@@ -318,7 +357,11 @@ export default function TrialJournalPage() {
                 round_number,
                 trial_classes (
                   class_name,
-                  class_order
+                  class_order,
+                  trial_days (
+                    day_number,
+                    trial_date
+                  )
                 )
               )
             )
@@ -334,9 +377,16 @@ export default function TrialJournalPage() {
           .eq('entry_id', entry.entry_id)
           .order('payment_date', { ascending: false });
 
+        // Flatten trial_days data so it's accessible as selection.day_number
+        const selectionsWithDays = (entryData?.entry_selections || []).map((sel: any) => ({
+          ...sel,
+          day_number: sel.trial_rounds?.trial_classes?.trial_days?.day_number,
+          trial_date: sel.trial_rounds?.trial_classes?.trial_days?.trial_date
+        }));
+
         setEntryDetails({
           entry: entryData,
-          selections: entryData?.entry_selections || [],
+          selections: selectionsWithDays,
           payments: paymentsData || []
         });
       }
@@ -364,6 +414,8 @@ export default function TrialJournalPage() {
         return <AlertCircle className="h-5 w-5 text-purple-600" />;
       case 'entry_withdrawn':
         return <Trash2 className="h-5 w-5 text-red-600" />;
+        case 'dog_substituted':
+        return <RefreshCw className="h-5 w-5 text-cyan-600" />;
       default:
         return <FileEdit className="h-5 w-5 text-gray-600" />;
     }
@@ -423,7 +475,7 @@ export default function TrialJournalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-amber-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading journal...</p>
@@ -434,7 +486,7 @@ export default function TrialJournalPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-amber-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
           <p className="mt-4 text-red-600 font-semibold">Error loading journal</p>
@@ -445,9 +497,9 @@ export default function TrialJournalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
+    <div className="min-h-screen bg-amber-50 pb-12">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-yellow-100 border-b border-amber-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <button
             onClick={() => router.push(`/dashboard/trials/${trialId}`)}
@@ -478,7 +530,7 @@ export default function TrialJournalPage() {
 
       {/* Filters */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <div className="bg-yellow-50 rounded-lg border border-amber-200 p-4">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-400" />
@@ -491,18 +543,19 @@ export default function TrialJournalPage() {
               placeholder="Search handler, dog, or CWAGS #..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+              className="flex-1 min-w-[200px] px-3 py-1.5 border border-amber-300 rounded-md text-sm"
             />
 
             {/* Type Filter */}
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-1.5 border border-amber-300 rounded-md text-sm"
             >
               <option value="all">All Types</option>
               <option value="entry_created">Entries Created</option>
               <option value="entry_modified">Entries Modified</option>
+              <option value="dog_substituted">Dog Substitutions</option>
               <option value="payment_received">Payments</option>
               <option value="fees_waived">Fees Waived</option>
             </select>
@@ -511,7 +564,7 @@ export default function TrialJournalPage() {
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as any)}
-              className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+              className="px-3 py-1.5 border border-amber-300 rounded-md text-sm"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>
@@ -540,7 +593,7 @@ export default function TrialJournalPage() {
       {/* Journal Entries */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {filteredEntries.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <div className="bg-yellow-50 rounded-lg border border-amber-200 p-12 text-center">
             <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">
               {searchTerm || typeFilter !== 'all' || dateRange !== 'all'
@@ -553,7 +606,7 @@ export default function TrialJournalPage() {
             {filteredEntries.map((entry) => (
               <div
                 key={entry.id}
-                className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-yellow-50 rounded-lg border border-amber-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => openDetailsModal(entry)}
               >
                 <div className="flex items-start gap-4">
@@ -620,7 +673,7 @@ export default function TrialJournalPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-yellow-100 border-b border-amber-200 px-6 py-4 flex items-center justify-between z-10">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-xl font-bold text-gray-900">Entry Details</h2>
@@ -661,7 +714,7 @@ export default function TrialJournalPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
                       Entry Information
                     </h3>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">Handler Name:</span>
@@ -701,7 +754,7 @@ export default function TrialJournalPage() {
                             className={`border rounded-lg p-4 ${
                               isWithdrawn 
                                 ? 'bg-red-50 border-red-200' 
-                                : 'bg-white border-gray-200'
+                                : 'bg-white border-amber-200'
                             }`}
                           >
                             <div className="flex items-start justify-between">
@@ -719,20 +772,16 @@ export default function TrialJournalPage() {
                                     <span className="text-sm text-gray-600">
                                       (Round {selection.trial_rounds.round_number})
                                     </span>
-  )}
-  {/* ✅ ADD THIS - Day Badge */}
-  {selection.day_number && (
-    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-      Day {selection.day_number}
-    </span>
-  )}
-  {/* ✅ ADD THIS - Trial Date */}
-  {selection.trial_date && (
-    <span className="text-xs text-gray-500">
-      {new Date(selection.trial_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-    </span>
-
-
+                                  )}
+                                  {selection.day_number && (
+                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                                      Day {selection.day_number}
+                                    </span>
+                                  )}
+                                  {selection.trial_date && (
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(selection.trial_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </span>
                                   )}
                                 </div>
                                 
@@ -760,7 +809,7 @@ export default function TrialJournalPage() {
                                     </div>
                                   )}
                                   
-                                  <div className="text-gray-600 col-span-2 mt-1 pt-1 border-t border-gray-200">
+                                  <div className="text-gray-600 col-span-2 mt-1 pt-1 border-t border-amber-200">
                                     Entered: <span className="text-gray-900">
                                       {formatTimestamp(selection.created_at)}
                                     </span>
@@ -791,7 +840,7 @@ export default function TrialJournalPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
                       Financial Summary
                     </h3>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="bg-white border border-amber-200 rounded-lg p-4">
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-gray-600">Total Fees:</span>
@@ -807,7 +856,7 @@ export default function TrialJournalPage() {
                             </span>
                           </div>
                         )}
-                        <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="border-t border-amber-200 pt-2 mt-2">
                           <div className="flex justify-between text-lg font-bold">
                             <span>Amount Due:</span>
                             <span className={entryDetails.entry.fees_waived ? 'text-green-600' : ''}>
@@ -888,7 +937,7 @@ export default function TrialJournalPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4">
+            <div className="sticky bottom-0 bg-amber-50 border-t border-amber-200 px-6 py-4">
               <button
                 onClick={closeDetailsModal}
                 className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"

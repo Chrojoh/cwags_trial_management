@@ -128,6 +128,71 @@ export async function logEntryModified(
 /**
  * Log payment received with snapshot of payment details
  */
+export async function logSubstitution(
+  trialId: string,
+  substitutionData: {
+    original_entry_id: string;
+    original_dog_name: string;
+    original_handler_name: string;
+    original_cwags: string;
+    substitute_entry_id: string;
+    substitute_dog_name: string;
+    substitute_handler_name: string;
+    substitute_cwags: string;
+    class_name: string;
+    round_number: number;
+    running_position: number;
+    day_number?: number;
+    trial_date?: string;
+  }
+): Promise<void> {
+  try {
+    const supabase = getSupabaseBrowser();
+    
+    // Log substitution to trial_activity_log
+    const { error } = await supabase
+      .from('trial_activity_log')
+      .insert({
+        trial_id: trialId,
+        activity_type: 'dog_substituted',
+        entry_id: substitutionData.original_entry_id,
+        snapshot_data: {
+          original: {
+            dog_call_name: substitutionData.original_dog_name,
+            handler_name: substitutionData.original_handler_name,
+            cwags_number: substitutionData.original_cwags,
+            entry_id: substitutionData.original_entry_id
+          },
+          substitute: {
+            dog_call_name: substitutionData.substitute_dog_name,
+            handler_name: substitutionData.substitute_handler_name,
+            cwags_number: substitutionData.substitute_cwags,
+            entry_id: substitutionData.substitute_entry_id
+          },
+          class_details: {
+            class_name: substitutionData.class_name,
+            round: substitutionData.round_number,
+            running_position: substitutionData.running_position,
+            day_number: substitutionData.day_number,
+            trial_date: substitutionData.trial_date
+          },
+          timestamp: new Date().toISOString()
+        },
+        user_name: substitutionData.original_handler_name
+      });
+
+   if (error) {
+  console.error('Error logging substitution:', error);
+  // Don't throw - allow the substitution to complete even if logging fails
+} else {
+  console.log('✅ Logged substitution to journal');
+}
+  } catch (error) {
+    console.error('Failed to log substitution:', error);
+    // Don't throw - don't fail substitution if logging fails
+  }
+}
+
 export async function logPaymentReceived(
   trialId: string,
   entryId: string,

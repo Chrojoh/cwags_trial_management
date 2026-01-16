@@ -112,6 +112,22 @@ interface EntryStats {
   byStatus: Record<string, number>;
   byPayment: Record<string, number>;
 }
+// Helper function to get class order for sorting
+const getClassOrder = (className: string): number => {
+  const classOrder = [
+    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth',
+    'Private Investigator', 'Detective Diversions',
+    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
+    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
+    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
+    'Starter', 'Advanced', 'Pro', 'ARF',
+    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
+    'Games 1', 'Games 2', 'Games 3', 'Games 4'
+  ];
+  
+  const index = classOrder.indexOf(className);
+  return index === -1 ? 999 : index;
+};
 
 export default function TrialEntriesPage() {
   const router = useRouter();
@@ -232,9 +248,37 @@ export default function TrialEntriesPage() {
       // Add this entry's ID to the group
       grouped[cwagsNumber].entry_ids.push(entry.id!);
 
-      // Add all entry selections to the group
-      if (entry.entry_selections) {
-        entry.entry_selections.forEach(selection => {
+      // ✅ SORT entry selections by day number, then by class order
+const sortedSelections = entry.entry_selections 
+  ? [...entry.entry_selections].sort((a, b) => {
+      // First sort by day number
+      const dayA = a.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
+      const dayB = b.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
+      
+      if (dayA !== dayB) {
+        return dayA - dayB;
+      }
+      
+      // Then sort by class order
+      const classNameA = a.trial_rounds?.trial_classes?.class_name || '';
+      const classNameB = b.trial_rounds?.trial_classes?.class_name || '';
+      const orderA = getClassOrder(classNameA);
+      const orderB = getClassOrder(classNameB);
+      
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      
+      // Finally sort by round number
+      const roundA = a.trial_rounds?.round_number || 1;
+      const roundB = b.trial_rounds?.round_number || 1;
+      return roundA - roundB;
+    })
+  : [];
+
+// Add all sorted entry selections to the group
+if (sortedSelections.length > 0) {
+  sortedSelections.forEach(selection => {
           const dayInfo = selection.trial_rounds?.trial_classes?.trial_days 
             ? `Day ${selection.trial_rounds.trial_classes.trial_days.day_number}`
             : 'Day 1';

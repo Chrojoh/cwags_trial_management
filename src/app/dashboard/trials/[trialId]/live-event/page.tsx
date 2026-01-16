@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDivisionColor } from '@/lib/divisionUtils';
-
+import { logSubstitution } from '@/lib/journalLogger';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -953,6 +953,11 @@ const substituteDog = async (entrySelectionId: string, newCwags: string) => {
     const originalHandlerName = originalSelection.entries.handler_name;
     const originalRoundId = originalSelection.round_id;
     const originalRunningPosition = originalSelection.running_position;
+    // Get the DISPLAY position (what user sees)
+const displayPosition = classEntries
+  .filter(e => e.round_number === originalSelection.round_number)
+  .sort((a, b) => a.running_position - b.running_position)
+  .findIndex(e => e.id === entrySelectionId) + 1;
     const originalFee = originalSelection.fee;
     const originalEntryType = originalSelection.entry_type;
     const originalDivision = originalSelection.division;
@@ -1160,6 +1165,80 @@ if (substituteEntry) {
   console.log('📝 Added audit trail to substitute entry');
 }
     
+// STEP 7.6: LOG TO JOURNAL ACTIVITY
+    try {
+      // We need to get the class info for logging
+      const { data: classInfo } = await supabase
+        .from('trial_rounds')
+        .select(`
+          round_number,
+          trial_class_id,
+          trial_classes (
+            class_name,
+            trial_days (
+              day_number,
+              trial_date
+            )
+          )
+        `)
+        .eq('id', originalRoundId)
+        .single();
+
+      console.log('🔍 DEBUG classInfo structure:', JSON.stringify(classInfo, null, 2));
+
+      // Extract class name and trial day info (trial_classes might be an array)
+      const trialClassData: any = Array.isArray(classInfo?.trial_classes) 
+        ? classInfo.trial_classes[0] 
+        : classInfo?.trial_classes;
+      
+      const logClassName = trialClassData?.class_name || 'Unknown Class';
+      
+      // Supabase returns nested relations as arrays, extract first element
+      const trialDaysArray: any = trialClassData?.trial_days;
+      const logDayNumber = Array.isArray(trialDaysArray) && trialDaysArray.length > 0
+        ? trialDaysArray[0]?.day_number
+        : trialDaysArray?.day_number; // Try direct access as fallback
+      const logTrialDate = Array.isArray(trialDaysArray) && trialDaysArray.length > 0
+        ? trialDaysArray[0]?.trial_date
+        : trialDaysArray?.trial_date; // Try direct access as fallback
+      
+      console.log('📅 Logging substitution with date info:', {
+        day_number: logDayNumber,
+        trial_date: logTrialDate,
+        class_name: logClassName
+      });
+
+      // Get original entry's cwags number
+      const { data: originalEntryFull } = await supabase
+        .from('entries')
+        .select('cwags_number')
+        .eq('id', originalEntryId)
+        .single();
+
+      await logSubstitution(trialId, {
+        original_entry_id: originalEntryId,
+        original_dog_name: originalDogName,
+        original_handler_name: originalHandlerName,
+        original_cwags: originalEntryFull?.cwags_number || 'Unknown',
+        substitute_entry_id: substituteEntryId,
+        substitute_dog_name: substituteDogInfo.dog_call_name,
+        substitute_handler_name: substituteDogInfo.handler_name,
+        substitute_cwags: substituteDogInfo.cwags_number,
+        class_name: logClassName,
+        round_number: classInfo?.round_number || 1,
+        running_position: originalRunningPosition,
+        day_number: logDayNumber,
+        trial_date: logTrialDate 
+          ? logTrialDate + 'T12:00:00'  // Noon fix
+          : undefined
+      });
+      
+      console.log('✅ Logged substitution to journal activity');
+    } catch (logError) {
+      console.error('⚠️ Failed to log substitution to journal:', logError);
+      // Don't fail the substitution if logging fails
+    }
+
     // STEP 8: Reload the display
     await loadClassEntries();
     await loadAllClassCounts();
@@ -1171,7 +1250,7 @@ if (substituteEntry) {
     alert(
       `✅ Substitution Complete!\n\n` +
       `${originalDogName} has been replaced with ${substituteDogInfo.dog_call_name}\n` +
-      `Running position #${originalRunningPosition} maintained.\n\n` +
+      `Running position #${displayPosition} maintained.\n\n` +
       (isNewEntry ? 
         `${substituteDogInfo.dog_call_name} was added as a new entry to this trial.` :
         `${substituteDogInfo.dog_call_name}'s existing entry was updated with the new class.`)
@@ -1689,10 +1768,6 @@ const handleKeyNavigation = (e: React.KeyboardEvent<HTMLDivElement>, entry: Clas
       return null;
     }
   };
-
-// FIXED addNewEntry function for live event page
-// FIND THIS FUNCTION IN: src/app/dashboard/trials/[trialId]/live-event/page.tsx
-// REPLACE THE ENTIRE addNewEntry FUNCTION WITH THIS:
 
 const addNewEntry = async () => {
   if (!selectedClass || !newEntryData.handler_name || !newEntryData.dog_call_name || !newEntryData.cwags_number) {
@@ -2569,9 +2644,10 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
     handlerName: string;
     dogName: string;
     division?: string | null;  // ✅ ADD THIS LINE
+    jump_height?: string | null,  // ADD THIS after division
     status: string;
     result: string;
-  }>;
+      }>;
 }
     
     // Get all classes and rounds for the selected day
@@ -2701,6 +2777,7 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
   handlerName: handlerName, 
   dogName: dogName,
   division: selection.division || null,  // ✅ ADD THIS LINE
+  jump_height: selection.jump_height || null,  // ADD THIS after division
   status: selection.entry_status,
   result: resultDisplay
 });
@@ -2805,8 +2882,17 @@ const exportRunningOrderToExcel = async (selectedDayId: string) => {
      if (entry) {
   const firstName = entry.handlerName.split(' ')[0];
   // ✅ ADD DIVISION TO CELL VALUE
-  const divisionText = entry.division ? ` (${entry.division})` : '';
-  cellValue = `${firstName} - ${entry.dogName}${divisionText}`;
+ // Build info text with division and/or jump height
+let infoText = '';
+if (entry.division && entry.jump_height) {
+  infoText = ` (${entry.division} / ${entry.jump_height}")`;
+} else if (entry.division) {
+  infoText = ` (${entry.division})`;
+} else if (entry.jump_height) {
+  infoText = ` (${entry.jump_height}")`;
+}
+
+cellValue = `${firstName} - ${entry.dogName}${infoText}`;
   
   console.log('Excel Cell Creation:', {
     originalHandlerName: entry.handlerName,
