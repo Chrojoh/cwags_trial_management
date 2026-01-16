@@ -591,8 +591,8 @@ setTrialClasses(sortedClasses);
               <div>
                 <CardTitle>{trial.trial_name}</CardTitle>
                 <CardDescription>
-                  {trial.location} • {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
-                </CardDescription>
+  {trial.location} • {formatShortDate(trial.start_date)} - {formatShortDate(trial.end_date)}
+</CardDescription>
               </div>
               {hasPermission(user, PERMISSIONS.MANAGE_JUDGES) && (
   <Button 

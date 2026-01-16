@@ -512,6 +512,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      trial_activity_log: {
+  Row: {
+    id: string
+    trial_id: string
+    activity_type: string
+    entry_id: string | null
+    snapshot_data: any  // JSONB
+    user_id: string | null
+    user_name: string | null
+    created_at: string
+  }
+  Insert: {
+    id?: string
+    trial_id: string
+    activity_type: string
+    entry_id?: string | null
+    snapshot_data?: any
+    user_id?: string | null
+    user_name?: string | null
+    created_at?: string
+  }
+  Update: {
+    id?: string
+    trial_id?: string
+    activity_type?: string
+    entry_id?: string | null
+    snapshot_data?: any
+    user_id?: string | null
+    user_name?: string | null
+    created_at?: string
+  }
+}
     }
     Views: {
       [_ in never]: never

@@ -900,10 +900,24 @@ const substituteDog = async (entrySelectionId: string, newCwags: string) => {
   if (!newCwags) return;
   
   try {
-    // Look up the substitute dog in registry
+    setSaving(true);
+    console.log('🔄 Starting dog substitution...');
+    console.log('Original entry_selection_id:', entrySelectionId);
+    console.log('Substitute C-WAGS#:', newCwags);
+    
+    // STEP 1: Look up the substitute dog in registry
     const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(newCwags);
     
+    let substituteDogInfo = {
+      cwags_number: newCwags,
+      dog_call_name: '',
+      handler_name: '',
+      handler_email: '',
+      handler_phone: ''
+    };
+    
     if (!registryResult.success || !registryResult.data) {
+      // Dog not in registry - get manual entry
       if (!confirm('Dog not found in registry. Continue with manual entry?')) {
         return;
       }
@@ -911,47 +925,264 @@ const substituteDog = async (entrySelectionId: string, newCwags: string) => {
       const subDogName = prompt('Enter substitute dog name:');
       const subHandlerName = prompt('Enter substitute handler name:');
       
-      if (!subDogName || !subHandlerName) return;
+      if (!subDogName || !subHandlerName) {
+        setSaving(false);
+        return;
+      }
       
-      // Update with manual entry
-      const { error } = await supabase
-        .from('entry_selections')
-        .update({ 
-          substitute_cwags_number: newCwags,
-          substitute_dog_name: subDogName,
-          substitute_handler_name: subHandlerName
-        })
-        .eq('id', entrySelectionId);
-
-      if (error) throw error;
-      
-      await loadClassEntries();
-      setSubstitutingEntryId(null);
-      setNewCwagsNumber('');
-      alert(`Substitute dog set: ${subDogName} (${newCwags}) for this round only!`);
-      
+      substituteDogInfo.dog_call_name = subDogName;
+      substituteDogInfo.handler_name = subHandlerName;
+      console.log('✏️ Using manual entry for substitute dog');
     } else {
       // Found in registry - use that data
-      const { error } = await supabase
-        .from('entry_selections')
-        .update({ 
-          substitute_cwags_number: newCwags,
-          substitute_dog_name: registryResult.data.dog_call_name,
-          substitute_handler_name: registryResult.data.handler_name
-        })
-        .eq('id', entrySelectionId);
-
-      if (error) throw error;
-      
-      await loadClassEntries();
-      setSubstitutingEntryId(null);
-      setNewCwagsNumber('');
-      alert(`Substitute dog set: ${registryResult.data.dog_call_name} (${newCwags}) for this round only!`);
+      substituteDogInfo.dog_call_name = registryResult.data.dog_call_name;
+      substituteDogInfo.handler_name = registryResult.data.handler_name;
+      substituteDogInfo.handler_email = registryResult.data.handler_email || '';
+      substituteDogInfo.handler_phone = registryResult.data.handler_phone || '';
+      console.log('✅ Found substitute dog in registry:', substituteDogInfo.dog_call_name);
     }
     
+    // STEP 2: Get info about the original entry_selection we're substituting
+    const originalSelection = classEntries.find(e => e.id === entrySelectionId);
+    if (!originalSelection) {
+      throw new Error('Original entry selection not found');
+    }
+    
+    const originalEntryId = originalSelection.entry_id;
+    const originalDogName = originalSelection.entries.dog_call_name;
+    const originalHandlerName = originalSelection.entries.handler_name;
+    const originalRoundId = originalSelection.round_id;
+    const originalRunningPosition = originalSelection.running_position;
+    const originalFee = originalSelection.fee;
+    const originalEntryType = originalSelection.entry_type;
+    const originalDivision = originalSelection.division;
+    const originalJumpHeight = originalSelection.jump_height;
+    
+    console.log('📋 Original dog:', originalDogName);
+    console.log('📋 Original running position:', originalRunningPosition);
+    console.log('📋 Fee to transfer:', originalFee);
+    
+    // STEP 3: Check if original entry_selection has any scores
+    const { data: scores, error: scoresCheckError } = await supabase
+      .from('scores')
+      .select('id')
+      .eq('entry_selection_id', entrySelectionId);
+      
+    if (scoresCheckError) {
+      throw new Error('Failed to check for scores: ' + scoresCheckError.message);
+    }
+    
+    if (scores && scores.length > 0) {
+      throw new Error(
+        `Cannot substitute - ${originalDogName} already has scores recorded. ` +
+        `Please delete the scores first if you want to substitute this dog.`
+      );
+    }
+    
+    console.log('✅ No scores found - safe to substitute');
+    
+    // STEP 4: Check if substitute dog already has an entry in this trial
+    const { data: existingEntries, error: entriesError } = await supabase
+      .from('entries')
+      .select('id, total_fee')
+      .eq('trial_id', trialId)
+      .eq('cwags_number', newCwags);
+      
+    if (entriesError) {
+      throw new Error('Failed to check for existing entries: ' + entriesError.message);
+    }
+    
+    let substituteEntryId: string;
+    let isNewEntry = false;
+    
+    if (existingEntries && existingEntries.length > 0) {
+      // Substitute dog already has an entry in this trial - REUSE IT
+      substituteEntryId = existingEntries[0].id;
+      console.log('♻️ Reusing existing entry for substitute dog:', substituteEntryId);
+      
+      // Update the existing entry's total_fee (add the new class fee)
+      const newTotalFee = existingEntries[0].total_fee + originalFee;
+      await simpleTrialOperations.updateEntry(substituteEntryId, {
+        total_fee: newTotalFee
+      });
+      console.log('💰 Updated substitute total_fee:', newTotalFee);
+      
+    } else {
+      // Substitute dog NOT in this trial - CREATE NEW ENTRY
+      console.log('🆕 Creating new entry for substitute dog');
+      
+      const entryResult = await simpleTrialOperations.createEntry({
+        trial_id: trialId,
+        handler_name: substituteDogInfo.handler_name,
+        dog_call_name: substituteDogInfo.dog_call_name,
+        cwags_number: substituteDogInfo.cwags_number,
+        dog_breed: null,
+        dog_sex: null,
+        handler_email: substituteDogInfo.handler_email,
+        handler_phone: substituteDogInfo.handler_phone,
+        is_junior_handler: false,
+        waiver_accepted: true,
+        total_fee: originalFee,
+        payment_status: 'pending',
+        entry_status: 'confirmed'
+      });
+      
+      if (!entryResult.success || !entryResult.data) {
+        throw new Error('Failed to create entry for substitute dog: ' + entryResult.error);
+      }
+      
+      substituteEntryId = entryResult.data.id;
+      isNewEntry = true;
+      console.log('✅ Created new entry:', substituteEntryId);
+    }
+    
+    // STEP 5: Delete the original entry_selection (no scores, so safe to delete)
+    console.log('🗑️ Deleting original entry_selection:', entrySelectionId);
+    
+    const { error: deleteError } = await supabase
+      .from('entry_selections')
+      .delete()
+      .eq('id', entrySelectionId);
+      
+    if (deleteError) {
+      throw new Error('Failed to delete original entry_selection: ' + deleteError.message);
+    }
+    
+    console.log('✅ Original entry_selection deleted');
+    
+   // STEP 6: Update original entry's total_fee AND add audit trail
+const { data: originalEntry, error: originalEntryError } = await supabase
+  .from('entries')
+  .select('total_fee, audit_trail, handler_name, dog_call_name')
+  .eq('id', originalEntryId)
+  .single();
+  
+if (originalEntry) {
+  const newOriginalTotalFee = Math.max(0, originalEntry.total_fee - originalFee);
+  
+  // Get the class name for the audit trail
+  const { data: roundData } = await supabase
+    .from('trial_rounds')
+    .select('trial_class_id')
+    .eq('id', originalRoundId)
+    .single();
+
+  let className = 'Unknown Class';
+  if (roundData?.trial_class_id) {
+    const { data: classData } = await supabase
+      .from('trial_classes')
+      .select('class_name')
+      .eq('id', roundData.trial_class_id)
+      .single();
+    
+    className = classData?.class_name || 'Unknown Class';
+  }
+  
+  // Build audit trail message
+  const timestamp = new Date().toISOString();
+  const auditMessage = `Substituted ${originalDogName} with ${substituteDogInfo.dog_call_name} (${substituteDogInfo.cwags_number}) in ${className} at ${timestamp}`;
+  
+  const existingAudit = originalEntry.audit_trail || '';
+  const newAudit = existingAudit 
+    ? `${existingAudit}\n${auditMessage}`
+    : auditMessage;
+  
+  await simpleTrialOperations.updateEntry(originalEntryId, {
+    total_fee: newOriginalTotalFee,
+    audit_trail: newAudit
+  });
+  
+  console.log('💰 Updated original entry total_fee:', newOriginalTotalFee);
+  console.log('📝 Added audit trail to original entry');
+}
+    
+    // STEP 7: Create NEW entry_selection for substitute dog with SAME running position
+    console.log('➕ Creating new entry_selection for substitute dog');
+    
+    const { error: insertError } = await supabase
+      .from('entry_selections')
+      .insert({
+        entry_id: substituteEntryId,
+        trial_round_id: originalRoundId,
+        entry_type: originalEntryType,
+        fee: originalFee,
+        running_position: originalRunningPosition,  // Keep same position!
+        entry_status: 'entered',
+        division: originalDivision,
+        jump_height: originalJumpHeight
+      });
+      
+    if (insertError) {
+      throw new Error('Failed to create entry_selection for substitute: ' + insertError.message);
+    }
+    
+    console.log('✅ Created new entry_selection for substitute dog at position', originalRunningPosition);
+    
+    // STEP 7.5: Add audit trail to substitute dog's entry
+const { data: substituteEntry } = await supabase
+  .from('entries')
+  .select('audit_trail, handler_name, dog_call_name')
+  .eq('id', substituteEntryId)
+  .single();
+
+if (substituteEntry) {
+  // Get the class name for the audit trail
+  const { data: roundData } = await supabase
+    .from('trial_rounds')
+    .select('trial_class_id')
+    .eq('id', originalRoundId)
+    .single();
+
+  let className = 'Unknown Class';
+  if (roundData?.trial_class_id) {
+    const { data: classData } = await supabase
+      .from('trial_classes')
+      .select('class_name')
+      .eq('id', roundData.trial_class_id)
+      .single();
+    
+    className = classData?.class_name || 'Unknown Class';
+  }
+  
+  // Build audit trail message for substitute
+  const timestamp = new Date().toISOString();
+  const auditMessage = `Substituted for ${originalDogName} (${originalHandlerName}) in ${className} at ${timestamp}`;
+  
+  const existingAudit = substituteEntry.audit_trail || '';
+  const newAudit = existingAudit 
+    ? `${existingAudit}\n${auditMessage}`
+    : auditMessage;
+  
+  await simpleTrialOperations.updateEntry(substituteEntryId, {
+    audit_trail: newAudit
+  });
+  
+  console.log('📝 Added audit trail to substitute entry');
+}
+    
+    // STEP 8: Reload the display
+    await loadClassEntries();
+    await loadAllClassCounts();
+    
+    // STEP 9: Close modal and show success message
+    setSubstitutingEntryId(null);
+    setNewCwagsNumber('');
+    
+    alert(
+      `✅ Substitution Complete!\n\n` +
+      `${originalDogName} has been replaced with ${substituteDogInfo.dog_call_name}\n` +
+      `Running position #${originalRunningPosition} maintained.\n\n` +
+      (isNewEntry ? 
+        `${substituteDogInfo.dog_call_name} was added as a new entry to this trial.` :
+        `${substituteDogInfo.dog_call_name}'s existing entry was updated with the new class.`)
+    );
+    
   } catch (error) {
-    console.error('Error setting substitute dog:', error);
-    setError('Failed to set substitute dog');
+    console.error('❌ Error during substitution:', error);
+    setError(error instanceof Error ? error.message : 'Failed to substitute dog');
+    alert('Error: ' + (error instanceof Error ? error.message : 'Failed to substitute dog'));
+  } finally {
+    setSaving(false);
   }
 };
 const saveScore = async (entrySelectionId: string) => {

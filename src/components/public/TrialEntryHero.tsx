@@ -36,12 +36,20 @@ export default function TrialEntryHero({ trial, totalRounds, entryFeeRange }: Tr
 };
 
   const formatShortDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0  // Set to noon to avoid timezone issues
+  );
+  
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
 
   const isEntryOpen = () => {
     const now = new Date();

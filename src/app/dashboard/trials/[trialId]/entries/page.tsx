@@ -383,7 +383,11 @@ const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+  if (!dateString) return 'N/A';
+  
+  // Check if it's a date-only string (YYYY-MM-DD) or datetime
+  if (dateString.includes('T') || dateString.includes(' ')) {
+    // Has time component, use directly
     return new Date(dateString).toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
@@ -391,7 +395,23 @@ const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
+  }
+  
+  // Date only - use noon trick
+  const parts = dateString.split('-');
+  const date = new Date(
+    parseInt(parts[0]),
+    parseInt(parts[1]) - 1,
+    parseInt(parts[2]),
+    12, 0, 0
+  );
+  
+  return date.toLocaleDateString('en-CA', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-CA', {

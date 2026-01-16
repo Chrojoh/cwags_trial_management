@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { logEntrySubmittedOrModified } from '@/lib/journalLogger';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -850,8 +851,10 @@ const nextPosition = existingInRound && existingInRound.length > 0
         .select('fee')
         .eq('entry_id', primaryEntryId);
       
+     let finalTotalFee = 0; // Will be calculated from selections
       if (!feeRecalcError && postSyncSelections) {
         const recalculatedTotalFee = postSyncSelections.reduce((sum, s) => sum + (s.fee || 0), 0);
+        finalTotalFee = recalculatedTotalFee;
         
         await simpleTrialOperations.updateEntry(primaryEntryId, {
           total_fee: recalculatedTotalFee
@@ -859,6 +862,35 @@ const nextPosition = existingInRound && existingInRound.length > 0
         
         console.log(`✅ Recalculated total fee: $${recalculatedTotalFee} (based on ${postSyncSelections.length} selections)`);
       }
+
+      // ✅ LOG TO JOURNAL WITH SNAPSHOT (handles both new and modified)
+      const classDetails = await Promise.all(
+        allDesiredSelections.map(async (selection) => {
+          const round = trialRounds.find(r => r.id === selection.trial_round_id);
+          return {
+            class_name: round?.trial_classes?.class_name || 'Unknown',
+            round: round?.round_number || 1,
+            fee: selection.fee,
+            division: selection.division || undefined,
+            entry_type: selection.entry_type
+          };
+        })
+      );
+
+      // This function automatically detects if it's new or modified!
+      await logEntrySubmittedOrModified(
+        trialId,
+        primaryEntryId,
+        {
+          handler_name: formData.handler_name,
+          dog_call_name: formData.dog_call_name,
+          cwags_number: formData.cwags_number,
+          handler_email: formData.handler_email,
+          handler_phone: formData.handler_phone,
+          total_fee: finalTotalFee
+        },
+        classDetails
+      );
 
       setSuccess(true);
       console.log(`✅ Entry ${isNewEntry ? 'submitted' : 'updated'} successfully`);

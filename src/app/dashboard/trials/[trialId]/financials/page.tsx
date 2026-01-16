@@ -46,6 +46,7 @@ import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { financialOperations, type TrialExpense, type CompetitorFinancial } from '@/lib/financialOperations';
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { logPaymentReceived, logPaymentEdited, logRefundProcessed, logFeesWaived } from '@/lib/journalLogger';
 
 const supabase = getSupabaseBrowser();
 
@@ -324,17 +325,41 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
     }
 
     try {
-      setSaving(true);
-      const result = await financialOperations.addPaymentTransaction({
-        entry_id: selectedCompetitor.entry_id,
-        amount: parseFloat(paymentAmount),
-        payment_method: paymentMethod,
-        payment_received_by: paymentReceivedBy,
-        payment_date: paymentDate,
-        notes: paymentNotes
-      });
+    setSaving(true);
+    
+    // ✅ Convert date to noon timestamp to avoid timezone issues
+    const paymentDateTime = `${paymentDate}T12:00:00Z`;
+    
+    const result = await financialOperations.addPaymentTransaction({
+      entry_id: selectedCompetitor.entry_id,
+      amount: parseFloat(paymentAmount),
+      payment_method: paymentMethod,
+      payment_received_by: paymentReceivedBy,
+      payment_date: paymentDateTime,  // ✅ CORRECT - sends "2025-01-13T12:00:00Z"
+      notes: paymentNotes
+    });
 
-      if (!result.success) throw new Error('Failed to record payment');
+     if (!result.success) throw new Error('Failed to record payment');
+
+      // ✅ LOG TO JOURNAL WITH SNAPSHOT
+      await logPaymentReceived(
+        trialId,
+        selectedCompetitor.entry_id,
+        {
+          amount: parseFloat(paymentAmount),
+          payment_method: paymentMethod,
+          payment_received_by: paymentReceivedBy,
+          payment_date: paymentDateTime,
+          notes: paymentNotes
+        },
+        {
+          handler_name: selectedCompetitor.handler_name,
+          dog_call_name: selectedCompetitor.dog_call_name,
+          amount_owed: selectedCompetitor.amount_owed,
+          amount_paid_before: selectedCompetitor.amount_paid,
+          amount_paid_after: selectedCompetitor.amount_paid + parseFloat(paymentAmount)
+        }
+      );
 
       alert('Payment recorded successfully!');
       setShowPaymentModal(false);
@@ -366,19 +391,21 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
     }
 
     try {
-      setSaving(true);
-      
-      // Update the payment transaction
-      const { error: updateError } = await supabase
-        .from('entry_payment_transactions')
-        .update({
-          amount: parseFloat(editPaymentAmount),
-          payment_method: editPaymentMethod,
-          payment_received_by: editPaymentReceivedBy,
-          payment_date: editPaymentDate,
-          notes: editPaymentNotes
-        })
-        .eq('id', editingPayment.id);
+    setSaving(true);
+    
+    // ✅ Convert date to noon timestamp
+    const paymentDateTime = `${editPaymentDate}T12:00:00Z`;
+    
+    const { error: updateError } = await supabase
+      .from('entry_payment_transactions')
+      .update({
+        amount: parseFloat(editPaymentAmount),
+        payment_method: editPaymentMethod,
+        payment_received_by: editPaymentReceivedBy,
+        payment_date: paymentDateTime,  // ✅ CORRECT
+        notes: editPaymentNotes
+      })
+      .eq('id', editingPayment.id);
 
       if (updateError) throw updateError;
 
@@ -394,6 +421,26 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
         .from('entries')
         .update({ amount_paid: totalPaid })
         .eq('id', editingPayment.entry_id);
+
+      // ✅ LOG TO JOURNAL WITH SNAPSHOT
+      await logPaymentEdited(
+        trialId,
+        editingPayment.entry_id,
+        {
+          amount: editingPayment.amount,
+          payment_method: editingPayment.payment_method,
+          payment_date: editingPayment.payment_date
+        },
+        {
+          amount: parseFloat(editPaymentAmount),
+          payment_method: editPaymentMethod,
+          payment_date: paymentDateTime
+        },
+        {
+          handler_name: selectedCompetitor?.handler_name || 'Unknown',
+          dog_call_name: selectedCompetitor?.dog_call_name || 'Unknown'
+        }
+      );
 
       alert('Payment updated successfully!');
       setShowEditPaymentModal(false);
@@ -435,19 +482,41 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
     }
 
     try {
-      setSaving(true);
-      
-      // Create a negative payment transaction to represent the refund
-      const result = await financialOperations.addPaymentTransaction({
-        entry_id: selectedCompetitor.entry_id,
-        amount: -parseFloat(refundAmount), // Negative amount for refund
-        payment_method: refundMethod,
-        payment_received_by: refundIssuedBy,
-        payment_date: refundDate,
-        notes: `REFUND: ${refundNotes || 'Overpayment refund'}`
-      });
+    setSaving(true);
+    
+    // ✅ Convert date to noon timestamp
+    const refundDateTime = `${refundDate}T12:00:00Z`;
+    
+    const result = await financialOperations.addPaymentTransaction({
+      entry_id: selectedCompetitor.entry_id,
+      amount: -parseFloat(refundAmount),
+      payment_method: refundMethod,
+      payment_received_by: refundIssuedBy,
+      payment_date: refundDateTime,  // ✅ CORRECT
+      notes: `REFUND: ${refundNotes || 'Overpayment refund'}`
+    });
 
       if (!result.success) throw new Error('Failed to process refund');
+
+      // ✅ LOG TO JOURNAL WITH SNAPSHOT
+      await logRefundProcessed(
+        trialId,
+        selectedCompetitor.entry_id,
+        {
+          amount: parseFloat(refundAmount),
+          refund_method: refundMethod,
+          refund_issued_by: refundIssuedBy,
+          refund_date: refundDateTime,
+          notes: refundNotes
+        },
+        {
+          handler_name: selectedCompetitor.handler_name,
+          dog_call_name: selectedCompetitor.dog_call_name,
+          amount_owed: selectedCompetitor.amount_owed,
+          amount_paid_before: selectedCompetitor.amount_paid,
+          amount_paid_after: selectedCompetitor.amount_paid - parseFloat(refundAmount)
+        }
+      );
 
       alert('Refund processed successfully!');
       setShowRefundModal(false);
@@ -580,6 +649,20 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
       const result = await financialOperations.waiveFees(entryIds, waiveReason);
       
       if (!result.success) throw new Error('Failed to waive fees');
+
+      // Use the entryIds that was already declared on line 587
+      for (const entryId of entryIds) {
+        await logFeesWaived(
+          trialId,
+          entryId,
+          {
+            handler_name: selectedCompetitor.handler_name,
+            dog_call_name: selectedCompetitor.dog_call_name,
+            amount_owed: selectedCompetitor.amount_owed,
+            reason: waiveReason
+          }
+        );
+      }
 
       alert('Fees waived successfully!');
       setShowWaiveModal(false);
