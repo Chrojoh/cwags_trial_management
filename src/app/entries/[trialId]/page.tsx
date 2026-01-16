@@ -868,12 +868,14 @@ const nextPosition = existingInRound && existingInRound.length > 0
         allDesiredSelections.map(async (selection) => {
           const round = trialRounds.find(r => r.id === selection.trial_round_id);
           return {
-            class_name: round?.trial_classes?.class_name || 'Unknown',
-            round: round?.round_number || 1,
-            fee: selection.fee,
-            division: selection.division || undefined,
-            entry_type: selection.entry_type
-          };
+  class_name: round?.trial_classes?.class_name || 'Unknown',
+  round: round?.round_number || 1,
+  fee: selection.fee,
+  division: selection.division || undefined,
+  entry_type: selection.entry_type,
+  day_number: round?.trial_classes?.trial_days?.day_number,
+  trial_date: round?.trial_classes?.trial_days?.trial_date
+};
         })
       );
 

@@ -271,6 +271,8 @@ export default function TrialJournalPage() {
           running_position: null,
           entry_status: 'active',
           created_at: entry.timestamp,
+          day_number: classData.day_number,       
+            trial_date: classData.trial_date, 
           trial_rounds: {
             round_number: classData.round || 1,
             trial_classes: {
@@ -717,6 +719,20 @@ export default function TrialJournalPage() {
                                     <span className="text-sm text-gray-600">
                                       (Round {selection.trial_rounds.round_number})
                                     </span>
+  )}
+  {/* ✅ ADD THIS - Day Badge */}
+  {selection.day_number && (
+    <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+      Day {selection.day_number}
+    </span>
+  )}
+  {/* ✅ ADD THIS - Trial Date */}
+  {selection.trial_date && (
+    <span className="text-xs text-gray-500">
+      {new Date(selection.trial_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+    </span>
+
+
                                   )}
                                 </div>
                                 
