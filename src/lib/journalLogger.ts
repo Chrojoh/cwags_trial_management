@@ -392,6 +392,9 @@ export async function logEntrySubmittedOrModified(
     fee?: number;
     division?: string;
     entry_type?: string;
+    day_number?: number;      // ← ADD THIS
+    trial_date?: string;      // ← ADD THIS
+    jump_height?: string;     // ← ADD THIS
   }>
 ) {
   try {
@@ -410,8 +413,11 @@ export async function logEntrySubmittedOrModified(
         name: c.class_name || 'Unknown Class',
         round: c.round || 1,
         fee: c.fee || 0,
-        division: c.division || undefined,
-        entry_type: c.entry_type || 'regular'
+        division: c.division || null,
+        entry_type: c.entry_type || 'regular',
+        day_number: c.day_number || null,      // ← ADD THIS
+        trial_date: c.trial_date || null,      // ← ADD THIS
+        jump_height: c.jump_height || null     // ← ADD THIS
       }))
     };
     
