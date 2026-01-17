@@ -24,6 +24,9 @@ export async function logEntrySubmitted(
     fee?: number;
     division?: string;
     entry_type?: string;
+    day_number?: number;
+    trial_date?: string;
+    jump_height?: string;
   }>
 ) {
   try {
@@ -43,7 +46,10 @@ export async function logEntrySubmitted(
         round: c.round || 1,
         fee: c.fee || 0,
         division: c.division || null,
-        entry_type: c.entry_type || 'regular'
+        entry_type: c.entry_type || 'regular',
+        day_number: c.day_number || null,
+        trial_date: c.trial_date || null,
+        jump_height: c.jump_height || null
       }))
     };
     
