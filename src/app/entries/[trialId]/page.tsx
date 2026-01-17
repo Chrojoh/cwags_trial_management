@@ -172,6 +172,7 @@ export default function PublicEntryForm() {
   const [selectedDayTab, setSelectedDayTab] = useState<string>("1");
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
+  const [dayAcceptingStatus, setDayAcceptingStatus] = useState<Record<number, boolean>>({});  // ✅ ADD THIS LINE
   const [loading, setLoading] = useState(true);
   const supabase = getSupabaseBrowser();
   const [submitting, setSubmitting] = useState(false);
@@ -207,31 +208,44 @@ export default function PublicEntryForm() {
   // ============================================
   // LOAD TRIAL DATA
   // ============================================
-  const loadTrialData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+ const loadTrialData = async () => {
+  try {
+    setLoading(true);
+    setError(null);
 
-      const trialResult = await simpleTrialOperations.getTrial(trialId);
-      if (!trialResult.success) {
-        throw new Error('Failed to load trial information');
-      }
-
-      setTrial(trialResult.data);
-
-      const roundsResult = await simpleTrialOperations.getAllTrialRounds(trialId);
-      if (!roundsResult.success) {
-        throw new Error('Failed to load trial classes');
-      }
-
-      setTrialRounds(roundsResult.data || []);
-    } catch (err) {
-      console.error('Error loading trial data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load trial information');
-    } finally {
-      setLoading(false);
+    const trialResult = await simpleTrialOperations.getTrial(trialId);
+    if (!trialResult.success) {
+      throw new Error('Failed to load trial information');
     }
-  };
+
+    setTrial(trialResult.data);
+
+    const roundsResult = await simpleTrialOperations.getAllTrialRounds(trialId);
+    if (!roundsResult.success) {
+      throw new Error('Failed to load trial classes');
+    }
+
+    setTrialRounds(roundsResult.data || []);
+    
+    // ✅ ADD THIS BLOCK: Build day accepting status
+    const dayStatus: Record<number, boolean> = {};
+    (roundsResult.data || []).forEach((round: any) => {
+      const dayNum = round.trial_classes?.trial_days?.day_number;
+      const accepting = round.trial_classes?.trial_days?.is_accepting_entries ?? true;
+      if (dayNum) {
+        dayStatus[dayNum] = accepting;
+      }
+    });
+    setDayAcceptingStatus(dayStatus);
+    console.log('Day accepting status:', dayStatus);
+    
+  } catch (err) {
+    console.error('Error loading trial data:', err);
+    setError(err instanceof Error ? err.message : 'Failed to load trial information');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // ============================================
   // C-WAGS LOOKUP
@@ -1588,33 +1602,68 @@ const jumpHeight = formData.jump_height_selections[roundId];
                 </CardHeader>
                 
                 <CardContent className="pt-0">
-                  {Object.keys(roundsByDay).length > 0 ? (
-                    /* Day Tabs - ENHANCED VISIBILITY */
-                    <TabsList className="grid w-full grid-cols-5 mb-0 bg-gray-100 p-1">
-                      {Object.keys(roundsByDay).sort().map(day => {
-                        const dayRounds = roundsByDay[parseInt(day)];
-                        const dayDate = dayRounds[0]?.trial_classes?.trial_days?.trial_date;
-                        return (
-                          <TabsTrigger 
-                            key={day} 
-                            value={day}
-                            className="data-[state=active]:bg-orange-600 data-[state=active]:text-white data-[state=active]:font-bold data-[state=inactive]:bg-white data-[state=inactive]:text-gray-700 border-2 data-[state=active]:border-orange-700 data-[state=inactive]:border-gray-300 transition-all"
-                          >
-                            <div className="text-center">
-                              <div className="font-semibold">Day {day}</div>
-                              <div className="text-xs">
-                                {dayDate ? formatDayDate(dayDate) : 'TBD'}
-                              </div>
-                            </div>
-                          </TabsTrigger>
-                        );
-                      })}
-                    </TabsList>
-                  ) : (
-                    <div className="text-center text-gray-500 py-4">
-                      <p>No class information available yet.</p>
-                    </div>
-                  )}
+                 {Object.keys(roundsByDay).length > 0 ? (
+  <>
+    {/* Day Tabs - ENHANCED VISIBILITY */}
+    <TabsList className="grid w-full grid-cols-5 mb-0 bg-gray-100 p-1">
+      {Object.keys(roundsByDay).sort().map(day => {
+        const dayRounds = roundsByDay[parseInt(day)];
+        const dayDate = dayRounds[0]?.trial_classes?.trial_days?.trial_date;
+        const isDayAccepting = dayAcceptingStatus[parseInt(day)] ?? true;
+        
+        return (
+          <TabsTrigger 
+            key={day} 
+            value={day}
+            disabled={!isDayAccepting}
+            className={`
+              ${!isDayAccepting ? 'opacity-50 cursor-not-allowed bg-gray-200' : ''}
+              data-[state=active]:bg-orange-600 data-[state=active]:text-white 
+              data-[state=active]:font-bold data-[state=inactive]:bg-white 
+              data-[state=inactive]:text-gray-700 border-2 
+              data-[state=active]:border-orange-700 
+              data-[state=inactive]:border-gray-300 transition-all
+            `}
+          >
+            <div className="text-center">
+              <div className="font-semibold flex items-center justify-center gap-1">
+                Day {day}
+                {!isDayAccepting && <Lock className="h-3 w-3" />}
+              </div>
+              <div className="text-xs">
+                {dayDate ? formatDayDate(dayDate) : ''}
+              </div>
+              {!isDayAccepting && (
+                <div className="text-xs text-red-600 font-semibold mt-1">
+                  CLOSED
+                </div>
+              )}
+            </div>
+          </TabsTrigger>
+        );
+      })}
+    </TabsList>
+
+    {Object.entries(dayAcceptingStatus).some(([_, isAccepting]) => !isAccepting) && (
+      <Alert className="mt-4 border-red-200 bg-red-50">
+        <AlertCircle className="h-4 w-4 text-red-600" />
+        <AlertDescription className="text-red-800">
+          <strong>Notice:</strong> Some days are currently closed for entries.
+          {Object.entries(dayAcceptingStatus)
+            .filter(([_, isAccepting]) => !isAccepting)
+            .map(([day]) => ` Day ${day}`)
+            .join(',')} 
+          {Object.entries(dayAcceptingStatus).filter(([_, isAccepting]) => !isAccepting).length === 1 ? ' is' : ' are'} closed.
+        </AlertDescription>
+      </Alert>
+    )}
+  </>
+) : (
+  <div className="text-center text-gray-500 py-4">
+    <p>No class information available yet.</p>
+  </div>
+)}
+                   
                 </CardContent>
               </Card>
             </div>

@@ -904,30 +904,31 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
 
   // Enhanced method from original
   async getAllTrialRounds(trialId: string): Promise<OperationResult> {
-    try {
-      console.log('Getting all trial rounds for trial ID:', trialId);
+  try {
+    console.log('Getting all trial rounds for trial ID:', trialId);
 
-      const { data, error } = await supabase
-        .from('trial_rounds')
-        .select(`
-  *,
-  trial_classes!inner(
-    class_name,
-    games_subclass,
-    trial_day_id,
-    class_level,
-    class_type,
-    entry_fee,
-    feo_available,
-    feo_price,
-    trial_days!inner(
-      trial_id,
-      trial_date,
-      day_number
-    )
-  )
-`)
-        .eq('trial_classes.trial_days.trial_id', trialId);
+    const { data, error } = await supabase
+      .from('trial_rounds')
+      .select(`
+        *,
+        trial_classes!inner(
+          class_name,
+          games_subclass,
+          trial_day_id,
+          class_level,
+          class_type,
+          entry_fee,
+          feo_available,
+          feo_price,
+          trial_days!inner(
+            trial_id,
+            trial_date,
+            day_number,
+            is_accepting_entries
+          )
+        )
+      `)
+      .eq('trial_classes.trial_days.trial_id', trialId);
 
       if (error) {
         console.error('Error getting trial rounds:', error);
