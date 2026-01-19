@@ -1320,47 +1320,93 @@ if (!selections || selections.length === 0) {
       };
     }
 
-   // STEP 6: Add new selections
-    const selectionsWithEntryId = selections.map((selection, index) => ({
-      entry_id: entryId,
-      trial_round_id: selection.trial_round_id,
-      entry_type: selection.entry_type || 'regular',
-      fee: selection.fee || 0,
-      running_position: selection.running_position || index + 1,
-      entry_status: selection.entry_status || 'entered',
-      division: selection.division || null,
-      games_subclass: selection.games_subclass || null,
-      jump_height: selection.jump_height || null,
-      created_at: new Date().toISOString()
-    }));
-
-    console.log(`➕ Adding ${selectionsWithEntryId.length} new selections`);
-    console.log('New selections data:', selectionsWithEntryId);
-
-    const { data: insertedSelections, error: insertError } = await supabase
-      .from('entry_selections')
-      .insert(selectionsWithEntryId)
-      .select();
-
-    if (insertError) {
-      console.error('❌ Failed to insert new selections:', insertError);
-      return { success: false, error: `Failed to insert new selections: ${insertError.message}` };
+  // STEP 6: Filter out selections that already exist with scores, then add new ones
+// Build a Set of existing (trial_round_id, entry_type) pairs that have scores
+const existingSelectionsWithScores = new Set<string>();
+if (existingSelections && existingSelections.length > 0) {
+  existingSelections.forEach(sel => {
+    if (selectionsWithScoreIds.has(sel.id)) {
+      // Create a unique key for this selection
+      const key = `${sel.trial_round_id}-${sel.entry_type}`;
+      existingSelectionsWithScores.add(key);
+      console.log(`   📌 Preserved selection key: ${key}`);
     }
+  });
+}
 
-    console.log(`✅ Successfully created ${insertedSelections?.length || 0} new entry selections`);
-    
-    // Prepare warning message if scores were preserved
-    let warningMessage = null;
-    if (selectionsWithScoreIds.size > 0) {
-      warningMessage = `${selectionsWithScoreIds.size} existing entries with scores were preserved and cannot be modified. Only entries without scores were updated.`;
-    }
-    
-    return { 
-      success: true, 
-      data: insertedSelections,
-      warning: warningMessage
-    };
+// Filter out selections that would conflict with existing scored selections
+const selectionsToInsert = selections.filter(selection => {
+  const key = `${selection.trial_round_id}-${selection.entry_type || 'regular'}`;
+  const wouldConflict = existingSelectionsWithScores.has(key);
+  
+  if (wouldConflict) {
+    console.log(`   ⏭️  Skipping ${key} - already exists with scores`);
+  }
+  
+  return !wouldConflict; // Only include if it DOESN'T conflict
+});
 
+console.log(`📊 Selections summary:`);
+console.log(`   - Incoming selections: ${selections.length}`);
+console.log(`   - Selections with scores (preserved): ${existingSelectionsWithScores.size}`);
+console.log(`   - Selections to insert: ${selectionsToInsert.length}`);
+
+// If no selections to insert after filtering, we're done
+if (selectionsToInsert.length === 0) {
+  console.log('ℹ️ No new selections to insert after filtering out existing scored entries');
+  
+  let warningMessage = null;
+  if (selectionsWithScoreIds.size > 0) {
+    warningMessage = `All ${selectionsWithScoreIds.size} existing entries with scores were preserved and no changes were needed.`;
+  }
+  
+  return { 
+    success: true, 
+    data: [],
+    warning: warningMessage
+  };
+}
+
+// Now insert only the truly new selections
+const selectionsWithEntryId = selectionsToInsert.map((selection, index) => ({
+  entry_id: entryId,
+  trial_round_id: selection.trial_round_id,
+  entry_type: selection.entry_type || 'regular',
+  fee: selection.fee || 0,
+  running_position: selection.running_position || index + 1,
+  entry_status: selection.entry_status || 'entered',
+  division: selection.division || null,
+  games_subclass: selection.games_subclass || null,
+  jump_height: selection.jump_height || null,
+  created_at: new Date().toISOString()
+}));
+
+console.log(`➕ Adding ${selectionsWithEntryId.length} new selections`);
+console.log('New selections data:', selectionsWithEntryId);
+
+const { data: insertedSelections, error: insertError } = await supabase
+  .from('entry_selections')
+  .insert(selectionsWithEntryId)
+  .select();
+
+if (insertError) {
+  console.error('❌ Failed to insert new selections:', insertError);
+  return { success: false, error: `Failed to insert new selections: ${insertError.message}` };
+}
+
+console.log(`✅ Successfully created ${insertedSelections?.length || 0} new entry selections`);
+
+// Prepare detailed warning message
+let warningMessage = null;
+if (selectionsWithScoreIds.size > 0) {
+  warningMessage = `${selectionsWithScoreIds.size} existing entries with scores were preserved. ${insertedSelections?.length || 0} new entries were added.`;
+}
+
+return { 
+  success: true, 
+  data: insertedSelections,
+  warning: warningMessage
+};
   } catch (error) {
     console.error('❌ Unexpected error in score-aware createEntrySelections:', error);
     return { 
