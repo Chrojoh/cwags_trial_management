@@ -110,45 +110,70 @@ const formatDateWithDay = (dateString: string) => {
           });
         } 
         
-        else if (activity.activity_type === 'entry_modified') {
-          const before = snapshot.before || {};
-          const after = snapshot.after || {};
-          const change = snapshot.change || {};
-          
-          let description = `Modified entry for ${snapshot.dog_call_name}`;
-          
-          // Build detailed description with added/removed classes
-          const details = [];
-          if (change.added_classes && change.added_classes.length > 0) {
-            details.push(`➕ Added: ${change.added_classes.join(', ')}`);
-          }
-          if (change.removed_classes && change.removed_classes.length > 0) {
-            details.push(`➖ Removed: ${change.removed_classes.join(', ')}`);
-          }
-          if (change.class_count_delta !== 0) {
-            details.push(`Classes: ${before.class_count} → ${after.class_count}`);
-          }
-          if (change.fee_delta !== 0) {
-            details.push(`Fee: $${before.total_fee} → $${after.total_fee}`);
-          }
-          
-          if (details.length > 0) {
-            description += '\n' + details.join('\n');
-          }
-          
-          entries.push({
-            id: activity.id,
-            timestamp: activity.created_at,
-            type: 'entry_modified',
-            handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
-            dog_call_name: snapshot.dog_call_name || 'Unknown',
-            cwags_number: snapshot.cwags_number || 'Unknown',
-            description: description,
-            amount: after.total_fee || 0,
-            entry_id: activity.entry_id,
-            snapshot: snapshot // Store snapshot for modal (use 'after' state)
-          });
-        }
+      else if (activity.activity_type === 'entry_modified') {
+  const snapshot = activity.snapshot_data || {};
+  
+  // Calculate added/removed classes from before/after arrays
+  // This works even if change.added_classes/removed_classes are missing
+  const beforeClasses = snapshot.before?.classes || [];
+  const afterClasses = snapshot.after?.classes || [];
+  
+  // Create unique keys for comparison
+  const makeClassKey = (c: any) => {
+    const name = c.name || 'Unknown';
+    const round = c.round || 1;
+    const day = c.day_number || 'TBD';
+    return `${name}-R${round}-D${day}`;
+  };
+  
+  const beforeKeys = new Set(beforeClasses.map(makeClassKey));
+  const afterKeys = new Set(afterClasses.map(makeClassKey));
+  
+  // Calculate added classes with day info
+  const addedClasses = afterClasses
+    .filter((c: any) => !beforeKeys.has(makeClassKey(c)))
+    .map((c: any) => {
+      const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
+      return `${c.name} (Round ${c.round}${dayInfo})`;
+    });
+  
+  // Calculate removed classes with day info
+  const removedClasses = beforeClasses
+    .filter((c: any) => !afterKeys.has(makeClassKey(c)))
+    .map((c: any) => {
+      const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
+      return `${c.name} (Round ${c.round}${dayInfo})`;
+    });
+  
+  // Build description
+  const changes: string[] = [];
+  
+  if (addedClasses.length > 0) {
+    changes.push(`➕ Added: ${addedClasses.join(', ')}`);
+  }
+  
+  if (removedClasses.length > 0) {
+    changes.push(`➖ Removed: ${removedClasses.join(', ')}`);
+  }
+  
+  const classCountBefore = snapshot.before?.class_count || 0;
+  const classCountAfter = snapshot.after?.class_count || 0;
+  const feeBefore = snapshot.before?.total_fee || 0;
+  const feeAfter = snapshot.after?.total_fee || 0;
+  
+  entries.push({
+    id: activity.id,
+    timestamp: activity.created_at,
+    type: 'entry_modified',
+    handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
+    dog_call_name: snapshot.dog_call_name || 'Unknown',
+    cwags_number: snapshot.cwags_number || 'Unknown',
+    description: `Modified entry for ${snapshot.dog_call_name}\n${changes.join('\n')}\nClasses: ${classCountBefore} → ${classCountAfter}\nFee: $${feeBefore} → $${feeAfter}`,
+    amount: feeAfter,
+    entry_id: activity.entry_id,
+    snapshot: snapshot
+  });
+}
        else if (activity.activity_type === 'dog_substituted') {
           const original = snapshot.original || {};
           const substitute = snapshot.substitute || {};
