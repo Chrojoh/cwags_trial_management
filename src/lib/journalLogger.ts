@@ -493,66 +493,88 @@ export async function logEntrySubmittedOrModified(
       return;
     }
     
-   // Determine what was added/removed (with safety checks)
-    const previousClasses = previousState.classes || [];
-    const currentClasses = currentSnapshot.classes || [];
-    
-    const previousClassNames = new Set(previousClasses.map((c: any) => c.name));
-    const currentClassNames = new Set(currentClasses.map(c => c.name));
-    
-    const addedClasses = currentClasses
-      .filter(c => !previousClassNames.has(c.name))
-      .map(c => c.name);
-    
-    const removedClasses = previousClasses
-      .filter((c: any) => !currentClassNames.has(c.name))
-      .map((c: any) => c.name);
-    
-    // Something changed - log as MODIFICATION
-    const modificationSnapshot: any = {
-      handler_name: entryData.handler_name,
-      dog_call_name: entryData.dog_call_name,
-      cwags_number: entryData.cwags_number,
-      before: {
-        class_count: previousState.class_count,
-        total_fee: previousState.total_fee,
-        classes: previousClasses
-      },
-      after: {
-        class_count: currentSnapshot.class_count,
-        total_fee: currentSnapshot.total_fee,
-        classes: currentClasses
-      },
-      change: {
-        class_count_delta: currentSnapshot.class_count - previousState.class_count,
-        fee_delta: currentSnapshot.total_fee - previousState.total_fee,
-        ...(addedClasses.length > 0 && { added_classes: addedClasses }),
-        ...(removedClasses.length > 0 && { removed_classes: removedClasses })
-      }
-    };
-    
-    const { error } = await supabase.from('trial_activity_log').insert({
-      trial_id: trialId,
-      activity_type: 'entry_modified',
-      entry_id: entryId,
-      snapshot_data: modificationSnapshot,
-      user_name: entryData.handler_name
-    });
-    
-    if (error) {
-      console.error('Failed to log entry modification:', error);
-    } else {
-      console.log('✅ Logged entry MODIFICATION to journal');
-      console.log('   Changes:', {
-        added: addedClasses,
-        removed: removedClasses,
-        fee_delta: modificationSnapshot.change.fee_delta
-      });
-    }
-    
-  } catch (error) {
-    console.error('Error logging entry activity:', error);
+   // Determine what was added/removed - use unique identifiers for each round
+const previousClasses = previousState.classes || [];
+const currentClasses = currentSnapshot.classes || [];
+
+// Create unique keys: className-Round#-Day#
+const makeClassKey = (c: any) => {
+  const name = c.name || 'Unknown';
+  const round = c.round || 1;
+  const day = c.day_number || 'TBD';
+  return `${name}-R${round}-D${day}`;
+};
+
+const previousClassKeys = new Map(
+  previousClasses.map((c: any) => [makeClassKey(c), c])
+);
+const currentClassKeys = new Map(
+  currentClasses.map((c: any) => [makeClassKey(c), c])
+);
+
+// Find added classes (in current but not in previous)
+const addedClasses = currentClasses
+  .filter(c => !previousClassKeys.has(makeClassKey(c)))
+  .map(c => {
+    const name = c.name || 'Unknown';
+    const round = c.round || 1;
+    return `${name} (Round ${round})`;
+  });
+
+// Find removed classes (in previous but not in current)
+const removedClasses = previousClasses
+  .filter((c: any) => !currentClassKeys.has(makeClassKey(c)))
+  .map((c: any) => {
+    const name = c.name || 'Unknown';
+    const round = c.round || 1;
+    return `${name} (Round ${round})`;
+  });
+
+// Something changed - log as MODIFICATION
+const modificationSnapshot: any = {
+  handler_name: entryData.handler_name,
+  dog_call_name: entryData.dog_call_name,
+  cwags_number: entryData.cwags_number,
+  before: {
+    class_count: previousState.class_count,
+    total_fee: previousState.total_fee,
+    classes: previousClasses
+  },
+  after: {
+    class_count: currentSnapshot.class_count,
+    total_fee: currentSnapshot.total_fee,
+    classes: currentClasses
+  },
+  change: {
+    class_count_delta: currentSnapshot.class_count - previousState.class_count,
+    fee_delta: currentSnapshot.total_fee - previousState.total_fee,
+    ...(addedClasses.length > 0 && { added_classes: addedClasses }),
+    ...(removedClasses.length > 0 && { removed_classes: removedClasses })
   }
+};
+
+const { error } = await supabase.from('trial_activity_log').insert({
+  trial_id: trialId,
+  activity_type: 'entry_modified',
+  entry_id: entryId,
+  snapshot_data: modificationSnapshot,
+  user_name: entryData.handler_name
+});
+
+if (error) {
+  console.error('Failed to log entry modification:', error);
+} else {
+  console.log('✅ Logged entry MODIFICATION to journal');
+  console.log('   Changes:', {
+    added: addedClasses,
+    removed: removedClasses,
+    fee_delta: modificationSnapshot.change.fee_delta
+  });
+}
+
+} catch (error) {
+  console.error('Error logging entry activity:', error);
+}
 }
 
 /**
