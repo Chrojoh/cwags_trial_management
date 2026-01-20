@@ -877,21 +877,53 @@ const nextPosition = existingInRound && existingInRound.length > 0
         console.log(`✅ Recalculated total fee: $${recalculatedTotalFee} (based on ${postSyncSelections.length} selections)`);
       }
 
-      // ✅ LOG TO JOURNAL WITH SNAPSHOT (handles both new and modified)
-      const classDetails = await Promise.all(
-        allDesiredSelections.map(async (selection) => {
-          const round = trialRounds.find(r => r.id === selection.trial_round_id);
-          return {
-  class_name: round?.trial_classes?.class_name || 'Unknown',
-  round: round?.round_number || 1,
-  fee: selection.fee,
-  division: selection.division || undefined,
-  entry_type: selection.entry_type,
-  day_number: round?.trial_classes?.trial_days?.day_number,
-  trial_date: round?.trial_classes?.trial_days?.trial_date
-};
-        })
-      );
+      // ✅ LOG TO JOURNAL WITH SNAPSHOT - Query ACTUAL selections from database
+console.log('📝 Building journal entry from actual database state...');
+
+const { data: actualSelections, error: actualSelectionsError } = await supabase
+  .from('entry_selections')
+  .select(`
+    trial_round_id,
+    fee,
+    division,
+    entry_type,
+    jump_height,
+    trial_rounds (
+      round_number,
+      trial_classes (
+        class_name,
+        trial_days (
+          day_number,
+          trial_date
+        )
+      )
+    )
+  `)
+  .eq('entry_id', primaryEntryId);
+
+if (actualSelectionsError) {
+  console.error('❌ Failed to get actual selections for journal:', actualSelectionsError);
+}
+
+// Build class details from ACTUAL selections in database
+const classDetails = (actualSelections || []).map((sel: any) => {
+  const trialRound = sel.trial_rounds;
+  const trialClass = trialRound?.trial_classes;
+  const trialDay = trialClass?.trial_days;
+  
+  return {
+    class_name: trialClass?.class_name || 'Unknown',
+    round: trialRound?.round_number || 1,
+    fee: sel.fee,
+    division: sel.division || undefined,
+    entry_type: sel.entry_type,
+    day_number: trialDay?.day_number,
+    trial_date: trialDay?.trial_date,
+    jump_height: sel.jump_height || undefined
+  };
+});
+
+console.log(`📝 Logging journal entry with ${classDetails.length} actual classes`);
 
       // This function automatically detects if it's new or modified!
       await logEntrySubmittedOrModified(

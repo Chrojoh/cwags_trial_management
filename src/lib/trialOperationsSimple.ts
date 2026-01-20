@@ -1321,26 +1321,24 @@ if (!selections || selections.length === 0) {
     }
 
   // STEP 6: Filter out selections that already exist with scores, then add new ones
-// Build a Set of existing (trial_round_id, entry_type) pairs that have scores
-const existingSelectionsWithScores = new Set<string>();
+// Build a Set of existing trial_round_ids that have scores
+const existingRoundsWithScores = new Set<string>();
 if (existingSelections && existingSelections.length > 0) {
   existingSelections.forEach(sel => {
     if (selectionsWithScoreIds.has(sel.id)) {
-      // Create a unique key for this selection
-      const key = `${sel.trial_round_id}-${sel.entry_type}`;
-      existingSelectionsWithScores.add(key);
-      console.log(`   📌 Preserved selection key: ${key}`);
+      // Just the round ID - matches database constraint
+      existingRoundsWithScores.add(sel.trial_round_id);
+      console.log(`   📌 Preserved round: ${sel.trial_round_id}`);
     }
   });
 }
 
-// Filter out selections that would conflict with existing scored selections
+// Filter out selections that would conflict with existing scored rounds
 const selectionsToInsert = selections.filter(selection => {
-  const key = `${selection.trial_round_id}-${selection.entry_type || 'regular'}`;
-  const wouldConflict = existingSelectionsWithScores.has(key);
+  const wouldConflict = existingRoundsWithScores.has(selection.trial_round_id);
   
   if (wouldConflict) {
-    console.log(`   ⏭️  Skipping ${key} - already exists with scores`);
+    console.log(`   ⏭️  Skipping round ${selection.trial_round_id} - already exists with scores`);
   }
   
   return !wouldConflict; // Only include if it DOESN'T conflict
@@ -1348,7 +1346,7 @@ const selectionsToInsert = selections.filter(selection => {
 
 console.log(`📊 Selections summary:`);
 console.log(`   - Incoming selections: ${selections.length}`);
-console.log(`   - Selections with scores (preserved): ${existingSelectionsWithScores.size}`);
+console.log(`   - Selections with scores (preserved): ${existingRoundsWithScores.size}`);
 console.log(`   - Selections to insert: ${selectionsToInsert.length}`);
 
 // If no selections to insert after filtering, we're done
