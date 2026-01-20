@@ -53,6 +53,17 @@ export default function TrialJournalPage() {
     filterJournalEntries();
   }, [journalEntries, searchTerm, typeFilter, dateRange]);
 
+  // Add this helper function near the top with other functions (after imports, around line 30)
+const formatDateWithDay = (dateString: string) => {
+  if (!dateString) return '';
+  
+  // Parse date manually to avoid timezone issues
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
+  
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
   const loadJournalData = async () => {
     try {
       setLoading(true);
@@ -778,11 +789,11 @@ export default function TrialJournalPage() {
                                       Day {selection.day_number}
                                     </span>
                                   )}
-                                  {selection.trial_date && (
-                                    <span className="text-xs text-gray-500">
-                                      {new Date(selection.trial_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                    </span>
-                                  )}
+                                 {selection.trial_date && (
+  <span className="text-xs text-gray-500">
+    {formatDateWithDay(selection.trial_date)}
+  </span>
+)}
                                 </div>
                                 
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
