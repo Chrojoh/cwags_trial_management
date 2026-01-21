@@ -906,39 +906,54 @@ if (actualSelectionsError) {
 }
 
 // Build class details from ACTUAL selections in database
-const classDetails = (actualSelections || []).map((sel: any) => {
-  const trialRound = sel.trial_rounds;
-  const trialClass = trialRound?.trial_classes;
-  const trialDay = trialClass?.trial_days;
-  
-  return {
-    class_name: trialClass?.class_name || 'Unknown',
-    round: trialRound?.round_number || 1,
-    fee: sel.fee,
-    division: sel.division || undefined,
-    entry_type: sel.entry_type,
-    day_number: trialDay?.day_number,
-    trial_date: trialDay?.trial_date,
-    jump_height: sel.jump_height || undefined
-  };
-});
+const { data: allCurrentSelections, error: selectionsError } = await supabase
+  .from('entry_selections')
+  .select(`
+    *,
+    trial_rounds!inner(
+      round_number,
+      trial_classes!inner(
+        class_name,
+        trial_days!inner(
+          day_number,
+          trial_date
+        )
+      )
+    )
+  `)
+  .eq('entry_id', primaryEntryId);
 
-console.log(`📝 Logging journal entry with ${classDetails.length} actual classes`);
+if (selectionsError) {
+  console.error('⚠️ Failed to fetch current selections for journal:', selectionsError);
+}
 
-      // This function automatically detects if it's new or modified!
-      await logEntrySubmittedOrModified(
-        trialId,
-        primaryEntryId,
-        {
-          handler_name: formData.handler_name,
-          dog_call_name: formData.dog_call_name,
-          cwags_number: formData.cwags_number,
-          handler_email: formData.handler_email,
-          handler_phone: formData.handler_phone,
-          total_fee: finalTotalFee
-        },
-        classDetails
-      );
+// Build class details from ACTUAL current state in database
+const classDetails = (allCurrentSelections || []).map((selection: any) => ({
+  class_name: selection.trial_rounds?.trial_classes?.class_name || 'Unknown',
+  round: selection.trial_rounds?.round_number || 1,
+  fee: selection.fee,
+  division: selection.division || undefined,
+  entry_type: selection.entry_type,
+  day_number: selection.trial_rounds?.trial_classes?.trial_days?.day_number,
+  trial_date: selection.trial_rounds?.trial_classes?.trial_days?.trial_date
+}));
+
+console.log('📊 Logging to journal with ALL current selections:', classDetails.length);
+
+// This function automatically detects if it's new or modified!
+await logEntrySubmittedOrModified(
+  trialId,
+  primaryEntryId,
+  {
+    handler_name: formData.handler_name,
+    dog_call_name: formData.dog_call_name,
+    cwags_number: formData.cwags_number,
+    handler_email: formData.handler_email,
+    handler_phone: formData.handler_phone,
+    total_fee: finalTotalFee
+  },
+  classDetails  // ✅ Now contains ALL current classes, not just new ones
+);
 
       setSuccess(true);
       console.log(`✅ Entry ${isNewEntry ? 'submitted' : 'updated'} successfully`);

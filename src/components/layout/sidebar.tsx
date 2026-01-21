@@ -17,6 +17,7 @@ import {
   FileText,
   DollarSign,
   Info,
+  BookOpen,
   Copy,
   Check,
   X
@@ -125,6 +126,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       href: `/dashboard/trials/${trialId}`,
       icon: Info,
     },
+    {
+  label: 'Activity Journal',
+  href: `/dashboard/trials/${trialId}/journal`,
+  icon: BookOpen,
+},
     {
       label: 'Entries',
       href: `/dashboard/trials/${trialId}/entries`,
