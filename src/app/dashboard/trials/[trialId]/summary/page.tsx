@@ -163,77 +163,99 @@ const generateClassDisplayData = async (classId: string) => {
     if (!entriesResult.success) return null;
 
     // Get all scores
-    const { data: allScores } = await supabase.from('scores').select('*');
-    const scoresMap = new Map();
-    if (allScores) {
-      allScores.forEach(score => scoresMap.set(score.entry_selection_id, score));
-    }
+   // Fetch ALL scores using pagination (handles unlimited rows)
+let allScores: any[] = [];
+let from = 0;
+const pageSize = 1000;
+let hasMore = true;
+
+console.log('📊 [DISPLAY] Loading scores with pagination...');
+
+while (hasMore) {
+  const { data, error } = await supabase
+    .from('scores')
+    .select('*')
+    .range(from, from + pageSize - 1);
+  
+  if (error) {
+    console.error('Error loading scores:', error);
+    throw error;
+  }
+  
+  if (!data || data.length === 0) {
+    hasMore = false;
+    break;
+  }
+  
+  allScores = [...allScores, ...data];
+  console.log(`  ✓ Batch ${Math.floor(from / pageSize) + 1}: loaded ${data.length} scores (total: ${allScores.length})`);
+  
+  // If we got fewer than pageSize, we've reached the end
+  hasMore = data.length === pageSize;
+  from += pageSize;
+}
+
+console.log('✅ DISPLAY FIX: Loaded total scores:', allScores.length);
+
+// Build the scores map
+const scoresMap = new Map();
+allScores.forEach(score => {
+  scoresMap.set(score.entry_selection_id, score);
+});
 
     // Find the selected class info
-    const selectedClass = summaryData.classes.find(c => c.id === classId);
-    if (!selectedClass) return null;
+const selectedClass = summaryData.classes.find(c => c.id === classId);
+if (!selectedClass) return null;
 
-    // Normalize class name
-    const normalizeClassName = (className: string): string => {
-      const corrections: Record<string, string> = {
-        'Patrol': 'Patrol 1',
-        'Detective': 'Detective 2',
-        'Investigator': 'Investigator 3',
-        'Super Sleuth': 'Super Sleuth 4',
-        'Private Inv': 'Private Investigator',
-        'Det Diversions': 'Detective Diversions'
-      };
-      return corrections[className] || className;
-    };
+// Normalize class name function
+const normalizeClassName = (className: string): string => {
+  const corrections: Record<string, string> = {
+    'Patrol': 'Patrol 1',
+    'Detective': 'Detective 2',
+    'Investigator': 'Investigator 3',
+    'Super Sleuth': 'Super Sleuth 4',
+    'Private Inv': 'Private Investigator',
+    'Det Diversions': 'Detective Diversions'
+  };
+  return corrections[className] || className;
+};
 
-    // Date conversion function (from Excel export)
-    const safeDateFromISO = (iso: string) => {
-      const [y, m, d] = iso.split('-').map(Number);
-      return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
-    };
+// ✅ REVERTED FIX: Filter by class NAME to show ALL DAYS (like Excel export)
+const normalizedSelectedClassName = normalizeClassName(selectedClass.class_name);
 
-    const normalizedName = normalizeClassName(selectedClass.class_name);
+const roundsForThisClass = allTrialRounds.filter((round: any) => {
+  const roundClassName = round.trial_classes?.class_name;
+  if (!roundClassName) return false;
+  const roundNormalized = normalizeClassName(roundClassName);
+  return roundNormalized === normalizedSelectedClassName;
+});
 
-    // Build structure like Excel export
-    const classData: any = {
-      className: normalizedName,
-      allParticipants: new Map(),
-      allRounds: []
-    };
+console.log(`🔍 DISPLAY: Found ${roundsForThisClass.length} rounds across ALL DAYS for "${normalizedSelectedClassName}"`);
 
-    // Process rounds for this class - use a Map to prevent duplicates by roundId
-    const roundsMap = new Map();
-    
-    allTrialRounds.forEach((round: any) => {
-      const roundClassName = round.trial_classes?.class_name;
-      if (!roundClassName) return;
-      
-      const roundNormalized = normalizeClassName(roundClassName);
-      if (roundNormalized !== normalizedName) return;
+    console.log(`Found ${roundsForThisClass.length} rounds for class ${selectedClass.class_name} (ID: ${classId})`);
 
-      const trialDate = round.trial_classes?.trial_days?.trial_date;
-      if (!trialDate) return;
-
-      // Only add if we haven't seen this roundId yet
-      if (!roundsMap.has(round.id)) {
-        const dateSort = safeDateFromISO(trialDate).getTime();
-        const sortOrder = dateSort + round.round_number;
-        
-        roundsMap.set(round.id, {
-          roundId: round.id,
-          judgeInfo: round.judge_name || 'TBD',
-          trialDate: trialDate,
-          roundNumber: round.round_number,
-          sortOrder: sortOrder,
-          results: new Map()
-        });
+    // Sort rounds chronologically
+    roundsForThisClass.sort((a: any, b: any) => {
+      const dateA = new Date(a.trial_classes?.trial_days?.trial_date || 0);
+      const dateB = new Date(b.trial_classes?.trial_days?.trial_date || 0);
+      if (dateA.getTime() !== dateB.getTime()) {
+        return dateA.getTime() - dateB.getTime();
       }
+      return (a.round_number || 0) - (b.round_number || 0);
     });
 
-    // Convert map to array and sort
-    classData.allRounds = Array.from(roundsMap.values()).sort((a: any, b: any) => a.sortOrder - b.sortOrder);
-
-    console.log('Processed rounds for class:', classData.allRounds);
+    // Build class data structure
+    const classData: any = {
+      className: selectedClass.class_name,
+      allParticipants: new Map(),
+      allRounds: roundsForThisClass.map((round: any) => ({
+        roundId: round.id,
+        judgeInfo: round.judge_name || 'TBD',
+        trialDate: round.trial_classes?.trial_days?.trial_date || '',
+        roundNumber: round.round_number || 1,
+        results: new Map()
+      }))
+    };
 
     // Process entries and scores
     (entriesResult.data || []).forEach((entry: any) => {
@@ -242,13 +264,13 @@ const generateClassDisplayData = async (classId: string) => {
         if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
 
         const roundId = selection.trial_round_id;
-        const cwagsNumber = entry.cwags_number;
-
-        // Find target round
+        
+        // Find the target round in OUR rounds
         const targetRound = classData.allRounds.find((r: any) => r.roundId === roundId);
-        if (!targetRound) return;
+        if (!targetRound) return;  // Not for this class
 
         // Add participant
+        const cwagsNumber = entry.cwags_number;
         if (!classData.allParticipants.has(cwagsNumber)) {
           classData.allParticipants.set(cwagsNumber, {
             cwagsNumber: entry.cwags_number,
@@ -264,17 +286,7 @@ const generateClassDisplayData = async (classId: string) => {
         if (selection.entry_status === 'no_show' || selection.entry_status === 'absent') {
           result = 'Abs';
         } else if (score) {
-          const classType = selectedClass.class_type || 'scent';
-          const className = normalizedName;
-
-          if (classType === 'rally' || className.toLowerCase().includes('obedience')) {
-            const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
-            if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
-              result = score.numerical_score.toString();
-            } else {
-              result = 'NQ';
-            }
-          } else if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
+          if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
             result = score.pass_fail;
           } else if (score.pass_fail === 'Pass') {
             result = 'P';
@@ -287,7 +299,12 @@ const generateClassDisplayData = async (classId: string) => {
       });
     });
 
-    console.log('Final class data:', classData);
+    console.log('Final class data:', {
+      className: classData.className,
+      participants: classData.allParticipants.size,
+      rounds: classData.allRounds.length
+    });
+    
     return classData;
 
   } catch (error) {
@@ -315,22 +332,50 @@ const generateExcelReport = async () => {
 
     // Get all entries with selections
     const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+    
     if (!entriesResult.success) {
       throw new Error('Failed to load entries');
     }
+// Get all scores at once (removed 1000 default limit)
+// Fetch ALL scores using pagination (handles unlimited rows)
+let allScores: any[] = [];
+let from = 0;
+const pageSize = 1000;
+let hasMore = true;
 
-    // Get all scores at once
-    const { data: allScores } = await supabase
-      .from('scores')
-      .select('*');
-    
-    const scoresMap = new Map();
-    if (allScores) {
-      allScores.forEach(score => {
-        scoresMap.set(score.entry_selection_id, score);
-      });
-    }
-    console.log('Loaded scores for lookup:', allScores?.length || 0);
+console.log('📊 [EXCEL] Loading scores with pagination...');
+
+while (hasMore) {
+  const { data, error } = await supabase
+    .from('scores')
+    .select('*')
+    .range(from, from + pageSize - 1);
+  
+  if (error) {
+    console.error('Error loading scores:', error);
+    throw error;
+  }
+  
+  if (!data || data.length === 0) {
+    hasMore = false;
+    break;
+  }
+  
+  allScores = [...allScores, ...data];
+  console.log(`  ✓ Batch ${Math.floor(from / pageSize) + 1}: loaded ${data.length} scores (total: ${allScores.length})`);
+  
+  // If we got fewer than pageSize, we've reached the end
+  hasMore = data.length === pageSize;
+  from += pageSize;
+}
+
+console.log('✅ EXCEL FIX: Loaded total scores:', allScores.length);
+
+// Build the scores map
+const scoresMap = new Map();
+allScores.forEach(score => {
+  scoresMap.set(score.entry_selection_id, score);
+});
 
     // Normalize class names
     const normalizeClassName = (className: string): string => {
@@ -519,6 +564,157 @@ const generateExcelReport = async () => {
         targetRound.results.set(cwagsNumber, result);
       });
     });
+
+// ========== DIAGNOSTIC START ==========
+console.log('\n🔍 ========== EXPORT DIAGNOSTIC ==========');
+
+// Check entries data
+console.log(`\n📋 Entries Data:`);
+console.log(`  Total entries: ${entriesResult.data?.length || 0}`);
+
+if (entriesResult.data && entriesResult.data.length > 0) {
+  const hiroEntry = entriesResult.data.find((e: any) => e.cwags_number === '17-1955-01');
+  if (hiroEntry) {
+    console.log(`\n  ✅ Found Hiro (17-1955-01):`);
+    console.log(`    - Dog: ${hiroEntry.dog_call_name}`);
+    console.log(`    - Handler: ${hiroEntry.handler_name}`);
+    console.log(`    - Selections: ${hiroEntry.entry_selections?.length || 0}`);
+    
+    const ranger1Selections = hiroEntry.entry_selections?.filter((s: any) => {
+      const round = allTrialRounds.find((r: any) => r.id === s.trial_round_id);
+      return round?.trial_classes?.class_name === 'Ranger 1';
+    });
+    console.log(`    - Ranger 1 selections: ${ranger1Selections?.length || 0}`);
+    ranger1Selections?.forEach((sel: any, idx: number) => {
+      const round = allTrialRounds.find((r: any) => r.id === sel.trial_round_id);
+      console.log(`      ${idx + 1}. Round ${round?.round_number}, Day ${round?.trial_classes?.trial_days?.day_number}, Round ID: ${sel.trial_round_id}`);
+    });
+  } else {
+    console.log(`\n  ❌ Hiro (17-1955-01) NOT FOUND in entries data!`);
+  }
+}
+
+// Check Ranger 1 rounds
+console.log(`\n📍 Ranger 1 Rounds in allTrialRounds:`);
+const ranger1Rounds = allTrialRounds.filter((r: any) => 
+  r.trial_classes?.class_name === 'Ranger 1'
+);
+console.log(`  Total: ${ranger1Rounds.length} rounds`);
+ranger1Rounds.forEach((round: any, idx: number) => {
+  console.log(`  ${idx + 1}. Round ${round.round_number}, Day ${round.trial_classes?.trial_days?.day_number}, Date: ${round.trial_classes?.trial_days?.trial_date}, ID: ${round.id}`);
+});
+
+// Check final Ranger 1 class data
+console.log(`\n📊 Final Ranger 1 Class Data:`);
+const ranger1ClassData = classesByName.get('Ranger 1');
+if (ranger1ClassData) {
+  console.log(`  ✅ Ranger 1 class found`);
+  console.log(`  - Participants: ${ranger1ClassData.allParticipants.size}`);
+  console.log(`  - Rounds: ${ranger1ClassData.allRounds.length}`);
+  
+  // Check if Hiro is in participants
+  const hiroInClass = ranger1ClassData.allParticipants.has('17-1955-01');
+  console.log(`  - Hiro in participants: ${hiroInClass ? '✅ YES' : '❌ NO'}`);
+  
+  if (hiroInClass) {
+    const hiroData = ranger1ClassData.allParticipants.get('17-1955-01');
+    console.log(`    - Dog: ${hiroData?.dogName}`);
+    console.log(`    - Handler: ${hiroData?.handlerName}`);
+  }
+  
+  // Show rounds and Hiro's results
+  console.log(`\n  Rounds breakdown:`);
+  ranger1ClassData.allRounds.forEach((round: any, idx: number) => {
+    const hiroResult = round.results.get('17-1955-01');
+    console.log(`    ${idx + 1}. Round ${round.roundNumber}, Date: ${round.trialDate}`);
+    console.log(`       - Total results: ${round.results.size}`);
+    console.log(`       - Hiro's result: ${hiroResult || '(not entered)'}`);
+    console.log(`       - Round ID: ${round.roundId}`);
+  });
+  
+  // Show first 5 participants
+  console.log(`\n  First 5 participants (sorted by C-WAGS):`);
+  const participants = Array.from(ranger1ClassData.allParticipants.values())
+    .sort((a: any, b: any) => a.cwagsNumber.localeCompare(b.cwagsNumber))
+    .slice(0, 5);
+  participants.forEach((p: any, idx: number) => {
+    console.log(`    ${idx + 1}. ${p.cwagsNumber}: ${p.dogName} (${p.handlerName})`);
+  });
+} else {
+  console.log(`  ❌ Ranger 1 class NOT FOUND in classesByName!`);
+  console.log(`  Available classes:`, Array.from(classesByName.keys()));
+}
+
+console.log('\n========== END DIAGNOSTIC ==========\n');
+// ADD THIS RIGHT AFTER THE EXISTING DIAGNOSTIC (before the Excel workbook creation)
+
+console.log('\n🔬 DEEP DIVE: Hiro Round 1 Score Matching');
+
+// Find Hiro's entry
+const hiroEntry = entriesResult.data?.find((e: any) => e.cwags_number === '17-1955-01');
+if (hiroEntry) {
+  // Find Hiro's Ranger 1 Round 1 selection
+  const round1Selection = hiroEntry.entry_selections?.find((s: any) => 
+    s.trial_round_id === '99694c46-32ef-4dde-8f76-a07ec840acfb'  // Round 1, Day 2
+  );
+  
+  if (round1Selection) {
+    console.log('  ✅ Found Round 1 selection:');
+    console.log('    - entry_selection_id:', round1Selection.id);
+    console.log('    - trial_round_id:', round1Selection.trial_round_id);
+    console.log('    - entry_type:', round1Selection.entry_type);
+    console.log('    - entry_status:', round1Selection.entry_status);
+    
+    // Check if score exists in scoresMap
+    const scoreInMap = scoresMap.get(round1Selection.id);
+    console.log('    - Score in scoresMap?', scoreInMap ? '✅ YES' : '❌ NO');
+    
+    if (scoreInMap) {
+      console.log('    - Score data:', {
+        pass_fail: scoreInMap.pass_fail,
+        numerical_score: scoreInMap.numerical_score,
+        entry_status: scoreInMap.entry_status
+      });
+    } else {
+      console.log('    - ❌ Score NOT in scoresMap!');
+      console.log('    - Searching allScores array directly...');
+      
+      // Get the raw scores data
+      const { data: allScores } = await supabase.from('scores').select('*').limit(50000);
+      const directScore = allScores?.find((s: any) => s.entry_selection_id === round1Selection.id);
+      
+      if (directScore) {
+        console.log('    - ✅ Found score in database:', {
+          score_id: directScore.id,
+          entry_selection_id: directScore.entry_selection_id,
+          pass_fail: directScore.pass_fail
+        });
+        console.log('    - ⚠️ Score exists in DB but not in scoresMap! This is the bug!');
+      } else {
+        console.log('    - ❌ Score not even in database for this entry_selection_id');
+      }
+    }
+  } else {
+    console.log('  ❌ Round 1 selection not found in entry_selections!');
+  }
+  
+  // Also check Round 2 (which works)
+  const round2Selection = hiroEntry.entry_selections?.find((s: any) => 
+    s.trial_round_id === '7798b1eb-027c-4eef-9e7c-4564b17c13d9'  // Round 2, Day 2
+  );
+  
+  if (round2Selection) {
+    console.log('\n  Comparing to Round 2 (which works):');
+    console.log('    - entry_selection_id:', round2Selection.id);
+    const scoreInMap = scoresMap.get(round2Selection.id);
+    console.log('    - Score in scoresMap?', scoreInMap ? '✅ YES' : '❌ NO');
+    if (scoreInMap) {
+      console.log('    - pass_fail:', scoreInMap.pass_fail);
+    }
+  }
+}
+
+console.log('\n🔬 END DEEP DIVE\n');
 
     // Create Excel workbook
     const XLSX = await import('xlsx-js-style');
