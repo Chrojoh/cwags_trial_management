@@ -136,16 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       href: `/dashboard/trials/${trialId}/entries`,
       icon: Users,
     },
-    {
-      label: 'Entry Link',
-      href: '#',
-      icon: copiedLink === trialId ? Check : Link2,
-      onClick: (e: React.MouseEvent) => {
-        e.preventDefault();
-        copyEntryLink(trialId);
-      },
-      special: 'copy',
-    },
+    
     {
       label: 'Time Calculator',
       href: `/dashboard/trials/${trialId}/time-calculator`,
@@ -260,25 +251,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {trialMenuItems(trial.id).map((item) => {
                           const Icon = item.icon;
                           const isItemActive = isActivePage(item.href);
-
-                          if (item.special === 'copy') {
-                            return (
-                              <button
-                                key={item.label}
-                                onClick={item.onClick}
-                                className={`w-full flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                                  copiedLink === trial.id
-                                    ? 'bg-green-50 text-green-700'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                              >
-                                <Icon className="h-4 w-4 flex-shrink-0" />
-                                <span>
-                                  {copiedLink === trial.id ? 'Link Copied!' : item.label}
-                                </span>
-                              </button>
-                            );
-                          }
 
                           return (
                             <Link

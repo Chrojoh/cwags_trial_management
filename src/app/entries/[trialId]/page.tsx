@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { logEntrySubmittedOrModified } from '@/lib/journalLogger';
 import { Input } from '@/components/ui/input';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -105,29 +106,6 @@ const requiresDivision = (className: string | undefined): boolean => {
   // Check if it's Rally
   const rallyClasses = ['starter', 'advanced', 'pro', 'arf', 'zoom'];
   return rallyClasses.some(rally => lowerName.includes(rally));
-};
-
-const getClassOrder = (className: string): number => {
-  const classOrder = [
-    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
-    'Private Investigator',
-    'Detective Diversions', 
-    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-    'Starter', 'Advanced', 'Pro', 'ARF',
-    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-    'Games 1', 'Games 2', 'Games 3', 'Games 4'
-  ];
-  
-  const index = classOrder.findIndex(order => {
-    if (className.includes('Games')) {
-      return className.startsWith(order);
-    }
-    return className === order;
-  });
-  
-  return index === -1 ? 999 : index;
 };
 
 const cleanCwagsNumber = (input: string): string => {

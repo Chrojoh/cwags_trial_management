@@ -1,5 +1,6 @@
 // src/lib/trial-operations-simple.ts
 import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getClassOrder } from '@/lib/cwagsClassNames';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
   id?: string;
@@ -114,11 +115,10 @@ export interface EntrySelection {
   jump_height: string | null;
 }
 
-// C-WAGS Level Organization
 export const CWAGS_LEVELS = {
   'Scent Work': [
-    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
-    'Detective Diversions', 'Private Investigator',
+    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',  // ✅ Fixed
+    'Private Investigator', 'Detective Diversions',
     'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
     'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6'
   ],
@@ -2372,36 +2372,23 @@ const classesWithEntries = classesWithStats.filter(cls =>
     const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
     const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
 
-    // Consolidate classes by normalized name AND count actual rounds
-   const normalizeClassName = (className: string): string => {
-  const corrections: Record<string, string> = {
-    'Patrol': 'Patrol 1',
-    'Detective': 'Detective 2', 
-    'Investigator': 'Investigator 3',
-    'Super Sleuth': 'Super Sleuth 4',  // ✅ ADD THIS LINE
-    'Private Inv': 'Private Investigator',
-    'Det Diversions': 'Detective Diversions'
-  };
-  return corrections[className] || className;
-};
-
     const consolidatedClasses = new Map();
     const allRoundsResult = await this.getAllTrialRounds(trialId);
     const allRounds = allRoundsResult.success ? allRoundsResult.data : [];
 
     classesWithEntries.forEach(cls => {
-      const normalizedName = normalizeClassName(cls.class_name);
+     
       
-      if (!consolidatedClasses.has(normalizedName)) {
+      if (!consolidatedClasses.has(cls.class_name)) {
         const roundsForThisClass = allRounds.filter((round: any) => {
           const roundClassName = round.trial_classes?.class_name || '';
-          const roundNormalizedName = normalizeClassName(roundClassName);
-          return roundNormalizedName === normalizedName;
+          
+          return roundClassName === cls.class_name;
         });
         
-        consolidatedClasses.set(normalizedName, {
+        consolidatedClasses.set(cls.class_name, {
           id: cls.id,
-          class_name: normalizedName,
+          class_name: cls.class_name,
           class_type: cls.class_type,
           games_subclass: cls.games_subclass,
           judge_name: cls.judge_name,
@@ -2416,7 +2403,7 @@ const classesWithEntries = classesWithStats.filter(cls =>
         });
       }
       
-      const consolidated = consolidatedClasses.get(normalizedName);
+      const consolidated = consolidatedClasses.get(cls.class_name);
       consolidated.participant_count += cls.participant_count;
       consolidated.pass_count += cls.pass_count;
       consolidated.fail_count += cls.fail_count;

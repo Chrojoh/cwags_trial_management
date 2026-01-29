@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDivisionColor } from '@/lib/divisionUtils';
 import { logSubstitution } from '@/lib/journalLogger';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -146,29 +147,6 @@ interface ClassEntry {
     judge_notes?: string | null;
   }>;
 }
-
-const getClassOrder = (className: string): number => {
-  const classOrder = [
-    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',  // ✅ FIXED
-    'Private Investigator',
-    'Detective Diversions', 
-    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-    'Starter', 'Advanced', 'Pro', 'ARF',
-    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-    'Games 1', 'Games 2', 'Games 3', 'Games 4'
-  ];
-  
-  const index = classOrder.findIndex(order => {
-    if (className.includes('Games')) {
-      return className.startsWith(order);
-    }
-    return className === order;
-  });
-  
-  return index === -1 ? 999 : index;
-};
 
 // New helper functions for rally/obedience scoring
 const getPassingScore = (className: string): number => {

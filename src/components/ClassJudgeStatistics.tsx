@@ -90,17 +90,6 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
 
       console.log(`Found ${data?.length || 0} rounds with class info`);
 
-      // Normalize class names (database stores "Patrol", display shows "Patrol 1", etc.)
-      const normalizeClassName = (className: string): string => {
-        const corrections: Record<string, string> = {
-          'Patrol': 'Patrol 1',
-          'Detective': 'Detective 2',
-          'Investigator': 'Investigator 3',
-          'Super Sleuth': 'Super Sleuth 4',
-        };
-        return corrections[className] || className;
-      };
-
       // Get unique class names
       const classNames = new Set<string>();
       data?.forEach(round => {
@@ -108,9 +97,8 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
         const className = trialClasses?.class_name;
         
         if (className) {
-          const normalized = normalizeClassName(className);
-          classNames.add(normalized);
-        }
+  classNames.add(className);
+}
       });
 
       console.log('Classes with scores:', Array.from(classNames));
@@ -144,21 +132,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
 
       console.log('Loading judge statistics for class:', selectedClass);
 
-      // Reverse normalization map (to query database with original names)
-      const denormalizeClassName = (className: string): string[] => {
-        const reverseMap: Record<string, string> = {
-          'Patrol 1': 'Patrol',
-          'Detective 2': 'Detective',
-          'Investigator 3': 'Investigator',
-          'Super Sleuth 4': 'Super Sleuth',
-        };
-        // Return both normalized and denormalized versions
-        const denormalized = reverseMap[className];
-        return denormalized ? [className, denormalized] : [className];
-      };
-
-      const classNamesToQuery = denormalizeClassName(selectedClass);
-      console.log('Querying database for class names:', classNamesToQuery);
+     
 
       // STEP 1: Get all rounds for this class (query with both normalized and original names)
       let roundsQuery = supabase
@@ -176,7 +150,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
             )
           )
         `)
-        .in('trial_classes.class_name', classNamesToQuery);
+        .eq('trial_classes.class_name', selectedClass);
 
       if (clubName) {
         roundsQuery = roundsQuery.eq('trial_classes.trial_days.trials.club_name', clubName);

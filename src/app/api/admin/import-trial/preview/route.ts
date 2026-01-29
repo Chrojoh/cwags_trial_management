@@ -204,25 +204,27 @@ export async function POST(request: NextRequest) {
 
     // Helper function to normalize class names to official C-WAGS standards
     const normalizeClassName = (name: string): string => {
-      let normalized = name.trim();
-      
-      // Remove common prefixes
-      normalized = normalized.replace(/^League\s+/i, '');
-      normalized = normalized.replace(/^CWAGS\s+/i, '');
-      
-      // Standardize scent class names that are missing level numbers
-      if (normalized === 'Patrol') normalized = 'Patrol 1';
-      if (normalized === 'Detective') normalized = 'Detective 2';
-      if (normalized === 'Investigator') normalized = 'Investigator 3';
-      if (normalized === 'Super Sleuth') normalized = 'Super Sleuth 4';
-      
-      // Fix Private Investigator variants (any number)
-      if (normalized.startsWith('Private Investigator') && normalized !== 'Private Investigator') {
-        normalized = 'Private Investigator';
-      }
-      
-      return normalized.trim();
-    };
+  let normalized = name.trim();
+  
+  // Remove common prefixes
+  normalized = normalized.replace(/^League\s+/i, '');
+  normalized = normalized.replace(/^CWAGS\s+/i, '');
+  
+  // Standardize scent class names that are missing level numbers
+  if (normalized === 'Patrol') normalized = 'Patrol 1';
+  if (normalized === 'Detective') normalized = 'Detective 2';
+  if (normalized === 'Investigator') normalized = 'Investigator 3';
+  if (normalized === 'Super Sleuth') normalized = 'Super Sleuth 4';
+  
+  // Fix typos and variants
+  if (normalized.toLowerCase().includes('overseers')) normalized = 'Detective Diversions';
+  if (normalized.startsWith('Private Inv') && normalized !== 'Private Investigator') {
+    normalized = 'Private Investigator';
+  }
+  if (normalized.startsWith('Det Div')) normalized = 'Detective Diversions';
+  
+  return normalized.trim();
+};
 
     // Collect all unique dates from all sheets
     const allDates = new Set<string>();

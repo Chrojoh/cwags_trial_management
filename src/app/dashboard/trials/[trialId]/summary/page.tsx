@@ -221,12 +221,12 @@ const normalizeClassName = (className: string): string => {
 };
 
 // ✅ REVERTED FIX: Filter by class NAME to show ALL DAYS (like Excel export)
-const normalizedSelectedClassName = normalizeClassName(selectedClass.class_name);
+const normalizedSelectedClassName = (selectedClass.class_name);
 
 const roundsForThisClass = allTrialRounds.filter((round: any) => {
   const roundClassName = round.trial_classes?.class_name;
   if (!roundClassName) return false;
-  const roundNormalized = normalizeClassName(roundClassName);
+  const roundNormalized = (roundClassName);
   return roundNormalized === normalizedSelectedClassName;
 });
 
@@ -377,35 +377,8 @@ allScores.forEach(score => {
   scoresMap.set(score.entry_selection_id, score);
 });
 
-    // Normalize class names
-    const normalizeClassName = (className: string): string => {
-      const corrections: Record<string, string> = {
-        'Patrol': 'Patrol 1',
-        'Detective': 'Detective 2',
-        'Investigator': 'Investigator 3',
         
-      };
-      return corrections[className] || className;
-    };
-
-    // orangeprint class ordering
-    const orangeprintOrder = [
-      'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth', 
-      'Private Investigator', 'Detective Diversions',
-      'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-      'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-      'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-      'Starter', 'Advanced', 'Pro', 'ARF',
-      'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-      'Games 1', 'Games 2', 'Games 3', 'Games 4'
-    ];
-
-    const getClassOrder = (className: string): number => {
-      const index = orangeprintOrder.indexOf(className);
-      return index === -1 ? 999 : index;
-    };
-
-    // Build complete class structure with all rounds
+   // Build complete class structure with all rounds
     const classesByName = new Map<string, {
       className: string;
       allParticipants: Map<string, {
@@ -431,22 +404,21 @@ allScores.forEach(score => {
       const className = round.trial_classes?.class_name;
       if (!className) return;
 
-      const normalizedName = normalizeClassName(className);
       const trialDate = round.trial_classes?.trial_days?.trial_date;
       if (!trialDate) return;
 
-      if (!classesByName.has(normalizedName)) {
-        classesByName.set(normalizedName, {
-          className: normalizedName,
+      if (!classesByName.has(className)) {  // ✅ FIXED
+        classesByName.set(className, {
+          className: className,
           allParticipants: new Map(),
           allRounds: [],
           totalPasses: 0,
           totalRuns: 0,
-          classOrder: getClassOrder(normalizedName)
+          classOrder: getClassOrder(className)
         });
       }
 
-      const classData = classesByName.get(normalizedName)!;
+      const classData = classesByName.get(className)!;
       
      const dateSort = safeDateFromISO(trialDate).getTime();
 

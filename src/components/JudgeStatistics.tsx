@@ -237,20 +237,10 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       console.log(`Classes with data: ${classStats.size}`);
       console.log(`Trials: ${trialsSet.size}`);
 
-      // Normalize class names for display (database stores "Patrol", display shows "Patrol 1")
-      const normalizeClassName = (className: string): string => {
-        const corrections: Record<string, string> = {
-          'Patrol': 'Patrol 1',
-          'Detective': 'Detective 2',
-          'Investigator': 'Investigator 3',
-          'Super Sleuth': 'Super Sleuth 4',
-        };
-        return corrections[className] || className;
-      };
-
+    
       // Convert to array and calculate pass rates
       const classBreakdown = Array.from(classStats.entries()).map(([className, data]) => ({
-        class_name: normalizeClassName(className),  // ← Normalize before displaying
+        class_name: className,
         runs: data.runs,
         passes: data.passes,
         pass_rate: data.runs > 0 ? (data.passes / data.runs) * 100 : 0,

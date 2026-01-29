@@ -38,11 +38,11 @@ export const RALLY_LEVELS = [
 ];
 
 export const SCENT_LEVELS = [
-  'Patrol',
-  'Detective',
-  'Investigator',
-  'Super Sleuth',
-  'Private Inv',
+  'Patrol 1',              // ✅ FIXED
+  'Detective 2',           // ✅ FIXED
+  'Investigator 3',        // ✅ FIXED
+  'Super Sleuth 4',        // ✅ FIXED
+  'Private Investigator',
   'Detective Diversions',
   'Ranger 1',
   'Ranger 2',

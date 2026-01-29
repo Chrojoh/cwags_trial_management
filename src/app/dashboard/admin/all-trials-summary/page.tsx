@@ -4,6 +4,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import ClassJudgeStatistics from '@/components/ClassJudgeStatistics';
 import { useRouter } from 'next/navigation';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,7 +22,6 @@ import {
   TrendingUp,
   X
 } from 'lucide-react';
-import { getClassOrder } from '@/lib/cwagsClassNames';
 import * as XLSX from 'xlsx';
 
 interface ClassAggregate {
@@ -201,34 +201,31 @@ export default function AllTrialsSummaryPage() {
       }> = {};
 
       (allClasses || []).forEach((cls: any) => {
-        const className = cls.class_name;
-        if (!className) return;
+  const className = cls.class_name;
+  if (!className) return;
 
-        // Normalize class name
-        const normalizedName = normalizeClassName(className);
+  if (!classGroups[className]) {
+    classGroups[className] = {
+      class_name: className,
+      class_type: cls.class_type || 'unknown',
+      runs: []
+    };
+  }
 
-        if (!classGroups[normalizedName]) {
-          classGroups[normalizedName] = {
-            class_name: normalizedName,
-            class_type: cls.class_type || 'unknown',
-            runs: []
-          };
-        }
+  // Process all rounds for this class
+  (cls.trial_rounds || []).forEach((round: any) => {
+    (round.entry_selections || []).forEach((selection: any) => {
+      // Skip withdrawn entries
+      if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
 
-        // Process all rounds for this class
-        (cls.trial_rounds || []).forEach((round: any) => {
-          (round.entry_selections || []).forEach((selection: any) => {
-            // Skip withdrawn entries
-            if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
-
-            classGroups[normalizedName].runs.push({
-              selection_id: selection.id,
-              entry_type: selection.entry_type || 'regular',
-              entry_status: selection.entry_status || 'entered'
-            });
-          });
-        });
+      classGroups[className].runs.push({
+        selection_id: selection.id,
+        entry_type: selection.entry_type || 'regular',
+        entry_status: selection.entry_status || 'entered'
       });
+    });
+  });
+});
 
       console.log(`Grouped into ${Object.keys(classGroups).length} unique classes`);
 
@@ -326,27 +323,7 @@ export default function AllTrialsSummaryPage() {
     }
   };
 
-  const normalizeClassName = (className: string): string => {
-    // Handle common variations
-    const normalized = className.trim();
-    
-    // Map variations to standard names
-    if (normalized === 'Patrol' || normalized.includes('Patrol') && !normalized.includes('1')) {
-      return 'Patrol 1';
-    }
-    if (normalized === 'Detective' || normalized.includes('Detective') && !normalized.includes('2') && !normalized.includes('Diversions')) {
-      return 'Detective 2';
-    }
-    if (normalized === 'Investigator' || (normalized.includes('Investigator') && !normalized.includes('3') && !normalized.includes('Private'))) {
-      return 'Investigator 3';
-    }
-    if (normalized === 'Super Sleuth' || (normalized.includes('Super Sleuth') && !normalized.includes('4'))) {
-      return 'Super Sleuth 4';
-    }
-    
-    return normalized;
-  };
-
+  
   const exportToExcel = () => {
     if (!classData.length) return;
 
