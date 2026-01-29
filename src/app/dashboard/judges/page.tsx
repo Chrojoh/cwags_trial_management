@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation'; 
+import JudgeStatistics from '@/components/JudgeStatistics';
 import { Plus, Search, Edit, Trash2, X, Filter, UserCheck, UserX, ArrowLeft, Calendar, AlertTriangle } from 'lucide-react';
 import { 
   getAllJudges, 
@@ -502,17 +503,21 @@ export default function JudgesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredJudges.map((judge) => (
-              <JudgeCard 
-                key={judge.id} 
-                judge={judge}
-                isSelected={selectedJudges.has(judge.id)}
-                onSelect={handleSelectJudge}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                getLastDate={getLastDateForJudge}
-                loadingDates={loadingDates}
-              />
-            ))}
+  <div key={judge.id} className="space-y-4">  {/* ← Wrap in div with space-y-4 */}
+    <JudgeCard 
+      judge={judge}
+      isSelected={selectedJudges.has(judge.id)}
+      onSelect={handleSelectJudge}
+      onEdit={handleEdit}
+      onDelete={handleDelete}
+      getLastDate={getLastDateForJudge}
+      loadingDates={loadingDates}
+    />
+    
+    {/* ✅ ADD THIS: Statistics card below each judge */}
+    <JudgeStatistics judgeName={judge.name} />
+  </div>
+))}
           </div>
         )}
       </div>

@@ -1275,7 +1275,7 @@ summarySheetData.push([
          <thead>
            <tr className="bg-gray-50">
              <th className="border border-gray-300 px-4 py-3 text-left font-semibold">Class Name</th>
-             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Participants</th>
+             <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Runs</th>
              <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Rounds</th>
              <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Completion Rate</th>
              <th className="border border-gray-300 px-4 py-3 text-center font-semibold">Pass Rate</th>

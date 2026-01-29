@@ -149,8 +149,8 @@ interface ClassEntry {
 
 const getClassOrder = (className: string): number => {
   const classOrder = [
-    'Patrol', 'Detective', 'Investigator', 'Super Sleuth', 
-    'Private Investigator',  // ✅ CHANGED FROM 'Private Inv' to 'Private Investigator'
+    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',  // ✅ FIXED
+    'Private Investigator',
     'Detective Diversions', 
     'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
     'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
@@ -3173,19 +3173,25 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
     </TabsList>
 
             
-            {dayKeys.map((dayKey) => (
-  <TabsContent key={dayKey} value={dayKey}>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {classesByDay[dayKey].map((cls) => (
-        <div
-          key={cls.id}
-          className={`p-4 rounded-lg border cursor-pointer transition-all ${
-            selectedClass?.id === cls.id
-              ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
-              : 'border-gray-200 hover:bg-gray-50'
-          }`}
-          onClick={() => setSelectedClass(cls)}
-        >
+            {dayKeys.map((dayKey) => {
+  // ✅ SORT classes by C-WAGS order before displaying
+  const sortedClasses = [...classesByDay[dayKey]].sort((a, b) => {
+    return getClassOrder(a.class_name) - getClassOrder(b.class_name);
+  });
+  
+  return (
+    <TabsContent key={dayKey} value={dayKey}>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {sortedClasses.map((cls) => (
+          <div
+            key={cls.id}
+            className={`p-4 rounded-lg border cursor-pointer transition-all ${
+              selectedClass?.id === cls.id
+                ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+            onClick={() => setSelectedClass(cls)}
+          >
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <h3 className="font-semibold text-gray-900">
@@ -3227,13 +3233,16 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
         </div>
       ))}
     </div>
-  </TabsContent>
-))}
+ </TabsContent>
+      );
+    })}
 
           </Tabs>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {trialClasses.map((cls) => (
+            {[...trialClasses]
+              .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name))
+              .map((cls) => (
               <div
                 key={cls.id}
                 className={`p-4 rounded-lg border cursor-pointer transition-all ${

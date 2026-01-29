@@ -1,14 +1,14 @@
 // src/lib/trialTimeDefaults.ts
 // Default minutes per run for each class level
-// IMPORTANT: Class names must match EXACTLY with src/lib/cwagsClassNames.ts
+// ✅ UPDATED: All class names now match official C-WAGS names with proper numbers
 
 export const DEFAULT_SCENT_TIMES = {
-  'Patrol': 1.75,
-  'Detective': 2.75,
-  'Investigator': 3.25,
-  'Super Sleuth': 5.25,
-  'Private Investigator': 4.25,
-  'Detective Diversions': 3.25,
+  'Patrol 1': 1.75,              // ✅ Fixed: was 'Patrol'
+  'Detective 2': 2.75,           // ✅ Fixed: was 'Detective'
+  'Investigator 3': 3.25,        // ✅ Fixed: was 'Investigator'
+  'Super Sleuth 4': 5.25,        // ✅ Fixed: was 'Super Sleuth'
+  'Private Investigator': 4.25,  // ✅ Correct
+  'Detective Diversions': 3.25,  // ✅ Correct
   'Ranger 1': 2.25,
   'Ranger 2': 2.25,
   'Ranger 3': 3.25,
