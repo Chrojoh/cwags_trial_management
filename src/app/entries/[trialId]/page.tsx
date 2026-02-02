@@ -781,11 +781,27 @@ console.log('🔍 DEBUG: About to update entry with:', {
   close_to_titles: formData.close_to_titles,
   volunteer_preferences: formData.volunteer_preferences
 });
-  
-  const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, {
-    close_to_titles: formData.close_to_titles || null,
-    volunteer_preferences: formData.volunteer_preferences || null,
-  });
+
+// Only update if there's actual data
+const updateData: any = {};
+
+if (formData.close_to_titles && formData.close_to_titles.trim()) {
+  updateData.close_to_titles = formData.close_to_titles;
+}
+
+// Check if volunteer_preferences has any actual selections (not just empty objects)
+const hasVolunteerData = Object.keys(formData.volunteer_preferences).some(dayKey => {
+  const dayPrefs = formData.volunteer_preferences[dayKey];
+  return Object.values(dayPrefs).some(val => val === true);
+});
+
+if (hasVolunteerData) {
+  updateData.volunteer_preferences = formData.volunteer_preferences;
+}
+
+// Only call update if there's something to update
+if (Object.keys(updateData).length > 0) {
+  const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, updateData);
   
   console.log('🔍 DEBUG: Update result:', updateResult);
   
@@ -794,6 +810,7 @@ console.log('🔍 DEBUG: About to update entry with:', {
   } else {
     console.log('✅ Updated existing entry with volunteer/titles preferences');
   }
+}
         
         if (existingEntries.length > 1) {
           console.warn(`⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. This indicates duplicate entries.`);
