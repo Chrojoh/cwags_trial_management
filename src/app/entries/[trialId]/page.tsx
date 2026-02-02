@@ -773,6 +773,13 @@ console.log('Form populated with existing entry data and class selections');
         
         console.log(`✅ Found existing entry record: ${primaryEntryId}`);
         
+        // ✅ ADD THESE 5 LINES HERE:
+  await simpleTrialOperations.updateEntry(primaryEntryId, {
+    close_to_titles: formData.close_to_titles || null,
+    volunteer_preferences: formData.volunteer_preferences || null,
+  });
+  console.log('✅ Updated existing entry with volunteer/titles preferences');
+        
         if (existingEntries.length > 1) {
           console.warn(`⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. This indicates duplicate entries.`);
         }
