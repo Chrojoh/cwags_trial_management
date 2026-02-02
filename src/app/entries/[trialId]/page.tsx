@@ -100,10 +100,10 @@ interface EntryFormData {
 
 // ← ADD THIS NEW INTERFACE
 interface VolunteerDayPreferences {
-  setup: boolean;
-  takedown: boolean;
-  ring_steward: boolean;
-  leash_runner: boolean;
+  Timer: boolean;
+  Clean_box_setter: boolean;
+  Gate_person: boolean;
+  Shoe_runner: boolean;
 }
 
 // ============================================
@@ -1525,7 +1525,7 @@ const jumpHeight = formData.jump_height_selections[roundId];
             </h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(['setup', 'takedown', 'ring_steward', 'leash_runner'] as const).map((position) => (
+              {(['Timer', 'Clean_box_setter', 'Gate_person', 'Shoe_runner'] as const).map((position) => (
                 <div key={position} className="flex items-center space-x-2">
                   <Checkbox
                     id={`volunteer-day${day.day_number}-${position}`}
@@ -1539,10 +1539,10 @@ const jumpHeight = formData.jump_height_selections[roundId];
       ...prev.volunteer_preferences,
       [`day_${day.day_number}`]: {
         ...(prev.volunteer_preferences[`day_${day.day_number}`] || {
-          setup: false,
-          takedown: false,
-          ring_steward: false,
-          leash_runner: false
+          Timer: false,
+          Clean_box_setter: false,
+          Gate_Person: false,
+          Shoe_runner: false
         }),
         [position]: checked as boolean
       }
