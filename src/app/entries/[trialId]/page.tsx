@@ -774,11 +774,13 @@ console.log('Form populated with existing entry data and class selections');
   console.log(`✅ Found existing entry record: ${primaryEntryId}`);
   
   // ✅ ADD THIS DEBUGGING BLOCK:
-  console.log('🔍 DEBUG: About to update entry with:', {
-    primaryEntryId,
-    close_to_titles: formData.close_to_titles,
-    volunteer_preferences: formData.volunteer_preferences
-  });
+  console.log('🔍 DEBUG: FULL formData state:', JSON.stringify(formData, null, 2));
+
+console.log('🔍 DEBUG: About to update entry with:', {
+  primaryEntryId,
+  close_to_titles: formData.close_to_titles,
+  volunteer_preferences: formData.volunteer_preferences
+});
   
   const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, {
     close_to_titles: formData.close_to_titles || null,
