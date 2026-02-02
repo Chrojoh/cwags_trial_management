@@ -101,10 +101,10 @@ interface SecretaryDashboardProps {
 }
 
 interface VolunteerDayPreferences {
-  setup: boolean;
-  takedown: boolean;
-  ring_steward: boolean;
-  leash_runner: boolean;
+  Timer: boolean;
+  Clean_box_setter: boolean;
+  Gate_person: boolean;
+  Shoe_runner: boolean;
 }
 
 export default function SecretaryDashboard({ userTrials, userId }: SecretaryDashboardProps) {
@@ -799,10 +799,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       
       trialDays.forEach(day => {
         dayHeaders.push(
-          `Day ${day.day_number} - Setup`,
-          `Day ${day.day_number} - Takedown`,
-          `Day ${day.day_number} - Ring Steward`,
-          `Day ${day.day_number} - Leash Runner`
+          `Day ${day.day_number} - Timer`,
+          `Day ${day.day_number} - Clean_box_setter`,
+          `Day ${day.day_number} - Gate_person`,
+          `Day ${day.day_number} - Shoe Runner`
         );
       });
 
@@ -823,17 +823,17 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         trialDays.forEach(day => {
           const dayKey = `day_${day.day_number}`;
           const dayPrefs = volunteerPrefs?.[dayKey] || {
-            setup: false,
-            takedown: false,
-            ring_steward: false,
-            leash_runner: false
+            Timer: false,
+            Clean_box_setter: false,
+            Gate_person: false,
+            Shoe_runner: false
           };
 
           volunteerData.push(
-            dayPrefs.setup ? 'Yes' : 'No',
-            dayPrefs.takedown ? 'Yes' : 'No',
-            dayPrefs.ring_steward ? 'Yes' : 'No',
-            dayPrefs.leash_runner ? 'Yes' : 'No'
+            dayPrefs.Timer ? 'Yes' : 'No',
+            dayPrefs.Clean_box_setter ? 'Yes' : 'No',
+            dayPrefs.Gate_person ? 'Yes' : 'No',
+            dayPrefs.Shoe_runner ? 'Yes' : 'No'
           );
         });
 
