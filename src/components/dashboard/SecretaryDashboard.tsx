@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { 
+  Award,
   Calendar,
   Users,
   DollarSign,
@@ -97,6 +98,13 @@ interface RecentActivity {
 interface SecretaryDashboardProps {
   userTrials: Trial[];
   userId: string;
+}
+
+interface VolunteerDayPreferences {
+  setup: boolean;
+  takedown: boolean;
+  ring_steward: boolean;
+  leash_runner: boolean;
 }
 
 export default function SecretaryDashboard({ userTrials, userId }: SecretaryDashboardProps) {
@@ -681,6 +689,182 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
     }
   };
 
+  /**
+   * Export Titles CSV
+   */
+  const exportTitlesCSV = async () => {
+    if (!selectedTrialId) return;
+
+    try {
+      // Get all entries with titles information
+      const { data: entries, error } = await supabase
+        .from('entries')
+        .select('handler_name, dog_call_name, close_to_titles, handler_email, handler_phone')
+        .eq('trial_id', selectedTrialId)
+        .not('close_to_titles', 'is', null)
+        .not('close_to_titles', 'eq', '');
+
+      if (error) {
+        alert('Failed to load titles data for export');
+        return;
+      }
+
+      if (!entries || entries.length === 0) {
+        alert('No competitors have indicated they are close to titles.');
+        return;
+      }
+
+      // Create CSV header
+      const headers = [
+        'Handler Name',
+        'Dog Name',
+        'Titles/Aces Close To',
+        'Email',
+        'Phone'
+      ];
+
+      // Create CSV rows
+      const rows = entries.map(entry => [
+        entry.handler_name,
+        entry.dog_call_name,
+        entry.close_to_titles || 'N/A',
+        entry.handler_email || 'N/A',
+        entry.handler_phone || 'N/A'
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${selectedTrial?.trial_name || 'trial'}_possible_titles_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error('Error exporting titles CSV:', error);
+      alert('Failed to export titles CSV');
+    }
+  };
+
+  /**
+   * Export Volunteers CSV
+   */
+  const exportVolunteersCSV = async () => {
+    if (!selectedTrialId) return;
+
+    try {
+      // Get trial days
+      const { data: trialDays, error: daysError } = await supabase
+        .from('trial_days')
+        .select('day_number, trial_date')
+        .eq('trial_id', selectedTrialId)
+        .order('day_number');
+
+      if (daysError || !trialDays) {
+        alert('Failed to load trial days');
+        return;
+      }
+
+      // Get all entries with volunteer preferences
+      const { data: entries, error } = await supabase
+        .from('entries')
+        .select('handler_name, dog_call_name, volunteer_preferences, handler_email, handler_phone')
+        .eq('trial_id', selectedTrialId)
+        .not('volunteer_preferences', 'is', null);
+
+      if (error) {
+        alert('Failed to load volunteer data for export');
+        return;
+      }
+
+      if (!entries || entries.length === 0) {
+        alert('No volunteer preferences have been submitted yet.');
+        return;
+      }
+
+      // Build dynamic headers based on trial days
+      const baseHeaders = ['Handler Name', 'Dog Name', 'Email', 'Phone'];
+      const dayHeaders: string[] = [];
+      
+      trialDays.forEach(day => {
+        dayHeaders.push(
+          `Day ${day.day_number} - Setup`,
+          `Day ${day.day_number} - Takedown`,
+          `Day ${day.day_number} - Ring Steward`,
+          `Day ${day.day_number} - Leash Runner`
+        );
+      });
+
+      const headers = [...baseHeaders, ...dayHeaders];
+
+      // Create CSV rows
+      const rows = entries.map(entry => {
+        const volunteerPrefs = entry.volunteer_preferences as Record<string, VolunteerDayPreferences>;
+        
+        const baseData = [
+          entry.handler_name,
+          entry.dog_call_name,
+          entry.handler_email || 'N/A',
+          entry.handler_phone || 'N/A'
+        ];
+
+        const volunteerData: string[] = [];
+        trialDays.forEach(day => {
+          const dayKey = `day_${day.day_number}`;
+          const dayPrefs = volunteerPrefs?.[dayKey] || {
+            setup: false,
+            takedown: false,
+            ring_steward: false,
+            leash_runner: false
+          };
+
+          volunteerData.push(
+            dayPrefs.setup ? 'Yes' : 'No',
+            dayPrefs.takedown ? 'Yes' : 'No',
+            dayPrefs.ring_steward ? 'Yes' : 'No',
+            dayPrefs.leash_runner ? 'Yes' : 'No'
+          );
+        });
+
+        return [...baseData, ...volunteerData];
+      });
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${selectedTrial?.trial_name || 'trial'}_volunteers_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error('Error exporting volunteers CSV:', error);
+      alert('Failed to export volunteers CSV');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const parts = dateString.split('-');
     const date = new Date(
@@ -846,16 +1030,38 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                     <AlertCircle className="h-5 w-5 text-orange-600" />
                     <span>Outstanding Balances ({outstandingEntries.length})</span>
                   </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportToCSV}
-                    disabled={!selectedTrialId}
-                    className="bg-white hover:bg-gray-50"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToCSV}
+                      disabled={!selectedTrialId}
+                      className="bg-white hover:bg-gray-50"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="bg-purple-50 hover:bg-purple-100"
+                      onClick={exportTitlesCSV}
+                      disabled={!selectedTrialId}
+                    >
+                      <Award className="h-4 w-4 mr-2" />
+                      Titles
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      className="bg-green-50 hover:bg-green-100"
+                      onClick={exportVolunteersCSV}
+                      disabled={!selectedTrialId}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Volunteers
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -888,6 +1094,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
               </CardContent>
             </Card>
           )}
+
+          
 
           {/* Other Action Items */}
           {actionItems.length > 0 && (

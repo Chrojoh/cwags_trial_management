@@ -258,6 +258,8 @@ export interface Database {
           handler_phone: string | null
           is_junior_handler: boolean
           waiver_accepted: boolean
+          close_to_titles: string | null  // ← ADD THIS
+          volunteer_preferences: Json | null  // ← ADD THIS
           total_fee: number
           payment_status: string
           submitted_at: string
@@ -277,6 +279,8 @@ export interface Database {
           handler_phone?: string | null
           is_junior_handler?: boolean
           waiver_accepted: boolean
+          close_to_titles?: string | null  // ← ADD THIS
+          volunteer_preferences?: Json | null  // ← ADD THIS
           total_fee: number
           payment_status?: string
           submitted_at?: string
@@ -296,6 +300,8 @@ export interface Database {
           handler_phone?: string | null
           is_junior_handler?: boolean
           waiver_accepted?: boolean
+          close_to_titles?: string | null  // ← ADD THIS
+          volunteer_preferences?: Json | null  // ← ADD THIS
           total_fee?: number
           payment_status?: string
           submitted_at?: string

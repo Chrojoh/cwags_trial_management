@@ -28,12 +28,15 @@ import {
   AlertCircle,
   CheckCircle,
   Lock,
+  Award,
+  Users,
   Calendar,
   Loader2,
   Shield,
   FileText,
   Edit
 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
@@ -91,6 +94,16 @@ interface EntryFormData {
   division_selections: Record<string, string>;
   waiver_accepted: boolean;
   jump_height_selections: Record<string, string>;
+  close_to_titles: string;  // ← ADD THIS
+  volunteer_preferences: Record<string, VolunteerDayPreferences>;  // ← ADD THIS
+}
+
+// ← ADD THIS NEW INTERFACE
+interface VolunteerDayPreferences {
+  setup: boolean;
+  takedown: boolean;
+  ring_steward: boolean;
+  leash_runner: boolean;
 }
 
 // ============================================
@@ -146,7 +159,7 @@ export default function PublicEntryForm() {
   const params = useParams();
   const router = useRouter();
   const trialId = params.trialId as string;
-  
+  const [trialDays, setTrialDays] = useState<Array<{ id: string; day_number: number; trial_date: string }>>([]);
   const [selectedDayTab, setSelectedDayTab] = useState<string>("1");
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
@@ -158,22 +171,24 @@ export default function PublicEntryForm() {
   const [success, setSuccess] = useState(false);
 
   const [formData, setFormData] = useState<EntryFormData>({
-    handler_name: '',
-    handler_email: '',
-    handler_phone: '',
-    emergency_contact: '',
-    cwags_number: '',
-    dog_call_name: '',
-    dog_breed: '',
-    dog_sex: '',
-    dog_dob: '',
-    is_junior_handler: false,
-    selected_rounds: [],
-    feo_selections: [],
-    division_selections: {},
-    waiver_accepted: false,
-    jump_height_selections: {}
-  });
+  handler_name: '',
+  handler_email: '',
+  handler_phone: '',
+  emergency_contact: '',
+  cwags_number: '',
+  dog_call_name: '',
+  dog_breed: '',
+  dog_sex: '',
+  dog_dob: '',
+  is_junior_handler: false,
+  selected_rounds: [],
+  feo_selections: [],
+  division_selections: {},
+  waiver_accepted: false,
+  jump_height_selections: {},
+  close_to_titles: '',  // ← ADD THIS
+  volunteer_preferences: {},  // ← ADD THIS
+});
 
   const [registryLoading, setRegistryLoading] = useState(false);
   const [existingEntry, setExistingEntry] = useState<any>(null);
@@ -204,6 +219,20 @@ export default function PublicEntryForm() {
     }
 
     setTrialRounds(roundsResult.data || []);
+
+    // Extract unique trial days from rounds
+const uniqueDays = new Map<number, { id: string; day_number: number; trial_date: string }>();
+(roundsResult.data || []).forEach((round: any) => {
+  const dayData = round.trial_classes?.trial_days;
+  if (dayData && dayData.day_number) {
+    uniqueDays.set(dayData.day_number, {
+      id: dayData.id || `day-${dayData.day_number}`,
+      day_number: dayData.day_number,
+      trial_date: dayData.trial_date
+    });
+  }
+});
+setTrialDays(Array.from(uniqueDays.values()).sort((a, b) => a.day_number - b.day_number));
     
     // ✅ ADD THIS BLOCK: Build day accepting status
     const dayStatus: Record<number, boolean> = {};
@@ -328,27 +357,30 @@ console.log('Final FEO round IDs:', feoRoundIds);
 console.log('Final division map:', divisionMap);
 console.log('Final jump height map:', jumpHeightMap);  // ✅ ADD THIS LINE
 
-const originalFormData: EntryFormData = {
-  handler_name: existingEntry.handler_name,
-  handler_email: existingEntry.handler_email,
+const originalData: EntryFormData = {
+  handler_name: existingEntry.handler_name || '',
+  handler_email: existingEntry.handler_email || '',
   handler_phone: existingEntry.handler_phone || '',
-  emergency_contact: '',
-  cwags_number: existingEntry.cwags_number,
-  dog_call_name: existingEntry.dog_call_name,
+  emergency_contact: existingEntry.emergency_contact || '',
+  cwags_number: cwagsNumber,
+  dog_call_name: existingEntry.dog_call_name || '',
   dog_breed: existingEntry.dog_breed || '',
   dog_sex: existingEntry.dog_sex || '',
-  dog_dob: '',
+  dog_dob: existingEntry.dog_dob || '',
   is_junior_handler: existingEntry.is_junior_handler || false,
-  waiver_accepted: existingEntry.waiver_accepted || false,
   selected_rounds: selectedRoundIds,
   feo_selections: feoRoundIds,
   division_selections: divisionMap,
-  jump_height_selections: jumpHeightMap  // ✅ CHANGE FROM {} TO jumpHeightMap
+  waiver_accepted: true,
+  jump_height_selections: jumpHeightMap,
+  close_to_titles: existingEntry.close_to_titles || '',
+  volunteer_preferences: existingEntry.volunteer_preferences || {}
 };
 
-console.log('Setting original form data:', originalFormData);
-setOriginalFormData(originalFormData);
-setFormData(originalFormData);
+console.log('Setting form data with existing entry and class selections');
+setOriginalFormData(originalData);
+setFormData(originalData);
+
 
 console.log('Form populated with existing entry data and class selections');
 } else {
@@ -757,6 +789,8 @@ console.log('Form populated with existing entry data and class selections');
           handler_phone: formData.handler_phone,
           is_junior_handler: formData.is_junior_handler,
           waiver_accepted: formData.waiver_accepted,
+          close_to_titles: formData.close_to_titles || null,  // ← ADD THIS
+          volunteer_preferences: formData.volunteer_preferences || null,  // ← ADD THIS
           total_fee: totalFee,
           payment_status: 'pending',
           entry_status: 'submitted'
@@ -1411,6 +1445,128 @@ const jumpHeight = formData.jump_height_selections[roundId];
             </div>
           </CardContent>
         </Card>
+ 
+
+{/* ========== NEW SECTION 1: TITLES/ACES ========== */}
+<Card className="mb-6">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Award className="h-5 w-5" />
+      Titles & Achievements
+    </CardTitle>
+    <CardDescription>
+      Help us have the right ribbons and rosettes on hand!
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div className="space-y-2">
+      <Label htmlFor="close_to_titles">
+        Are you close to obtaining any titles or aces this trial/league?
+      </Label>
+      <Textarea
+        id="close_to_titles"
+        value={formData.close_to_titles}
+        onChange={(e) => 
+          setFormData(prev => ({ ...prev, close_to_titles: e.target.value }))
+        }
+        placeholder="e.g., Working towards Scent Detective Title, 1 Q away from Rally Advanced Ace..."
+        rows={3}
+        className="w-full"
+      />
+      <p className="text-sm text-gray-500">
+        Let us know what titles or aces you're pursuing so we can ensure we have appropriate ribbons/rosettes ready.
+      </p>
+    </div>
+  </CardContent>
+</Card>
+
+{/* ========== NEW SECTION 2: VOLUNTEER POSITIONS ========== */}
+<Card className="mb-6">
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <Users className="h-5 w-5" />
+      Volunteer Positions
+    </CardTitle>
+    <CardDescription>
+      Please help us achieve 100/100 where 100% of the work is being done by 100% of the people! 🎯
+    </CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-4">
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+      <p className="text-sm text-blue-900">
+        <strong>All trials depend on active participation!</strong> Please select what you can assist with during rounds you are NOT competing. Thank you for your support!
+      </p>
+    </div>
+
+    <div className="space-y-4">
+      {trialDays.map((day: { id: string; day_number: number; trial_date: string }) => {
+        // ✅ FIX: Use 12 noon date parsing to avoid timezone issues
+        const formatDayDate = (dateString: string) => {
+          const parts = dateString.split('-');
+          const date = new Date(
+            parseInt(parts[0]),
+            parseInt(parts[1]) - 1,
+            parseInt(parts[2]),
+            12, 0, 0  // Set to noon to avoid timezone issues
+          );
+          
+          return date.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric',
+            year: 'numeric'
+          });
+        };
+
+        return (
+          <div key={day.id} className="border rounded-lg p-4">
+            <h4 className="font-semibold mb-3">
+              Day {day.day_number} - {formatDayDate(day.trial_date)}
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(['setup', 'takedown', 'ring_steward', 'leash_runner'] as const).map((position) => (
+                <div key={position} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`volunteer-day${day.day_number}-${position}`}
+                    checked={
+                      formData.volunteer_preferences[`day_${day.day_number}`]?.[position] || false
+                    }
+                  onCheckedChange={(checked) => {
+  setFormData(prev => ({
+    ...prev,
+    volunteer_preferences: {
+      ...prev.volunteer_preferences,
+      [`day_${day.day_number}`]: {
+        ...(prev.volunteer_preferences[`day_${day.day_number}`] || {
+          setup: false,
+          takedown: false,
+          ring_steward: false,
+          leash_runner: false
+        }),
+        [position]: checked as boolean
+      }
+    }
+  }));
+}}
+                  />
+                  <Label 
+                    htmlFor={`volunteer-day${day.day_number}-${position}`}
+                    className="text-sm cursor-pointer"
+                  >
+                    {position.split('_').map(word => 
+                      word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ')}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </CardContent>
+</Card>
 
         {/* C-WAGS Lookup */}
         <Card className="mb-6">

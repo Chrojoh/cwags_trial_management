@@ -3619,19 +3619,12 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
                 <Label htmlFor="cwags_number">C-WAGS Number *</Label>
                 <div className="flex space-x-2">
                   <Input
-                    id="cwags_number"
-                    value={newEntryData.cwags_number}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setNewEntryData(prev => ({ ...prev, cwags_number: value }));
-                      // Auto-lookup after a brief pause in typing
-                      if (value.length >= 8) { // Minimum length for C-WAGS numbers
-                        setTimeout(() => lookupCwagsNumber(value), 500);
-                      }
-                    }}
-                    placeholder="e.g. 17-1234-56"
-                    className="flex-1"
-                  />
+  id="cwags_number"
+  value={newEntryData.cwags_number}
+  onChange={(e) => setNewEntryData(prev => ({ ...prev, cwags_number: e.target.value }))}
+  placeholder="e.g. 17-1234-56"
+  className="flex-1"
+/>
                   <Button
                     type="button"
                     variant="outline"
@@ -3831,20 +3824,44 @@ const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>, targetEntry: ClassE
               </p>
 
               <div>
-                <Label htmlFor="new_cwags_number">C-WAGS Registration Number *</Label>
-                <Input
-                  id="new_cwags_number"
-                  value={newCwagsNumber}
-                  onChange={(e) => setNewCwagsNumber(e.target.value)}
-                  onBlur={(e) => setNewCwagsNumber(formatCwagsNumber(e.target.value))}
-                  placeholder="XX-XXXX-XX"
-                  className="mt-1"
-                  maxLength={12}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Format: XX-XXXX-XX (will auto-format)
-                </p>
-              </div>
+  <Label htmlFor="new_cwags_number">C-WAGS Registration Number *</Label>
+  <div className="flex space-x-2">
+    <Input
+      id="new_cwags_number"
+      value={newCwagsNumber}
+      onChange={(e) => setNewCwagsNumber(e.target.value)}
+      placeholder="e.g. 17-1234-56"
+      className="flex-1"
+      maxLength={12}
+    />
+    <Button
+      type="button"
+      variant="outline"
+      onClick={async () => {
+        const formattedNumber = formatCwagsNumber(newCwagsNumber);
+        setNewCwagsNumber(formattedNumber);
+        
+        // Optional: Look up and show dog info before substituting
+        try {
+          const result = await simpleTrialOperations.getCwagsRegistryByNumber(formattedNumber.trim());
+          if (result.success && result.data) {
+            alert(`Found: ${result.data.handler_name} with ${result.data.dog_call_name}`);
+          } else {
+            alert('C-WAGS number not found in registry');
+          }
+        } catch (error) {
+          console.error('Error looking up C-WAGS number:', error);
+        }
+      }}
+      disabled={!newCwagsNumber}
+    >
+      Lookup
+    </Button>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    Enter C-WAGS number, then click Lookup to verify
+  </p>
+</div>
 
               <div className="flex items-center justify-end space-x-2 mt-6">
                 <Button 

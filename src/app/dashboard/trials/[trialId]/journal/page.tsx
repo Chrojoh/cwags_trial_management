@@ -548,11 +548,16 @@ const formatDateWithDay = (dateString: string) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Activity Journal</h1>
-              {trial && (
-                <p className="text-gray-600 mt-1">
-                  {trial.trial_name} • {new Date(trial.trial_start_date).toLocaleDateString()}
-                </p>
-              )}
+{trial && (
+  <p className="text-gray-600 mt-1">
+    {trial.trial_name} • {(() => {
+      if (!trial.start_date) return '';
+      const [year, month, day] = trial.start_date.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    })()}
+  </p>
+)}
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-400" />
