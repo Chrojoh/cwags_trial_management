@@ -768,17 +768,30 @@ console.log('Form populated with existing entry data and class selections');
       }
       
       if (existingEntries && existingEntries.length > 0) {
-        primaryEntryId = existingEntries[0].id;
-        isNewEntry = false;
-        
-        console.log(`✅ Found existing entry record: ${primaryEntryId}`);
-        
-        // ✅ ADD THESE 5 LINES HERE:
-  await simpleTrialOperations.updateEntry(primaryEntryId, {
+  primaryEntryId = existingEntries[0].id;
+  isNewEntry = false;
+  
+  console.log(`✅ Found existing entry record: ${primaryEntryId}`);
+  
+  // ✅ ADD THIS DEBUGGING BLOCK:
+  console.log('🔍 DEBUG: About to update entry with:', {
+    primaryEntryId,
+    close_to_titles: formData.close_to_titles,
+    volunteer_preferences: formData.volunteer_preferences
+  });
+  
+  const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, {
     close_to_titles: formData.close_to_titles || null,
     volunteer_preferences: formData.volunteer_preferences || null,
   });
-  console.log('✅ Updated existing entry with volunteer/titles preferences');
+  
+  console.log('🔍 DEBUG: Update result:', updateResult);
+  
+  if (!updateResult.success) {
+    console.error('❌ Update failed:', updateResult.error);
+  } else {
+    console.log('✅ Updated existing entry with volunteer/titles preferences');
+  }
         
         if (existingEntries.length > 1) {
           console.warn(`⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. This indicates duplicate entries.`);
