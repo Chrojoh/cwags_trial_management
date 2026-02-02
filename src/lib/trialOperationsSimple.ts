@@ -87,12 +87,14 @@ export interface EntryData {
   handler_name: string;
   dog_call_name: string;
   cwags_number: string;
-  dog_breed: string | null;    // ✅ Change from: string
+  dog_breed: string | null;
   dog_sex: string | null; 
   handler_email: string;
   handler_phone: string;
   is_junior_handler: boolean;
   waiver_accepted: boolean;
+  close_to_titles?: string | null;  // ← ADD THIS LINE
+  volunteer_preferences?: any | null;  // ← ADD THIS LINE
   total_fee: number;
   payment_status: string;
   submitted_at?: string;
@@ -982,24 +984,26 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
     }
 
     // No duplicate found - proceed with insert
-    const insertData = {
-      trial_id: entryData.trial_id,
-      handler_name: entryData.handler_name,
-      dog_call_name: entryData.dog_call_name,
-      cwags_number: entryData.cwags_number,
-      dog_breed: entryData.dog_breed || null,
-      dog_sex: entryData.dog_sex || null,
-      handler_email: entryData.handler_email,
-      handler_phone: entryData.handler_phone,
-      is_junior_handler: entryData.is_junior_handler,
-      waiver_accepted: entryData.waiver_accepted,
-      total_fee: entryData.total_fee,
-      payment_status: entryData.payment_status || 'pending',
-      entry_status: entryData.entry_status || 'submitted',
-      submitted_at: new Date().toISOString(),
-      audit_trail: entryData.audit_trail || 'Entry created',
-      created_at: new Date().toISOString()
-    };
+   const insertData = {
+  trial_id: entryData.trial_id,
+  handler_name: entryData.handler_name,
+  dog_call_name: entryData.dog_call_name,
+  cwags_number: entryData.cwags_number,
+  dog_breed: entryData.dog_breed || null,
+  dog_sex: entryData.dog_sex || null,
+  handler_email: entryData.handler_email,
+  handler_phone: entryData.handler_phone,
+  is_junior_handler: entryData.is_junior_handler,
+  waiver_accepted: entryData.waiver_accepted,
+  close_to_titles: entryData.close_to_titles || null,  // ← ADD THIS LINE
+  volunteer_preferences: entryData.volunteer_preferences || null,  // ← ADD THIS LINE
+  total_fee: entryData.total_fee,
+  payment_status: entryData.payment_status || 'pending',
+  entry_status: entryData.entry_status || 'submitted',
+  submitted_at: new Date().toISOString(),
+  audit_trail: entryData.audit_trail || 'Entry created',
+  created_at: new Date().toISOString()
+};
 
     const { data, error } = await supabase
       .from('entries')
