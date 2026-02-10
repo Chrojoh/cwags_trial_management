@@ -276,7 +276,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             </Button>
 
             <Button 
-              onClick={() => router.push('/dashboard/registry')}
+              onClick={() => router.push('/dashboard/admin/registry')}
               variant="outline"
               className="w-full"
             >
@@ -291,15 +291,6 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             >
               <UserCheck className="h-4 w-4 mr-2" />
               Manage Judges
-            </Button>
-
-            <Button 
-              onClick={() => router.push('/dashboard/users')}
-              variant="outline"
-              className="w-full"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              Manage Users
             </Button>
 
             <Button 

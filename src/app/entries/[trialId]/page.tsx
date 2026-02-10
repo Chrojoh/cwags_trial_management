@@ -1512,7 +1512,7 @@ const jumpHeight = formData.jump_height_selections[roundId];
         rows={3}
         className="w-full"
       />
-      <p className="text-sm text-gray-500">
+      <p className="text-med text-black-500">
         Let us know what titles or aces you're pursuing so we can ensure we have appropriate ribbons/rosettes ready.
       </p>
     </div>
