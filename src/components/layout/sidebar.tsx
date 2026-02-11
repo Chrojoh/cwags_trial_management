@@ -68,12 +68,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const result = await simpleTrialOperations.getAllTrials();
       
       if (result.success && result.data) {
-        // Sort by start_date (soonest first) and take 5 most recent
-        const sorted = result.data
-          .sort((a: Trial, b: Trial) => 
-            new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
-          )
-          .slice(0, 5);
+        // Sort by start_date (most recent first) and take 5 most recent
+const sorted = result.data
+  .sort((a: Trial, b: Trial) => 
+    new Date(b.start_date).getTime() - new Date(a.start_date).getTime()  // ← flip b and a
+  )
+  .slice(0, 5);
         
         setTrials(sorted);
       }

@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, Calendar, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Trophy, Calendar, MapPin, ChevronDown, ChevronUp, FileSpreadsheet } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
 
 interface RunDetail {
   trial_date: string;
@@ -345,6 +346,112 @@ export default function DogPerformanceHistory() {
     }
   };
 
+  const exportToExcel = () => {
+    if (!performanceData) {
+      alert('No data to export');
+      return;
+    }
+
+    try {
+      console.log('📊 Generating Excel export for dog performance...');
+
+      const workbook = XLSX.utils.book_new();
+
+      // SHEET 1: Summary Sheet
+      const summaryData = [
+        ['Dog Performance Summary'],
+        [],
+        ['Dog Name:', performanceData.dog_info.dog_call_name],
+        ['Handler Name:', performanceData.dog_info.handler_name],
+        ['C-WAGS Number:', performanceData.dog_info.cwags_number],
+        [],
+        ['Date Range:', `${formatDate(performanceData.date_range.earliest)} - ${formatDate(performanceData.date_range.latest)}`],
+        ['Total Trials:', performanceData.trial_count],
+        ['Total Clubs:', performanceData.club_count],
+        [],
+        ['Class Summary'],
+        ['Class Name', 'Total Runs', 'Passes', 'Pass Rate']
+      ];
+
+      // Add class statistics to summary
+      performanceData.class_stats.forEach(classData => {
+        summaryData.push([
+          classData.class_name,
+          classData.total_runs,
+          classData.passes,
+          `${classData.pass_rate.toFixed(1)}%`
+        ]);
+      });
+
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+
+      // Set column widths for summary sheet
+      summarySheet['!cols'] = [
+        { wch: 25 },  // Class Name / Label
+        { wch: 15 },  // Total Runs / Value
+        { wch: 15 },  // Passes
+        { wch: 15 }   // Pass Rate
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+      // SHEET 2+: One sheet per class with run details
+      performanceData.class_stats.forEach(classData => {
+        const classSheetData = [
+          [classData.class_name],
+          [],
+          ['Total Runs:', classData.total_runs],
+          ['Passes:', classData.passes],
+          ['Pass Rate:', `${classData.pass_rate.toFixed(1)}%`],
+          [],
+          ['Run Details'],
+          ['Trial Date', 'Trial Name', 'Judge', 'Result']
+        ];
+
+        // Add each run detail
+        classData.run_details.forEach(run => {
+          classSheetData.push([
+            formatDate(run.trial_date),
+            run.trial_name,
+            run.judge_name,
+            run.result
+          ]);
+        });
+
+        const classSheet = XLSX.utils.aoa_to_sheet(classSheetData);
+
+        // Set column widths for class sheets
+        classSheet['!cols'] = [
+          { wch: 15 },  // Trial Date
+          { wch: 30 },  // Trial Name
+          { wch: 20 },  // Judge
+          { wch: 10 }   // Result
+        ];
+
+        // Sanitize sheet name (Excel sheet names can't contain certain characters)
+        const sheetName = classData.class_name
+          .replace(/[:\\/?*\[\]]/g, '')  // Remove invalid characters
+          .substring(0, 31);  // Excel limit is 31 characters
+
+        XLSX.utils.book_append_sheet(workbook, classSheet, sheetName);
+      });
+
+      // Generate filename
+      const dogName = performanceData.dog_info.dog_call_name.replace(/[^a-zA-Z0-9]/g, '_');
+      const cwagsNum = performanceData.dog_info.cwags_number.replace(/[^a-zA-Z0-9]/g, '_');
+      const date = new Date().toISOString().split('T')[0];
+      const filename = `Dog_Performance_${dogName}_${cwagsNum}_${date}.xlsx`;
+
+      // Write and download
+      XLSX.writeFile(workbook, filename);
+      console.log('✅ Excel file generated:', filename);
+
+    } catch (err) {
+      console.error('Error generating Excel export:', err);
+      alert('Failed to generate Excel file');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Search Section */}
@@ -425,6 +532,16 @@ export default function DogPerformanceHistory() {
                     <div className="font-semibold text-2xl">{performanceData.club_count}</div>
                   </div>
                 </div>
+              </div>
+              {/* Export Button */}
+              <div className="mt-6 flex justify-end">
+                <Button
+                  onClick={exportToExcel}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Export to Excel
+                </Button>
               </div>
             </CardContent>
           </Card>
