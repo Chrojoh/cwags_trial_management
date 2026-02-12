@@ -711,7 +711,8 @@ summarySheetData.push([
       }
       
       sheetData[0] = [summaryData.trial.trial_name];
-      sheetData[2] = [summaryData.trial.club_name, '', '', '', '', classData.className];
+      sheetData[1] = [summaryData.trial.club_name];
+      sheetData[2] = ['', '', '', '', '', classData.className];
       
       const row4Headers = ['', '', ''];
       classData.allRounds.forEach(round => {

@@ -2467,9 +2467,12 @@ const classesWithEntries = classesWithStats.filter(cls =>
       
       // Row 1: Trial name
       sheetData[0] = [trial.trial_name];
+
+      // Row 2: Club name
+      sheetData[1] = [trial.club_name];
       
-      // Row 3: Host name in A3, class name in F3
-      sheetData[2] = [trial.club_name, '', '', '', '', cls.class_name];
+      // Row 3: class name in F3
+      sheetData[2] = ['', '', '', '', '', cls.class_name];
       
       // Row 4: Headers
       sheetData[3] = ['', '', '', 'C-WAGS Number', 'Dog Name', 'Handler Name', 'Result'];
