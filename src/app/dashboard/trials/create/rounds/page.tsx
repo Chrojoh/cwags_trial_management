@@ -62,6 +62,7 @@ interface RoundData {
   reset_judge_name: string;
   reset_judge_email: string;
   notes: string;
+  is_reset?: boolean;   
 }
 
 interface Trial {
@@ -238,7 +239,7 @@ setTrialClasses(sortedClasses);
       for (const cls of allClasses) {
         const roundsResult = await simpleTrialOperations.getTrialRounds(cls.id);
         if (roundsResult.success && roundsResult.data && roundsResult.data.length > 0) {
-          roundsData[cls.id] = roundsResult.data.map((round: any) => ({
+          const loaded: RoundData[] = roundsResult.data.map((round: any) => ({
             id: round.id,
             round_number: round.round_number || 1,
             judge_name: round.judge_name || '',
@@ -246,11 +247,27 @@ setTrialClasses(sortedClasses);
             start_time: round.start_time || '',
             estimated_duration: round.estimated_duration || '',
             max_entries: round.max_entries || cls.max_entries || 50,
-            has_reset: round.has_reset || false,
-            reset_judge_name: round.reset_judge_name || '',
-            reset_judge_email: round.reset_judge_email || '',
-            notes: round.notes || ''
+            has_reset: false,            // will be set below
+            reset_judge_name: '',        // will be set below
+            reset_judge_email: '',       // will be set below
+            notes: round.notes || '',
+            is_reset: round.is_reset || false,
           }));
+
+          // For each reset round (N.5), back-fill has_reset + judge info onto its parent (N)
+          loaded.forEach(round => {
+            if (round.is_reset) {
+              const parentNum = Math.floor(round.round_number);
+              const parent = loaded.find(r => !r.is_reset && r.round_number === parentNum);
+              if (parent) {
+                parent.has_reset = true;
+                parent.reset_judge_name = round.judge_name;
+                parent.reset_judge_email = round.judge_email;
+              }
+            }
+          });
+
+          roundsData[cls.id] = loaded;
         } else {
           roundsData[cls.id] = [{
             round_number: 1,
@@ -308,33 +325,92 @@ setTrialClasses(sortedClasses);
   };
 
   const handleResetJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
-    const classQualifiedJudges = qualifiedJudges[classId] || [];
-    const judge = classQualifiedJudges.find(j => j.id === judgeId);
-    if (!judge) return;
+  const classQualifiedJudges = qualifiedJudges[classId] || [];
+  const judge = classQualifiedJudges.find(j => j.id === judgeId);
+  if (!judge) return;
 
-    setRounds(prev => ({
-      ...prev,
-      [classId]: prev[classId]?.map((round, idx) => 
-        idx === roundIndex 
-          ? { ...round, reset_judge_name: judge.name || '', reset_judge_email: judge.email || '' }
-          : round
-      ) || []
-    }));
-  };
+  setRounds(prev => {
+    const classRounds = [...(prev[classId] || [])];
+    const parentRound = classRounds[roundIndex];
+    const resetRoundNumber = parentRound.round_number + 0.5;
+
+    // Update the parent round's display fields (for the UI selector)
+    classRounds[roundIndex] = {
+      ...parentRound,
+      reset_judge_name: judge.name || '',
+      reset_judge_email: judge.email || '',
+    };
+
+    // Also push the judge onto the actual reset round record
+    const resetIdx = classRounds.findIndex(r => r.round_number === resetRoundNumber && r.is_reset);
+    if (resetIdx !== -1) {
+      classRounds[resetIdx] = {
+        ...classRounds[resetIdx],
+        judge_name: judge.name || '',
+        judge_email: judge.email || '',
+      };
+    }
+
+    return { ...prev, [classId]: classRounds };
+  });
+};
 
   const handleRoundChange = (classId: string, roundIndex: number, field: keyof RoundData, value: any) => {
-    setRounds(prev => ({
-      ...prev,
-      [classId]: prev[classId]?.map((round, idx) => 
-        idx === roundIndex ? { ...round, [field]: value } : round
-      ) || []
-    }));
-  };
+  // Special handling: toggling has_reset creates/removes a separate reset round in the array
+  if (field === 'has_reset') {
+    setRounds(prev => {
+      const classRounds = [...(prev[classId] || [])];
+      const parentRound = classRounds[roundIndex];
+      const resetRoundNumber = parentRound.round_number + 0.5;
+
+      if (value === true) {
+        // Mark parent as having a reset
+        classRounds[roundIndex] = { ...parentRound, has_reset: true };
+        // Only add the reset round if it doesn't already exist
+        const alreadyExists = classRounds.some(r => r.round_number === resetRoundNumber && r.is_reset);
+        if (!alreadyExists) {
+          const resetRound: RoundData = {
+            round_number: resetRoundNumber,
+            judge_name: '',
+            judge_email: '',
+            start_time: '',
+            estimated_duration: '',
+            max_entries: parentRound.max_entries,
+            has_reset: false,
+            reset_judge_name: '',
+            reset_judge_email: '',
+            notes: '',
+            is_reset: true,
+          };
+          // Insert immediately after the parent round
+          classRounds.splice(roundIndex + 1, 0, resetRound);
+        }
+      } else {
+        // Unmark parent
+        classRounds[roundIndex] = { ...parentRound, has_reset: false, reset_judge_name: '', reset_judge_email: '' };
+        // Remove the associated reset round
+        const resetIdx = classRounds.findIndex(r => r.round_number === resetRoundNumber && r.is_reset);
+        if (resetIdx !== -1) classRounds.splice(resetIdx, 1);
+      }
+
+      return { ...prev, [classId]: classRounds };
+    });
+    return;
+  }
+
+  // All other fields: update normally
+  setRounds(prev => ({
+    ...prev,
+    [classId]: prev[classId]?.map((round, idx) =>
+      idx === roundIndex ? { ...round, [field]: value } : round
+    ) || []
+  }));
+};
 
   const addRound = (classId: string) => {
-    const classRounds = rounds[classId] || [];
-    const newRound: RoundData = {
-      round_number: classRounds.length + 1,
+  const classRounds = rounds[classId] || [];
+  const newRound: RoundData = {
+    round_number: classRounds.filter(r => !r.is_reset).length + 1,
       judge_name: '',
       judge_email: '',
       start_time: '',
@@ -353,12 +429,46 @@ setTrialClasses(sortedClasses);
   };
 
   const removeRound = (classId: string, roundIndex: number) => {
-    setRounds(prev => ({
-      ...prev,
-      [classId]: prev[classId]?.filter((_, idx) => idx !== roundIndex)
-        .map((round, idx) => ({ ...round, round_number: idx + 1 })) || []
-    }));
-  };
+  setRounds(prev => {
+    const classRounds = prev[classId] || [];
+    const roundToRemove = classRounds[roundIndex];
+    const resetRoundNumber = roundToRemove.round_number + 0.5;
+
+    // Remove the parent and its reset round (if any)
+    const filtered = classRounds.filter((round, idx) => {
+      if (idx === roundIndex) return false;
+      if (round.round_number === resetRoundNumber && round.is_reset) return false;
+      return true;
+    });
+
+    // Renumber: give main rounds 1, 2, 3... and keep track of old→new mapping
+    const oldToNew: Record<number, number> = {};
+    let counter = 0;
+    const renumbered = filtered.map(round => {
+      if (!round.is_reset) {
+        const oldNum = round.round_number;
+        counter++;
+        oldToNew[oldNum] = counter;
+        return { ...round, round_number: counter };
+      }
+      return round; // reset rounds fixed below
+    });
+
+    // Fix reset round numbers to stay attached to their parent's new number
+    const finalRounds = renumbered.map(round => {
+      if (round.is_reset) {
+        const oldParentNum = Math.floor(round.round_number);
+        const newParentNum = oldToNew[oldParentNum];
+        if (newParentNum !== undefined) {
+          return { ...round, round_number: newParentNum + 0.5 };
+        }
+      }
+      return round;
+    });
+
+    return { ...prev, [classId]: finalRounds };
+  });
+};
 
   const validateRounds = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -400,7 +510,7 @@ setTrialClasses(sortedClasses);
           continue;
         }
 
-        const roundsData = completeRounds.map(round => ({
+       const roundsData = completeRounds.map(round => ({
           id: round.id,
           round_number: round.round_number,
           judge_name: round.judge_name,
@@ -413,7 +523,8 @@ setTrialClasses(sortedClasses);
           has_reset: round.has_reset,
           reset_judge_name: round.reset_judge_name || null,
           reset_judge_email: round.reset_judge_email || null,
-          notes: round.notes || null
+          notes: round.notes || null,
+          is_reset: round.is_reset || false,        // ← NEW
         }));
 
         const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
@@ -469,7 +580,8 @@ setTrialClasses(sortedClasses);
           has_reset: round.has_reset,
           reset_judge_name: round.reset_judge_name || null,
           reset_judge_email: round.reset_judge_email || null,
-          notes: round.notes || null
+          notes: round.notes || null,
+          is_reset: round.is_reset || false,        // ← NEW
         }));
 
         const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);

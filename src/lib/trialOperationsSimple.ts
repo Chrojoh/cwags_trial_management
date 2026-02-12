@@ -729,7 +729,8 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
 
       // Prepare new rounds data with validation
       const newRounds = rounds.map((round, index) => {
-        if (!round.judge_name?.trim()) {
+        // Reset rounds (.5) only require a judge if one was assigned
+        if (!round.judge_name?.trim() && !(round as any).is_reset) {
           throw new Error(`Round ${index + 1}: Judge name is required`);
         }
 
@@ -745,7 +746,8 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
           has_reset: round.has_reset || false,
           reset_judge_name: round.has_reset ? (round.reset_judge_name?.trim() || null) : null,
           reset_judge_email: round.has_reset ? (round.reset_judge_email?.trim() || null) : null,
-          notes: round.notes?.trim() || null
+          notes: round.notes?.trim() || null,
+          is_reset: (round as any).is_reset || false,   // ← NEW
         };
       });
 
@@ -773,7 +775,8 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
               has_reset: newRound.has_reset,
               reset_judge_name: newRound.reset_judge_name,
               reset_judge_email: newRound.reset_judge_email,
-              notes: newRound.notes
+              notes: newRound.notes,
+              is_reset: (newRound as any).is_reset || false,   // ← NEW
             })
             .eq('id', existingRound.id)
             .select()
@@ -2465,8 +2468,8 @@ const classesWithEntries = classesWithStats.filter(cls =>
       // Row 1: Trial name
       sheetData[0] = [trial.trial_name];
       
-      // Row 3: Class name  
-      sheetData[2] = ['', '', '', '', '', cls.class_name];
+      // Row 3: Host name in A3, class name in F3
+      sheetData[2] = [trial.club_name, '', '', '', '', cls.class_name];
       
       // Row 4: Headers
       sheetData[3] = ['', '', '', 'C-WAGS Number', 'Dog Name', 'Handler Name', 'Result'];
