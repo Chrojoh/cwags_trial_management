@@ -146,27 +146,6 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
     loadData();
   }, [trialId]);
 
-  // Auto-populate break-even fixed costs when expenses change
-  useEffect(() => {
-    if (expenses.length > 0) {
-      const hallRental = expenses.find(e => e.expense_category === 'Hall Rental')?.amount || 0;
-      const ribbons = expenses.find(e => e.expense_category === 'Ribbons')?.amount || 0;
-      const insurance = expenses.find(e => e.expense_category === 'Insurance')?.amount || 0;
-      
-      const otherExpenses = expenses
-        .filter(e => !['Hall Rental', 'Ribbons', 'Insurance', 'Judge Fees'].includes(e.expense_category))
-        .reduce((sum, e) => sum + (e.amount || 0), 0);
-
-      setBreakEvenData(prev => ({
-        ...prev,
-        hall_rental: hallRental,
-        ribbons: ribbons,
-        insurance: insurance,
-        other_fixed_costs: otherExpenses
-      }));
-    }
-  }, [expenses]);
-
   const loadData = async () => {
     try {
       setLoading(true);
@@ -716,11 +695,7 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
 
   const exportBreakEvenAnalysis = () => {
     // Calculate totals
-    const totalFixedCosts = 
-      breakEvenData.hall_rental + 
-      breakEvenData.ribbons + 
-      breakEvenData.insurance + 
-      breakEvenData.other_fixed_costs;
+    const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
     const regularNetPerRun = 
       breakEvenData.regular_entry_fee - 
@@ -750,14 +725,13 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
            Generated: ${new Date().toLocaleString()}
 ═══════════════════════════════════════════════════════════
 
-FIXED COSTS
+EXPENSES
 ───────────────────────────────────────────────────────────
-Hall Rental:          $${breakEvenData.hall_rental.toFixed(2)}
-Ribbons:              $${breakEvenData.ribbons.toFixed(2)}
-Insurance:            $${breakEvenData.insurance.toFixed(2)}
-Other Fixed Costs:    $${breakEvenData.other_fixed_costs.toFixed(2)}
+${expenses.map(e => 
+  `${(e.expense_category + (e.description ? ` (${e.description})` : '')).padEnd(22)}$${(e.amount || 0).toFixed(2)}`
+).join('\n')}
 ───────────────────────────────────────────────────────────
-TOTAL FIXED COSTS:    $${totalFixedCosts.toFixed(2)}
+TOTAL EXPENSES:       $${totalFixedCosts.toFixed(2)}
 
 ENTRY FEE STRUCTURE
 ───────────────────────────────────────────────────────────
@@ -1277,53 +1251,34 @@ const totals = {
               </div>
             </div>
 
-            {/* Break-Even Configuration */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Fixed Costs</CardTitle>
-                <CardDescription>These are auto-populated from your expenses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Hall Rental</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={breakEvenData.hall_rental}
-                      onChange={(e) => setBreakEvenData({...breakEvenData, hall_rental: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label>Ribbons</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={breakEvenData.ribbons}
-                      onChange={(e) => setBreakEvenData({...breakEvenData, ribbons: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label>Insurance</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={breakEvenData.insurance}
-                      onChange={(e) => setBreakEvenData({...breakEvenData, insurance: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                  <div>
-                    <Label>Other Fixed Costs</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={breakEvenData.other_fixed_costs}
-                      onChange={(e) => setBreakEvenData({...breakEvenData, other_fixed_costs: parseFloat(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Total Expenses */}
+<Card>
+  <CardHeader>
+    <CardTitle>Total Expenses</CardTitle>
+    <CardDescription>Sum of all expenses from the Expenses & Payments tab</CardDescription>
+  </CardHeader>
+  <CardContent>
+    {expenses.length === 0 ? (
+      <p className="text-sm text-gray-500 italic">No expenses added yet. Add expenses in the Expenses & Payments tab.</p>
+    ) : (
+      <div className="space-y-2">
+        {expenses.map((expense, index) => (
+          <div key={index} className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              {expense.expense_category}
+              {expense.description ? ` – ${expense.description}` : ''}
+            </span>
+            <span className="font-semibold">${(expense.amount || 0).toFixed(2)}</span>
+          </div>
+        ))}
+        <div className="flex justify-between pt-2 border-t font-semibold text-red-700">
+          <span>Total Expenses</span>
+          <span>${expenses.reduce((sum, e) => sum + (e.amount || 0), 0).toFixed(2)}</span>
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
 
             <Card>
               <CardHeader>

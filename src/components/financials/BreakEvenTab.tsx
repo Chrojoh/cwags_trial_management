@@ -24,38 +24,28 @@ interface BreakEvenTabProps {
 
 export default function BreakEvenTab({ expenses, competitors, trialId, onSave }: BreakEvenTabProps) {
   const [saving, setSaving] = useState(false);
-  const [data, setData] = useState<BreakEvenConfig>({
-    trial_id: trialId,
-    hall_rental: 0,
-    ribbons: 0,
-    insurance: 0,
-    other_fixed_costs: 0,
-    regular_entry_fee: 25.00,
-    regular_cwags_fee: 3.00,
-    regular_judge_fee: 2.00,
-    feo_entry_fee: 12.50,
-    feo_judge_fee: 2.00
-  });
+ const [data, setData] = useState<BreakEvenConfig>({
+  trial_id: trialId,
+  hall_rental: 0,
+  ribbons: 0,
+  insurance: 0,
+  other_fixed_costs: 0,
+  regular_entry_fee: 25.00,
+  regular_cwags_fee: 3.00,
+  regular_judge_fee: 2.00,
+  feo_entry_fee: 12.50,
+  feo_judge_fee: 2.00,
+  waived_entry_fee: 0,
+  waived_cwags_fee: 0,
+  waived_judge_fee: 0,
+  waived_feo_entry_fee: 0,
+  waived_feo_judge_fee: 0,
+  judge_volunteer_rate: 0,
+  feo_volunteer_rate: 0
+});
 
-  useEffect(() => {
-    // Auto-populate from expenses
-    const hallRental = expenses.find(e => e.expense_category === 'Hall Rental')?.amount || 0;
-    const ribbons = expenses.find(e => e.expense_category === 'Ribbons')?.amount || 0;
-    const insurance = expenses.find(e => e.expense_category === 'Insurance')?.amount || 0;
-    
-    // Sum up other expenses as "other fixed costs"
-    const otherExpenses = expenses
-      .filter(e => !['Hall Rental', 'Ribbons', 'Insurance', 'Judge Fees'].includes(e.expense_category))
-      .reduce((sum, e) => sum + (e.amount || 0), 0);
-
-    setData(prev => ({
-      ...prev,
-      hall_rental: hallRental,
-      ribbons: ribbons,
-      insurance: insurance,
-      other_fixed_costs: otherExpenses
-    }));
-  }, [expenses]);
+  // Total fixed costs is now just the sum of all Trial Expenses
+const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const updateField = (field: keyof BreakEvenConfig, value: string) => {
     const numValue = parseFloat(value) || 0;
@@ -79,8 +69,7 @@ export default function BreakEvenTab({ expenses, competitors, trialId, onSave }:
   const feoRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.feo_runs || 0), 0);
 
   // Calculate totals
-  const totalFixedCosts = data.hall_rental + data.ribbons + data.insurance + data.other_fixed_costs;
-  
+   
   const regularNetPerRun = data.regular_entry_fee - data.regular_cwags_fee - data.regular_judge_fee;
   const feoNetPerRun = data.feo_entry_fee - data.feo_judge_fee;
   
@@ -144,91 +133,37 @@ export default function BreakEvenTab({ expenses, competitors, trialId, onSave }:
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Fixed Costs Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2 text-red-600" />
-              Fixed Costs
-            </CardTitle>
-            <CardDescription>One-time expenses (auto-filled from expenses)</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hall Rental
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.hall_rental}
-                  onChange={(e) => updateField('hall_rental', e.target.value)}
-                  className="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ribbons
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.ribbons}
-                  onChange={(e) => updateField('ribbons', e.target.value)}
-                  className="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Insurance
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.insurance}
-                  onChange={(e) => updateField('insurance', e.target.value)}
-                  className="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Other Fixed Costs
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.other_fixed_costs}
-                  onChange={(e) => updateField('other_fixed_costs', e.target.value)}
-                  className="pl-7 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Cleaning, Food, Theme Materials, etc.</p>
-            </div>
-
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="font-semibold text-gray-900">Total Fixed Costs:</span>
-                <span className="text-xl font-bold text-red-600">
-                  ${totalFixedCosts.toFixed(2)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+       {/* Total Expenses Section */}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center">
+      <DollarSign className="h-5 w-5 mr-2 text-red-600" />
+      Total Expenses
+    </CardTitle>
+    <CardDescription>Sum of all expenses entered in Trial Expenses</CardDescription>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    {expenses.length === 0 ? (
+      <p className="text-sm text-gray-500 italic">No expenses added yet. Add expenses in the Expenses & Payments tab.</p>
+    ) : (
+      <>
+        {expenses.map((expense, index) => (
+          <div key={index} className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              {expense.expense_category}
+              {expense.description ? ` – ${expense.description}` : ''}
+            </span>
+            <span className="font-semibold">${(expense.amount || 0).toFixed(2)}</span>
+          </div>
+        ))}
+        <div className="flex justify-between pt-2 border-t font-semibold text-red-700">
+          <span>Total Expenses</span>
+          <span>${totalFixedCosts.toFixed(2)}</span>
+        </div>
+      </>
+    )}
+  </CardContent>
+</Card>
 
         {/* Per-Run Rates Section */}
         <Card>

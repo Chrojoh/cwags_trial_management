@@ -294,7 +294,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             </Button>
 
             <Button 
-              onClick={() => router.push('/dashboard/assignments')}
+              onClick={() => router.push('/dashboard/admin/trial-assignments')}
               variant="outline"
               className="w-full"
             >
