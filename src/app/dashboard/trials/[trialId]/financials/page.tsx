@@ -1508,11 +1508,7 @@ const totals = {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  const totalFixedCosts = 
-                    breakEvenData.hall_rental + 
-                    breakEvenData.ribbons + 
-                    breakEvenData.insurance + 
-                    breakEvenData.other_fixed_costs;
+                  const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
                   const regularNetPerRun = 
                     breakEvenData.regular_entry_fee - 
