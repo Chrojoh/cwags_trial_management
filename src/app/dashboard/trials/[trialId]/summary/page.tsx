@@ -712,7 +712,7 @@ summarySheetData.push([
       
       sheetData[0] = [summaryData.trial.trial_name];
       sheetData[1] = [summaryData.trial.club_name];
-      sheetData[2] = ['', '', '', '', '', classData.className];
+      sheetData[2] = ['', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
       
       const row4Headers = ['', '', ''];
       classData.allRounds.forEach(round => {

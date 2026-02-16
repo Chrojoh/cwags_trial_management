@@ -1231,10 +1231,10 @@ const totals = {
                                 )}
                               </td>
                               <td className="p-2 text-center" rowSpan={hasPayments ? payments.length + 2 : 2}>
-                                {comp.regular_runs || comp.waived_regular_runs || 0}
+                                {(comp.regular_runs || 0) + (comp.waived_regular_runs || 0)}
                               </td>
                               <td className="p-2 text-center" rowSpan={hasPayments ? payments.length + 2 : 2}>
-  {comp.feo_runs || comp.waived_feo_runs || 0}
+  {(comp.feo_runs || 0) + (comp.waived_feo_runs || 0)}
 </td>
 <td className="p-2 text-center" rowSpan={hasPayments ? payments.length + 2 : 2}>
   <input

@@ -2472,7 +2472,15 @@ const classesWithEntries = classesWithStats.filter(cls =>
       sheetData[1] = [trial.club_name];
       
       // Row 3: class name in F3
-      sheetData[2] = ['', '', '', '', '', cls.class_name];
+      // Row 3: Class name (abbreviated for Excel)
+const abbreviateClass = (name: string): string => {
+  const map: Record<string, string> = {
+    'Private Investigator': 'Private Inv',
+    'Detective Diversions': 'Det Diversions'
+  };
+  return map[name] || name;
+};
+sheetData[2] = ['', '', '', '', '', abbreviateClass(cls.class_name)];
       
       // Row 4: Headers
       sheetData[3] = ['', '', '', 'C-WAGS Number', 'Dog Name', 'Handler Name', 'Result'];
