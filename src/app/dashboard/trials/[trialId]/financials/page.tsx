@@ -80,6 +80,11 @@ export default function TrialFinancialsPage() {
 
   const [trial, setTrial] = useState<any>(null);
   const [expenses, setExpenses] = useState<TrialExpense[]>([]);
+  // Judge data for expense rows
+const [trialJudges, setTrialJudges] = useState<{
+  name: string;
+  runsJudged: number;
+}[]>([]);
   const [competitors, setCompetitors] = useState<CompetitorFinancial[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -164,6 +169,33 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
 
       setTrial(trialResult.data);
       setExpenses(expensesResult.data);
+      // Load judges and their run counts from this trial
+const { data: rounds } = await supabase
+  .from('trial_rounds')
+  .select(`
+    judge_name,
+    entry_selections!inner(entry_type, entry_status),
+    trial_classes!inner(trial_days!inner(trial_id))
+  `)
+  .eq('trial_classes.trial_days.trial_id', trialId);
+
+if (rounds) {
+  const judgeRunMap = new Map<string, number>();
+  rounds.forEach((round: any) => {
+    const name = round.judge_name;
+    if (!name || name.trim() === '') return;
+    const validRuns = (round.entry_selections || []).filter((s: any) =>
+      s.entry_type?.toLowerCase() !== 'feo' &&
+      s.entry_status?.toLowerCase() !== 'withdrawn'
+    ).length;
+    judgeRunMap.set(name, (judgeRunMap.get(name) || 0) + validRuns);
+  });
+  setTrialJudges(
+    Array.from(judgeRunMap.entries())
+      .map(([name, runsJudged]) => ({ name, runsJudged }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  );
+}
       setCompetitors(competitorsResult.data || []);
       
       // Load J/V status for each competitor
@@ -694,6 +726,7 @@ const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
   };
 
   const exportBreakEvenAnalysis = () => {
+    
     // Calculate totals
     const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
@@ -782,10 +815,23 @@ End of Report
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
-
+// Auto-calculate C-WAGS fee across ALL regular runs (paid + waived)
+const allRegularRuns = competitors.reduce((sum, c) => 
+  sum + (c.regular_runs || 0) + (c.waived_regular_runs || 0), 0);
+const cwagsFeeTotal = allRegularRuns * (breakEvenData.regular_cwags_fee || 0);
  // Calculate totals //
 const totals = {
-  totalExpenses: expenses.reduce((sum, e) => sum + (e.amount || 0), 0),
+  totalExpenses: expenses.reduce((sum, e) => {
+  if (e.expense_category === 'Judge Fees' && e.paid_to === 'per_run') {
+    const judge = trialJudges.find(j => j.name === e.description);
+    const runs = judge?.runsJudged || 0;
+    return sum + ((e.amount || 0) * runs);
+  }
+  if (e.expense_category === 'Judge Fees' && e.paid_to === 'waived') {
+    return sum; // $0 contribution
+  }
+  return sum + (e.amount || 0);
+}, 0) + cwagsFeeTotal,
   totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
   totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
   totalOutstanding: competitors.reduce((sum, c) => {
@@ -926,7 +972,44 @@ const totals = {
                 </CardContent>
               </Card>
             </div>
-
+                      {/* Volunteer Rate Config */}
+<Card className="border-blue-200">
+  <CardContent className="pt-4 pb-4">
+    <div className="flex items-center gap-6">
+      <div className="flex-1">
+        <div className="text-sm font-semibold text-gray-700">Volunteer / Reduced Entry Rate</div>
+        <div className="text-xs text-gray-500 mt-0.5">
+          Reduced fee applied when you click "Volunteer" on a competitor's payment row.
+          Set to $0 to disable.
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600">Rate per run: $</span>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          className="w-24"
+          value={breakEvenData.judge_volunteer_rate || ''}
+          placeholder="0.00"
+          onChange={(e) => setBreakEvenData({
+            ...breakEvenData,
+            judge_volunteer_rate: parseFloat(e.target.value) || 0
+          })}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleSaveBreakEven}
+          disabled={saving}
+        >
+          <Save className="h-3 w-3 mr-1" />
+          Save
+        </Button>
+      </div>
+    </div>
+  </CardContent>
+</Card>
             {/* Trial Expenses */}
             <Card>
               <CardHeader>
@@ -967,55 +1050,137 @@ const totals = {
                 <div className="space-y-2">
                   {expenses.map((expense, index) => (
                     <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                      <div className="col-span-3">
-                        <Select
-                          value={expense.expense_category}
-                          onValueChange={(value) => updateExpense(index, 'expense_category', value)}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                              {EXPENSE_CATEGORIES.map(cat => (
-                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="col-span-3">
-                        <Input
-                          placeholder="Description"
-                          value={expense.description || ''}
-                          onChange={(e) => updateExpense(index, 'description', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Amount"
-                          value={expense.amount || ''}
-                          onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)}
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <Input
-                          placeholder="Paid To"
-                          value={expense.paid_to || ''}
-                          onChange={(e) => updateExpense(index, 'paid_to', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteExpense(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </div>
+  {/* Category dropdown */}
+  <div className="col-span-3">
+    <Select
+      value={expense.expense_category}
+      onValueChange={(value) => updateExpense(index, 'expense_category', value)}
+    >
+      <SelectTrigger className="bg-white">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent className="bg-white">
+        {EXPENSE_CATEGORIES.map(cat => (
+          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  </div>
+
+  {/* Description — judge dropdown if Judge Fees, text input otherwise */}
+  <div className="col-span-3">
+    {expense.expense_category === 'Judge Fees' ? (
+      <Select
+        value={expense.description || ''}
+        onValueChange={(value) => updateExpense(index, 'description', value)}
+      >
+        <SelectTrigger className="bg-white">
+          <SelectValue placeholder="Select judge..." />
+        </SelectTrigger>
+        <SelectContent className="bg-white">
+          {trialJudges.map(j => (
+            <SelectItem key={j.name} value={j.name}>
+              {j.name} ({j.runsJudged} runs)
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ) : (
+      <Input
+        placeholder="Description"
+        value={expense.description || ''}
+        onChange={(e) => updateExpense(index, 'description', e.target.value)}
+      />
+    )}
+  </div>
+
+  {/* Amount — rate input with total shown if per run, locked if waived */}
+  <div className="col-span-2">
+    {expense.expense_category === 'Judge Fees' && expense.paid_to === 'waived' ? (
+      <div className="px-3 py-2 bg-gray-100 rounded text-sm text-gray-500">
+        $0.00
+      </div>
+    ) : (
+      <div>
+        <Input
+          type="number"
+          step="0.01"
+          placeholder={expense.expense_category === 'Judge Fees' && expense.paid_to === 'per_run' ? '$/run' : 'Amount'}
+          value={expense.amount || ''}
+          onChange={(e) => updateExpense(index, 'amount', parseFloat(e.target.value) || 0)}
+        />
+        {expense.expense_category === 'Judge Fees' && expense.paid_to === 'per_run' && expense.description && (
+          <div className="text-xs text-blue-600 mt-0.5">
+            = ${((expense.amount || 0) * (trialJudges.find(j => j.name === expense.description)?.runsJudged || 0)).toFixed(2)} total
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* Paid To — payment type dropdown if Judge Fees, text input otherwise */}
+  <div className="col-span-3">
+    {expense.expense_category === 'Judge Fees' ? (
+      <Select
+        value={expense.paid_to || 'flat'}
+        onValueChange={(value) => {
+          updateExpense(index, 'paid_to', value);
+          if (value === 'waived') updateExpense(index, 'amount', 0);
+        }}
+      >
+        <SelectTrigger className="bg-white">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white">
+          <SelectItem value="flat">Flat Fee</SelectItem>
+          <SelectItem value="per_run">Per Run</SelectItem>
+          <SelectItem value="waived">Waived (free entry)</SelectItem>
+        </SelectContent>
+      </Select>
+    ) : (
+      <Input
+        placeholder="Paid To"
+        value={expense.paid_to || ''}
+        onChange={(e) => updateExpense(index, 'paid_to', e.target.value)}
+      />
+    )}
+  </div>
+
+  {/* Delete */}
+  <div className="col-span-1">
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => deleteExpense(index)}
+    >
+      <Trash2 className="h-4 w-4 text-red-600" />
+    </Button>
+  </div>
+</div>
                   ))}
+                  {/* Auto-calculated C-WAGS line */}
+          {allRegularRuns > 0 && (
+            <div className="flex items-center gap-2 px-2 py-2 bg-blue-50 border border-blue-200 rounded mt-1">
+              <div className="w-36">
+                <span className="text-xs font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
+                  C-WAGS (auto)
+                </span>
+              </div>
+              <div className="flex-1 text-sm text-blue-800">
+                {breakEvenData.regular_cwags_fee > 0 ? (
+                  <>C-WAGS Fees — {allRegularRuns} runs × ${breakEvenData.regular_cwags_fee.toFixed(2)}</>
+                ) : (
+                  <span className="italic text-blue-500">
+                    Set C-WAGS fee per run in Break-Even tab to calculate
+                  </span>
+                )}
+              </div>
+              <div className="text-sm font-semibold text-blue-800 min-w-[80px] text-right">
+                ${cwagsFeeTotal.toFixed(2)}
+              </div>
+            </div>
+          )}
+
                 </div>
               </CardContent>
             </Card>
@@ -1223,466 +1388,291 @@ const totals = {
             </Card>
           </>
         ) : (
-          /* BREAK-EVEN TAB */
-          <div className="space-y-6">
-            {/* Header with Export Button */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Break-Even Analysis</h2>
-                <p className="text-gray-600 mt-1">Calculate how many entries needed to cover costs</p>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={exportBreakEvenAnalysis}
-                  className="border-orange-600 text-orange-600 hover:bg-orange-50"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Analysis
-                </Button>
-                <Button
-                  onClick={handleSaveBreakEven}
-                  disabled={saving}
-                  className="bg-orange-600 hover:bg-orange-700"
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  {saving ? 'Saving...' : 'Save Configuration'}
-                </Button>
-              </div>
-            </div>
+  /* BREAK-EVEN TAB */
+  <div className="space-y-6">
+       {/* Header */}
+<div className="flex items-center justify-between">
+  <div>
+    <h2 className="text-2xl font-bold text-gray-900">Break-Even Analysis</h2>
+    <p className="text-gray-600 mt-1">Estimate how many runs you need to cover your costs</p>
+  </div>
+  <div className="flex space-x-2">
+    <Button
+      variant="outline"
+      onClick={exportBreakEvenAnalysis}
+      className="border-orange-600 text-orange-600 hover:bg-orange-50"
+    >
+      <Download className="h-4 w-4 mr-2" />
+      Export Analysis
+    </Button>
+    <Button
+      onClick={handleSaveBreakEven}
+      disabled={saving}
+      className="bg-orange-600 hover:bg-orange-700"
+    >
+      <Save className="h-4 w-4 mr-2" />
+      {saving ? 'Saving...' : 'Save Configuration'}
+    </Button>
+  </div>
+</div>
 
-            {/* Total Expenses */}
+{/* Section 1 — Fixed Costs (read-only from Tab 1) */}
 <Card>
   <CardHeader>
-    <CardTitle>Total Expenses</CardTitle>
-    <CardDescription>Sum of all expenses from the Expenses & Payments tab</CardDescription>
+    <CardTitle>Fixed Costs</CardTitle>
+    <CardDescription>
+      Auto-pulled from your Trial Expenses — these are your known costs before entries are counted.
+      C-WAGS fees are excluded here because they are calculated per run below.
+    </CardDescription>
   </CardHeader>
   <CardContent>
     {expenses.length === 0 ? (
-      <p className="text-sm text-gray-500 italic">No expenses added yet. Add expenses in the Expenses & Payments tab.</p>
+      <p className="text-sm text-gray-500 italic">
+        No expenses added yet. Add expenses in the Expenses & Payments tab.
+      </p>
     ) : (
       <div className="space-y-2">
         {expenses.map((expense, index) => (
           <div key={index} className="flex justify-between text-sm">
             <span className="text-gray-600">
               {expense.expense_category}
-              {expense.description ? ` – ${expense.description}` : ''}
+              {expense.description ? ` — ${expense.description}` : ''}
             </span>
-            <span className="font-semibold">${(expense.amount || 0).toFixed(2)}</span>
+            <span className="font-semibold">
+              ${(expense.expense_category === 'Judge Fees' && expense.paid_to === 'per_run'
+                ? (expense.amount || 0) * (trialJudges.find(j => j.name === expense.description)?.runsJudged || 0)
+                : expense.paid_to === 'waived'
+                ? 0
+                : (expense.amount || 0)
+              ).toFixed(2)}
+            </span>
           </div>
         ))}
         <div className="flex justify-between pt-2 border-t font-semibold text-red-700">
-          <span>Total Expenses</span>
-          <span>${expenses.reduce((sum, e) => sum + (e.amount || 0), 0).toFixed(2)}</span>
+          <span>Total Fixed Costs</span>
+          <span>${expenses.reduce((sum, e) => {
+            if (e.expense_category === 'Judge Fees' && e.paid_to === 'per_run') {
+              return sum + ((e.amount || 0) * (trialJudges.find(j => j.name === e.description)?.runsJudged || 0));
+            }
+            if (e.paid_to === 'waived') return sum;
+            return sum + (e.amount || 0);
+          }, 0).toFixed(2)}</span>
         </div>
       </div>
     )}
   </CardContent>
 </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Entry Fee Structure</CardTitle>
-                <CardDescription>Configure your entry fees and costs per run</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label>Regular Entry Fee</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.regular_entry_fee}
-                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_entry_fee: parseFloat(e.target.value) || 0})}
-                      />
-                    </div>
-                    <div>
-                      <Label>C-WAGS Fee (per run)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.regular_cwags_fee}
-                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_cwags_fee: parseFloat(e.target.value) || 0})}
-                      />
-                    </div>
-                    <div>
-                      <Label>Judge Fee (per run)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.regular_judge_fee}
-                        onChange={(e) => setBreakEvenData({...breakEvenData, regular_judge_fee: parseFloat(e.target.value) || 0})}
-                      />
-                    </div>
-                  </div>
+{/* Section 2 — Entry Fee Configuration */}
+<Card>
+  <CardHeader>
+    <CardTitle>Entry Fee Configuration</CardTitle>
+    <CardDescription>
+      Set your entry fee and C-WAGS fee per run. 
+      <span className="text-blue-600 font-medium"> The C-WAGS fee you enter here also drives 
+      the auto-calculated C-WAGS expense line on the Expenses & Payments tab.</span>
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <Label>Regular Entry Fee (per run)</Label>
+        <p className="text-xs text-gray-500 mb-1">
+          What you charge competitors per run
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            value={breakEvenData.regular_entry_fee}
+            onChange={(e) => setBreakEvenData({...breakEvenData, regular_entry_fee: parseFloat(e.target.value) || 0})}
+            className="pl-7"
+          />
+        </div>
+      </div>
+      <div>
+        <Label>C-WAGS Fee (per run)</Label>
+        <p className="text-xs text-gray-500 mb-1">
+          What C-WAGS charges per regular run — also used on Expenses & Payments tab
+        </p>
+        <div className="relative">
+          <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+          <Input
+            type="number"
+            step="0.01"
+            value={breakEvenData.regular_cwags_fee}
+            onChange={(e) => setBreakEvenData({...breakEvenData, regular_cwags_fee: parseFloat(e.target.value) || 0})}
+            className="pl-7"
+          />
+        </div>
+      </div>
+    </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>FEO Entry Fee</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.feo_entry_fee}
-                        onChange={(e) => setBreakEvenData({...breakEvenData, feo_entry_fee: parseFloat(e.target.value) || 0})}
-                      />
-                    </div>
-                    <div>
-                      <Label>FEO Judge Fee (per run)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={breakEvenData.feo_judge_fee}
-                        onChange={(e) => setBreakEvenData({...breakEvenData, feo_judge_fee: parseFloat(e.target.value) || 0})}
-                      />
-                    </div>
-                 </div>
-                </div>
-              </CardContent>
-            </Card>
+    {/* Net per run preview */}
+    {breakEvenData.regular_entry_fee > 0 && (
+      <div className="mt-4 p-3 bg-gray-50 rounded border text-sm">
+        <span className="text-gray-600">Net per paid run: </span>
+        <span className="font-semibold">
+          ${breakEvenData.regular_entry_fee.toFixed(2)} entry − ${breakEvenData.regular_cwags_fee.toFixed(2)} C-WAGS = 
+        </span>
+        <span className="font-bold text-green-700 ml-1">
+          ${(breakEvenData.regular_entry_fee - breakEvenData.regular_cwags_fee).toFixed(2)}
+        </span>
+      </div>
+    )}
+  </CardContent>
+</Card>
 
-            {/* WAIVED FEE STRUCTURE - NEW SECTION */}
-            <Card className="border-purple-300">
-              <CardHeader>
-                <CardTitle>Waived Fee Structure</CardTitle>
-                <CardDescription>
-                  Configure fees that can be waived. When fees are waived, competitors pay $0, 
-                  but these are still organizational expenses unless also waived by the provider.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {/* Regular Run Waived Fees */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 border-b pb-2">Regular Run Waived Fees</h3>
-                    <div className="grid grid-cols-3 gap-4">
-                      <div>
-                        <Label>Waived Entry Fee</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.waived_entry_fee}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_entry_fee: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Typical entry fee amount</p>
-                      </div>
-                      <div>
-                        <Label>Waived C-WAGS Fee</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.waived_cwags_fee}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_cwags_fee: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Org still pays this expense</p>
-                      </div>
-                      <div>
-                        <Label>Waived Judge Fee</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.waived_judge_fee}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_judge_fee: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">If judge also waives their fee</p>
-                      </div>
-                    </div>
+{/* Section 3 — Estimated Waived Runs */}
+<Card>
+  <CardHeader>
+    <CardTitle>Estimated Waived Runs</CardTitle>
+    <CardDescription>
+      Enter how many runs you expect to waive (judges, volunteers, etc.). 
+      These runs cost you C-WAGS fees but bring in no entry fee revenue, 
+      so they increase how many paid runs you need to break even.
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="grid grid-cols-2 gap-6">
+      <div>
+        <Label>Estimated Waived Regular Runs</Label>
+        <p className="text-xs text-gray-500 mb-1">
+          Each waived run costs ${breakEvenData.regular_cwags_fee.toFixed(2)} in C-WAGS fees with no revenue
+        </p>
+        <Input
+          type="number"
+          step="1"
+          min="0"
+          value={breakEvenData.waived_entry_fee || 0}
+          onChange={(e) => setBreakEvenData({...breakEvenData, waived_entry_fee: parseFloat(e.target.value) || 0})}
+          placeholder="e.g. 10"
+        />
+        {(breakEvenData.waived_entry_fee || 0) > 0 && (
+          <p className="text-xs text-red-600 mt-1">
+            = ${((breakEvenData.waived_entry_fee || 0) * breakEvenData.regular_cwags_fee).toFixed(2)} C-WAGS burden with no revenue
+          </p>
+        )}
+      </div>
+    </div>
+  </CardContent>
+</Card>
 
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-sm mb-2">Regular Run Expense Impact When Waiving:</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Competitor pays:</span>
-                          <span className="font-mono">$0.00</span>
-                        </div>
-                        <div className="flex justify-between text-red-600">
-                          <span>Organization expense:</span>
-                          <span className="font-mono">
-                            ${(breakEvenData.waived_cwags_fee + breakEvenData.waived_judge_fee).toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between font-semibold border-t pt-1">
-                          <span>Net per waived entry:</span>
-                          <span className="font-mono text-red-600">
-                            -${(breakEvenData.waived_cwags_fee + breakEvenData.waived_judge_fee).toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+{/* Section 4 — Break-Even Results */}
+<Card className="border-orange-300">
+  <CardHeader>
+    <CardTitle className="flex items-center">
+      <Calculator className="h-5 w-5 mr-2 text-orange-600" />
+      Break-Even Calculation
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    {(() => {
+      const fixedCosts = expenses.reduce((sum, e) => {
+        if (e.expense_category === 'Judge Fees' && e.paid_to === 'per_run') {
+          return sum + ((e.amount || 0) * (trialJudges.find(j => j.name === e.description)?.runsJudged || 0));
+        }
+        if (e.paid_to === 'waived') return sum;
+        return sum + (e.amount || 0);
+      }, 0);
 
-                  {/* FEO Run Waived Fees */}
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-gray-900 border-b pb-2">FEO Run Waived Fees</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Waived FEO Entry Fee</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.waived_feo_entry_fee}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_feo_entry_fee: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Typical FEO entry fee amount</p>
-                      </div>
-                      <div>
-                        <Label>Waived FEO Judge Fee</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.waived_feo_judge_fee}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, waived_feo_judge_fee: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">If judge also waives their FEO fee</p>
-                      </div>
-                    </div>
+      const estimatedWaived = breakEvenData.waived_entry_fee || 0;
+      const waivedBurden = estimatedWaived * breakEvenData.regular_cwags_fee;
+      const totalTocover = fixedCosts + waivedBurden;
+      const netPerRun = breakEvenData.regular_entry_fee - breakEvenData.regular_cwags_fee;
+      const breakEvenRuns = netPerRun > 0 ? Math.ceil(totalTocover / netPerRun) : 0;
 
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-sm mb-2">FEO Run Expense Impact When Waiving:</h4>
-                      <div className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span>Competitor pays:</span>
-                          <span className="font-mono">$0.00</span>
-                        </div>
-                        <div className="flex justify-between text-gray-600">
-                          <span>C-WAGS Fee (FEO exempt):</span>
-                          <span className="font-mono">$0.00</span>
-                        </div>
-                        <div className="flex justify-between text-red-600">
-                          <span>Organization expense (Judge Fee):</span>
-                          <span className="font-mono">
-                            ${breakEvenData.waived_feo_judge_fee.toFixed(2)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between font-semibold border-t pt-1">
-                          <span>Net per waived FEO entry:</span>
-                          <span className="font-mono text-red-600">
-                            -${breakEvenData.waived_feo_judge_fee.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+      const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
+      const currentRevenue = totalPaidRuns * netPerRun;
+      const currentNetIncome = currentRevenue - totalTocover;
+      const isProfitable = currentNetIncome >= 0;
 
-                  {/* Volunteer Rates */}
-                  <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold text-gray-900 border-b pb-2">Reduced Volunteer/Judge Rates</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Regular Run Volunteer Rate</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.judge_volunteer_rate}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, judge_volunteer_rate: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Reduced regular entry fee for judges/volunteers (e.g., $10 or $15)
-                        </p>
-                      </div>
-                      <div>
-                        <Label>FEO Run Volunteer Rate</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={breakEvenData.feo_volunteer_rate}
-                          onChange={(e) => setBreakEvenData({...breakEvenData, feo_volunteer_rate: parseFloat(e.target.value) || 0})}
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Reduced FEO entry fee for judges/volunteers (e.g., $5 or $7)
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      return (
+        <div className="space-y-4">
 
-            {/* Break-Even Results */}
-            <Card className="border-orange-300">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calculator className="h-5 w-5 mr-2 text-orange-600" />
-                  Break-Even Analysis Results
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+          {/* The math shown clearly */}
+          <div className="bg-gray-50 rounded p-4 space-y-2 text-sm font-mono">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Fixed Costs (from expenses):</span>
+              <span>${fixedCosts.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">+ Waived Burden ({estimatedWaived} runs × ${breakEvenData.regular_cwags_fee.toFixed(2)}):</span>
+              <span className="text-red-600">+${waivedBurden.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2 font-bold">
+              <span>= Total to Cover:</span>
+              <span>${totalTocover.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">÷ Net per paid run (${breakEvenData.regular_entry_fee.toFixed(2)} − ${breakEvenData.regular_cwags_fee.toFixed(2)}):</span>
+              <span>${netPerRun.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between border-t pt-2 text-lg font-bold text-orange-700">
+              <span>= Break-Even Paid Runs Needed:</span>
+              <span>{breakEvenRuns}</span>
+            </div>
+          </div>
 
-                  const regularNetPerRun = 
-                    breakEvenData.regular_entry_fee - 
-                    breakEvenData.regular_cwags_fee - 
-                    breakEvenData.regular_judge_fee;
+          {/* Current status */}
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-blue-50 p-3 rounded border border-blue-200">
+              <div className="text-xs text-blue-600">Current Paid Runs</div>
+              <div className="text-2xl font-bold text-blue-700">{totalPaidRuns}</div>
+            </div>
+            <div className="bg-orange-50 p-3 rounded border border-orange-200">
+              <div className="text-xs text-orange-600">Break-Even Target</div>
+              <div className="text-2xl font-bold text-orange-700">{breakEvenRuns}</div>
+            </div>
+            <div className={`p-3 rounded border ${isProfitable ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className={`text-xs ${isProfitable ? 'text-green-600' : 'text-red-600'}`}>Net Income</div>
+              <div className={`text-2xl font-bold ${isProfitable ? 'text-green-700' : 'text-red-700'}`}>
+                ${Math.abs(currentNetIncome).toFixed(2)}
+              </div>
+            </div>
+          </div>
 
-                  const feoNetPerRun = 
-                    breakEvenData.feo_entry_fee - 
-                    breakEvenData.feo_judge_fee;
+          {/* Result */}
+          <Alert className={isProfitable ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'}>
+            {isProfitable ? (
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-orange-600" />
+            )}
+            <AlertDescription className={isProfitable ? 'text-green-800' : 'text-orange-800'}>
+              {isProfitable ? (
+                <span className="font-semibold">
+                  ✓ Profitable! You are ${currentNetIncome.toFixed(2)} above break-even with {totalPaidRuns} paid runs.
+                </span>
+              ) : (
+                <span className="font-semibold">
+                  You need {breakEvenRuns - totalPaidRuns} more paid runs to break even.
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
 
-                  const breakEvenRuns = regularNetPerRun > 0 
-                    ? Math.ceil(totalFixedCosts / regularNetPerRun) 
-                    : 0;
-
-                  // Calculate current status with waived runs separated
-                  const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
-                  const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
-                  const totalWaivedRegular = competitors.reduce((sum, c) => sum + (c.waived_regular_runs || 0), 0);
-                  const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
-
-                  // Calculate waived run costs
-                  const waivedRegularCostPerRun = breakEvenData.regular_cwags_fee + breakEvenData.regular_judge_fee;
-                  const waivedFeoCostPerRun = breakEvenData.feo_judge_fee;
-                  const waivedRegularCosts = totalWaivedRegular * waivedRegularCostPerRun;
-                  const waivedFeoCosts = totalWaivedFeo * waivedFeoCostPerRun;
-                  const totalWaivedCosts = waivedRegularCosts + waivedFeoCosts;
-
-                  const currentRevenue = (totalPaidRuns * regularNetPerRun) + (totalFeoRuns * feoNetPerRun);
-                  const totalAllCosts = totalFixedCosts + totalWaivedCosts;
-                  const currentNetIncome = currentRevenue - totalAllCosts;
-                  const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
-
-                  return (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-4 rounded">
-                          <div className="text-sm text-gray-600">Total Fixed Costs</div>
-                          <div className="text-2xl font-bold text-red-600">
-                            ${totalFixedCosts.toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded">
-                          <div className="text-sm text-gray-600">Net Per Regular Run</div>
-                          <div className="text-2xl font-bold text-green-600">
-                            ${regularNetPerRun.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Break-Even Point:</strong> You need <strong>{breakEvenRuns} paid regular runs</strong> to cover 
-                          ${totalFixedCosts.toFixed(2)} in fixed costs at ${regularNetPerRun.toFixed(2)} net profit per run.
-                        </AlertDescription>
-                      </Alert>
-
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="bg-blue-50 p-4 rounded border border-blue-200">
-                          <div className="text-sm text-blue-600">Paid Regular Runs</div>
-                          <div className="text-2xl font-bold text-blue-700">{totalPaidRuns}</div>
-                        </div>
-                        <div className="bg-green-50 p-4 rounded border border-green-200">
-                          <div className="text-sm text-green-600">Paid FEO Runs</div>
-                          <div className="text-2xl font-bold text-green-700">{totalFeoRuns}</div>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                          <div className="text-sm text-purple-600">Waived Regular</div>
-                          <div className="text-2xl font-bold text-purple-700">{totalWaivedRegular}</div>
-                        </div>
-                        <div className="bg-purple-50 p-4 rounded border border-purple-200">
-                          <div className="text-sm text-purple-600">Waived FEO</div>
-                          <div className="text-2xl font-bold text-purple-700">{totalWaivedFeo}</div>
-                        </div>
-                      </div>
-
-                      {/* Waived Runs Expense Display */}
-                      {(totalWaivedRegular > 0 || totalWaivedFeo > 0) && (
-                        <Alert className="bg-purple-50 border-purple-300">
-                          <Ban className="h-4 w-4 text-purple-700" />
-                          <AlertDescription>
-                            <div className="space-y-2">
-                              <div className="font-semibold text-purple-900">Waived Runs Expense (No Revenue):</div>
-                              {totalWaivedRegular > 0 && (
-                                <div className="text-sm text-purple-800">
-                                  • Regular Waived: {totalWaivedRegular} runs × ${waivedRegularCostPerRun.toFixed(2)} = 
-                                  <span className="font-semibold ml-1">-${waivedRegularCosts.toFixed(2)}</span>
-                                </div>
-                              )}
-                              {totalWaivedFeo > 0 && (
-                                <div className="text-sm text-purple-800">
-                                  • FEO Waived: {totalWaivedFeo} runs × ${waivedFeoCostPerRun.toFixed(2)} = 
-                                  <span className="font-semibold ml-1">-${waivedFeoCosts.toFixed(2)}</span>
-                                </div>
-                              )}
-                              <div className="text-sm font-bold text-purple-900 pt-2 border-t border-purple-300">
-                                Total Waived Expense: -${totalWaivedCosts.toFixed(2)}
-                              </div>
-                            </div>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-green-50 p-4 rounded border border-green-200">
-                          <div className="text-sm text-green-600">Revenue (Paid Runs)</div>
-                          <div className="text-2xl font-bold text-green-700">
-                            ${currentRevenue.toFixed(2)}
-                          </div>
-                        </div>
-                        <div className="bg-red-50 p-4 rounded border border-red-200">
-                          <div className="text-sm text-red-600">Total Costs</div>
-                          <div className="text-sm text-red-500 font-medium">
-                            Fixed: ${totalFixedCosts.toFixed(2)}<br/>
-                            Waived: ${totalWaivedCosts.toFixed(2)}
-                          </div>
-                          <div className="text-2xl font-bold text-red-700">
-                            ${totalAllCosts.toFixed(2)}
-                          </div>
-                        </div>
-                        <div className={`p-4 rounded border ${
-                          currentNetIncome >= 0 
-                            ? 'bg-green-50 border-green-200' 
-                            : 'bg-red-50 border-red-200'
-                        }`}>
-                          <div className={`text-sm ${currentNetIncome >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            Net Income
-                          </div>
-                          <div className={`text-2xl font-bold ${currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                            ${currentNetIncome.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {currentNetIncome >= 0 ? (
-                        <Alert className="bg-green-50 border-green-200">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <AlertDescription className="text-green-800">
-                            <strong>✓ Profitable!</strong> You are ${Math.abs(currentNetIncome).toFixed(2)} above break-even.
-                          </AlertDescription>
-                        </Alert>
-                      ) : (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            <strong>⚠ Need more entries:</strong> You need <strong>{paidRunsNeeded} more PAID regular runs</strong> to 
-                            break even. Currently ${Math.abs(currentNetIncome).toFixed(2)} short.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {breakEvenRuns > 0 && (
-                        <div className="bg-gray-50 p-4 rounded">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium">Progress to Break-Even</span>
-                            <span className="text-sm font-bold">
-                              {Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-4">
-                            <div 
-                              className={`h-4 rounded-full transition-all ${
-                                totalPaidRuns >= breakEvenRuns ? 'bg-green-600' : 'bg-orange-600'
-                              }`}
-                              style={{ width: `${Math.min(100, (totalPaidRuns / breakEvenRuns) * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
+          {/* Progress bar */}
+          {breakEvenRuns > 0 && (
+            <div>
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Progress to Break-Even</span>
+                <span>{Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className={`h-3 rounded-full transition-all ${isProfitable ? 'bg-green-500' : 'bg-orange-500'}`}
+                  style={{ width: `${Math.min(100, (totalPaidRuns / breakEvenRuns) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    })()}
+  </CardContent>
+</Card>
           </div>
         )}
 
