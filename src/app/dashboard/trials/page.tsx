@@ -24,6 +24,7 @@ import {
   MoreVertical,
   Eye,
   Edit,
+  Trophy,
   Copy,
   Trash2,
   Users,
@@ -555,8 +556,14 @@ export default function TrialsPage() {
     Entries
   </Button>
   
-  {/* ADD THIS TIME CALCULATOR BUTTON */}
-  <Link href={`/dashboard/trials/${trial.id}/time-calculator`}>
+   <Link href={`/dashboard/trials/${trial.id}/close-to-titles`}>
+    <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+      <Clock className="h-4 w-4 mr-1" />
+      Close to Titles/Aces
+    </Button>
+  </Link>
+   
+   <Link href={`/dashboard/trials/${trial.id}/time-calculator`}>
     <Button variant="outline" size="sm" disabled={deleting === trial.id}>
       <Clock className="h-4 w-4 mr-1" />
       Time Calc

@@ -693,7 +693,7 @@ summarySheetData.push([
       }
     }
 
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
+   // XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
         // Helper to sort registration numbers like 17-1734-01 numerically
     const getRegSortValue = (reg: string | undefined | null): number => {
       if (!reg) return Number.MAX_SAFE_INTEGER; // blanks go to bottom
@@ -702,8 +702,19 @@ summarySheetData.push([
     };
 
 
-    // Create individual class matrix sheets in orangeprint order
+   // Create individual class matrix sheets in orangeprint order
     sortedClasses.forEach((classData) => {
+      // ✅ CHANGE 1: Filter out rounds with no entries
+      const roundsWithEntries = classData.allRounds.filter(round => {
+        const hasEntries = Array.from(round.results.values()).some(result => result !== '-');
+        return hasEntries;
+      });
+      
+      // Skip this class entirely if no rounds have entries
+      if (roundsWithEntries.length === 0) {
+        return;
+      }
+      
       const sheetData = [];
       
       for (let i = 0; i < 6; i++) {
@@ -715,19 +726,19 @@ summarySheetData.push([
       sheetData[2] = ['', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
       
       const row4Headers = ['', '', ''];
-      classData.allRounds.forEach(round => {
+      roundsWithEntries.forEach(round => {
         row4Headers.push(`Round ${round.roundNumber}`);
       });
       sheetData[3] = row4Headers;
       
       const row5Headers = ['', '', ''];
-      classData.allRounds.forEach(round => {
+      roundsWithEntries.forEach(round => {
         row5Headers.push(round.judgeInfo);
       });
       sheetData[4] = row5Headers;
       
       const row6Headers = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
-      classData.allRounds.forEach(round => {
+      roundsWithEntries.forEach(round => {
         const formattedDate = safeDateFromISO(round.trialDate).toLocaleDateString('en-US', {
 
           month: 'short',
@@ -747,7 +758,7 @@ summarySheetData.push([
           participant.handlerName          
         ];
         
-        classData.allRounds.forEach(round => {
+        roundsWithEntries.forEach(round => {
           const result = round.results.get(participant.cwagsNumber) || '-';
           row.push(result);
         });
@@ -770,27 +781,77 @@ summarySheetData.push([
 
       const worksheet = XLSX.utils.aoa_to_sheet(sortedSheetData);
       
-      // APPLY FORMATTING TO CLASS SHEETS
-      // Set column widths: A&B=20, C=27, D+=20
-      const numCols = Math.max(3 + classData.allRounds.length, 7);
-      worksheet['!cols'] = [
-        { wch: 20 }, // A
-        { wch: 20 }, // B
-        { wch: 27 }, // C
-      ];
-      // Add column D and beyond with width 20
-      for (let i = 3; i < numCols; i++) {
-        worksheet['!cols'].push({ wch: 20 });
-      }
+      
+// AUTO-CALCULATE COLUMN WIDTHS based on content
+const numCols = Math.max(3 + roundsWithEntries.length, 7);
+const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+const colWidths: number[] = Array(numCols).fill(10); // default minimum width
 
-      // Merge cells A1:C1 for trial name
+for (let C = 0; C < numCols; C++) {
+  for (let R = 0; R <= sheetRange.e.r; R++) {
+    const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+    const cell = worksheet[cellAddress];
+    if (cell && cell.v != null) {
+      const cellLength = String(cell.v).length;
+      if (cellLength > colWidths[C]) {
+        colWidths[C] = cellLength;
+      }
+    }
+  }
+  // Cap max width and add padding
+  colWidths[C] = Math.min(colWidths[C] + 2, 40);
+}
+
+// ✅ CHANGE 2: Override column A to be exactly 20
+colWidths[0] = 20;
+worksheet['!cols'] = colWidths.map(w => ({ wch: w }));
+
+// COMPREHENSIVE PAGE SETUP - forces landscape and fit-to-page
+worksheet['!pageSetup'] = {
+  // Page orientation and size
+  orientation: 2,
+  paperSize: 1,                    // 1 = Letter (8.5" x 11")
+  
+  // Scaling options
+  fitToPage: 1,
+  fitToWidth: 1,                   // Fit to 1 page wide
+  fitToHeight: 0,                  // Allow multiple pages tall
+  scale: 75,                      // Base scale (will be overridden by fitTo)
+  
+  // Margins (in inches) - smaller margins help fit more content
+  leftMargin: 0.25,       
+  rightMargin: 0.25,
+  topMargin: 0.5,
+  bottomMargin: 0.5,
+  headerMargin: 0.3,
+  footerMargin: 0.3,
+  
+  // Additional print settings
+  horizontalCentered: true,        // Center on page horizontally
+  verticalCentered: false,         // Don't center vertically (start at top)
+  
+  // Draft quality for faster printing (optional)
+  draft: false
+};
+
+// Print options to remove gridlines and make it cleaner
+worksheet['!printOptions'] = {
+  gridLines: false,
+  headings: false,                 // Remove row/column headers (A, B, C, 1, 2, 3)
+  horizontalCentered: true,
+  verticalCentered: false
+};
+
+// Additional view settings for when opening in Excel
+worksheet['!views'] = [{
+  showGridLines: false,
+  showRowColHeaders: false,
+  zoomScale: 85                    // Comfortable viewing zoom
+}];
+
+      // ✅ CHANGE 3: Merge cells A1:C1 for trial name (removed duplicate merge)
       worksheet['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } } // A1:C1
-      ];
-
-      // Merge cells F3:G3 for trial name
-      worksheet['!merges'] = [
-        { s: { r: 0, c: 2 }, e: { r: 0, c: 3 } } // A1:C1
       ];
 
       // Apply cell formatting to class sheet
@@ -837,13 +898,22 @@ summarySheetData.push([
               alignment: { horizontal: 'center', vertical: 'center' }
             };
           }
-          // Row 7+ (index 6+): Center aligned
-          else if (R >= 6) {
-            cell.s = {
-              font: { name: 'Calibri' },
-              alignment: { horizontal: 'center', vertical: 'center' }
-            };
-          }
+         // Row 7+ (index 6+): Center aligned WITH BOTTOM BORDER AND ALTERNATING SHADING
+else if (R >= 6) {
+  // Alternating rows: even index rows (6, 8, 10...) get light blue shading
+  const isEvenDataRow = (R % 2 === 0);
+  
+  cell.s = {
+    font: { sz: 20, name: 'Calibri' },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: {
+      bottom: { style: 'thin', color: { rgb: '000000' } }
+    },
+    fill: isEvenDataRow
+      ? { fgColor: { rgb: 'D9E1F2' } }  // light blue for even rows
+      : { fgColor: { rgb: 'FFFFFF' } }   // white for odd rows
+  };
+}
         }
       }
       
@@ -867,6 +937,7 @@ summarySheetData.push([
     setExporting(false);
   }
 };
+  
   const getDisplayClassName = (cls: TrialClass): string => {
     if (cls.class_type === 'games' && cls.games_subclass) {
       return `${cls.class_name} - ${cls.games_subclass}`;

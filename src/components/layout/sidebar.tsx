@@ -12,6 +12,7 @@ import {
   Plus,
   Users,
   Link2,
+  Trophy,
   Clock,
   PlayCircle,
   FileText,
@@ -136,6 +137,12 @@ const sorted = result.data
       href: `/dashboard/trials/${trialId}/entries`,
       icon: Users,
     },
+
+    {
+  label: 'Close to Titles',
+  href: `/dashboard/trials/${trialId}/close-to-titles`,
+  icon: Trophy,
+},
     
     {
       label: 'Time Calculator',

@@ -22,12 +22,15 @@ import {
   CheckCircle,
   Clock,
   FileText,
+  X,
+  Trophy,
   Mail,
   TrendingUp,
   Plus,
   Download
 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import  CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
 import { financialOperations } from '@/lib/financialOperations';
 
 interface Trial {
@@ -110,7 +113,7 @@ interface VolunteerDayPreferences {
 export default function SecretaryDashboard({ userTrials, userId }: SecretaryDashboardProps) {
   const router = useRouter();
   const supabase = getSupabaseBrowser();
-  
+  const [showCloseToTitles, setShowCloseToTitles] = useState(false);
   const [selectedTrialId, setSelectedTrialId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
@@ -1041,16 +1044,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                       <Download className="h-4 w-4 mr-2" />
                       Export CSV
                     </Button>
-                    <Button 
-                      variant="outline"
-                      size="sm"
-                      className="bg-purple-50 hover:bg-purple-100"
-                      onClick={exportTitlesCSV}
-                      disabled={!selectedTrialId}
-                    >
-                      <Award className="h-4 w-4 mr-2" />
-                      Titles
-                    </Button>
+                   
                     <Button 
                       variant="outline"
                       size="sm"
@@ -1265,6 +1259,16 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 </Button>
                 
                 <Button 
+  variant="outline"
+  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+  onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/close-to-titles`)}
+  disabled={!selectedTrialId}
+>
+  <Trophy className="h-4 w-4 mr-2" />
+  Close to Titles Report
+</Button>
+
+                <Button 
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/financials`)}
@@ -1336,6 +1340,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           </div>
         </>
       )}
-    </div>
+     </div>
   );
 }

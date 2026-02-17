@@ -17,7 +17,8 @@ import {
   Edit,
   Save,
   X,
-   AlertCircle,
+  Trophy,
+  AlertCircle,
   Users,
   FileText,
   Clock,
@@ -94,7 +95,6 @@ export default function TrialDetailPage() {
   const router = useRouter();
   const params = useParams();
   const trialId = params.trialId as string;
-
   const [trial, setTrial] = useState<TrialData | null>(null);
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
@@ -859,6 +859,16 @@ const formatDate = (dateString: string) => {
       <Clock className="h-4 w-4 mr-2" />
       Trial Time Calculator
     </Button>
+       
+    {/* NEW: Close to Titles Report Button */}
+    <Button 
+  variant="outline" 
+  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+  onClick={() => router.push(`/dashboard/trials/${trialId}/close-to-titles`)}
+>
+  <Trophy className="h-4 w-4 mr-2" />
+  Close to Titles Report
+</Button>
                       <Button 
                         variant="default" 
                         className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
@@ -906,8 +916,8 @@ const formatDate = (dateString: string) => {
                         Edit Rounds & Judges ({trialRounds.length} configured)
                       </Button>
                     </div>
-                  </div>   
-                </div>
+                  </div>  
+                   </div>
               </CardContent>
             </Card>
           </TabsContent>

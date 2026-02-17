@@ -294,10 +294,14 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           )}
 
           <h2 className="text-xl font-bold mb-6">
-            {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge: {selectedClass?.judge_name}
-          </h2>
+  {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge: {selectedClass?.judge_name}
+</h2>
 
-          <div className="border border-gray-300 overflow-x-auto">
+<p className="text-sm text-black-600 mb-5 italic">
+  The boxes for Scents, faults and time are provided for those who like to record everything — the only field we <strong>need</strong> filled in is <strong>Pass/Fail</strong>.
+</p>
+
+<div className="border border-gray-300 overflow-x-auto">
             {scoreSheetType === 'scent' && (
               <table className="w-full">
                 <thead className="bg-orange-300">
