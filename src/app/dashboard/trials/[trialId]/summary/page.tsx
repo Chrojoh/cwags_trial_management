@@ -1,4 +1,5 @@
 // File: src/app/dashboard/trials/[trialId]/summary/page.tsx
+// Summary sheet: landscape XLSX export with dynamic fit-to-page scaling
 
 'use client';
 
