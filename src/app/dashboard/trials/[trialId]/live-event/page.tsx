@@ -3971,34 +3971,22 @@ export default function LiveEventManagementPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-orange-600">{classEntries.length}</div>
                   <div className="text-sm text-gray-600">Total Entries</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {classEntries.filter((e) => e.entry_status === 'entered').length}
+                    {classEntries.filter((e) => e.entry_status !== 'no_show').length}
                   </div>
                   <div className="text-sm text-gray-600">Present</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {classEntries.filter((e) => e.entry_status === 'confirmed').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Confirmed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {classEntries.filter((e) => e.entry_status === 'withdrawn').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Withdrawn</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-600">
                     {classEntries.filter((e) => e.entry_status === 'no_show').length}
                   </div>
-                  <div className="text-sm text-gray-600">No Show</div>
+                  <div className="text-sm text-gray-600">Abs</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-yellow-600">
@@ -4010,11 +3998,14 @@ export default function LiveEventManagementPage() {
                   <div className="text-2xl font-bold text-purple-600">
                     {
                       classEntries.filter(
-                        (e) => e.scores && e.scores.length > 0 && e.scores[0].pass_fail
+                        (e) =>
+                          e.entry_type !== 'feo' &&
+                          e.entry_status !== 'no_show' &&
+                          (!((Array.isArray(e.scores) ? e.scores[0] : e.scores) as any)?.pass_fail)
                       ).length
                     }
                   </div>
-                  <div className="text-sm text-gray-600">Scored</div>
+                  <div className="text-sm text-gray-600">Missing Scores</div>
                 </div>
               </div>
             </CardContent>

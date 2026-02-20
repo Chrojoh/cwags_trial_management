@@ -2382,19 +2382,22 @@ export const simpleTrialOperations = {
             };
 
             // ✅ REPLACE THE THREE FILTER OPERATIONS WITH THIS:
-            const passCount = classEntries.filter((entry: any) =>
-              getScoresArray(entry).some(
-                (s: any) =>
-                  s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
-              )
+            const passCount = classEntries.filter(
+              (entry: any) =>
+                entry.entry_status?.toLowerCase() !== 'no_show' &&
+                getScoresArray(entry).some(
+                  (s: any) =>
+                    s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
+                )
             ).length;
 
             const failCount = classEntries.filter((entry: any) =>
+              entry.entry_status?.toLowerCase() !== 'no_show' &&
               getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
             ).length;
 
-            const completedRuns = classEntries.filter((entry: any) =>
-              getScoresArray(entry).some((s: any) => s.pass_fail !== null)
+            const completedRuns = classEntries.filter(
+              (entry: any) => entry.entry_status?.toLowerCase() !== 'no_show'
             ).length;
 
             // ✅ KEEP EVERYTHING BELOW THIS THE SAME (the return statement, etc.)
@@ -2490,7 +2493,7 @@ export const simpleTrialOperations = {
           total_passes: totalPasses, // Excludes FEO
           total_fails: totalFails, // Excludes FEO
           total_completed: totalCompleted, // Excludes FEO
-          overall_pass_rate: totalParticipants > 0 ? (totalPasses / totalParticipants) * 100 : 0,
+          overall_pass_rate: totalCompleted > 0 ? (totalPasses / totalCompleted) * 100 : 0,
           completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0,
         },
       };

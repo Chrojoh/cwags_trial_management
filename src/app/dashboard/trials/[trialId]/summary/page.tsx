@@ -1311,7 +1311,7 @@ export default function ClassSummaryPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {summaryData.statistics.total_participants}
                   </div>
-                  <div className="text-sm text-gray-600">Total Participants</div>
+                  <div className="text-sm text-gray-600">Total Entered Runs</div>
                 </CardContent>
               </Card>
               <Card>
@@ -1335,7 +1335,7 @@ export default function ClassSummaryPage() {
                   <div className="text-2xl font-bold text-purple-600">
                     {Math.round(summaryData.statistics.overall_pass_rate)}%
                   </div>
-                  <div className="text-sm text-gray-600">Overall Pass Rate</div>
+                  <div className="text-sm text-gray-600">Pass Rate</div>
                 </CardContent>
               </Card>
             </div>
