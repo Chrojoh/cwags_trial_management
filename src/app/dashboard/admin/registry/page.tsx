@@ -2,7 +2,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Search, Users, Award, Calendar, Edit2, Save, X, Dog, User, ArrowLeft, RefreshCw, Plus} from 'lucide-react';
+import {
+  Search,
+  Users,
+  Award,
+  Calendar,
+  Edit2,
+  Save,
+  X,
+  Dog,
+  User,
+  ArrowLeft,
+  RefreshCw,
+  Plus,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,7 +27,7 @@ import {
   clearCache,
   parseRegistrationNumber,
   type RegistryDog,
-  type TitleProgress
+  type TitleProgress,
 } from '@/lib/registryOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
@@ -36,7 +49,7 @@ export default function AdminRegistryPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
-  
+
   // Add Dog Modal
   const [showAddDog, setShowAddDog] = useState(false);
   const [newDogForm, setNewDogForm] = useState({
@@ -49,7 +62,7 @@ export default function AdminRegistryPage() {
     breed: '',
     dog_sex: '',
     is_junior_handler: false,
-    is_active: true
+    is_active: true,
   });
 
   useEffect(() => {
@@ -73,7 +86,7 @@ export default function AdminRegistryPage() {
     return {
       year: `20${parsed.year}`,
       ownerId: parsed.ownerId,
-      dogNumber: parsed.dogNumber
+      dogNumber: parsed.dogNumber,
     };
   };
 
@@ -115,7 +128,7 @@ export default function AdminRegistryPage() {
         breed: '',
         dog_sex: '',
         is_junior_handler: false,
-        is_active: true
+        is_active: true,
       });
     } catch (error) {
       console.error('Error adding dog:', error);
@@ -124,91 +137,91 @@ export default function AdminRegistryPage() {
       setSaving(false);
     }
   };
-const cleanCwagsNumber = (input: string): string => {
-  const digits = input.replace(/\D/g, "");
-  if (!digits) return input;
+  const cleanCwagsNumber = (input: string): string => {
+    const digits = input.replace(/\D/g, '');
+    if (!digits) return input;
 
-  // Part 1: first 2 digits
-  const part1 = digits.slice(0, 2).padEnd(2, "0");
-  
-  // Part 2: next 4 digits
-  const part2 = digits.slice(2, 6).padEnd(4, "0");
-  
-  // Part 3: everything after digit 6, padded left to 2 digits
-  let part3 = digits.slice(6);
-  part3 = part3.padStart(2, "0").slice(-2);
+    // Part 1: first 2 digits
+    const part1 = digits.slice(0, 2).padEnd(2, '0');
 
-  return `${part1}-${part2}-${part3}`;
-};
-const handleSearch = async () => {
-  if (!searchTerm.trim()) {
-    alert('Please enter a search term');
-    return;
-  }
+    // Part 2: next 4 digits
+    const part2 = digits.slice(2, 6).padEnd(4, '0');
 
-  setLoading(true);
-  setError(null);
-  setSelectedDog(null);
+    // Part 3: everything after digit 6, padded left to 2 digits
+    let part3 = digits.slice(6);
+    part3 = part3.padStart(2, '0').slice(-2);
 
-  try {
-    let results: RegistryDog[] = [];
-
-    if (searchType === 'registry') {
-      const formattedNumber = cleanCwagsNumber(searchTerm);
-      setSearchTerm(formattedNumber);
-      
-      console.log('🔍 Searching by registry number:', formattedNumber);
-      const dog = await searchByRegistryNumber(formattedNumber);
-      
-      // ✅ ADD THESE THREE LINES:
-      console.log('🔍 Dog found?', dog);
-      console.log('🔍 Dog details:', JSON.stringify(dog, null, 2));
-      
-      if (dog) {
-        results = [dog];
-      }
-    } else {
-      console.log('🔍 Searching by handler name:', searchTerm);
-      results = await searchByHandlerName(searchTerm);
+    return `${part1}-${part2}-${part3}`;
+  };
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      alert('Please enter a search term');
+      return;
     }
 
-    // ✅ ADD THIS LINE:
-    console.log('🔍 Search results:', results);
-    
-  setSearchResults(results);
+    setLoading(true);
+    setError(null);
+    setSelectedDog(null);
 
-// Auto-load profile if found
-if (results.length === 1) {
-  // Only one result - load it automatically
-  await loadDogDetails(results[0].cwags_number);
-} else if (results.length === 0) {
-  setError('No dogs found matching your search');
-}
-  } catch (err) {
-    console.error('Search error:', err);
-    setError('Failed to search registry');
-  } finally {
-    setLoading(false);
-  }
-};
+    try {
+      let results: RegistryDog[] = [];
+
+      if (searchType === 'registry') {
+        const formattedNumber = cleanCwagsNumber(searchTerm);
+        setSearchTerm(formattedNumber);
+
+        console.log('🔍 Searching by registry number:', formattedNumber);
+        const dog = await searchByRegistryNumber(formattedNumber);
+
+        // ✅ ADD THESE THREE LINES:
+        console.log('🔍 Dog found?', dog);
+        console.log('🔍 Dog details:', JSON.stringify(dog, null, 2));
+
+        if (dog) {
+          results = [dog];
+        }
+      } else {
+        console.log('🔍 Searching by handler name:', searchTerm);
+        results = await searchByHandlerName(searchTerm);
+      }
+
+      // ✅ ADD THIS LINE:
+      console.log('🔍 Search results:', results);
+
+      setSearchResults(results);
+
+      // Auto-load profile if found
+      if (results.length === 1) {
+        // Only one result - load it automatically
+        await loadDogDetails(results[0].cwags_number);
+      } else if (results.length === 0) {
+        setError('No dogs found matching your search');
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      setError('Failed to search registry');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDogDetails = async (regNumber: string) => {
     setLoading(true);
     setSearchResults([]);
     setExpandedLevels(new Set()); // Reset expanded levels
-    
+
     try {
       console.log('🔍 Loading dog profile for:', regNumber);
       const profile = await getDogProfile(regNumber);
-      
+
       if (profile) {
         console.log('✅ Profile loaded:', {
           dog: profile.dog.dog_call_name,
           ownersDogs: profile.ownersDogs?.length || 0,
           titleProgress: profile.titleProgress?.length || 0,
-          allRecords: profile.allTrialRecords?.length || 0
+          allRecords: profile.allTrialRecords?.length || 0,
         });
-        
+
         setSelectedDog(profile.dog);
         setEditForm(profile.dog);
         setOwnersDogs(profile.ownersDogs || []);
@@ -227,7 +240,7 @@ if (results.length === 1) {
 
   const handleSave = async () => {
     if (!editForm || !selectedDog) return;
-    
+
     setSaving(true);
     try {
       const success = await updateRegistry(editForm.id, {
@@ -239,9 +252,9 @@ if (results.length === 1) {
         breed: editForm.breed,
         dog_sex: editForm.dog_sex,
         is_junior_handler: editForm.is_junior_handler,
-        is_active: editForm.is_active
+        is_active: editForm.is_active,
       });
-      
+
       if (success) {
         setSelectedDog(editForm);
         setIsEditing(false);
@@ -292,23 +305,25 @@ if (results.length === 1) {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Registry Management</h1>
-                <p className="text-slate-600 mt-1">Search and manage dog registrations with full title tracking</p>
+                <p className="text-slate-600 mt-1">
+                  Search and manage dog registrations with full title tracking
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Link 
-  href="/dashboard/admin/registry/import"
-  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
->
-  Import from Excel
-</Link>
+              <Link
+                href="/dashboard/admin/registry/import"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 inline-block"
+              >
+                Import from Excel
+              </Link>
 
-<button
-  onClick={() => setShowAddDog(true)}
-  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
->
-  Add New Dog
-</button>
+              <button
+                onClick={() => setShowAddDog(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Add New Dog
+              </button>
               <button
                 onClick={handleRefresh}
                 className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -335,20 +350,25 @@ if (results.length === 1) {
                 <option value="registry">Registry Number</option>
                 <option value="handler">Handler Name</option>
               </select>
-              
+
               <input
-  type="text"
-  placeholder={searchType === 'registry' ? 'Enter C-WAGS number (e.g., 17-1734-03)' : 'Enter handler name'}
-  value={searchTerm}
-  onChange={(e) => setSearchTerm(e.target.value.toUpperCase())} // ✅ ADDED .toUpperCase()
-  onKeyPress={(e) => {  // ✅ ADDED THIS BLOCK
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  }}
-  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-/>
-              
+                type="text"
+                placeholder={
+                  searchType === 'registry'
+                    ? 'Enter C-WAGS number (e.g., 17-1734-03)'
+                    : 'Enter handler name'
+                }
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value.toUpperCase())} // ✅ ADDED .toUpperCase()
+                onKeyPress={(e) => {
+                  // ✅ ADDED THIS BLOCK
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+
               <button
                 onClick={handleSearch}
                 disabled={loading}
@@ -384,7 +404,9 @@ if (results.length === 1) {
                     <input
                       type="text"
                       value={newDogForm.cwags_number}
-                      onChange={(e) => setNewDogForm({...newDogForm, cwags_number: e.target.value})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, cwags_number: e.target.value })
+                      }
                       placeholder="e.g., 24-1234-01"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -396,7 +418,9 @@ if (results.length === 1) {
                     <input
                       type="text"
                       value={newDogForm.dog_call_name}
-                      onChange={(e) => setNewDogForm({...newDogForm, dog_call_name: e.target.value})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, dog_call_name: e.target.value })
+                      }
                       placeholder="e.g., Max"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -410,7 +434,7 @@ if (results.length === 1) {
                   <input
                     type="text"
                     value={newDogForm.handler_name}
-                    onChange={(e) => setNewDogForm({...newDogForm, handler_name: e.target.value})}
+                    onChange={(e) => setNewDogForm({ ...newDogForm, handler_name: e.target.value })}
                     placeholder="e.g., John Smith"
                     className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -423,7 +447,9 @@ if (results.length === 1) {
                     <input
                       type="email"
                       value={newDogForm.handler_email}
-                      onChange={(e) => setNewDogForm({...newDogForm, handler_email: e.target.value})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, handler_email: e.target.value })
+                      }
                       placeholder="email@example.com"
                       className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -433,7 +459,9 @@ if (results.length === 1) {
                     <input
                       type="tel"
                       value={newDogForm.handler_phone}
-                      onChange={(e) => setNewDogForm({...newDogForm, handler_phone: e.target.value})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, handler_phone: e.target.value })
+                      }
                       placeholder="(555) 123-4567"
                       className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -447,7 +475,7 @@ if (results.length === 1) {
                     <input
                       type="text"
                       value={newDogForm.breed}
-                      onChange={(e) => setNewDogForm({...newDogForm, breed: e.target.value})}
+                      onChange={(e) => setNewDogForm({ ...newDogForm, breed: e.target.value })}
                       placeholder="e.g., Border Collie"
                       className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
@@ -456,7 +484,7 @@ if (results.length === 1) {
                     <label className="block text-sm font-medium text-slate-700 mb-2">Sex</label>
                     <select
                       value={newDogForm.dog_sex}
-                      onChange={(e) => setNewDogForm({...newDogForm, dog_sex: e.target.value})}
+                      onChange={(e) => setNewDogForm({ ...newDogForm, dog_sex: e.target.value })}
                       className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select</option>
@@ -467,11 +495,15 @@ if (results.length === 1) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Emergency Contact</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Emergency Contact
+                  </label>
                   <input
                     type="text"
                     value={newDogForm.emergency_contact}
-                    onChange={(e) => setNewDogForm({...newDogForm, emergency_contact: e.target.value})}
+                    onChange={(e) =>
+                      setNewDogForm({ ...newDogForm, emergency_contact: e.target.value })
+                    }
                     placeholder="Name and phone"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
@@ -482,7 +514,9 @@ if (results.length === 1) {
                     <input
                       type="checkbox"
                       checked={newDogForm.is_junior_handler}
-                      onChange={(e) => setNewDogForm({...newDogForm, is_junior_handler: e.target.checked})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, is_junior_handler: e.target.checked })
+                      }
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-slate-700">Junior Handler</span>
@@ -492,7 +526,9 @@ if (results.length === 1) {
                     <input
                       type="checkbox"
                       checked={newDogForm.is_active}
-                      onChange={(e) => setNewDogForm({...newDogForm, is_active: e.target.checked})}
+                      onChange={(e) =>
+                        setNewDogForm({ ...newDogForm, is_active: e.target.checked })
+                      }
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-slate-700">Active Status</span>
@@ -551,7 +587,7 @@ if (results.length === 1) {
                   <Dog className="h-6 w-6 text-blue-600" />
                   {selectedDog.dog_call_name}
                 </h2>
-                
+
                 {!isEditing ? (
                   <button
                     onClick={() => setIsEditing(true)}
@@ -589,7 +625,9 @@ if (results.length === 1) {
               <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Registration Number</p>
-                  <p className="text-lg font-mono font-semibold text-slate-900">{selectedDog.cwags_number}</p>
+                  <p className="text-lg font-mono font-semibold text-slate-900">
+                    {selectedDog.cwags_number}
+                  </p>
                   {(() => {
                     const parts = getRegistrationParts(selectedDog.cwags_number);
                     if (parts) {
@@ -608,9 +646,7 @@ if (results.length === 1) {
                     <Calendar className="h-4 w-4 text-slate-400" />
                     {new Date(selectedDog.created_at).toLocaleDateString()}
                   </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Total Trials: {allRecords.length}
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Total Trials: {allRecords.length}</p>
                 </div>
               </div>
 
@@ -618,12 +654,14 @@ if (results.length === 1) {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Handler Name</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Handler Name
+                    </label>
                     {isEditing && editForm ? (
                       <input
                         type="text"
                         value={editForm.handler_name}
-                        onChange={(e) => setEditForm({...editForm, handler_name: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, handler_name: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
@@ -635,12 +673,16 @@ if (results.length === 1) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Call Name</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Call Name
+                    </label>
                     {isEditing && editForm ? (
                       <input
                         type="text"
                         value={editForm.dog_call_name}
-                        onChange={(e) => setEditForm({...editForm, dog_call_name: e.target.value})}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, dog_call_name: e.target.value })
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
@@ -656,11 +698,15 @@ if (results.length === 1) {
                       <input
                         type="email"
                         value={editForm.handler_email || ''}
-                        onChange={(e) => setEditForm({...editForm, handler_email: e.target.value})}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, handler_email: e.target.value })
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <p className="text-slate-900 py-2">{selectedDog.handler_email || 'Not provided'}</p>
+                      <p className="text-slate-900 py-2">
+                        {selectedDog.handler_email || 'Not provided'}
+                      </p>
                     )}
                   </div>
 
@@ -670,11 +716,15 @@ if (results.length === 1) {
                       <input
                         type="tel"
                         value={editForm.handler_phone || ''}
-                        onChange={(e) => setEditForm({...editForm, handler_phone: e.target.value})}
+                        onChange={(e) =>
+                          setEditForm({ ...editForm, handler_phone: e.target.value })
+                        }
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
-                      <p className="text-slate-900 py-2">{selectedDog.handler_phone || 'Not provided'}</p>
+                      <p className="text-slate-900 py-2">
+                        {selectedDog.handler_phone || 'Not provided'}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -686,7 +736,7 @@ if (results.length === 1) {
                       <input
                         type="text"
                         value={editForm.breed || ''}
-                        onChange={(e) => setEditForm({...editForm, breed: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, breed: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
@@ -699,7 +749,7 @@ if (results.length === 1) {
                     {isEditing && editForm ? (
                       <select
                         value={editForm.dog_sex || ''}
-                        onChange={(e) => setEditForm({...editForm, dog_sex: e.target.value})}
+                        onChange={(e) => setEditForm({ ...editForm, dog_sex: e.target.value })}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select</option>
@@ -713,16 +763,22 @@ if (results.length === 1) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Emergency Contact</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Emergency Contact
+                  </label>
                   {isEditing && editForm ? (
                     <input
                       type="text"
                       value={editForm.emergency_contact || ''}
-                      onChange={(e) => setEditForm({...editForm, emergency_contact: e.target.value})}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, emergency_contact: e.target.value })
+                      }
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
-                    <p className="text-slate-900 py-2">{selectedDog.emergency_contact || 'Not provided'}</p>
+                    <p className="text-slate-900 py-2">
+                      {selectedDog.emergency_contact || 'Not provided'}
+                    </p>
                   )}
                 </div>
 
@@ -730,8 +786,16 @@ if (results.length === 1) {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={isEditing && editForm ? editForm.is_junior_handler : selectedDog.is_junior_handler}
-                      onChange={(e) => isEditing && editForm && setEditForm({...editForm, is_junior_handler: e.target.checked})}
+                      checked={
+                        isEditing && editForm
+                          ? editForm.is_junior_handler
+                          : selectedDog.is_junior_handler
+                      }
+                      onChange={(e) =>
+                        isEditing &&
+                        editForm &&
+                        setEditForm({ ...editForm, is_junior_handler: e.target.checked })
+                      }
                       disabled={!isEditing}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     />
@@ -742,7 +806,11 @@ if (results.length === 1) {
                     <input
                       type="checkbox"
                       checked={isEditing && editForm ? editForm.is_active : selectedDog.is_active}
-                      onChange={(e) => isEditing && editForm && setEditForm({...editForm, is_active: e.target.checked})}
+                      onChange={(e) =>
+                        isEditing &&
+                        editForm &&
+                        setEditForm({ ...editForm, is_active: e.target.checked })
+                      }
                       disabled={!isEditing}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     />
@@ -758,19 +826,20 @@ if (results.length === 1) {
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
                   Owner's Other Dogs
-                  {selectedDog && (() => {
-                    const parts = getRegistrationParts(selectedDog.cwags_number);
-                    if (parts) {
-                      return (
-                        <span className="text-sm font-normal text-slate-500">
-                          (ID: {parts.ownerId})
-                        </span>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {selectedDog &&
+                    (() => {
+                      const parts = getRegistrationParts(selectedDog.cwags_number);
+                      if (parts) {
+                        return (
+                          <span className="text-sm font-normal text-slate-500">
+                            (ID: {parts.ownerId})
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                 </h3>
-                
+
                 {ownersDogs.length > 0 ? (
                   <div className="space-y-3">
                     {ownersDogs.map((dog) => (
@@ -784,11 +853,7 @@ if (results.length === 1) {
                         {(() => {
                           const parts = getRegistrationParts(dog.cwags_number);
                           if (parts) {
-                            return (
-                              <p className="text-xs text-slate-500 mt-1">
-                                {parts.year}
-                              </p>
-                            );
+                            return <p className="text-xs text-slate-500 mt-1">{parts.year}</p>;
                           }
                           return null;
                         })()}
@@ -820,10 +885,14 @@ if (results.length === 1) {
                         <h4 className="text-lg font-bold text-slate-900">{level.level}</h4>
                         <div className="flex items-center gap-4 mt-2 text-sm">
                           <span className="text-slate-600">
-                            Total Q's: <span className="font-semibold text-slate-900">{level.totalQs}</span>
+                            Total Q's:{' '}
+                            <span className="font-semibold text-slate-900">{level.totalQs}</span>
                           </span>
                           <span className="text-slate-600">
-                            Judges: <span className="font-semibold text-slate-900">{level.uniqueJudges}/2</span>
+                            Judges:{' '}
+                            <span className="font-semibold text-slate-900">
+                              {level.uniqueJudges}/2
+                            </span>
                           </span>
                         </div>
                       </div>
@@ -872,19 +941,22 @@ if (results.length === 1) {
                                   <p>Need {level.qsToTitle} more Q's</p>
                                 )}
                                 {level.judgesNeeded !== undefined && level.judgesNeeded > 0 && (
-                                  <p>Need {level.judgesNeeded} more judge{level.judgesNeeded > 1 ? 's' : ''}</p>
+                                  <p>
+                                    Need {level.judgesNeeded} more judge
+                                    {level.judgesNeeded > 1 ? 's' : ''}
+                                  </p>
                                 )}
                               </div>
                             </div>
                           )}
                         </div>
 
-                       <button
-  onClick={() => toggleLevelDetails(index)}
-  className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
->
-  {expandedLevels.has(index) ? 'Hide Details' : 'Details'}
-</button>
+                        <button
+                          onClick={() => toggleLevelDetails(index)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          {expandedLevels.has(index) ? 'Hide Details' : 'Details'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -897,7 +969,10 @@ if (results.length === 1) {
                       </p>
                       <div className="space-y-2 max-h-96 overflow-y-auto">
                         {level.records.map((record, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0"
+                          >
                             <div className="flex items-center gap-3 flex-1">
                               <span className="text-slate-600 w-24">{record.date}</span>
                               <span className="text-slate-900 flex-1">{record.trial}</span>
@@ -924,7 +999,10 @@ if (results.length === 1) {
           <div className="bg-white rounded-lg shadow-sm p-12 text-center">
             <Search className="h-16 w-16 text-slate-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-slate-900 mb-2">No Dog Selected</h3>
-            <p className="text-slate-600 mb-6">Search for a dog by registration number or handler name to view and edit their information, track titles, and see Q progress.</p>
+            <p className="text-slate-600 mb-6">
+              Search for a dog by registration number or handler name to view and edit their
+              information, track titles, and see Q progress.
+            </p>
             <div className="inline-flex gap-4 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <Dog className="h-4 w-4" />

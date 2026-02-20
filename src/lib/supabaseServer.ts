@@ -1,6 +1,6 @@
 // src/lib/supabaseServer.ts
-import { cookies } from "next/headers";
-import { createServerClient } from "@supabase/ssr";
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 
 export async function getSupabaseServer() {
   const cookieStore = await cookies();
@@ -12,8 +12,8 @@ export async function getSupabaseServer() {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
         set: () => {},
-        remove: () => {}
-      }
+        remove: () => {},
+      },
     }
   );
 }

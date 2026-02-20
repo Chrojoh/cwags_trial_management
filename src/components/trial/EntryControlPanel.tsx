@@ -31,7 +31,7 @@ interface EntryControlPanelProps {
 
 export default function EntryControlPanel({ trialId, currentStatus }: EntryControlPanelProps) {
   const supabase = getSupabaseBrowser();
-  
+
   const [entryStatus, setEntryStatus] = useState<'draft' | 'open' | 'closed'>(currentStatus);
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
 
       setEntryStatus(newStatus);
       setSuccess(true);
-      
+
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       console.error('Error updating trial status:', err);
@@ -99,10 +99,8 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
 
       if (error) throw error;
 
-      setTrialDays(prev =>
-        prev.map(day =>
-          day.id === dayId ? { ...day, is_accepting_entries: isAccepting } : day
-        )
+      setTrialDays((prev) =>
+        prev.map((day) => (day.id === dayId ? { ...day, is_accepting_entries: isAccepting } : day))
       );
     } catch (err: any) {
       console.error('Error updating day status:', err);
@@ -118,25 +116,21 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
     };
 
     const variant = variants[status];
-    return (
-      <Badge className={variant.color}>
-        {variant.label}
-      </Badge>
-    );
+    return <Badge className={variant.color}>{variant.label}</Badge>;
   };
 
- const formatDate = (dateString: string) => {
-  // Manual date parsing to avoid timezone shift
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day, 12, 0, 0);
-  
-  return date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    month: 'long', 
-    day: 'numeric',
-    year: 'numeric'
-  });
-};
+  const formatDate = (dateString: string) => {
+    // Manual date parsing to avoid timezone shift
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0);
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
 
   if (loading) {
     return (
@@ -156,9 +150,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
           <Calendar className="h-5 w-5" />
           Entry Control
         </CardTitle>
-        <CardDescription>
-          Control when entries can be submitted for this trial
-        </CardDescription>
+        <CardDescription>Control when entries can be submitted for this trial</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {success && (
@@ -181,9 +173,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-lg">Trial-Wide Entry Status</h3>
-              <p className="text-sm text-gray-600">
-                Master control for all entry submissions
-              </p>
+              <p className="text-sm text-gray-600">Master control for all entry submissions</p>
             </div>
             {getStatusBadge(entryStatus)}
           </div>
@@ -201,9 +191,11 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
             >
               <Lock className="h-4 w-4 mr-2" />
               Not Yet Open
-              <span className={`ml-auto text-xs ${
-                entryStatus === 'draft' ? 'text-gray-200' : 'text-gray-500'
-              }`}>
+              <span
+                className={`ml-auto text-xs ${
+                  entryStatus === 'draft' ? 'text-gray-200' : 'text-gray-500'
+                }`}
+              >
                 Form visible but disabled
               </span>
             </Button>
@@ -220,9 +212,11 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
             >
               <Unlock className="h-4 w-4 mr-2" />
               Open for Entries
-              <span className={`ml-auto text-xs ${
-                entryStatus === 'open' ? 'text-green-100' : 'text-gray-500'
-              }`}>
+              <span
+                className={`ml-auto text-xs ${
+                  entryStatus === 'open' ? 'text-green-100' : 'text-gray-500'
+                }`}
+              >
                 Accepting registrations
               </span>
             </Button>
@@ -239,9 +233,11 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
             >
               <Lock className="h-4 w-4 mr-2" />
               Closed
-              <span className={`ml-auto text-xs ${
-                entryStatus === 'closed' ? 'text-red-100' : 'text-gray-500'
-              }`}>
+              <span
+                className={`ml-auto text-xs ${
+                  entryStatus === 'closed' ? 'text-red-100' : 'text-gray-500'
+                }`}
+              >
                 No longer accepting entries
               </span>
             </Button>
@@ -264,12 +260,8 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
                   className="flex items-center justify-between p-4 border rounded-lg bg-white"
                 >
                   <div className="flex-1">
-                    <div className="font-medium">
-                      Day {day.day_number}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {formatDate(day.trial_date)}
-                    </div>
+                    <div className="font-medium">Day {day.day_number}</div>
+                    <div className="text-sm text-gray-600">{formatDate(day.trial_date)}</div>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -290,9 +282,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
                       <Switch
                         id={`day-${day.id}`}
                         checked={day.is_accepting_entries}
-                        onCheckedChange={(checked: boolean) =>
-  updateDayStatus(day.id, checked)
-}
+                        onCheckedChange={(checked: boolean) => updateDayStatus(day.id, checked)}
                       />
                     </div>
                   </div>
@@ -303,9 +293,8 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <strong>Note:</strong> If a day is closed, competitors will not be
-                able to select classes on that day. Use this when a specific day
-                reaches capacity.
+                <strong>Note:</strong> If a day is closed, competitors will not be able to select
+                classes on that day. Use this when a specific day reaches capacity.
               </AlertDescription>
             </Alert>
           </div>

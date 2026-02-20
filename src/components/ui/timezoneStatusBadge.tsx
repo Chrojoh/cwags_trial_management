@@ -5,7 +5,6 @@
 import { DollarSign, CheckCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
-
 interface TimezoneStatusBadgeProps {
   status: 'open' | 'late' | 'closed';
   lateFee?: number;
@@ -15,7 +14,7 @@ interface TimezoneStatusBadgeProps {
 export const TimezoneStatusBadge: React.FC<TimezoneStatusBadgeProps> = ({
   status,
   lateFee = 0,
-  className = ""
+  className = '',
 }) => {
   switch (status) {
     case 'open':
@@ -25,7 +24,7 @@ export const TimezoneStatusBadge: React.FC<TimezoneStatusBadgeProps> = ({
           Entries Open
         </Badge>
       );
-      
+
     case 'late':
       return (
         <Badge variant="secondary" className={`bg-yellow-100 text-yellow-800 ${className}`}>
@@ -39,7 +38,7 @@ export const TimezoneStatusBadge: React.FC<TimezoneStatusBadgeProps> = ({
           )}
         </Badge>
       );
-      
+
     case 'closed':
       return (
         <Badge variant="destructive" className={className}>
@@ -47,7 +46,7 @@ export const TimezoneStatusBadge: React.FC<TimezoneStatusBadgeProps> = ({
           Entries Closed
         </Badge>
       );
-      
+
     default:
       return null;
   }

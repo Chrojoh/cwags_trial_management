@@ -42,37 +42,26 @@ export default function CloseToTitlesPage() {
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
     { label: trialName || 'Trial', href: `/dashboard/trials/${trialId}` },
-    { label: 'Close to Titles Report' }
+    { label: 'Close to Titles Report' },
   ];
 
   return (
-    <MainLayout 
-      title="Close to Titles Report"
-      breadcrumbItems={breadcrumbItems}
-    >
+    <MainLayout title="Close to Titles Report" breadcrumbItems={breadcrumbItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Close to Titles Report</h1>
-            <p className="text-gray-600 mt-1">
-              {trialName || 'Loading...'}
-            </p>
+            <p className="text-gray-600 mt-1">{trialName || 'Loading...'}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/dashboard/trials/${trialId}`)}
-          >
+          <Button variant="outline" onClick={() => router.push(`/dashboard/trials/${trialId}`)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Trial
           </Button>
         </div>
 
         {/* Report Component */}
-        <CloseToTitlesReport 
-          trialId={trialId} 
-          trialName={trialName}
-        />
+        <CloseToTitlesReport trialId={trialId} trialName={trialName} />
       </div>
     </MainLayout>
   );

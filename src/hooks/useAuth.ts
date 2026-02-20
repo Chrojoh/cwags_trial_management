@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
-import type { User } from "@/types/auth";
+import { useState, useEffect } from 'react';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import type { User } from '@/types/auth';
 
 export function useAuth() {
   const supabase = getSupabaseBrowser();
@@ -20,9 +20,9 @@ export function useAuth() {
 
         // 🔥 BLOCK AUTH LOGIC DURING PASSWORD RECOVERY
         if (
-          params.get("type") === "recovery" ||
-          params.has("access_token") ||
-          params.has("token_hash")
+          params.get('type') === 'recovery' ||
+          params.has('access_token') ||
+          params.has('token_hash')
         ) {
           if (isMounted) {
             setUser(null);
@@ -36,7 +36,7 @@ export function useAuth() {
 
         // Handle auth errors
         if (authError) {
-          console.error("Auth error:", authError);
+          console.error('Auth error:', authError);
           if (isMounted) {
             setError(authError.message);
             setUser(null);
@@ -58,15 +58,15 @@ export function useAuth() {
 
         // 🔥 Load full user profile from users table
         const { data: profile, error: profileError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("id", authUser.id)
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
           .single();
 
         if (profileError) {
-          console.error("Failed to load user profile:", profileError);
+          console.error('Failed to load user profile:', profileError);
           if (isMounted) {
-            setError("Failed to load user profile");
+            setError('Failed to load user profile');
             setUser(null);
             setLoading(false);
           }
@@ -75,9 +75,9 @@ export function useAuth() {
 
         // Ensure profile exists and has all required fields
         if (!profile) {
-          console.error("Profile not found for user:", authUser.id);
+          console.error('Profile not found for user:', authUser.id);
           if (isMounted) {
-            setError("User profile not found");
+            setError('User profile not found');
             setUser(null);
             setLoading(false);
           }
@@ -89,8 +89,8 @@ export function useAuth() {
           setUser({
             id: profile.id,
             email: profile.email,
-            first_name: profile.first_name || "",
-            last_name: profile.last_name || "",
+            first_name: profile.first_name || '',
+            last_name: profile.last_name || '',
             role: profile.role,
             club_name: profile.club_name || null,
             phone: profile.phone || null,
@@ -102,9 +102,9 @@ export function useAuth() {
           setLoading(false);
         }
       } catch (err) {
-        console.error("Unexpected error in loadUser:", err);
+        console.error('Unexpected error in loadUser:', err);
         if (isMounted) {
-          setError(err instanceof Error ? err.message : "Unknown error");
+          setError(err instanceof Error ? err.message : 'Unknown error');
           setUser(null);
           setLoading(false);
         }
@@ -122,14 +122,14 @@ export function useAuth() {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-      window.location.href = "/login";
+      window.location.href = '/login';
     } catch (err) {
-      console.error("Sign out error:", err);
+      console.error('Sign out error:', err);
     }
   };
 
   const getFullName = () => {
-    if (!user) return "";
+    if (!user) return '';
     return `${user.first_name} ${user.last_name}`.trim();
   };
 

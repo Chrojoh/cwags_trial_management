@@ -61,14 +61,14 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       } else {
         console.log('❌ No rounds found for this judge name');
         console.log('Trying case-insensitive search...');
-        
+
         // Try case-insensitive search
         const { data: caseInsensitive } = await supabase
           .from('trial_rounds')
           .select('id, judge_name')
           .ilike('judge_name', judgeName)
           .limit(5);
-        
+
         console.log('Case-insensitive search found:', caseInsensitive?.length || 0);
         if (caseInsensitive && caseInsensitive.length > 0) {
           console.log('Found with different case:', caseInsensitive[0].judge_name);
@@ -78,7 +78,8 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       // STEP 2: Get all rounds with full details
       const { data: rounds, error: roundsError } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           judge_name,
           trial_class_id,
@@ -91,7 +92,8 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
               trials!inner(id)
             )
           )
-        `)
+        `
+        )
         .eq('judge_name', judgeName);
 
       if (roundsError) {
@@ -100,7 +102,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       }
 
       console.log(`Query returned ${rounds?.length || 0} rounds with classes`);
-      
+
       if (!rounds || rounds.length === 0) {
         console.log('❌ No rounds found after joining with classes');
         setStats(null);
@@ -109,18 +111,20 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       }
 
       // STEP 3: Get scores directly for these rounds using trial_round_id
-      const roundIds = rounds.map(r => r.id);
+      const roundIds = rounds.map((r) => r.id);
       console.log(`Loading scores for ${roundIds.length} rounds...`);
 
       const { data: scores, error: scoresError } = await supabase
         .from('scores')
-        .select(`
+        .select(
+          `
           *,
           entry_selections!inner(
             id,
             entry_type
           )
-        `)
+        `
+        )
         .in('trial_round_id', roundIds);
 
       if (scoresError) {
@@ -129,11 +133,11 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       }
 
       console.log(`Loaded ${scores?.length || 0} scores directly`);
-      
+
       if (scores && scores.length > 0) {
         console.log('Sample score:', scores[0]);
       }
-      
+
       // Map scores back to rounds by trial_round_id
       const scoresByRound = new Map<string, any[]>();
       (scores || []).forEach((score: any) => {
@@ -146,25 +150,28 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       console.log(`Scores mapped to ${scoresByRound.size} rounds`);
 
       // STEP 4: Process the data to calculate statistics
-      const classStats = new Map<string, {
-        runs: number;
-        passes: number;
-        rounds: Set<string>;
-      }>();
+      const classStats = new Map<
+        string,
+        {
+          runs: number;
+          passes: number;
+          rounds: Set<string>;
+        }
+      >();
 
       let totalRuns = 0;
       let totalPasses = 0;
       const trialsSet = new Set<string>();
 
       console.log('Processing rounds data...');
-      
+
       // Debug counters
       let debugCounters = {
         totalSelections: 0,
         notRegular: 0,
         noScores: 0,
         isABS: 0,
-        processed: 0
+        processed: 0,
       };
 
       (rounds || []).forEach((round: any) => {
@@ -183,7 +190,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
           classStats.set(className, {
             runs: 0,
             passes: 0,
-            rounds: new Set()
+            rounds: new Set(),
           });
         }
 
@@ -193,13 +200,13 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         // Get scores for this round
         const roundScores = scoresByRound.get(round.id) || [];
         debugCounters.totalSelections += roundScores.length;
-        
+
         // Debug first few scores
         if (debugCounters.totalSelections <= 3 && roundScores.length > 0) {
           console.log(`Score ${debugCounters.totalSelections}:`, {
             entry_type: roundScores[0].entry_selections?.entry_type,
             pass_fail: roundScores[0].pass_fail,
-            entry_status: roundScores[0].entry_status
+            entry_status: roundScores[0].entry_status,
           });
         }
 
@@ -210,7 +217,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
             debugCounters.notRegular++;
             return;
           }
-          
+
           // Skip if ABS
           if (score.entry_status === 'ABS') {
             debugCounters.isABS++;
@@ -230,24 +237,24 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
           }
         });
       });
-      
+
       console.log('Debug counters:', debugCounters);
 
       console.log(`Processed: ${totalRuns} total runs, ${totalPasses} passes`);
       console.log(`Classes with data: ${classStats.size}`);
       console.log(`Trials: ${trialsSet.size}`);
 
-    
       // Convert to array and calculate pass rates
-      const classBreakdown = Array.from(classStats.entries()).map(([className, data]) => ({
-        class_name: className,
-        runs: data.runs,
-        passes: data.passes,
-        pass_rate: data.runs > 0 ? (data.passes / data.runs) * 100 : 0,
-        rounds_judged: data.rounds.size
-      }))
-      .filter(c => c.runs > 0)  // Only include classes with scored runs
-      .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name));  // Sort by C-WAGS order
+      const classBreakdown = Array.from(classStats.entries())
+        .map(([className, data]) => ({
+          class_name: className,
+          runs: data.runs,
+          passes: data.passes,
+          pass_rate: data.runs > 0 ? (data.passes / data.runs) * 100 : 0,
+          rounds_judged: data.rounds.size,
+        }))
+        .filter((c) => c.runs > 0) // Only include classes with scored runs
+        .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name)); // Sort by C-WAGS order
 
       const overallPassRate = totalRuns > 0 ? (totalPasses / totalRuns) * 100 : 0;
 
@@ -257,7 +264,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         overall_pass_rate: overallPassRate,
         classes_judged: classBreakdown.length,
         trials_judged: trialsSet.size,
-        class_breakdown: classBreakdown
+        class_breakdown: classBreakdown,
       });
 
       console.log('Judge statistics loaded:', {
@@ -266,7 +273,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         totalPasses,
         overallPassRate: overallPassRate.toFixed(1),
         classesJudged: classBreakdown.length,
-        trialsJudged: trialsSet.size
+        trialsJudged: trialsSet.size,
       });
 
       if (classBreakdown.length > 0) {
@@ -276,7 +283,6 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       }
 
       console.log('========================================');
-
     } catch (err) {
       console.error('Error loading judge statistics:', err);
       setError(err instanceof Error ? err.message : 'Failed to load statistics');
@@ -340,10 +346,14 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
             <span className="text-gray-600">• {stats.total_runs} runs judged</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-600">• {stats.overall_pass_rate.toFixed(0)}% overall pass rate</span>
+            <span className="text-gray-600">
+              • {stats.overall_pass_rate.toFixed(0)}% overall pass rate
+            </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-gray-600">• {stats.classes_judged} classes, {stats.trials_judged} trials</span>
+            <span className="text-gray-600">
+              • {stats.classes_judged} classes, {stats.trials_judged} trials
+            </span>
           </div>
         </div>
 
@@ -355,15 +365,16 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
               <div key={idx} className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-2 flex-1">
                   <span className="text-gray-700">• {cls.class_name}:</span>
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className={`text-xs px-2 py-0 ${getPassRateColor(cls.pass_rate)}`}
                   >
                     {cls.pass_rate.toFixed(0)}%
                   </Badge>
                 </div>
                 <span className="text-gray-500 text-xs ml-2">
-                  ({cls.runs} runs, {cls.rounds_judged} {cls.rounds_judged === 1 ? 'round' : 'rounds'})
+                  ({cls.runs} runs, {cls.rounds_judged}{' '}
+                  {cls.rounds_judged === 1 ? 'round' : 'rounds'})
                 </span>
               </div>
             ))}

@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl;
@@ -9,17 +9,17 @@ export function middleware(request: NextRequest) {
   // -------------------------------------------------------
   // 🔥 1. Allow Supabase recovery links IMMEDIATELY
   // -------------------------------------------------------
-  if (params.get("type") === "recovery") {
+  if (params.get('type') === 'recovery') {
     return NextResponse.next(); // VERY IMPORTANT
   }
 
   // Allow any URL that includes Supabase tokens
-  if (params.has("token_hash") || params.has("access_token")) {
+  if (params.has('token_hash') || params.has('access_token')) {
     return NextResponse.next();
   }
 
   // Allow the reset-password page to load
-  if (pathname.startsWith("/login/reset-password")) {
+  if (pathname.startsWith('/login/reset-password')) {
     return NextResponse.next();
   }
 
@@ -49,5 +49,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

@@ -5,14 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Save, 
-  Calculator,
-  AlertCircle,
-  CheckCircle
-} from 'lucide-react';
+import { DollarSign, TrendingUp, Save, Calculator, AlertCircle, CheckCircle } from 'lucide-react';
 import { BreakEvenConfig } from '@/lib/breakEvenOperations';
 
 interface BreakEvenTabProps {
@@ -22,34 +15,39 @@ interface BreakEvenTabProps {
   onSave: (data: BreakEvenConfig) => Promise<void>;
 }
 
-export default function BreakEvenTab({ expenses, competitors, trialId, onSave }: BreakEvenTabProps) {
+export default function BreakEvenTab({
+  expenses,
+  competitors,
+  trialId,
+  onSave,
+}: BreakEvenTabProps) {
   const [saving, setSaving] = useState(false);
- const [data, setData] = useState<BreakEvenConfig>({
-  trial_id: trialId,
-  hall_rental: 0,
-  ribbons: 0,
-  insurance: 0,
-  other_fixed_costs: 0,
-  regular_entry_fee: 25.00,
-  regular_cwags_fee: 3.00,
-  regular_judge_fee: 2.00,
-  feo_entry_fee: 12.50,
-  feo_judge_fee: 2.00,
-  waived_entry_fee: 0,
-  waived_cwags_fee: 0,
-  waived_judge_fee: 0,
-  waived_feo_entry_fee: 0,
-  waived_feo_judge_fee: 0,
-  judge_volunteer_rate: 0,
-  feo_volunteer_rate: 0
-});
+  const [data, setData] = useState<BreakEvenConfig>({
+    trial_id: trialId,
+    hall_rental: 0,
+    ribbons: 0,
+    insurance: 0,
+    other_fixed_costs: 0,
+    regular_entry_fee: 25.0,
+    regular_cwags_fee: 3.0,
+    regular_judge_fee: 2.0,
+    feo_entry_fee: 12.5,
+    feo_judge_fee: 2.0,
+    waived_entry_fee: 0,
+    waived_cwags_fee: 0,
+    waived_judge_fee: 0,
+    waived_feo_entry_fee: 0,
+    waived_feo_judge_fee: 0,
+    judge_volunteer_rate: 0,
+    feo_volunteer_rate: 0,
+  });
 
   // Total fixed costs is now just the sum of all Trial Expenses
-const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+  const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
   const updateField = (field: keyof BreakEvenConfig, value: string) => {
     const numValue = parseFloat(value) || 0;
-    setData(prev => ({ ...prev, [field]: numValue }));
+    setData((prev) => ({ ...prev, [field]: numValue }));
   };
 
   const handleSave = async () => {
@@ -65,30 +63,31 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
   };
 
   // Calculate current runs
-  const regularRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.regular_runs || 0), 0);
+  const regularRuns = competitors.reduce(
+    (sum: number, comp: any) => sum + (comp.regular_runs || 0),
+    0
+  );
   const feoRuns = competitors.reduce((sum: number, comp: any) => sum + (comp.feo_runs || 0), 0);
 
   // Calculate totals
-   
+
   const regularNetPerRun = data.regular_entry_fee - data.regular_cwags_fee - data.regular_judge_fee;
   const feoNetPerRun = data.feo_entry_fee - data.feo_judge_fee;
-  
+
   const totalRegularRevenue = regularRuns * regularNetPerRun;
   const totalFeoRevenue = feoRuns * feoNetPerRun;
   const totalNetRevenue = totalRegularRevenue + totalFeoRevenue;
-  
+
   const currentNetIncome = totalNetRevenue - totalFixedCosts;
-  
+
   // Calculate break-even
   const totalRuns = regularRuns + feoRuns;
-  const weightedAvgNetPerRun = totalRuns > 0 
-    ? (totalRegularRevenue + totalFeoRevenue) / totalRuns 
-    : regularNetPerRun;
-  
-  const breakEvenRuns = weightedAvgNetPerRun > 0 
-    ? Math.ceil(totalFixedCosts / weightedAvgNetPerRun)
-    : 0;
-  
+  const weightedAvgNetPerRun =
+    totalRuns > 0 ? (totalRegularRevenue + totalFeoRevenue) / totalRuns : regularNetPerRun;
+
+  const breakEvenRuns =
+    weightedAvgNetPerRun > 0 ? Math.ceil(totalFixedCosts / weightedAvgNetPerRun) : 0;
+
   const runsNeeded = breakEvenRuns - totalRuns;
   const isProfitable = currentNetIncome >= 0;
 
@@ -112,7 +111,11 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
 
       {/* Status Alert */}
       {totalRuns > 0 && (
-        <Alert className={isProfitable ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'}>
+        <Alert
+          className={
+            isProfitable ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'
+          }
+        >
           {isProfitable ? (
             <CheckCircle className="h-4 w-4 text-green-600" />
           ) : (
@@ -125,7 +128,8 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
               </span>
             ) : (
               <span className="font-semibold">
-                Need {runsNeeded} more run{runsNeeded !== 1 ? 's' : ''} to break even (${Math.abs(currentNetIncome).toFixed(2)} short)
+                Need {runsNeeded} more run{runsNeeded !== 1 ? 's' : ''} to break even ($
+                {Math.abs(currentNetIncome).toFixed(2)} short)
               </span>
             )}
           </AlertDescription>
@@ -133,37 +137,39 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-       {/* Total Expenses Section */}
-<Card>
-  <CardHeader>
-    <CardTitle className="flex items-center">
-      <DollarSign className="h-5 w-5 mr-2 text-red-600" />
-      Total Expenses
-    </CardTitle>
-    <CardDescription>Sum of all expenses entered in Trial Expenses</CardDescription>
-  </CardHeader>
-  <CardContent className="space-y-3">
-    {expenses.length === 0 ? (
-      <p className="text-sm text-gray-500 italic">No expenses added yet. Add expenses in the Expenses & Payments tab.</p>
-    ) : (
-      <>
-        {expenses.map((expense, index) => (
-          <div key={index} className="flex justify-between text-sm">
-            <span className="text-gray-600">
-              {expense.expense_category}
-              {expense.description ? ` – ${expense.description}` : ''}
-            </span>
-            <span className="font-semibold">${(expense.amount || 0).toFixed(2)}</span>
-          </div>
-        ))}
-        <div className="flex justify-between pt-2 border-t font-semibold text-red-700">
-          <span>Total Expenses</span>
-          <span>${totalFixedCosts.toFixed(2)}</span>
-        </div>
-      </>
-    )}
-  </CardContent>
-</Card>
+        {/* Total Expenses Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <DollarSign className="h-5 w-5 mr-2 text-red-600" />
+              Total Expenses
+            </CardTitle>
+            <CardDescription>Sum of all expenses entered in Trial Expenses</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {expenses.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">
+                No expenses added yet. Add expenses in the Expenses & Payments tab.
+              </p>
+            ) : (
+              <>
+                {expenses.map((expense, index) => (
+                  <div key={index} className="flex justify-between text-sm">
+                    <span className="text-gray-600">
+                      {expense.expense_category}
+                      {expense.description ? ` – ${expense.description}` : ''}
+                    </span>
+                    <span className="font-semibold">${(expense.amount || 0).toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-2 border-t font-semibold text-red-700">
+                  <span>Total Expenses</span>
+                  <span>${totalFixedCosts.toFixed(2)}</span>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Per-Run Rates Section */}
         <Card>
@@ -178,11 +184,9 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
             {/* Regular Runs */}
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900 border-b pb-2">Regular Runs</h3>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Entry Fee
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-gray-500">$</span>
                   <input
@@ -230,9 +234,7 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
               <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">Net per Regular Run:</span>
-                  <span className="font-bold text-green-700">
-                    ${regularNetPerRun.toFixed(2)}
-                  </span>
+                  <span className="font-bold text-green-700">${regularNetPerRun.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -240,11 +242,9 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
             {/* FEO Runs */}
             <div className="space-y-3">
               <h3 className="font-semibold text-gray-900 border-b pb-2">FEO Runs</h3>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Entry Fee
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entry Fee</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-gray-500">$</span>
                   <input
@@ -292,9 +292,7 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">Net per FEO Run:</span>
-                  <span className="font-bold text-purple-700">
-                    ${feoNetPerRun.toFixed(2)}
-                  </span>
+                  <span className="font-bold text-purple-700">${feoNetPerRun.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -337,11 +335,15 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Regular Revenue:</span>
-                  <span className="font-semibold text-green-700">${totalRegularRevenue.toFixed(2)}</span>
+                  <span className="font-semibold text-green-700">
+                    ${totalRegularRevenue.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">FEO Revenue:</span>
-                  <span className="font-semibold text-purple-700">${totalFeoRevenue.toFixed(2)}</span>
+                  <span className="font-semibold text-purple-700">
+                    ${totalFeoRevenue.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Fixed Costs:</span>
@@ -349,7 +351,9 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
                 </div>
                 <div className="flex justify-between pt-2 border-t">
                   <span className="text-sm font-semibold text-gray-700">Net Income:</span>
-                  <span className={`font-bold text-lg ${currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <span
+                    className={`font-bold text-lg ${currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                  >
                     ${currentNetIncome.toFixed(2)}
                   </span>
                 </div>
@@ -370,7 +374,9 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
                 </div>
                 <div className="flex justify-between pt-2 border-t">
                   <span className="text-sm font-semibold text-gray-700">Status:</span>
-                  <span className={`font-bold text-lg ${isProfitable ? 'text-green-700' : 'text-orange-700'}`}>
+                  <span
+                    className={`font-bold text-lg ${isProfitable ? 'text-green-700' : 'text-orange-700'}`}
+                  >
                     {isProfitable ? '✓ Profitable' : `Need ${runsNeeded}`}
                   </span>
                 </div>
@@ -384,11 +390,12 @@ const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Progress to Break-Even</span>
                 <span className="text-sm text-gray-600">
-                  {totalRuns} / {breakEvenRuns} runs ({Math.min(100, Math.round((totalRuns / breakEvenRuns) * 100))}%)
+                  {totalRuns} / {breakEvenRuns} runs (
+                  {Math.min(100, Math.round((totalRuns / breakEvenRuns) * 100))}%)
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-                <div 
+                <div
                   className={`h-full transition-all duration-500 ${
                     isProfitable ? 'bg-green-600' : 'bg-orange-600'
                   }`}

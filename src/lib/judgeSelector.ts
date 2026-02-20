@@ -8,30 +8,41 @@ import type { Judge } from '../types/judge'; // Changed from '@/types/judge'
  */
 export function parseClassName(className: string): { discipline: string; level: string } {
   const lower = className.toLowerCase();
-  
+
   // Scent classes
-  if (lower.includes('patrol') || lower.includes('detective') || lower.includes('investigator') || 
-      lower.includes('sleuth') || lower.includes('ranger') || lower.includes('dasher') || 
-      lower.includes('private inv')) {
+  if (
+    lower.includes('patrol') ||
+    lower.includes('detective') ||
+    lower.includes('investigator') ||
+    lower.includes('sleuth') ||
+    lower.includes('ranger') ||
+    lower.includes('dasher') ||
+    lower.includes('private inv')
+  ) {
     return { discipline: 'scent', level: className };
   }
-  
+
   // Obedience classes
   if (lower.includes('obedience')) {
     return { discipline: 'obedience', level: className };
   }
-  
+
   // Rally classes
-  if (lower.includes('starter') || lower.includes('advanced') || lower.includes('pro') || 
-      lower.includes('arf') || lower.includes('zoom')) {
+  if (
+    lower.includes('starter') ||
+    lower.includes('advanced') ||
+    lower.includes('pro') ||
+    lower.includes('arf') ||
+    lower.includes('zoom')
+  ) {
     return { discipline: 'rally', level: className };
   }
-  
+
   // Games classes
   if (lower.includes('games')) {
     return { discipline: 'games', level: className };
   }
-  
+
   return { discipline: 'unknown', level: className };
 }
 
@@ -40,10 +51,10 @@ export function parseClassName(className: string): { discipline: string; level: 
  */
 export function getQualifiedJudges(judges: Judge[], className: string): Judge[] {
   const { discipline, level } = parseClassName(className);
-  
-  return judges.filter(judge => {
+
+  return judges.filter((judge) => {
     if (!judge.is_active) return false;
-    
+
     switch (discipline) {
       case 'scent':
         return judge.scent_levels?.includes(level);
@@ -64,14 +75,14 @@ export function getQualifiedJudges(judges: Judge[], className: string): Judge[] 
  */
 export function sortJudgesByLocation(judges: Judge[], userState?: string): Judge[] {
   if (!userState) return judges;
-  
+
   return [...judges].sort((a, b) => {
     const aIsLocal = a.province_state?.toLowerCase() === userState.toLowerCase();
     const bIsLocal = b.province_state?.toLowerCase() === userState.toLowerCase();
-    
+
     if (aIsLocal && !bIsLocal) return -1;
     if (!aIsLocal && bIsLocal) return 1;
-    
+
     // If both same locality, sort by name
     return a.name.localeCompare(b.name);
   });
@@ -82,12 +93,12 @@ export function sortJudgesByLocation(judges: Judge[], userState?: string): Judge
  */
 export function getCertificationSummary(judge: Judge, className: string): string {
   const { discipline } = parseClassName(className);
-  
+
   switch (discipline) {
     case 'scent':
       return judge.scent_levels?.join(', ') || '';
     case 'obedience':
-      return judge.obedience_levels?.map(l => l.replace('Obedience ', '')).join(', ') || '';
+      return judge.obedience_levels?.map((l) => l.replace('Obedience ', '')).join(', ') || '';
     case 'rally':
       return judge.rally_levels?.join(', ') || '';
     case 'games':
@@ -102,11 +113,12 @@ export function getCertificationSummary(judge: Judge, className: string): string
  */
 export function searchJudgesByName(judges: Judge[], searchTerm: string): Judge[] {
   if (!searchTerm.trim()) return judges;
-  
+
   const term = searchTerm.toLowerCase();
-  return judges.filter(judge => 
-    judge.name.toLowerCase().includes(term) ||
-    judge.city?.toLowerCase().includes(term) ||
-    judge.province_state?.toLowerCase().includes(term)
+  return judges.filter(
+    (judge) =>
+      judge.name.toLowerCase().includes(term) ||
+      judge.city?.toLowerCase().includes(term) ||
+      judge.province_state?.toLowerCase().includes(term)
   );
 }

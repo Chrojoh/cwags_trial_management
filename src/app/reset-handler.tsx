@@ -1,9 +1,9 @@
 // src/app/reset-handler.tsx
-"use client";
+'use client';
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 function ResetHandlerContent() {
   const router = useRouter();
@@ -32,18 +32,18 @@ function ResetHandlerContent() {
       } = supabase.auth.onAuthStateChange((event, session) => {
         try {
           console.log('Auth state change:', event);
-          
-          if (event === "PASSWORD_RECOVERY") {
+
+          if (event === 'PASSWORD_RECOVERY') {
             console.log('PASSWORD_RECOVERY event detected, redirecting...');
-            router.push("/login/reset-password");
+            router.push('/login/reset-password');
           }
 
           // Handle other auth events if needed
-          if (event === "SIGNED_OUT") {
+          if (event === 'SIGNED_OUT') {
             console.log('User signed out');
           }
 
-          if (event === "SIGNED_IN") {
+          if (event === 'SIGNED_IN') {
             console.log('User signed in');
           }
         } catch (error) {
@@ -52,7 +52,6 @@ function ResetHandlerContent() {
       });
 
       subscription = authSubscription;
-
     } catch (error) {
       console.error('Error in ResetHandler:', error);
     }

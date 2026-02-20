@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
+import {
   Calendar,
   Users,
   Trophy,
@@ -31,16 +31,16 @@ import {
   Database,
   AlertCircle,
   ChevronRight,
-  Upload
+  Upload,
 } from 'lucide-react';
 
 // UPDATED INTERFACE to support enhanced alerts
 interface EnhancedAlert {
   type: 'warning' | 'info';
   message: string;
-  trialId?: string;          // Optional trial ID for navigation
-  trialName?: string;        // Optional trial name for display
-  closingDate?: string;      // Optional closing date
+  trialId?: string; // Optional trial ID for navigation
+  trialName?: string; // Optional trial name for display
+  closingDate?: string; // Optional closing date
 }
 
 interface AdminDashboardProps {
@@ -65,10 +65,15 @@ interface AdminDashboardProps {
     trial_name: string;
     start_date: string;
   }>;
-  alerts: EnhancedAlert[];  // CHANGED TYPE
+  alerts: EnhancedAlert[]; // CHANGED TYPE
 }
 
-export default function AdminDashboard({ stats, recentTrials, allTrials, alerts }: AdminDashboardProps) {
+export default function AdminDashboard({
+  stats,
+  recentTrials,
+  allTrials,
+  alerts,
+}: AdminDashboardProps) {
   const router = useRouter();
 
   const getStatusColor = (status: string) => {
@@ -88,19 +93,14 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
 
   const formatDate = (dateString: string) => {
     const parts = dateString.split('-');
-    const date = new Date(
-      parseInt(parts[0]),
-      parseInt(parts[1]) - 1,
-      parseInt(parts[2]),
-      12, 0, 0
-    );
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
-  
+
   // NEW FUNCTION: Handle clicking on an alert that has a trial ID
   const handleAlertClick = (alert: EnhancedAlert) => {
     if (alert.trialId) {
@@ -114,8 +114,8 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
       {alerts.length > 0 && (
         <div className="space-y-2">
           {alerts.map((alert, idx) => (
-            <Card 
-              key={idx} 
+            <Card
+              key={idx}
               className={`
                 ${alert.type === 'warning' ? 'border-orange-200 bg-orange-50' : 'border-blue-200 bg-blue-50'}
                 ${alert.trialId ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}
@@ -125,13 +125,19 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 flex-1">
-                    <AlertCircle className={`h-5 w-5 flex-shrink-0 ${alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'}`} />
-                    <span className={`${alert.type === 'warning' ? 'text-orange-900' : 'text-blue-900'} font-medium`}>
+                    <AlertCircle
+                      className={`h-5 w-5 flex-shrink-0 ${alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'}`}
+                    />
+                    <span
+                      className={`${alert.type === 'warning' ? 'text-orange-900' : 'text-blue-900'} font-medium`}
+                    >
                       {alert.message}
                     </span>
                   </div>
                   {alert.trialId && (
-                    <ChevronRight className={`h-5 w-5 ${alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'}`} />
+                    <ChevronRight
+                      className={`h-5 w-5 ${alert.type === 'warning' ? 'text-orange-600' : 'text-blue-600'}`}
+                    />
                   )}
                 </div>
               </CardContent>
@@ -144,9 +150,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Trials
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Trials</CardTitle>
             <Trophy className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -157,9 +161,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Active Trials
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Active Trials</CardTitle>
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -170,9 +172,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Upcoming Trials
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Upcoming Trials</CardTitle>
             <TrendingUp className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -183,9 +183,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
-              Total Users
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Users</CardTitle>
             <Users className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
@@ -211,7 +209,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             ) : (
               <div className="space-y-3">
                 {recentTrials.map((trial) => (
-                  <div 
+                  <div
                     key={trial.id}
                     onClick={() => router.push(`/dashboard/trials/${trial.id}`)}
                     className="flex items-center justify-between p-4 border rounded-lg hover:border-orange-300 hover:shadow-md transition-all cursor-pointer group"
@@ -224,9 +222,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
                         <span className="text-sm text-gray-600">
                           {formatDate(trial.start_date)}
                         </span>
-                        <span className="text-sm text-gray-500">
-                          {trial.club_name}
-                        </span>
+                        <span className="text-sm text-gray-500">{trial.club_name}</span>
                       </div>
                     </div>
                     <Badge className={getStatusColor(trial.trial_status)}>
@@ -249,7 +245,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             <CardDescription>Administrative tools and shortcuts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/trials/create')}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white"
             >
@@ -257,7 +253,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Create New Trial
             </Button>
 
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/admin/import-trial')}
               variant="outline"
               className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
@@ -266,7 +262,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Import Trial from Excel
             </Button>
 
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/trials')}
               variant="outline"
               className="w-full"
@@ -275,7 +271,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Manage Trials
             </Button>
 
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/admin/registry')}
               variant="outline"
               className="w-full"
@@ -284,7 +280,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Manage Registry
             </Button>
 
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/judges')}
               variant="outline"
               className="w-full"
@@ -293,7 +289,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Manage Judges
             </Button>
 
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/admin/trial-assignments')}
               variant="outline"
               className="w-full"
@@ -302,7 +298,7 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               Trial Assignments
             </Button>
 
-           <Button 
+            <Button
               onClick={() => router.push('/dashboard/admin/class-statistics')}
               variant="outline"
               className="w-full"
@@ -310,8 +306,8 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
               <BarChart3 className="h-4 w-4 mr-2" />
               CLass Summary
             </Button>
-           
-           <Button 
+
+            <Button
               onClick={() => router.push('/dashboard/admin/all-trials-summary')}
               variant="outline"
               className="w-full"
@@ -323,7 +319,11 @@ export default function AdminDashboard({ stats, recentTrials, allTrials, alerts 
             {allTrials.length > 0 && (
               <div className="border-t pt-3 mt-3">
                 <p className="text-xs font-medium text-gray-500 mb-2">Trial Analysis Tools</p>
-                <Select onValueChange={(trialId) => router.push(`/dashboard/admin/judge-compensation/${trialId}`)}>
+                <Select
+                  onValueChange={(trialId) =>
+                    router.push(`/dashboard/admin/judge-compensation/${trialId}`)
+                  }
+                >
                   <SelectTrigger className="w-full">
                     <div className="flex items-center">
                       <Calculator className="h-4 w-4 mr-2" />

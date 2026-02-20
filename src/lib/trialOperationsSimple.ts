@@ -1,5 +1,5 @@
 // src/lib/trial-operations-simple.ts
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
@@ -18,8 +18,8 @@ export interface TrialData {
   trial_secretary: string;
   secretary_email: string;
   secretary_phone: string | null;
-  default_entry_fee?: number;       
-  default_feo_price?: number; 
+  default_entry_fee?: number;
+  default_feo_price?: number;
   waiver_text: string;
   fee_configuration: any | null;
   notes: string | null;
@@ -54,14 +54,13 @@ export interface TrialClass {
   notes?: string;
 
   // ✅ Add this
-  trial_rounds?: TrialRound[]
+  trial_rounds?: TrialRound[];
   trial_days?: {
     trial_id: string;
     day_number: number;
     trial_date: string;
-};
+  };
 }
-
 
 export interface TrialRound {
   id?: string;
@@ -88,13 +87,13 @@ export interface EntryData {
   dog_call_name: string;
   cwags_number: string;
   dog_breed: string | null;
-  dog_sex: string | null; 
+  dog_sex: string | null;
   handler_email: string;
   handler_phone: string;
   is_junior_handler: boolean;
   waiver_accepted: boolean;
-  close_to_titles?: string | null;  // ← ADD THIS LINE
-  volunteer_preferences?: any | null;  // ← ADD THIS LINE
+  close_to_titles?: string | null; // ← ADD THIS LINE
+  volunteer_preferences?: any | null; // ← ADD THIS LINE
   total_fee: number;
   payment_status: string;
   submitted_at?: string;
@@ -119,22 +118,25 @@ export interface EntrySelection {
 
 export const CWAGS_LEVELS = {
   'Scent Work': [
-    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4',  // ✅ Fixed
-    'Private Investigator', 'Detective Diversions',
-    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6'
+    'Patrol 1',
+    'Detective 2',
+    'Investigator 3',
+    'Super Sleuth 4', // ✅ Fixed
+    'Private Investigator',
+    'Detective Diversions',
+    'Ranger 1',
+    'Ranger 2',
+    'Ranger 3',
+    'Ranger 4',
+    'Ranger 5',
+    'Dasher 3',
+    'Dasher 4',
+    'Dasher 5',
+    'Dasher 6',
   ],
-  'Rally': [
-    'Starter', 'Advanced', 'Pro', 'ARF', 
-    'Zoom 1', 'Zoom 1.5', 'Zoom 2'
-  ],
-  'Obedience': [
-    'Obedience 1', 'Obedience 2', 'Obedience 3', 
-    'Obedience 4', 'Obedience 5'
-  ],
-  'Games': [
-    'Games 1', 'Games 2', 'Games 3', 'Games 4'
-  ]
+  Rally: ['Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2'],
+  Obedience: ['Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5'],
+  Games: ['Games 1', 'Games 2', 'Games 3', 'Games 4'],
 };
 
 // Type definitions
@@ -156,31 +158,30 @@ export const simpleTrialOperations = {
   async createTrial(trialData: Omit<TrialData, 'id'>): Promise<OperationResult> {
     try {
       console.log('Creating trial with data:', trialData);
-      
-     // Handle the hardcoded user ID issue
-let dataToInsert = { ...trialData };
 
-// If we get the hardcoded ID '2', convert it to a real user
-const createdById = String(dataToInsert.created_by);
-if (createdById === '2') {
-  console.log('Converting hardcoded user ID to database user...');
-  
-  
-  // Get the secretary1 user from database
-  const { data: user, error: userError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('first_name', 'role')
-    .single();
-  
-  if (userError || !user) {
-    console.error('Could not find secretary1 user:', userError);
-    return { success: false, error: 'User not found in database' };
-  }
-  
-  dataToInsert.created_by = user.id;
-  console.log('Converted user ID from "2" to:', user.id);
-}
+      // Handle the hardcoded user ID issue
+      let dataToInsert = { ...trialData };
+
+      // If we get the hardcoded ID '2', convert it to a real user
+      const createdById = String(dataToInsert.created_by);
+      if (createdById === '2') {
+        console.log('Converting hardcoded user ID to database user...');
+
+        // Get the secretary1 user from database
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('first_name', 'role')
+          .single();
+
+        if (userError || !user) {
+          console.error('Could not find secretary1 user:', userError);
+          return { success: false, error: 'User not found in database' };
+        }
+
+        dataToInsert.created_by = user.id;
+        console.log('Converted user ID from "2" to:', user.id);
+      }
 
       // Enhanced data preparation from original
       const insertData = {
@@ -195,23 +196,19 @@ if (createdById === '2') {
         entries_open: dataToInsert.entries_open || false,
         entries_close_date: dataToInsert.entries_close_date,
         max_entries_per_day: dataToInsert.max_entries_per_day,
-        default_entry_fee: dataToInsert.default_entry_fee,     // ✅ ADD THIS
-        default_feo_price: dataToInsert.default_feo_price,     // ✅ ADD THIS
+        default_entry_fee: dataToInsert.default_entry_fee, // ✅ ADD THIS
+        default_feo_price: dataToInsert.default_feo_price, // ✅ ADD THIS
         trial_secretary: dataToInsert.trial_secretary,
         secretary_email: dataToInsert.secretary_email,
         secretary_phone: dataToInsert.secretary_phone,
         waiver_text: dataToInsert.waiver_text,
         fee_configuration: dataToInsert.fee_configuration,
-        notes: dataToInsert.notes
+        notes: dataToInsert.notes,
       };
 
       console.log('Insert data:', insertData);
 
-      const { data, error } = await supabase
-        .from('trials')
-        .insert(insertData)
-        .select()
-        .single();
+      const { data, error } = await supabase.from('trials').insert(insertData).select().single();
 
       if (error) {
         console.error('Database error:', error);
@@ -234,7 +231,7 @@ if (createdById === '2') {
         .from('trials')
         .update({
           ...updates,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', trialId)
         .select()
@@ -253,185 +250,193 @@ if (createdById === '2') {
     }
   },
 
-async getTrial(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting trial data for ID:', trialId);
+  async getTrial(trialId: string): Promise<OperationResult> {
+    try {
+      console.log('Getting trial data for ID:', trialId);
 
-    const { data, error } = await supabase
-      .from('trials')
-      .select(`
+      const { data, error } = await supabase
+        .from('trials')
+        .select(
+          `
   *,
   default_entry_fee,
   default_feo_price
-`)
-      .eq('id', trialId)
-      .single();
-
-    if (error) {
-      console.error('Error getting trial:', error);
-      return { success: false, error: error.message || 'Database error occurred' };
-    }
-
-    if (!data) {
-      console.error('Trial not found for ID:', trialId);
-      return { success: false, error: 'Trial not found' };
-    }
-
-    console.log('Trial data retrieved:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Exception in getTrial:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error occurred' };
-  }
-},
-
-
-//  SAFE UPDATED getAllTrials
-async getAllTrials(): Promise<OperationResult> {
-  try {
-    const supabase = getSupabaseBrowser();
-
-    // Get the logged-in user
-    const { data: authData } = await supabase.auth.getUser();
-    const user = authData?.user;
-
-    if (!user) {
-      console.log("No logged-in user found when loading trials.");
-      return { success: false, error: "Not authenticated" };
-    }
-
-    // Get user role
-    const { data: userRecord, error: userError } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (userError || !userRecord) {
-      console.error("Failed to load user role:", userError);
-      return { success: false, error: "Failed to load user role" };
-    }
-
-    const isAdmin = userRecord.role === "administrator";
-
-    if (isAdmin) {
-      // Admins see all trials
-      const { data, error } = await supabase
-        .from("trials")
-        .select("*")
-        .order("start_date", { ascending: false });
+`
+        )
+        .eq('id', trialId)
+        .single();
 
       if (error) {
-        console.error("Error fetching trials:", error);
-        return { success: false, error: error.message };
+        console.error('Error getting trial:', error);
+        return { success: false, error: error.message || 'Database error occurred' };
       }
 
+      if (!data) {
+        console.error('Trial not found for ID:', trialId);
+        return { success: false, error: 'Trial not found' };
+      }
+
+      console.log('Trial data retrieved:', data);
       return { success: true, data };
-    } else {
-      // Non-admins: Get trials they created
-      const { data: createdTrials, error: createdError } = await supabase
-        .from("trials")
-        .select("*")
-        .eq("created_by", user.id);
+    } catch (error) {
+      console.error('Exception in getTrial:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      };
+    }
+  },
 
-      if (createdError) {
-        console.error("Error fetching created trials:", createdError);
-        return { success: false, error: createdError.message };
+  //  SAFE UPDATED getAllTrials
+  async getAllTrials(): Promise<OperationResult> {
+    try {
+      const supabase = getSupabaseBrowser();
+
+      // Get the logged-in user
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData?.user;
+
+      if (!user) {
+        console.log('No logged-in user found when loading trials.');
+        return { success: false, error: 'Not authenticated' };
       }
 
-      // Get trials they're assigned to
-      const { data: assignments, error: assignmentError } = await supabase
-        .from("trial_assignments")
-        .select(`
+      // Get user role
+      const { data: userRecord, error: userError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (userError || !userRecord) {
+        console.error('Failed to load user role:', userError);
+        return { success: false, error: 'Failed to load user role' };
+      }
+
+      const isAdmin = userRecord.role === 'administrator';
+
+      if (isAdmin) {
+        // Admins see all trials
+        const { data, error } = await supabase
+          .from('trials')
+          .select('*')
+          .order('start_date', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching trials:', error);
+          return { success: false, error: error.message };
+        }
+
+        return { success: true, data };
+      } else {
+        // Non-admins: Get trials they created
+        const { data: createdTrials, error: createdError } = await supabase
+          .from('trials')
+          .select('*')
+          .eq('created_by', user.id);
+
+        if (createdError) {
+          console.error('Error fetching created trials:', createdError);
+          return { success: false, error: createdError.message };
+        }
+
+        // Get trials they're assigned to
+        const { data: assignments, error: assignmentError } = await supabase
+          .from('trial_assignments')
+          .select(
+            `
           trial_id,
           trials (*)
-        `)
-        .eq("user_id", user.id);
+        `
+          )
+          .eq('user_id', user.id);
 
-      if (assignmentError) {
-        console.error("Error fetching assigned trials:", assignmentError);
-        return { success: false, error: assignmentError.message };
+        if (assignmentError) {
+          console.error('Error fetching assigned trials:', assignmentError);
+          return { success: false, error: assignmentError.message };
+        }
+
+        // Combine and deduplicate trials
+        const assignedTrials = (assignments || [])
+          .map((a: any) => a.trials)
+          .filter((t: any) => t !== null);
+
+        const allTrials = [...(createdTrials || []), ...assignedTrials];
+
+        // Remove duplicates by ID
+        const uniqueTrials = allTrials.filter(
+          (trial, index, self) => index === self.findIndex((t) => t.id === trial.id)
+        );
+
+        // Sort by start date
+        uniqueTrials.sort(
+          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+        );
+
+        return { success: true, data: uniqueTrials };
+      }
+    } catch (err: any) {
+      console.error('Unexpected getAllTrials error:', err);
+      return { success: false, error: 'Unexpected error fetching trials' };
+    }
+  },
+
+  // Update trial status (FIXED - handles data correctly)
+  async updateTrialStatus(
+    trialId: string,
+    status: 'draft' | 'published' | 'active' | 'closed' | 'completed'
+  ): Promise<OperationResult> {
+    try {
+      console.log('=== UPDATE TRIAL STATUS DEBUG ===');
+      console.log('Trial ID:', trialId);
+      console.log('New Status:', status);
+
+      const updateData = {
+        trial_status: status,
+        updated_at: new Date().toISOString(),
+      };
+
+      // First, check if the trial exists
+      const { data: existingTrial, error: checkError } = await supabase
+        .from('trials')
+        .select('id')
+        .eq('id', trialId)
+        .single();
+
+      if (checkError || !existingTrial) {
+        console.error('Trial not found:', trialId);
+        return { success: false, error: 'Trial not found' };
       }
 
-      // Combine and deduplicate trials
-      const assignedTrials = (assignments || [])
-        .map((a: any) => a.trials)
-        .filter((t: any) => t !== null);
+      // Now update it
+      const { error: updateError } = await supabase
+        .from('trials')
+        .update(updateData)
+        .eq('id', trialId);
 
-      const allTrials = [...(createdTrials || []), ...assignedTrials];
-      
-      // Remove duplicates by ID
-      const uniqueTrials = allTrials.filter((trial, index, self) =>
-        index === self.findIndex((t) => t.id === trial.id)
-      );
+      if (updateError) {
+        console.error('Update error:', updateError);
+        return { success: false, error: updateError.message || 'Failed to update trial' };
+      }
 
-      // Sort by start date
-      uniqueTrials.sort((a, b) => 
-        new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-      );
-
-      return { success: true, data: uniqueTrials };
+      console.log('Trial status updated successfully to:', status);
+      return { success: true, data: { ...existingTrial, trial_status: status } };
+    } catch (error) {
+      console.error('Caught Exception:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-  } catch (err: any) {
-    console.error("Unexpected getAllTrials error:", err);
-    return { success: false, error: "Unexpected error fetching trials" };
-  }
-},
-
-// Update trial status (FIXED - handles data correctly)
-async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active' | 'closed' | 'completed'): Promise<OperationResult> {
-  try {
-    console.log('=== UPDATE TRIAL STATUS DEBUG ===');
-    console.log('Trial ID:', trialId);
-    console.log('New Status:', status);
-
-    const updateData = {
-      trial_status: status,
-      updated_at: new Date().toISOString()
-    };
-
-    // First, check if the trial exists
-    const { data: existingTrial, error: checkError } = await supabase
-      .from('trials')
-      .select('id')
-      .eq('id', trialId)
-      .single();
-
-    if (checkError || !existingTrial) {
-      console.error('Trial not found:', trialId);
-      return { success: false, error: 'Trial not found' };
-    }
-
-    // Now update it
-    const { error: updateError } = await supabase
-      .from('trials')
-      .update(updateData)
-      .eq('id', trialId);
-
-    if (updateError) {
-      console.error('Update error:', updateError);
-      return { success: false, error: updateError.message || 'Failed to update trial' };
-    }
-
-    console.log('Trial status updated successfully to:', status);
-    return { success: true, data: { ...existingTrial, trial_status: status } };
-  } catch (error) {
-    console.error('Caught Exception:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
-
+  },
 
   // Enhanced Trial Days Operations
-  async saveTrialDays(trialId: string, days: Omit<TrialDay, 'id' | 'trial_id'>[]): Promise<OperationResult> {
+  async saveTrialDays(
+    trialId: string,
+    days: Omit<TrialDay, 'id' | 'trial_id'>[]
+  ): Promise<OperationResult> {
     try {
       console.log('Saving trial days:', { trialId, days });
 
       // First delete existing days for this trial
-      await supabase
-        .from('trial_days')
-        .delete()
-        .eq('trial_id', trialId);
+      await supabase.from('trial_days').delete().eq('trial_id', trialId);
 
       // Enhanced mapping from original
       const trialDays = days.map((day, index) => ({
@@ -440,13 +445,10 @@ async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active
         trial_date: day.trial_date,
         day_status: day.day_status,
         notes: day.notes,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       }));
 
-      const { data, error } = await supabase
-        .from('trial_days')
-        .insert(trialDays)
-        .select();
+      const { data, error } = await supabase.from('trial_days').insert(trialDays).select();
 
       if (error) {
         console.error('Database error saving days:', error);
@@ -490,12 +492,9 @@ async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active
       console.log('Saving trial classes with Games subclass support:', { trialDayId, classes });
 
       // First delete existing classes for this trial day
-      await supabase
-        .from('trial_classes')
-        .delete()
-        .eq('trial_day_id', trialDayId);
+      await supabase.from('trial_classes').delete().eq('trial_day_id', trialDayId);
 
-      const classesToInsert = classes.map(cls => ({
+      const classesToInsert = classes.map((cls) => ({
         trial_day_id: trialDayId,
         class_name: cls.class_name,
         class_type: cls.class_type,
@@ -507,15 +506,12 @@ async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active
         feo_price: cls.feo_price || 0,
         games_subclass: cls.games_subclass || null,
         class_order: cls.class_order,
-        class_status: cls.class_status || 'draft'
+        class_status: cls.class_status || 'draft',
       }));
 
       console.log('Classes to insert with Games subclass:', classesToInsert);
 
-      const { data, error } = await supabase
-        .from('trial_classes')
-        .insert(classesToInsert)
-        .select();
+      const { data, error } = await supabase.from('trial_classes').insert(classesToInsert).select();
 
       if (error) {
         console.error('Database error saving classes:', error);
@@ -560,14 +556,16 @@ async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active
 
       const { data, error } = await supabase
         .from('trial_classes')
-        .select(`
+        .select(
+          `
           *,
           trial_days!inner (
             trial_id,
             trial_date,
             day_number
           )
-        `)
+        `
+        )
         .eq('trial_days.trial_id', trialId);
 
       if (error) {
@@ -592,66 +590,71 @@ async updateTrialStatus(trialId: string, status: 'draft' | 'published' | 'active
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
-// Add trial assignment
-async assignUserToTrial(trialId: string, userId: string, notes?: string): Promise<OperationResult> {
-  try {
-    const { data: authData } = await supabase.auth.getUser();
-    const currentUser = authData?.user;
+  // Add trial assignment
+  async assignUserToTrial(
+    trialId: string,
+    userId: string,
+    notes?: string
+  ): Promise<OperationResult> {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUser = authData?.user;
 
-    if (!currentUser) {
-      return { success: false, error: "Not authenticated" };
+      if (!currentUser) {
+        return { success: false, error: 'Not authenticated' };
+      }
+
+      const { data, error } = await supabase
+        .from('trial_assignments')
+        .insert({
+          trial_id: trialId,
+          user_id: userId,
+          assigned_by: currentUser.id,
+          notes: notes || null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error assigning user to trial:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error assigning user:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+  },
 
-    const { data, error } = await supabase
-      .from('trial_assignments')
-      .insert({
-        trial_id: trialId,
-        user_id: userId,
-        assigned_by: currentUser.id,
-        notes: notes || null
-      })
-      .select()
-      .single();
+  // Remove trial assignment
+  async removeUserFromTrial(trialId: string, userId: string): Promise<OperationResult> {
+    try {
+      const { error } = await supabase
+        .from('trial_assignments')
+        .delete()
+        .eq('trial_id', trialId)
+        .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error assigning user to trial:', error);
-      return { success: false, error: error.message };
-    }
+      if (error) {
+        console.error('Error removing assignment:', error);
+        return { success: false, error: error.message };
+      }
 
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error assigning user:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
-
-// Remove trial assignment
-async removeUserFromTrial(trialId: string, userId: string): Promise<OperationResult> {
-  try {
-    const { error } = await supabase
-      .from('trial_assignments')
-      .delete()
-      .eq('trial_id', trialId)
-      .eq('user_id', userId);
-
-    if (error) {
+      return { success: true, data: null };
+    } catch (error) {
       console.error('Error removing assignment:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+  },
 
-    return { success: true, data: null };
-  } catch (error) {
-    console.error('Error removing assignment:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
-
-// Get all users assigned to a trial
-async getTrialAssignments(trialId: string): Promise<OperationResult> {
-  try {
-    const { data, error } = await supabase
-      .from('trial_assignments')
-      .select(`
+  // Get all users assigned to a trial
+  async getTrialAssignments(trialId: string): Promise<OperationResult> {
+    try {
+      const { data, error } = await supabase
+        .from('trial_assignments')
+        .select(
+          `
         *,
         users!trial_assignments_user_id_fkey(
           id,
@@ -664,20 +667,21 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
           first_name,
           last_name
         )
-      `)
-      .eq('trial_id', trialId);
+      `
+        )
+        .eq('trial_id', trialId);
 
-    if (error) {
+      if (error) {
+        console.error('Error loading assignments:', error);
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (error) {
       console.error('Error loading assignments:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error loading assignments:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+  },
   // Enhanced Trial Rounds Operations with FK constraint handling
   async saveTrialRounds(trialClassId: string, rounds: any[]): Promise<OperationResult> {
     try {
@@ -686,10 +690,12 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
       // Get existing rounds and their entry references
       const { data: existingRounds, error: fetchError } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           *,
           entry_selections(id)
-        `)
+        `
+        )
         .eq('trial_class_id', trialClassId);
 
       if (fetchError) {
@@ -702,13 +708,15 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
       // If no rounds to save, handle cleanup
       if (!rounds || rounds.length === 0) {
         // Check if any existing rounds have entries
-        const roundsWithEntries = existingRounds?.filter(r => r.entry_selections && r.entry_selections.length > 0);
-        
+        const roundsWithEntries = existingRounds?.filter(
+          (r) => r.entry_selections && r.entry_selections.length > 0
+        );
+
         if (roundsWithEntries && roundsWithEntries.length > 0) {
           console.error('Cannot delete rounds with existing entries');
-          return { 
-            success: false, 
-            error: `Cannot delete rounds that have entries. Found ${roundsWithEntries.length} rounds with entries.` 
+          return {
+            success: false,
+            error: `Cannot delete rounds that have entries. Found ${roundsWithEntries.length} rounds with entries.`,
           };
         }
 
@@ -735,7 +743,7 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
         }
 
         return {
-          round_number: round.round_number || (index + 1),
+          round_number: round.round_number || index + 1,
           judge_name: round.judge_name.trim(),
           judge_email: round.judge_email?.trim() || '',
           feo_available: round.feo_available || false,
@@ -744,10 +752,10 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
           estimated_duration: round.estimated_duration || null,
           max_entries: round.max_entries || 50,
           has_reset: round.has_reset || false,
-          reset_judge_name: round.has_reset ? (round.reset_judge_name?.trim() || null) : null,
-          reset_judge_email: round.has_reset ? (round.reset_judge_email?.trim() || null) : null,
+          reset_judge_name: round.has_reset ? round.reset_judge_name?.trim() || null : null,
+          reset_judge_email: round.has_reset ? round.reset_judge_email?.trim() || null : null,
           notes: round.notes?.trim() || null,
-          is_reset: (round as any).is_reset || false,   // ← NEW
+          is_reset: (round as any).is_reset || false, // ← NEW
         };
       });
 
@@ -756,12 +764,12 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
       // Process each new round
       for (const newRound of newRounds) {
         // Find existing round with same round number
-        const existingRound = existingRounds?.find(r => r.round_number === newRound.round_number);
-        
+        const existingRound = existingRounds?.find((r) => r.round_number === newRound.round_number);
+
         if (existingRound) {
           // UPDATE existing round (preserves entries)
           console.log(`Updating existing round ${newRound.round_number} for class ${trialClassId}`);
-          
+
           const { data: updatedRound, error: updateError } = await supabase
             .from('trial_rounds')
             .update({
@@ -776,7 +784,7 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
               reset_judge_name: newRound.reset_judge_name,
               reset_judge_email: newRound.reset_judge_email,
               notes: newRound.notes,
-              is_reset: (newRound as any).is_reset || false,   // ← NEW
+              is_reset: (newRound as any).is_reset || false, // ← NEW
             })
             .eq('id', existingRound.id)
             .select()
@@ -788,18 +796,19 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
           }
 
           results.push(updatedRound);
-          console.log(`Successfully updated round ${newRound.round_number} with judge ${newRound.judge_name}`);
-
+          console.log(
+            `Successfully updated round ${newRound.round_number} with judge ${newRound.judge_name}`
+          );
         } else {
           // INSERT new round
           console.log(`Creating new round ${newRound.round_number} for class ${trialClassId}`);
-          
+
           const { data: insertedRound, error: insertError } = await supabase
             .from('trial_rounds')
             .insert({
               trial_class_id: trialClassId,
               ...newRound,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
             })
             .select()
             .single();
@@ -810,29 +819,35 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
           }
 
           results.push(insertedRound);
-          console.log(`Successfully created round ${newRound.round_number} with judge ${newRound.judge_name}`);
+          console.log(
+            `Successfully created round ${newRound.round_number} with judge ${newRound.judge_name}`
+          );
         }
       }
 
       // Handle extra existing rounds (if fewer rounds provided than existed)
-      const newRoundNumbers = newRounds.map(r => r.round_number);
-      const roundsToDelete = existingRounds?.filter(r => !newRoundNumbers.includes(r.round_number));
+      const newRoundNumbers = newRounds.map((r) => r.round_number);
+      const roundsToDelete = existingRounds?.filter(
+        (r) => !newRoundNumbers.includes(r.round_number)
+      );
 
       if (roundsToDelete && roundsToDelete.length > 0) {
         // Check if any rounds to delete have entries
-        const roundsWithEntries = roundsToDelete.filter(r => r.entry_selections && r.entry_selections.length > 0);
-        
+        const roundsWithEntries = roundsToDelete.filter(
+          (r) => r.entry_selections && r.entry_selections.length > 0
+        );
+
         if (roundsWithEntries.length > 0) {
           console.error('Cannot delete rounds with existing entries');
-          const roundNumbers = roundsWithEntries.map(r => r.round_number).join(', ');
-          return { 
-            success: false, 
-            error: `Cannot delete rounds ${roundNumbers} because they have entries. Please move or delete the entries first.` 
+          const roundNumbers = roundsWithEntries.map((r) => r.round_number).join(', ');
+          return {
+            success: false,
+            error: `Cannot delete rounds ${roundNumbers} because they have entries. Please move or delete the entries first.`,
           };
         }
 
         // Safe to delete rounds without entries
-        const idsToDelete = roundsToDelete.map(r => r.id);
+        const idsToDelete = roundsToDelete.map((r) => r.id);
         const { error: deleteError } = await supabase
           .from('trial_rounds')
           .delete()
@@ -848,21 +863,21 @@ async getTrialAssignments(trialId: string): Promise<OperationResult> {
 
       console.log(`Successfully processed ${results.length} rounds for class ${trialClassId}`);
       return { success: true, data: results };
-
     } catch (error) {
       console.error('Error in saveTrialRounds:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
 
- // FIXED getTrialRounds function - matches getAllTrialRounds structure
-async getTrialRounds(trialClassId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting trial rounds for class ID:', trialClassId);
+  // FIXED getTrialRounds function - matches getAllTrialRounds structure
+  async getTrialRounds(trialClassId: string): Promise<OperationResult> {
+    try {
+      console.log('Getting trial rounds for class ID:', trialClassId);
 
-    const { data, error } = await supabase
-      .from('trial_rounds')
-      .select(`
+      const { data, error } = await supabase
+        .from('trial_rounds')
+        .select(
+          `
         *,
         trial_classes!inner(
           class_name,
@@ -879,42 +894,44 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
             day_number
           )
         )
-      `)
-      .eq('trial_class_id', trialClassId)
-      .order('round_number');
+      `
+        )
+        .eq('trial_class_id', trialClassId)
+        .order('round_number');
 
-    if (error) {
-      console.error('Error getting trial rounds:', error);
-      return { success: false, error: error.message || error };
-    }
+      if (error) {
+        console.error('Error getting trial rounds:', error);
+        return { success: false, error: error.message || error };
+      }
 
-    console.log(`Found ${data?.length || 0} trial rounds with pricing data`);
-    
-    // Debug: Log the pricing data for each round
-    data?.forEach(round => {
-      console.log(`Round ${round.round_number} pricing:`, {
-        entry_fee: round.trial_classes?.entry_fee,
-        feo_price: round.trial_classes?.feo_price,
-        feo_available: round.trial_classes?.feo_available,
-        round_feo_available: round.feo_available
+      console.log(`Found ${data?.length || 0} trial rounds with pricing data`);
+
+      // Debug: Log the pricing data for each round
+      data?.forEach((round) => {
+        console.log(`Round ${round.round_number} pricing:`, {
+          entry_fee: round.trial_classes?.entry_fee,
+          feo_price: round.trial_classes?.feo_price,
+          feo_available: round.trial_classes?.feo_available,
+          round_feo_available: round.feo_available,
+        });
       });
-    });
-    
-    return { success: true, data: data || [] };
-  } catch (error) {
-    console.error('Error getting trial rounds:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      console.error('Error getting trial rounds:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
 
   // Enhanced method from original
   async getAllTrialRounds(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting all trial rounds for trial ID:', trialId);
+    try {
+      console.log('Getting all trial rounds for trial ID:', trialId);
 
-    const { data, error } = await supabase
-      .from('trial_rounds')
-      .select(`
+      const { data, error } = await supabase
+        .from('trial_rounds')
+        .select(
+          `
         *,
         trial_classes!inner(
           class_name,
@@ -932,8 +949,9 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
             is_accepting_entries
           )
         )
-      `)
-      .eq('trial_classes.trial_days.trial_id', trialId);
+      `
+        )
+        .eq('trial_classes.trial_days.trial_id', trialId);
 
       if (error) {
         console.error('Error getting trial rounds:', error);
@@ -959,125 +977,116 @@ async getTrialRounds(trialClassId: string): Promise<OperationResult> {
   },
 
   // NEW ENTRY OPERATIONS
-  
+
   // Create new entry
- async createEntry(entryData: Omit<EntryData, 'id'>): Promise<OperationResult> {
-  try {
-    console.log('Creating entry with data:', entryData);
+  async createEntry(entryData: Omit<EntryData, 'id'>): Promise<OperationResult> {
+    try {
+      console.log('Creating entry with data:', entryData);
 
-    // ✅ DUPLICATE CHECK: Check if entry already exists for this trial + C-WAGS number
-    const { data: existingEntry, error: checkError } = await supabase
-      .from('entries')
-      .select('id, submitted_at')
-      .eq('trial_id', entryData.trial_id)
-      .eq('cwags_number', entryData.cwags_number)
-      .maybeSingle();
+      // ✅ DUPLICATE CHECK: Check if entry already exists for this trial + C-WAGS number
+      const { data: existingEntry, error: checkError } = await supabase
+        .from('entries')
+        .select('id, submitted_at')
+        .eq('trial_id', entryData.trial_id)
+        .eq('cwags_number', entryData.cwags_number)
+        .maybeSingle();
 
-    if (existingEntry) {
-      const timeSince = Date.now() - new Date(existingEntry.submitted_at).getTime();
-      const minutesAgo = Math.floor(timeSince / 60000);
-      
-      console.warn(`⚠️ Entry already exists (submitted ${minutesAgo} minutes ago)`);
-      console.warn(`⚠️ Existing entry ID: ${existingEntry.id}`);
-      
+      if (existingEntry) {
+        const timeSince = Date.now() - new Date(existingEntry.submitted_at).getTime();
+        const minutesAgo = Math.floor(timeSince / 60000);
+
+        console.warn(`⚠️ Entry already exists (submitted ${minutesAgo} minutes ago)`);
+        console.warn(`⚠️ Existing entry ID: ${existingEntry.id}`);
+
+        return {
+          success: false,
+          error: `This dog is already entered in this trial (Entry ID: ${existingEntry.id}). Cannot create duplicate entry.`,
+        };
+      }
+
+      // No duplicate found - proceed with insert
+      const insertData = {
+        trial_id: entryData.trial_id,
+        handler_name: entryData.handler_name,
+        dog_call_name: entryData.dog_call_name,
+        cwags_number: entryData.cwags_number,
+        dog_breed: entryData.dog_breed || null,
+        dog_sex: entryData.dog_sex || null,
+        handler_email: entryData.handler_email,
+        handler_phone: entryData.handler_phone,
+        is_junior_handler: entryData.is_junior_handler,
+        waiver_accepted: entryData.waiver_accepted,
+        close_to_titles: entryData.close_to_titles || null, // ← ADD THIS LINE
+        volunteer_preferences: entryData.volunteer_preferences || null, // ← ADD THIS LINE
+        total_fee: entryData.total_fee,
+        payment_status: entryData.payment_status || 'pending',
+        entry_status: entryData.entry_status || 'submitted',
+        submitted_at: new Date().toISOString(),
+        audit_trail: entryData.audit_trail || 'Entry created',
+        created_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase.from('entries').insert(insertData).select().single();
+
+      if (error) {
+        console.error('Database error creating entry:', error);
+        return { success: false, error: error.message || error };
+      }
+
+      console.log('✅ Entry created successfully:', data);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error creating entry:', error);
       return {
         success: false,
-        error: `This dog is already entered in this trial (Entry ID: ${existingEntry.id}). Cannot create duplicate entry.`
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  },
 
-    // No duplicate found - proceed with insert
-   const insertData = {
-  trial_id: entryData.trial_id,
-  handler_name: entryData.handler_name,
-  dog_call_name: entryData.dog_call_name,
-  cwags_number: entryData.cwags_number,
-  dog_breed: entryData.dog_breed || null,
-  dog_sex: entryData.dog_sex || null,
-  handler_email: entryData.handler_email,
-  handler_phone: entryData.handler_phone,
-  is_junior_handler: entryData.is_junior_handler,
-  waiver_accepted: entryData.waiver_accepted,
-  close_to_titles: entryData.close_to_titles || null,  // ← ADD THIS LINE
-  volunteer_preferences: entryData.volunteer_preferences || null,  // ← ADD THIS LINE
-  total_fee: entryData.total_fee,
-  payment_status: entryData.payment_status || 'pending',
-  entry_status: entryData.entry_status || 'submitted',
-  submitted_at: new Date().toISOString(),
-  audit_trail: entryData.audit_trail || 'Entry created',
-  created_at: new Date().toISOString()
-};
+  async getTrialEntries(trialId: string): Promise<OperationResult> {
+    try {
+      // Ensure trialId is a clean string
+      const cleanTrialId = String(trialId).trim();
+      console.log('Fetching entries for trial ID:', `'${cleanTrialId}'`);
 
-    const { data, error } = await supabase
-      .from('entries')
-      .insert(insertData)
-      .select()
-      .single();
+      // Fetch entries
+      const { data, error } = await supabase
+        .from('entries')
+        .select('*')
+        .eq('trial_id', cleanTrialId)
+        .order('submitted_at', { ascending: false });
 
-    if (error) {
-      console.error('Database error creating entry:', error);
-      return { success: false, error: error.message || error };
+      // Log raw Supabase response
+      console.log('Supabase returned data:', data);
+      console.log('Supabase returned error:', error);
+
+      // Handle Supabase error
+      if (error) {
+        console.error('Error fetching trial entries:', error);
+        return { success: false, error: error.message || JSON.stringify(error) };
+      }
+
+      // Check if data exists
+      if (!data || data.length === 0) {
+        console.warn('No entries found for trial ID:', cleanTrialId);
+        return { success: true, data: [] };
+      }
+
+      console.log(`Found ${data.length} entries for trial ${cleanTrialId}`);
+      return { success: true, data };
+    } catch (err) {
+      console.error('Unexpected error fetching trial entries:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
     }
-
-    console.log('✅ Entry created successfully:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error creating entry:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-},
-
-async getTrialEntries(trialId: string): Promise<OperationResult> {
-  try {
-    // Ensure trialId is a clean string
-    const cleanTrialId = String(trialId).trim();
-    console.log('Fetching entries for trial ID:', `'${cleanTrialId}'`);
-
-    // Fetch entries
-    const { data, error } = await supabase
-      .from('entries')
-      .select('*')
-      .eq('trial_id', cleanTrialId)
-      .order('submitted_at', { ascending: false });
-
-    // Log raw Supabase response
-    console.log('Supabase returned data:', data);
-    console.log('Supabase returned error:', error);
-
-    // Handle Supabase error
-    if (error) {
-      console.error('Error fetching trial entries:', error);
-      return { success: false, error: error.message || JSON.stringify(error) };
-    }
-
-    // Check if data exists
-    if (!data || data.length === 0) {
-      console.warn('No entries found for trial ID:', cleanTrialId);
-      return { success: true, data: [] };
-    }
-
-    console.log(`Found ${data.length} entries for trial ${cleanTrialId}`);
-    return { success: true, data };
-  } catch (err) {
-    console.error('Unexpected error fetching trial entries:', err);
-    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
-  }
-},
-
+  },
 
   // Get single entry
   async getEntry(entryId: string): Promise<OperationResult> {
     try {
       console.log('Getting entry for ID:', entryId);
 
-      const { data, error } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('id', entryId)
-        .single();
+      const { data, error } = await supabase.from('entries').select('*').eq('id', entryId).single();
 
       if (error) {
         console.error('Error getting entry:', error);
@@ -1097,31 +1106,31 @@ async getTrialEntries(trialId: string): Promise<OperationResult> {
   },
 
   // Update entry
- async updateEntry(entryId: string, updates: Partial<EntryData>): Promise<OperationResult> {
-  try {
-    console.log('Updating entry:', entryId, updates);
+  async updateEntry(entryId: string, updates: Partial<EntryData>): Promise<OperationResult> {
+    try {
+      console.log('Updating entry:', entryId, updates);
 
-    // ✅ Only add audit trail for meaningful updates (not automatic fee changes)
-    const meaningfulFields = Object.keys(updates).filter(key => 
-      key !== 'total_fee' && key !== 'amount_owed' && key !== 'audit_trail'
-    );
-    
-    let auditEntry = updates.audit_trail || null;
-    
-    // Only create audit entry if there are meaningful field changes
-    if (meaningfulFields.length > 0 && !updates.audit_trail) {
-      auditEntry = `Updated ${meaningfulFields.join(', ')} at ${new Date().toISOString()}`;
-    }
-    
-    const { data, error } = await supabase
-      .from('entries')
-      .update({
-        ...updates,
-        audit_trail: auditEntry
-      })
-      .eq('id', entryId)
-      .select()
-      .single();
+      // ✅ Only add audit trail for meaningful updates (not automatic fee changes)
+      const meaningfulFields = Object.keys(updates).filter(
+        (key) => key !== 'total_fee' && key !== 'amount_owed' && key !== 'audit_trail'
+      );
+
+      let auditEntry = updates.audit_trail || null;
+
+      // Only create audit entry if there are meaningful field changes
+      if (meaningfulFields.length > 0 && !updates.audit_trail) {
+        auditEntry = `Updated ${meaningfulFields.join(', ')} at ${new Date().toISOString()}`;
+      }
+
+      const { data, error } = await supabase
+        .from('entries')
+        .update({
+          ...updates,
+          audit_trail: auditEntry,
+        })
+        .eq('id', entryId)
+        .select()
+        .single();
 
       if (error) {
         console.error('Error updating entry:', error);
@@ -1142,16 +1151,10 @@ async getTrialEntries(trialId: string): Promise<OperationResult> {
       console.log('Deleting entry:', entryId);
 
       // First delete related entry selections
-      await supabase
-        .from('entry_selections')
-        .delete()
-        .eq('entry_id', entryId);
+      await supabase.from('entry_selections').delete().eq('entry_id', entryId);
 
       // Then delete the entry
-      const { error } = await supabase
-        .from('entries')
-        .delete()
-        .eq('id', entryId);
+      const { error } = await supabase.from('entries').delete().eq('id', entryId);
 
       if (error) {
         console.error('Error deleting entry:', error);
@@ -1178,7 +1181,8 @@ async getTrialEntries(trialId: string): Promise<OperationResult> {
         .eq('cwags_number', cwagsNumber)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 is "not found"
         console.error('Error getting entry by C-WAGS number:', error);
         return { success: false, error: error.message || error };
       }
@@ -1191,276 +1195,296 @@ async getTrialEntries(trialId: string): Promise<OperationResult> {
     }
   },
 
-// FIXED: Score-aware createEntrySelections function
-async createEntrySelections(entryId: string, selections: Omit<EntrySelection, 'id' | 'entry_id'>[]): Promise<OperationResult> {
-  try {
-    console.log('=== SCORE-AWARE CREATEENTRYSELECTIONS FUNCTION CALLED ===');
-    console.log('Managing entry selections for entry:', entryId);
-    console.log('Raw selections received:', selections);
-    
-    // STEP 1: Get the C-WAGS number and trial for this entry
-    const { data: entryInfo, error: entryError } = await supabase
-      .from('entries')
-      .select('cwags_number, trial_id')
-      .eq('id', entryId)
-      .single();
+  // FIXED: Score-aware createEntrySelections function
+  async createEntrySelections(
+    entryId: string,
+    selections: Omit<EntrySelection, 'id' | 'entry_id'>[]
+  ): Promise<OperationResult> {
+    try {
+      console.log('=== SCORE-AWARE CREATEENTRYSELECTIONS FUNCTION CALLED ===');
+      console.log('Managing entry selections for entry:', entryId);
+      console.log('Raw selections received:', selections);
 
-    if (entryError) {
-      console.error('❌ Failed to get entry info:', entryError);
-      return { success: false, error: `Failed to get entry info: ${entryError.message}` };
-    }
+      // STEP 1: Get the C-WAGS number and trial for this entry
+      const { data: entryInfo, error: entryError } = await supabase
+        .from('entries')
+        .select('cwags_number, trial_id')
+        .eq('id', entryId)
+        .single();
 
-    console.log('Entry info:', entryInfo);
-
-    // STEP 2: Get all entries for this C-WAGS number in this trial
-    const { data: allEntries, error: entriesError } = await supabase
-      .from('entries')
-      .select('id')
-      .eq('trial_id', entryInfo.trial_id)
-      .eq('cwags_number', entryInfo.cwags_number);
-
-    if (entriesError) {
-      console.error('❌ Failed to get related entries:', entriesError);
-      return { success: false, error: `Failed to get related entries: ${entriesError.message}` };
-    }
-
-    const allEntryIds = allEntries?.map(e => e.id) || [entryId];
-    console.log('All entry IDs for this C-WAGS number:', allEntryIds);
-
-   // STEP 3: Check which entry selections have scores - QUERY SCORES TABLE DIRECTLY
-console.log('🔍 Checking for scores using DIRECT query to scores table...');
-
-const { data: existingSelections, error: selectionsError } = await supabase
-  .from('entry_selections')
-  .select('id, trial_round_id, entry_type')
-  .in('entry_id', allEntryIds);
-
-if (selectionsError) {
-  console.error('❌ Failed to get existing selections:', selectionsError);
-  return { success: false, error: `Failed to get selections: ${selectionsError.message}` };
-}
-
-let selectionsWithScoreIds = new Set<string>();
-
-if (existingSelections && existingSelections.length > 0) {
-  const selectionIds = existingSelections.map(s => s.id);
-  console.log(`Checking ${selectionIds.length} selections for scores...`);
-  
-  const { data: scoresData, error: scoresError } = await supabase
-    .from('scores')
-    .select('entry_selection_id')
-    .in('entry_selection_id', selectionIds);
-
-  if (scoresError) {
-    console.error('❌ Failed to check for scores:', scoresError);
-    return { success: false, error: `Failed to check for scores: ${scoresError.message}` };
-  }
-
-  selectionsWithScoreIds = new Set(
-    (scoresData || []).map(score => score.entry_selection_id)
-  );
-
-  console.log(`Found ${selectionsWithScoreIds.size} entry selections with scores that will be preserved`);
-
-  if (selectionsWithScoreIds.size > 0) {
-    console.log(`⚠️ Found ${selectionsWithScoreIds.size} entry selections with scores`);
-    
-    existingSelections.forEach(sel => {
-      if (selectionsWithScoreIds.has(sel.id)) {
-        console.log(`   - Selection ID ${sel.id} (Round: ${sel.trial_round_id}, Type: ${sel.entry_type}) has scores`);
+      if (entryError) {
+        console.error('❌ Failed to get entry info:', entryError);
+        return { success: false, error: `Failed to get entry info: ${entryError.message}` };
       }
-    });
-  }
 
-  // STEP 4: Delete only entry selections WITHOUT scores
-  const selectionsToDelete = existingSelections
-    .filter(sel => !selectionsWithScoreIds.has(sel.id))
-    .map(sel => sel.id);
+      console.log('Entry info:', entryInfo);
 
-  if (selectionsToDelete.length > 0) {
-    console.log(`🗑️ Deleting ${selectionsToDelete.length} entry selections without scores`);
-    
-    const { error: deleteError } = await supabase
-      .from('entry_selections')
-      .delete()
-      .in('id', selectionsToDelete);
+      // STEP 2: Get all entries for this C-WAGS number in this trial
+      const { data: allEntries, error: entriesError } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('trial_id', entryInfo.trial_id)
+        .eq('cwags_number', entryInfo.cwags_number);
 
-    if (deleteError) {
-      console.error('❌ Failed to delete selections:', deleteError);
-      return { success: false, error: `Failed to delete existing selections: ${deleteError.message}` };
-    }
+      if (entriesError) {
+        console.error('❌ Failed to get related entries:', entriesError);
+        return { success: false, error: `Failed to get related entries: ${entriesError.message}` };
+      }
 
-    console.log(`✅ Deleted ${selectionsToDelete.length} entry selections (preserved ${selectionsWithScoreIds.size} with scores)`);
-  } else {
-    console.log('ℹ️ No entry selections to delete (all have scores or none exist)');
-  }
-} else {
-  console.log('ℹ️ No existing selections found');
-}
+      const allEntryIds = allEntries?.map((e) => e.id) || [entryId];
+      console.log('All entry IDs for this C-WAGS number:', allEntryIds);
 
-// STEP 5: If no new selections, we're done
-if (!selections || selections.length === 0) {
-  console.log('ℹ️ No new selections to add');
-  
-  // Check if we preserved any scored selections
-  const preservedCount = selectionsWithScoreIds.size;
-  
-  return { 
-    success: true, 
-    data: [], 
-    warning: preservedCount > 0 
-      ? `${preservedCount} existing entries with scores were preserved and cannot be modified` 
-      : null
-  };
-}
+      // STEP 3: Check which entry selections have scores - QUERY SCORES TABLE DIRECTLY
+      console.log('🔍 Checking for scores using DIRECT query to scores table...');
 
-    // STEP 5: If no new selections, we're done
-    if (!selections || selections.length === 0) {
-      console.log('ℹ️ No new selections to add');
-      
-      // Return info about preserved selections
-      return { 
-        success: true, 
-        data: [], 
-        warning: selectionsWithScoreIds.size > 0 ? 
-          `${selectionsWithScoreIds.size} existing entries with scores were preserved and cannot be modified` : null
+      const { data: existingSelections, error: selectionsError } = await supabase
+        .from('entry_selections')
+        .select('id, trial_round_id, entry_type')
+        .in('entry_id', allEntryIds);
+
+      if (selectionsError) {
+        console.error('❌ Failed to get existing selections:', selectionsError);
+        return { success: false, error: `Failed to get selections: ${selectionsError.message}` };
+      }
+
+      let selectionsWithScoreIds = new Set<string>();
+
+      if (existingSelections && existingSelections.length > 0) {
+        const selectionIds = existingSelections.map((s) => s.id);
+        console.log(`Checking ${selectionIds.length} selections for scores...`);
+
+        const { data: scoresData, error: scoresError } = await supabase
+          .from('scores')
+          .select('entry_selection_id')
+          .in('entry_selection_id', selectionIds);
+
+        if (scoresError) {
+          console.error('❌ Failed to check for scores:', scoresError);
+          return { success: false, error: `Failed to check for scores: ${scoresError.message}` };
+        }
+
+        selectionsWithScoreIds = new Set(
+          (scoresData || []).map((score) => score.entry_selection_id)
+        );
+
+        console.log(
+          `Found ${selectionsWithScoreIds.size} entry selections with scores that will be preserved`
+        );
+
+        if (selectionsWithScoreIds.size > 0) {
+          console.log(`⚠️ Found ${selectionsWithScoreIds.size} entry selections with scores`);
+
+          existingSelections.forEach((sel) => {
+            if (selectionsWithScoreIds.has(sel.id)) {
+              console.log(
+                `   - Selection ID ${sel.id} (Round: ${sel.trial_round_id}, Type: ${sel.entry_type}) has scores`
+              );
+            }
+          });
+        }
+
+        // STEP 4: Delete only entry selections WITHOUT scores
+        const selectionsToDelete = existingSelections
+          .filter((sel) => !selectionsWithScoreIds.has(sel.id))
+          .map((sel) => sel.id);
+
+        if (selectionsToDelete.length > 0) {
+          console.log(`🗑️ Deleting ${selectionsToDelete.length} entry selections without scores`);
+
+          const { error: deleteError } = await supabase
+            .from('entry_selections')
+            .delete()
+            .in('id', selectionsToDelete);
+
+          if (deleteError) {
+            console.error('❌ Failed to delete selections:', deleteError);
+            return {
+              success: false,
+              error: `Failed to delete existing selections: ${deleteError.message}`,
+            };
+          }
+
+          console.log(
+            `✅ Deleted ${selectionsToDelete.length} entry selections (preserved ${selectionsWithScoreIds.size} with scores)`
+          );
+        } else {
+          console.log('ℹ️ No entry selections to delete (all have scores or none exist)');
+        }
+      } else {
+        console.log('ℹ️ No existing selections found');
+      }
+
+      // STEP 5: If no new selections, we're done
+      if (!selections || selections.length === 0) {
+        console.log('ℹ️ No new selections to add');
+
+        // Check if we preserved any scored selections
+        const preservedCount = selectionsWithScoreIds.size;
+
+        return {
+          success: true,
+          data: [],
+          warning:
+            preservedCount > 0
+              ? `${preservedCount} existing entries with scores were preserved and cannot be modified`
+              : null,
+        };
+      }
+
+      // STEP 5: If no new selections, we're done
+      if (!selections || selections.length === 0) {
+        console.log('ℹ️ No new selections to add');
+
+        // Return info about preserved selections
+        return {
+          success: true,
+          data: [],
+          warning:
+            selectionsWithScoreIds.size > 0
+              ? `${selectionsWithScoreIds.size} existing entries with scores were preserved and cannot be modified`
+              : null,
+        };
+      }
+
+      // STEP 6: Filter out selections that already exist with scores, then add new ones
+      // Build a Set of existing trial_round_ids that have scores
+      const existingRoundsWithScores = new Set<string>();
+      if (existingSelections && existingSelections.length > 0) {
+        existingSelections.forEach((sel) => {
+          if (selectionsWithScoreIds.has(sel.id)) {
+            // Just the round ID - matches database constraint
+            existingRoundsWithScores.add(sel.trial_round_id);
+            console.log(`   📌 Preserved round: ${sel.trial_round_id}`);
+          }
+        });
+      }
+
+      // Filter out selections that would conflict with existing scored rounds
+      const selectionsToInsert = selections.filter((selection) => {
+        const wouldConflict = existingRoundsWithScores.has(selection.trial_round_id);
+
+        if (wouldConflict) {
+          console.log(
+            `   ⏭️  Skipping round ${selection.trial_round_id} - already exists with scores`
+          );
+        }
+
+        return !wouldConflict; // Only include if it DOESN'T conflict
+      });
+
+      console.log(`📊 Selections summary:`);
+      console.log(`   - Incoming selections: ${selections.length}`);
+      console.log(`   - Selections with scores (preserved): ${existingRoundsWithScores.size}`);
+      console.log(`   - Selections to insert: ${selectionsToInsert.length}`);
+
+      // If no selections to insert after filtering, we're done
+      if (selectionsToInsert.length === 0) {
+        console.log('ℹ️ No new selections to insert after filtering out existing scored entries');
+
+        let warningMessage = null;
+        if (selectionsWithScoreIds.size > 0) {
+          warningMessage = `All ${selectionsWithScoreIds.size} existing entries with scores were preserved and no changes were needed.`;
+        }
+
+        return {
+          success: true,
+          data: [],
+          warning: warningMessage,
+        };
+      }
+
+      // Now insert only the truly new selections
+      const selectionsWithEntryId = selectionsToInsert.map((selection, index) => ({
+        entry_id: entryId,
+        trial_round_id: selection.trial_round_id,
+        entry_type: selection.entry_type || 'regular',
+        fee: selection.fee || 0,
+        running_position: selection.running_position || index + 1,
+        entry_status: selection.entry_status || 'entered',
+        division: selection.division || null,
+        games_subclass: selection.games_subclass || null,
+        jump_height: selection.jump_height || null,
+        created_at: new Date().toISOString(),
+      }));
+
+      console.log(`➕ Adding ${selectionsWithEntryId.length} new selections`);
+      console.log('New selections data:', selectionsWithEntryId);
+
+      const { data: insertedSelections, error: insertError } = await supabase
+        .from('entry_selections')
+        .insert(selectionsWithEntryId)
+        .select();
+
+      if (insertError) {
+        console.error('❌ Failed to insert new selections:', insertError);
+        return { success: false, error: `Failed to insert new selections: ${insertError.message}` };
+      }
+
+      console.log(
+        `✅ Successfully created ${insertedSelections?.length || 0} new entry selections`
+      );
+
+      // Prepare detailed warning message
+      let warningMessage = null;
+      if (selectionsWithScoreIds.size > 0) {
+        warningMessage = `${selectionsWithScoreIds.size} existing entries with scores were preserved. ${insertedSelections?.length || 0} new entries were added.`;
+      }
+
+      return {
+        success: true,
+        data: insertedSelections,
+        warning: warningMessage,
+      };
+    } catch (error) {
+      console.error('❌ Unexpected error in score-aware createEntrySelections:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unexpected error occurred',
       };
     }
-
-  // STEP 6: Filter out selections that already exist with scores, then add new ones
-// Build a Set of existing trial_round_ids that have scores
-const existingRoundsWithScores = new Set<string>();
-if (existingSelections && existingSelections.length > 0) {
-  existingSelections.forEach(sel => {
-    if (selectionsWithScoreIds.has(sel.id)) {
-      // Just the round ID - matches database constraint
-      existingRoundsWithScores.add(sel.trial_round_id);
-      console.log(`   📌 Preserved round: ${sel.trial_round_id}`);
-    }
-  });
-}
-
-// Filter out selections that would conflict with existing scored rounds
-const selectionsToInsert = selections.filter(selection => {
-  const wouldConflict = existingRoundsWithScores.has(selection.trial_round_id);
-  
-  if (wouldConflict) {
-    console.log(`   ⏭️  Skipping round ${selection.trial_round_id} - already exists with scores`);
-  }
-  
-  return !wouldConflict; // Only include if it DOESN'T conflict
-});
-
-console.log(`📊 Selections summary:`);
-console.log(`   - Incoming selections: ${selections.length}`);
-console.log(`   - Selections with scores (preserved): ${existingRoundsWithScores.size}`);
-console.log(`   - Selections to insert: ${selectionsToInsert.length}`);
-
-// If no selections to insert after filtering, we're done
-if (selectionsToInsert.length === 0) {
-  console.log('ℹ️ No new selections to insert after filtering out existing scored entries');
-  
-  let warningMessage = null;
-  if (selectionsWithScoreIds.size > 0) {
-    warningMessage = `All ${selectionsWithScoreIds.size} existing entries with scores were preserved and no changes were needed.`;
-  }
-  
-  return { 
-    success: true, 
-    data: [],
-    warning: warningMessage
-  };
-}
-
-// Now insert only the truly new selections
-const selectionsWithEntryId = selectionsToInsert.map((selection, index) => ({
-  entry_id: entryId,
-  trial_round_id: selection.trial_round_id,
-  entry_type: selection.entry_type || 'regular',
-  fee: selection.fee || 0,
-  running_position: selection.running_position || index + 1,
-  entry_status: selection.entry_status || 'entered',
-  division: selection.division || null,
-  games_subclass: selection.games_subclass || null,
-  jump_height: selection.jump_height || null,
-  created_at: new Date().toISOString()
-}));
-
-console.log(`➕ Adding ${selectionsWithEntryId.length} new selections`);
-console.log('New selections data:', selectionsWithEntryId);
-
-const { data: insertedSelections, error: insertError } = await supabase
-  .from('entry_selections')
-  .insert(selectionsWithEntryId)
-  .select();
-
-if (insertError) {
-  console.error('❌ Failed to insert new selections:', insertError);
-  return { success: false, error: `Failed to insert new selections: ${insertError.message}` };
-}
-
-console.log(`✅ Successfully created ${insertedSelections?.length || 0} new entry selections`);
-
-// Prepare detailed warning message
-let warningMessage = null;
-if (selectionsWithScoreIds.size > 0) {
-  warningMessage = `${selectionsWithScoreIds.size} existing entries with scores were preserved. ${insertedSelections?.length || 0} new entries were added.`;
-}
-
-return { 
-  success: true, 
-  data: insertedSelections,
-  warning: warningMessage
-};
-  } catch (error) {
-    console.error('❌ Unexpected error in score-aware createEntrySelections:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unexpected error occurred'
-    };
-  }
-},
+  },
 
   // Get entry selections for an entry
-async getEntrySelections(entryId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting entry selections for entry ID:', entryId);
+  async getEntrySelections(entryId: string): Promise<OperationResult> {
+    try {
+      console.log('Getting entry selections for entry ID:', entryId);
 
-    // Simplified query first to test
-    const { data, error } = await supabase
-      .from('entry_selections')
-      .select('*, trial_round_id')
-      .eq('entry_id', entryId);
+      // Simplified query first to test
+      const { data, error } = await supabase
+        .from('entry_selections')
+        .select('*, trial_round_id')
+        .eq('entry_id', entryId);
 
-    if (error) {
+      if (error) {
+        console.error('Error getting entry selections:', error);
+        return { success: false, error: error.message || error };
+      }
+
+      console.log(`Found ${data?.length || 0} entry selections`);
+      console.log('Raw entry selections data:', data);
+      return { success: true, data: data || [] };
+    } catch (error) {
       console.error('Error getting entry selections:', error);
-      return { success: false, error: error.message || error };
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-
-    console.log(`Found ${data?.length || 0} entry selections`);
-    console.log('Raw entry selections data:', data);
-    return { success: true, data: data || [] };
-  } catch (error) {
-    console.error('Error getting entry selections:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+  },
 
   // Get all entries with their selections for a trial (for running order management)
-// Replace this function in your trial-operations-simple.ts file
+  // Replace this function in your trial-operations-simple.ts file
 
-// Get all entries with their selections for a trial (for running order management)
-// OPTIMIZED VERSION - Replace getTrialEntriesWithSelections in src/lib/trialOperationsSimple.ts
-// This uses a single query with joins instead of 300+ nested queries
+  // Get all entries with their selections for a trial (for running order management)
+  // OPTIMIZED VERSION - Replace getTrialEntriesWithSelections in src/lib/trialOperationsSimple.ts
+  // This uses a single query with joins instead of 300+ nested queries
 
-async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting trial entries with selections for trial ID (OPTIMIZED):', trialId);
+  async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
+    try {
+      console.log('Getting trial entries with selections for trial ID (OPTIMIZED):', trialId);
 
-    // ✅ SINGLE QUERY with all joins - no nested loops!
- const { data: entries, error: entriesError } = await supabase
-  .from('entries')
-  .select(`
+      // ✅ SINGLE QUERY with all joins - no nested loops!
+      const { data: entries, error: entriesError } = await supabase
+        .from('entries')
+        .select(
+          `
     *,
     entry_selections (
       *,
@@ -1484,39 +1508,41 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
         )
       )
     )
-  `)
-  .eq('trial_id', trialId)
-  .order('created_at', { ascending: true });
+  `
+        )
+        .eq('trial_id', trialId)
+        .order('created_at', { ascending: true });
 
-    if (entriesError) {
-      console.error('Error getting entries:', entriesError);
-      return { success: false, error: entriesError.message };
+      if (entriesError) {
+        console.error('Error getting entries:', entriesError);
+        return { success: false, error: entriesError.message };
+      }
+
+      if (!entries || entries.length === 0) {
+        console.log('No entries found for trial');
+        return { success: true, data: [] };
+      }
+
+      console.log(`Found ${entries.length} entries with selections (single query)`);
+      if (entries.length > 0 && entries[0].entry_selections) {
+        console.log(`Sample entry has ${entries[0].entry_selections.length} selections`);
+      }
+
+      return { success: true, data: entries };
+    } catch (error) {
+      console.error('Error getting trial entries with selections:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
-
-    if (!entries || entries.length === 0) {
-      console.log('No entries found for trial');
-      return { success: true, data: [] };
-    }
-
-    console.log(`Found ${entries.length} entries with selections (single query)`);
-    if (entries.length > 0 && entries[0].entry_selections) {
-      console.log(`Sample entry has ${entries[0].entry_selections.length} selections`);
-    }
-
-    return { success: true, data: entries };
-  } catch (error) {
-    console.error('Error getting trial entries with selections:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
-
+  },
 
   // Update running positions for entry selections
-  async updateRunningPositions(updates: { id: string; running_position: number }[]): Promise<OperationResult> {
+  async updateRunningPositions(
+    updates: { id: string; running_position: number }[]
+  ): Promise<OperationResult> {
     try {
       console.log('Updating running positions:', updates);
 
-      const updatePromises = updates.map((update: { id: string; running_position: number }) => 
+      const updatePromises = updates.map((update: { id: string; running_position: number }) =>
         supabase
           .from('entry_selections')
           .update({ running_position: update.running_position })
@@ -1524,7 +1550,7 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
       );
 
       const results = await Promise.all(updatePromises);
-      
+
       const errors = results.filter((result: any) => result.error);
       if (errors.length > 0) {
         console.error('Error updating running positions:', errors);
@@ -1548,7 +1574,8 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
 
       const { data, error } = await supabase
         .from('entry_selections')
-        .select(`
+        .select(
+          `
           *,
           entries!inner(
             handler_name,
@@ -1565,7 +1592,8 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
             )
           ),
           scores(*)
-        `)
+        `
+        )
         .eq('trial_rounds.trial_class_id', classId)
         .order('running_position');
 
@@ -1583,132 +1611,141 @@ async getTrialEntriesWithSelections(trialId: string): Promise<OperationResult> {
   },
 
   // Update entry selection (entry type, status, etc.)
-   async updateEntrySelection(entrySelectionId: string, updates: {
-  entry_type?: string;
-  entry_status?: string;
-  running_position?: number;
-  fee?: number;
-}): Promise<OperationResult> {
-  try {
-    console.log('Updating entry selection:', entrySelectionId, updates);
-
-    const { data, error } = await supabase
-      .from('entry_selections')
-      .update(updates)
-      .eq('id', entrySelectionId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating entry selection:', error);
-      return { success: false, error: error.message || error };
+  async updateEntrySelection(
+    entrySelectionId: string,
+    updates: {
+      entry_type?: string;
+      entry_status?: string;
+      running_position?: number;
+      fee?: number;
     }
+  ): Promise<OperationResult> {
+    try {
+      console.log('Updating entry selection:', entrySelectionId, updates);
 
-    console.log('Entry selection updated successfully:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error updating entry selection:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+      const { data, error } = await supabase
+        .from('entry_selections')
+        .update(updates)
+        .eq('id', entrySelectionId)
+        .select()
+        .single();
 
-// Create or update score
-async upsertScore(scoreData: {
-  entry_selection_id: string;
-  trial_round_id: string;
-  is_reset_round?: boolean;
-  scent1?: string | null;
-  scent2?: string | null;
-  scent3?: string | null;
-  scent4?: string | null;
-  fault1?: string | null;
-  fault2?: string | null;
-  time_seconds?: number | null;
-  numerical_score?: number | null;
-  pass_fail?: string | null;
-  entry_status?: string | null;
-  judge_notes?: string | null;
-  scored_by?: string | null;
-}): Promise<OperationResult> {
-  try {
-    console.log('🔵 Starting upsertScore with data:', scoreData);
-
-    // ✅ Extract base round ID if it's a compound ID (for Games classes)
-    let baseRoundId = scoreData.trial_round_id;
-    
-    if (scoreData.trial_round_id && scoreData.trial_round_id.includes('-')) {
-      const parts = scoreData.trial_round_id.split('-');
-      const lastPart = parts[parts.length - 1];
-      
-      // If the last part is a Games subclass, strip it to get the base UUID
-      if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-        baseRoundId = parts.slice(0, -1).join('-');
-        console.log('🟢 Extracted base round ID:', baseRoundId, 'from compound ID:', scoreData.trial_round_id);
+      if (error) {
+        console.error('Error updating entry selection:', error);
+        return { success: false, error: error.message || error };
       }
+
+      console.log('Entry selection updated successfully:', data);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error updating entry selection:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+  },
 
-    const scoreRecord = {
-      entry_selection_id: scoreData.entry_selection_id,
-      trial_round_id: baseRoundId,
-      is_reset_round: scoreData.is_reset_round || false,
-      scent1: scoreData.scent1 || null,
-      scent2: scoreData.scent2 || null,
-      scent3: scoreData.scent3 || null,
-      scent4: scoreData.scent4 || null,
-      fault1: scoreData.fault1 || null,
-      fault2: scoreData.fault2 || null,
-      time_seconds: scoreData.time_seconds || null,
-      numerical_score: scoreData.numerical_score || null,
-      pass_fail: scoreData.pass_fail || null,
-      entry_status: scoreData.entry_status || 'present',
-      judge_notes: scoreData.judge_notes || null,
-      scored_by: scoreData.scored_by || null,
-      scored_at: new Date().toISOString()
-    };
-
-    console.log('🔵 Attempting upsert with record:', scoreRecord);
-
-    // ✅ Use upsert with onConflict instead of checking first
-    const { data, error } = await supabase
-      .from('scores')
-      .upsert(scoreRecord, {
-        onConflict: 'entry_selection_id',
-        ignoreDuplicates: false
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('🔴 Supabase error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      return { 
-        success: false, 
-        error: error.message || error.details || JSON.stringify(error) 
-      };
-    }
-
-    console.log('🟢 Score upserted successfully:', data);
-    return { success: true, data };
-    
-  } catch (error) {
-    console.error('🔴 Exception in upsertScore:', error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : String(error) 
-    };
-  }
-},
-
-  // Bulk update scores for a class
-  async bulkUpdateScores(scores: Array<{
+  // Create or update score
+  async upsertScore(scoreData: {
     entry_selection_id: string;
     trial_round_id: string;
-    scoreData: any;
-  }>): Promise<OperationResult> {
+    is_reset_round?: boolean;
+    scent1?: string | null;
+    scent2?: string | null;
+    scent3?: string | null;
+    scent4?: string | null;
+    fault1?: string | null;
+    fault2?: string | null;
+    time_seconds?: number | null;
+    numerical_score?: number | null;
+    pass_fail?: string | null;
+    entry_status?: string | null;
+    judge_notes?: string | null;
+    scored_by?: string | null;
+  }): Promise<OperationResult> {
+    try {
+      console.log('🔵 Starting upsertScore with data:', scoreData);
+
+      // ✅ Extract base round ID if it's a compound ID (for Games classes)
+      let baseRoundId = scoreData.trial_round_id;
+
+      if (scoreData.trial_round_id && scoreData.trial_round_id.includes('-')) {
+        const parts = scoreData.trial_round_id.split('-');
+        const lastPart = parts[parts.length - 1];
+
+        // If the last part is a Games subclass, strip it to get the base UUID
+        if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+          baseRoundId = parts.slice(0, -1).join('-');
+          console.log(
+            '🟢 Extracted base round ID:',
+            baseRoundId,
+            'from compound ID:',
+            scoreData.trial_round_id
+          );
+        }
+      }
+
+      const scoreRecord = {
+        entry_selection_id: scoreData.entry_selection_id,
+        trial_round_id: baseRoundId,
+        is_reset_round: scoreData.is_reset_round || false,
+        scent1: scoreData.scent1 || null,
+        scent2: scoreData.scent2 || null,
+        scent3: scoreData.scent3 || null,
+        scent4: scoreData.scent4 || null,
+        fault1: scoreData.fault1 || null,
+        fault2: scoreData.fault2 || null,
+        time_seconds: scoreData.time_seconds || null,
+        numerical_score: scoreData.numerical_score || null,
+        pass_fail: scoreData.pass_fail || null,
+        entry_status: scoreData.entry_status || 'present',
+        judge_notes: scoreData.judge_notes || null,
+        scored_by: scoreData.scored_by || null,
+        scored_at: new Date().toISOString(),
+      };
+
+      console.log('🔵 Attempting upsert with record:', scoreRecord);
+
+      // ✅ Use upsert with onConflict instead of checking first
+      const { data, error } = await supabase
+        .from('scores')
+        .upsert(scoreRecord, {
+          onConflict: 'entry_selection_id',
+          ignoreDuplicates: false,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('🔴 Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        return {
+          success: false,
+          error: error.message || error.details || JSON.stringify(error),
+        };
+      }
+
+      console.log('🟢 Score upserted successfully:', data);
+      return { success: true, data };
+    } catch (error) {
+      console.error('🔴 Exception in upsertScore:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  },
+
+  // Bulk update scores for a class
+  async bulkUpdateScores(
+    scores: Array<{
+      entry_selection_id: string;
+      trial_round_id: string;
+      scoreData: any;
+    }>
+  ): Promise<OperationResult> {
     try {
       console.log('Bulk updating scores:', scores.length, 'scores');
 
@@ -1717,14 +1754,14 @@ async upsertScore(scoreData: {
         const result = await this.upsertScore({
           entry_selection_id: scoreUpdate.entry_selection_id,
           trial_round_id: scoreUpdate.trial_round_id,
-          ...scoreUpdate.scoreData
+          ...scoreUpdate.scoreData,
         });
-        
+
         if (!result.success) {
           console.error('Failed to update score:', scoreUpdate.entry_selection_id, result.error);
           return { success: false, error: `Failed to update score: ${result.error}` };
         }
-        
+
         results.push(result.data);
       }
 
@@ -1747,35 +1784,41 @@ async upsertScore(scoreData: {
       }
 
       const entries = entriesResult.data || [];
-      
+
       // Get Games subclass info for this class
       let gamesSubclass = null;
       if (entries.length > 0) {
         gamesSubclass = entries[0].trial_rounds?.trial_classes?.games_subclass;
       }
-      
+
       // Calculate statistics
       const stats = {
         totalEntries: entries.length,
-        presentEntries: entries.filter((e: any) => e.entry_status === 'entered' || e.entry_status === 'present').length,
+        presentEntries: entries.filter(
+          (e: any) => e.entry_status === 'entered' || e.entry_status === 'present'
+        ).length,
         scratchedEntries: entries.filter((e: any) => e.entry_status === 'scratched').length,
         absentEntries: entries.filter((e: any) => e.entry_status === 'absent').length,
         scoredEntries: entries.filter((e: any) => e.scores && e.scores.length > 0).length,
         feoEntries: entries.filter((e: any) => e.entry_type === 'FEO').length,
         regularEntries: entries.filter((e: any) => e.entry_type === 'Regular').length,
-        passedEntries: entries.filter((e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Pass')).length,
-        failedEntries: entries.filter((e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Fail')).length,
-        gamesSubclass: gamesSubclass
+        passedEntries: entries.filter(
+          (e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Pass')
+        ).length,
+        failedEntries: entries.filter(
+          (e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Fail')
+        ).length,
+        gamesSubclass: gamesSubclass,
       };
 
       console.log('Class summary calculated:', stats);
-      return { 
-        success: true, 
+      return {
+        success: true,
         data: {
           entries,
           stats,
-          classInfo: entries[0]?.trial_rounds || null
-        }
+          classInfo: entries[0]?.trial_rounds || null,
+        },
       };
     } catch (error) {
       console.error('Error getting class summary:', error);
@@ -1796,11 +1839,11 @@ async upsertScore(scoreData: {
       const { entries, stats } = summaryResult.data;
       const gamesSubclass = stats.gamesSubclass;
       const isGamesClass = entries[0]?.trial_rounds?.trial_classes?.class_type === 'games';
-      
+
       // Convert to CSV format with Games subclass handling
       const csvHeaders = [
         'Running Position',
-        'Handler Name', 
+        'Handler Name',
         'Dog Name',
         'C-WAGS Number',
         'Entry Type',
@@ -1808,12 +1851,12 @@ async upsertScore(scoreData: {
         'Result', // This will show Games subclass for Games classes
         'Pass/Fail',
         'Score',
-        'Judge Notes'
+        'Judge Notes',
       ];
 
       const csvRows = entries.map((entry: any) => {
         const score = entry.scores && entry.scores.length > 0 ? entry.scores[0] : null;
-        
+
         // Handle Games subclass results
         let result = '';
         if (isGamesClass && score?.pass_fail === 'Pass' && gamesSubclass) {
@@ -1832,7 +1875,7 @@ async upsertScore(scoreData: {
           result,
           score?.pass_fail || '',
           score?.numerical_score || '',
-          score?.judge_notes || ''
+          score?.judge_notes || '',
         ];
       });
 
@@ -1877,10 +1920,7 @@ async upsertScore(scoreData: {
     try {
       console.log('Getting qualified judges for level:', level);
 
-      let query = supabase
-        .from('judges')
-        .select('*')
-        .eq('is_active', true);
+      let query = supabase.from('judges').select('*').eq('is_active', true);
 
       // Enhanced qualification logic from original
       if (level.includes('Ranger') || (level.includes('Dasher') && !level.includes('6'))) {
@@ -1961,7 +2001,9 @@ async upsertScore(scoreData: {
       const { data, error } = await supabase
         .from('cwags_registry')
         .select('*')
-        .or(`cwags_number.ilike.%${searchTerm}%,dog_call_name.ilike.%${searchTerm}%,handler_name.ilike.%${searchTerm}%,handler_email.ilike.%${searchTerm}%`)
+        .or(
+          `cwags_number.ilike.%${searchTerm}%,dog_call_name.ilike.%${searchTerm}%,handler_name.ilike.%${searchTerm}%,handler_email.ilike.%${searchTerm}%`
+        )
 
         .eq('is_active', true)
         .limit(10);
@@ -1990,7 +2032,8 @@ async upsertScore(scoreData: {
         .eq('is_active', true)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 is "not found"
         console.error('Error getting C-WAGS registry entry:', error);
         return { success: false, error: error.message || error };
       }
@@ -2003,101 +2046,100 @@ async upsertScore(scoreData: {
     }
   },
 
-async createRegistryEntry(registryData: {
-  cwags_number: string;
-  dog_call_name: string;
-  handler_name: string;
-  handler_email: string | null;
-  handler_phone?: string | null;
-  emergency_contact?: string | null;
-  breed?: string | null;
-  dog_sex?: string | null;
-  is_junior_handler?: boolean;
-  is_active: boolean;
-}): Promise<OperationResult> {
-  try {
-    console.log('Creating / updating C-WAGS registry entry:', registryData);
+  async createRegistryEntry(registryData: {
+    cwags_number: string;
+    dog_call_name: string;
+    handler_name: string;
+    handler_email: string | null;
+    handler_phone?: string | null;
+    emergency_contact?: string | null;
+    breed?: string | null;
+    dog_sex?: string | null;
+    is_junior_handler?: boolean;
+    is_active: boolean;
+  }): Promise<OperationResult> {
+    try {
+      console.log('Creating / updating C-WAGS registry entry:', registryData);
 
-    const insertData = {
-      cwags_number: registryData.cwags_number,
-      dog_call_name: registryData.dog_call_name,
-      handler_name: registryData.handler_name,
-      handler_email: registryData.handler_email ?? null,
-      handler_phone: registryData.handler_phone ?? null,
-      emergency_contact: registryData.emergency_contact ?? null,
-      breed: registryData.breed ?? null,
-      dog_sex: registryData.dog_sex ?? null,
-      is_junior_handler: registryData.is_junior_handler ?? false,
-      is_active: registryData.is_active,
-      updated_at: new Date().toISOString()
-    };
+      const insertData = {
+        cwags_number: registryData.cwags_number,
+        dog_call_name: registryData.dog_call_name,
+        handler_name: registryData.handler_name,
+        handler_email: registryData.handler_email ?? null,
+        handler_phone: registryData.handler_phone ?? null,
+        emergency_contact: registryData.emergency_contact ?? null,
+        breed: registryData.breed ?? null,
+        dog_sex: registryData.dog_sex ?? null,
+        is_junior_handler: registryData.is_junior_handler ?? false,
+        is_active: registryData.is_active,
+        updated_at: new Date().toISOString(),
+      };
 
-    const { data, error } = await supabase
-      .from('cwags_registry')
-      .upsert(insertData, {
-        onConflict: 'cwags_number'
-      })
-      .select()
-      .single();
+      const { data, error } = await supabase
+        .from('cwags_registry')
+        .upsert(insertData, {
+          onConflict: 'cwags_number',
+        })
+        .select()
+        .single();
 
-    if (error) {
-      console.error('Registry upsert failed:', error);
-      return { success: false, error: error.message || error };
+      if (error) {
+        console.error('Registry upsert failed:', error);
+        return { success: false, error: error.message || error };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error upserting registry entry:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
-
-    return { success: true, data };
-  } catch (error) {
-    console.error('Error upserting registry entry:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-  }
-},
-
+  },
 
   // Entry Statistics Operations
-async getTrialEntryStats(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting entry statistics for trial ID (excluding FEO):', trialId);
+  async getTrialEntryStats(trialId: string): Promise<OperationResult> {
+    try {
+      console.log('Getting entry statistics for trial ID (excluding FEO):', trialId);
 
-    // Get all entries with their selections
-    const entriesResult = await this.getTrialEntriesWithSelections(trialId);
-    if (!entriesResult.success) {
-      return { success: false, error: entriesResult.error };
-    }
-
-    // Filter out FEO entries from statistics
-    const nonFeoEntries: any[] = [];
-    (entriesResult.data || []).forEach((entry: any) => {
-      const hasNonFeoSelections = entry.entry_selections?.some((selection: any) => 
-        selection.entry_type?.toLowerCase() !== 'feo'
-      );
-      
-      if (hasNonFeoSelections) {
-        nonFeoEntries.push(entry);
+      // Get all entries with their selections
+      const entriesResult = await this.getTrialEntriesWithSelections(trialId);
+      if (!entriesResult.success) {
+        return { success: false, error: entriesResult.error };
       }
-    });
 
-    const stats = {
-      total: nonFeoEntries.length,
-      byStatus: nonFeoEntries.reduce((acc: any, entry: any) => {
-        acc[entry.entry_status] = (acc[entry.entry_status] || 0) + 1;
-        return acc;
-      }, {}),
-      byPayment: nonFeoEntries.reduce((acc: any, entry: any) => {
-        acc[entry.payment_status] = (acc[entry.payment_status] || 0) + 1;
-        return acc;
-      }, {})
-    };
+      // Filter out FEO entries from statistics
+      const nonFeoEntries: any[] = [];
+      (entriesResult.data || []).forEach((entry: any) => {
+        const hasNonFeoSelections = entry.entry_selections?.some(
+          (selection: any) => selection.entry_type?.toLowerCase() !== 'feo'
+        );
 
-    console.log('Entry statistics (excluding FEO):', stats);
-    return { success: true, data: stats };
-  } catch (error) {
-    console.error('Error getting entry stats:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+        if (hasNonFeoSelections) {
+          nonFeoEntries.push(entry);
+        }
+      });
+
+      const stats = {
+        total: nonFeoEntries.length,
+        byStatus: nonFeoEntries.reduce((acc: any, entry: any) => {
+          acc[entry.entry_status] = (acc[entry.entry_status] || 0) + 1;
+          return acc;
+        }, {}),
+        byPayment: nonFeoEntries.reduce((acc: any, entry: any) => {
+          acc[entry.payment_status] = (acc[entry.payment_status] || 0) + 1;
+          return acc;
+        }, {}),
+      };
+
+      console.log('Entry statistics (excluding FEO):', stats);
+      return { success: true, data: stats };
+    } catch (error) {
+      console.error('Error getting entry stats:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
 
   // Utility Functions
   getLevelsForCategory(category: string): string[] {
@@ -2148,7 +2190,9 @@ async getTrialEntryStats(trialId: string): Promise<OperationResult> {
 
       // Get entry statistics
       const entryStatsResult = await this.getTrialEntryStats(trialId);
-      const entryStats = entryStatsResult.success ? entryStatsResult.data : { total: 0, byStatus: {}, byPayment: {} };
+      const entryStats = entryStatsResult.success
+        ? entryStatsResult.data
+        : { total: 0, byStatus: {}, byPayment: {} };
 
       const summary = {
         trial: trialResult.data,
@@ -2161,8 +2205,8 @@ async getTrialEntryStats(trialId: string): Promise<OperationResult> {
           totalClasses: classesResult.data.length,
           totalRounds: roundsResult.data.length,
           totalEntries: entryStats.total,
-          uniqueJudges: [...new Set(roundsResult.data.map((r: any) => r.judge_name))].length
-        }
+          uniqueJudges: [...new Set(roundsResult.data.map((r: any) => r.judge_name))].length,
+        },
       };
 
       console.log('Trial summary compiled:', summary);
@@ -2184,7 +2228,7 @@ async getTrialEntryStats(trialId: string): Promise<OperationResult> {
           trial_status: 'published',
           premium_published: true,
           entries_open: true,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', trialId)
         .select()
@@ -2205,351 +2249,263 @@ async getTrialEntryStats(trialId: string): Promise<OperationResult> {
 
   // Enhanced function to get trial summary with Games subclass support
   // 1. Update getTrialSummaryWithScores in simpleTrialOperations.ts
-async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Getting complete trial summary with scores for ID:', trialId);
-
-    // Get trial basic info
-    const trialResult = await this.getTrial(trialId);
-    if (!trialResult.success) {
-      return trialResult;
-    }
-
-    // Get all classes with Games subclass info
-    const classesResult = await this.getAllTrialClasses(trialId);
-    if (!classesResult.success) {
-      return classesResult;
-    }
-console.log('Raw classes with round data:', classesResult.data);
-    // Get all entries with selections and scores
-    const entriesResult = await this.getTrialEntriesWithSelections(trialId);
-    if (!entriesResult.success) {
-      return { success: true, data: { trial: trialResult.data, classes: [], entries: [], summary: [] } };
-    }
-
-    // Process each class to calculate statistics (EXCLUDING FEO)
-    // ✅ First, expand Games classes with multiple subclasses
-// DON'T expand Games classes - keep them consolidated
-// Consolidate Games classes with same name but different subclasses
-const classMap = new Map<string, any>();
-
-(classesResult.data || []).forEach((cls: any) => {
-  const key = `${cls.class_name}-${cls.trial_day_id}`;
-  
-  if (classMap.has(key)) {
-    // Class already exists - merge subclasses
-    const existing = classMap.get(key);
-    if (cls.class_type === 'games' && cls.games_subclass) {
-      // Combine subclasses
-      const subclasses = [
-        ...(existing.games_subclass || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-        ...(cls.games_subclass || '').split(',').map((s: string) => s.trim()).filter(Boolean)
-      ];
-      existing.games_subclass = [...new Set(subclasses)].join(', ');
-      
-      // Track all class IDs for fetching rounds/entries later
-      existing.allClassIds = existing.allClassIds || [existing.id];
-      existing.allClassIds.push(cls.id);
-    }
-  } else {
-    // New class
-    classMap.set(key, {
-      ...cls,
-      allClassIds: [cls.id]
-    });
-  }
-});
-
-const expandedClasses = Array.from(classMap.values());
-
-const classesWithStatsRaw = await Promise.all(
-  expandedClasses.map(async (cls: any) => {
-    // ✅ Add null check
-    if (!cls) return null;
-    
+  async getTrialSummaryWithScores(trialId: string): Promise<OperationResult> {
     try {
- // For consolidated Games classes, get rounds from ALL class IDs
-const classIdsToCheck = cls.allClassIds || [cls.id];
+      console.log('Getting complete trial summary with scores for ID:', trialId);
 
-// Get all rounds for all class IDs
-const allRoundsResults = await Promise.all(
-  classIdsToCheck.map((classId: string) => this.getTrialRounds(classId))
-);
-
-// Collect all round IDs
-const allRoundIds = allRoundsResults
-  .filter(result => result.success)
-  .flatMap(result => result.data.map((round: any) => round.id));
-
-// Get all judges
-const allJudges = allRoundsResults
-  .filter(result => result.success)
-  .flatMap(result => result.data.map((round: any) => round.judge_name))
-  .filter((name, index, self) => name && self.indexOf(name) === index); // unique
-
-const judge = cls.class_type === 'games' 
-  ? '' // Leave blank for Games
-  : (allJudges[0] || 'Not Assigned');
-
-     // Calculate statistics - scores are directly on entry objects
-// Filter entries - check if selection matches ANY of the round IDs
-const classEntries: any[] = [];
-(entriesResult.data || []).forEach((entry: any) => {
-  const selections = entry.entry_selections || [];
-  
-  const classSelections = selections.filter((selection: any) => {
-    return allRoundIds.includes(selection.trial_round_id);
-  });
-  
-  classSelections.forEach((selection: any) => {
-    const isFeo = selection.entry_type?.toLowerCase() === 'feo';
-    const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
-    
-    if (!isFeo && !isWithdrawn) {
-      classEntries.push({
-        ...selection,
-        entry_id: entry.id,
-        entries: {
-          handler_name: entry.handler_name,
-          dog_call_name: entry.dog_call_name,
-          cwags_number: entry.cwags_number
-        }
-      });
-    }
-  });
-});
-
-// ✅ ADD HELPER FUNCTION HERE (right after classEntries is built)
-// Helper to normalize scores to always be an array
-const getScoresArray = (entry: any) => {
-  if (Array.isArray(entry.scores)) return entry.scores;
-  if (entry.scores) return [entry.scores];
-  return [];
-};
-
-// ✅ REPLACE THE THREE FILTER OPERATIONS WITH THIS:
-const passCount = classEntries.filter((entry: any) => 
-  getScoresArray(entry).some((s: any) => 
-    s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
-  )
-).length;
-
-const failCount = classEntries.filter((entry: any) => 
-  getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
-).length;
-
-const completedRuns = classEntries.filter((entry: any) => 
-  getScoresArray(entry).some((s: any) => s.pass_fail !== null)
-).length;
-
-// ✅ KEEP EVERYTHING BELOW THIS THE SAME (the return statement, etc.)
-return {
-  id: cls.id,
-  class_name: cls.class_name,
-  class_type: cls.class_type || 'scent',
-  games_subclass: cls.games_subclass || null,
-  judge_name: judge,
-  trial_date: cls.trial_days?.trial_date || '',
-  trial_day_id: cls.trial_day_id,
-  participant_count: classEntries.length,
-  pass_count: passCount,
-  fail_count: failCount,
-  completed_runs: completedRuns,
-  entries: classEntries,
-  total_rounds: allRoundsResults.filter(r => r.success).reduce((sum, r) => sum + r.data.length, 0) || 1
-};
-    } catch (error) {
-      console.error('Error processing class:', error);
-      return null;
-    }
-  })
-);
-
-// ✅ Filter out nulls with proper TypeScript type guard
-const classesWithStats = classesWithStatsRaw.filter((cls): cls is NonNullable<typeof cls> => cls !== null);
-
-// Filter classes that have entries OR have configured rounds
-const classesWithEntries = classesWithStats.filter(cls => 
-  cls.participant_count > 0 || cls.total_rounds > 0
-);
-
-    // Calculate overall trial statistics (EXCLUDING FEO)
-    const totalParticipants = classesWithEntries.reduce((sum, cls) => sum + cls.participant_count, 0);
-    const totalPasses = classesWithEntries.reduce((sum, cls) => sum + cls.pass_count, 0);
-    const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
-    const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
-
-    const consolidatedClasses = new Map();
-    const allRoundsResult = await this.getAllTrialRounds(trialId);
-    const allRounds = allRoundsResult.success ? allRoundsResult.data : [];
-
-    classesWithEntries.forEach(cls => {
-     
-      
-      if (!consolidatedClasses.has(cls.class_name)) {
-        const roundsForThisClass = allRounds.filter((round: any) => {
-          const roundClassName = round.trial_classes?.class_name || '';
-          
-          return roundClassName === cls.class_name;
-        });
-        
-        consolidatedClasses.set(cls.class_name, {
-          id: cls.id,
-          class_name: cls.class_name,
-          class_type: cls.class_type,
-          games_subclass: cls.games_subclass,
-          judge_name: cls.judge_name,
-          trial_date: cls.trial_date,
-          trial_day_id: cls.trial_day_id,
-          participant_count: 0,
-          pass_count: 0,
-          fail_count: 0,
-          completed_runs: 0,
-          total_rounds: roundsForThisClass.length,
-          entries: []
-        });
+      // Get trial basic info
+      const trialResult = await this.getTrial(trialId);
+      if (!trialResult.success) {
+        return trialResult;
       }
-      
-      const consolidated = consolidatedClasses.get(cls.class_name);
-      consolidated.participant_count += cls.participant_count;
-      consolidated.pass_count += cls.pass_count;
-      consolidated.fail_count += cls.fail_count;
-      consolidated.completed_runs += cls.completed_runs;
-      consolidated.entries = consolidated.entries.concat(cls.entries);
-    });
 
-    const finalClassesWithEntries = Array.from(consolidatedClasses.values());
-
-    const summary = {
-      trial: trialResult.data,
-      classes: finalClassesWithEntries,
-      statistics: {
-        total_classes: finalClassesWithEntries.length,
-        total_participants: totalParticipants, // Excludes FEO
-        total_passes: totalPasses, // Excludes FEO
-        total_fails: totalFails, // Excludes FEO
-        total_completed: totalCompleted, // Excludes FEO
-        overall_pass_rate: totalParticipants > 0 ? (totalPasses / totalParticipants) * 100 : 0,
-        completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0
+      // Get all classes with Games subclass info
+      const classesResult = await this.getAllTrialClasses(trialId);
+      if (!classesResult.success) {
+        return classesResult;
       }
-    };
+      console.log('Raw classes with round data:', classesResult.data);
+      // Get all entries with selections and scores
+      const entriesResult = await this.getTrialEntriesWithSelections(trialId);
+      if (!entriesResult.success) {
+        return {
+          success: true,
+          data: { trial: trialResult.data, classes: [], entries: [], summary: [] },
+        };
+      }
 
-    console.log('Trial summary with scores compiled successfully (FEO excluded from statistics)');
-    return { success: true, data: summary };
+      // Process each class to calculate statistics (EXCLUDING FEO)
+      // ✅ First, expand Games classes with multiple subclasses
+      // DON'T expand Games classes - keep them consolidated
+      // Consolidate Games classes with same name but different subclasses
+      const classMap = new Map<string, any>();
 
-  } catch (error) {
-    console.error('Error getting trial summary with scores:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+      (classesResult.data || []).forEach((cls: any) => {
+        const key = `${cls.class_name}-${cls.trial_day_id}`;
 
-  // Generate Excel workbook with proper formatting for Games subclass
- async generateClassSummaryExcel(trialId: string): Promise<OperationResult> {
-  try {
-    console.log('Generating class summary Excel for trial (excluding FEO):', trialId);
+        if (classMap.has(key)) {
+          // Class already exists - merge subclasses
+          const existing = classMap.get(key);
+          if (cls.class_type === 'games' && cls.games_subclass) {
+            // Combine subclasses
+            const subclasses = [
+              ...(existing.games_subclass || '')
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean),
+              ...(cls.games_subclass || '')
+                .split(',')
+                .map((s: string) => s.trim())
+                .filter(Boolean),
+            ];
+            existing.games_subclass = [...new Set(subclasses)].join(', ');
 
-    // Use the existing function that already loads scores
-    const summaryResult = await this.getTrialSummaryWithScores(trialId);
-    if (!summaryResult.success) {
-      return summaryResult;
-    }
-
-    const { trial, classes } = summaryResult.data;
-    console.log('Classes with scores loaded:', classes);
-
-    // Create Excel workbook
-    const XLSX = await import('xlsx');
-    const workbook = XLSX.utils.book_new();
-
-    // Process each class to create individual sheets
-    classes.forEach((cls: any) => {
-      const sheetData = [];
-      
-      // Row 1: Trial name
-      sheetData[0] = [trial.trial_name];
-
-      // Row 2: Club name
-      sheetData[1] = [trial.club_name];
-      
-      // Row 3: class name in F3
-      // Row 3: Class name (abbreviated for Excel)
-const abbreviateClass = (name: string): string => {
-  const map: Record<string, string> = {
-    'Private Investigator': 'Private Inv',
-    'Detective Diversions': 'Det Diversions'
-  };
-  return map[name] || name;
-};
-sheetData[2] = ['', '', '', '', '', abbreviateClass(cls.class_name)];
-      
-      // Row 4: Headers
-      sheetData[3] = ['', '', '', 'C-WAGS Number', 'Dog Name', 'Handler Name', 'Result'];
-      
-      // Row 5: Judge name
-      sheetData[4] = ['', '', '', '', '', '', cls.judge_name];
-      
-      // Row 6: Date
-      const date = new Date(cls.trial_date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: '2-digit',
-        year: 'numeric'
-      });
-      sheetData[5] = ['', '', '', '', '', '', date];
-
-      // Add participant data with scores
-      cls.entries.forEach((entry: any) => {
-        const score = entry.scores?.[0]; // Get first score
-        let result = '-';
-        
-        if (score) {
-          if (score.pass_fail === 'Pass') {
-            result = cls.class_type === 'games' && cls.games_subclass ? cls.games_subclass : 'P';
-          } else if (score.pass_fail === 'Fail') {
-            result = 'F';
+            // Track all class IDs for fetching rounds/entries later
+            existing.allClassIds = existing.allClassIds || [existing.id];
+            existing.allClassIds.push(cls.id);
           }
+        } else {
+          // New class
+          classMap.set(key, {
+            ...cls,
+            allClassIds: [cls.id],
+          });
         }
-        
-        const row = [
-          '', '', '', // Empty columns A, B, C
-          entry.entries.cwags_number,
-          entry.entries.dog_call_name,
-          entry.entries.handler_name,
-          result
-        ];
-        
-        sheetData.push(row);
-        console.log(`Adding entry: ${entry.entries.handler_name} - ${entry.entries.dog_call_name} - Result: ${result}`);
       });
 
-      // Create worksheet
-      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-      
-      // Create clean sheet name
-      let sheetName = cls.class_name.replace(/[:\\/?*[\]]/g, '');
-      if (sheetName.length > 31) {
-        sheetName = sheetName.substring(0, 31);
-      }
-      
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    });
+      const expandedClasses = Array.from(classMap.values());
 
-    // Download the file
-    const fileName = `${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+      const classesWithStatsRaw = await Promise.all(
+        expandedClasses.map(async (cls: any) => {
+          // ✅ Add null check
+          if (!cls) return null;
 
-    console.log('Excel report generated successfully with scores');
-    return { success: true, data: 'Excel export completed' };
+          try {
+            // For consolidated Games classes, get rounds from ALL class IDs
+            const classIdsToCheck = cls.allClassIds || [cls.id];
 
-  } catch (error) {
-    console.error('Error generating Excel report:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-},
+            // Get all rounds for all class IDs
+            const allRoundsResults = await Promise.all(
+              classIdsToCheck.map((classId: string) => this.getTrialRounds(classId))
+            );
 
-async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
+            // Collect all round IDs
+            const allRoundIds = allRoundsResults
+              .filter((result) => result.success)
+              .flatMap((result) => result.data.map((round: any) => round.id));
+
+            // Get all judges
+            const allJudges = allRoundsResults
+              .filter((result) => result.success)
+              .flatMap((result) => result.data.map((round: any) => round.judge_name))
+              .filter((name, index, self) => name && self.indexOf(name) === index); // unique
+
+            const judge =
+              cls.class_type === 'games'
+                ? '' // Leave blank for Games
+                : allJudges[0] || 'Not Assigned';
+
+            // Calculate statistics - scores are directly on entry objects
+            // Filter entries - check if selection matches ANY of the round IDs
+            const classEntries: any[] = [];
+            (entriesResult.data || []).forEach((entry: any) => {
+              const selections = entry.entry_selections || [];
+
+              const classSelections = selections.filter((selection: any) => {
+                return allRoundIds.includes(selection.trial_round_id);
+              });
+
+              classSelections.forEach((selection: any) => {
+                const isFeo = selection.entry_type?.toLowerCase() === 'feo';
+                const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
+
+                if (!isFeo && !isWithdrawn) {
+                  classEntries.push({
+                    ...selection,
+                    entry_id: entry.id,
+                    entries: {
+                      handler_name: entry.handler_name,
+                      dog_call_name: entry.dog_call_name,
+                      cwags_number: entry.cwags_number,
+                    },
+                  });
+                }
+              });
+            });
+
+            // ✅ ADD HELPER FUNCTION HERE (right after classEntries is built)
+            // Helper to normalize scores to always be an array
+            const getScoresArray = (entry: any) => {
+              if (Array.isArray(entry.scores)) return entry.scores;
+              if (entry.scores) return [entry.scores];
+              return [];
+            };
+
+            // ✅ REPLACE THE THREE FILTER OPERATIONS WITH THIS:
+            const passCount = classEntries.filter((entry: any) =>
+              getScoresArray(entry).some(
+                (s: any) =>
+                  s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
+              )
+            ).length;
+
+            const failCount = classEntries.filter((entry: any) =>
+              getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
+            ).length;
+
+            const completedRuns = classEntries.filter((entry: any) =>
+              getScoresArray(entry).some((s: any) => s.pass_fail !== null)
+            ).length;
+
+            // ✅ KEEP EVERYTHING BELOW THIS THE SAME (the return statement, etc.)
+            return {
+              id: cls.id,
+              class_name: cls.class_name,
+              class_type: cls.class_type || 'scent',
+              games_subclass: cls.games_subclass || null,
+              judge_name: judge,
+              trial_date: cls.trial_days?.trial_date || '',
+              trial_day_id: cls.trial_day_id,
+              participant_count: classEntries.length,
+              pass_count: passCount,
+              fail_count: failCount,
+              completed_runs: completedRuns,
+              entries: classEntries,
+              total_rounds:
+                allRoundsResults
+                  .filter((r) => r.success)
+                  .reduce((sum, r) => sum + r.data.length, 0) || 1,
+            };
+          } catch (error) {
+            console.error('Error processing class:', error);
+            return null;
+          }
+        })
+      );
+
+      // ✅ Filter out nulls with proper TypeScript type guard
+      const classesWithStats = classesWithStatsRaw.filter(
+        (cls): cls is NonNullable<typeof cls> => cls !== null
+      );
+
+      // Filter classes that have entries OR have configured rounds
+      const classesWithEntries = classesWithStats.filter(
+        (cls) => cls.participant_count > 0 || cls.total_rounds > 0
+      );
+
+      // Calculate overall trial statistics (EXCLUDING FEO)
+      const totalParticipants = classesWithEntries.reduce(
+        (sum, cls) => sum + cls.participant_count,
+        0
+      );
+      const totalPasses = classesWithEntries.reduce((sum, cls) => sum + cls.pass_count, 0);
+      const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
+      const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
+
+      const consolidatedClasses = new Map();
+      const allRoundsResult = await this.getAllTrialRounds(trialId);
+      const allRounds = allRoundsResult.success ? allRoundsResult.data : [];
+
+      classesWithEntries.forEach((cls) => {
+        if (!consolidatedClasses.has(cls.class_name)) {
+          const roundsForThisClass = allRounds.filter((round: any) => {
+            const roundClassName = round.trial_classes?.class_name || '';
+
+            return roundClassName === cls.class_name;
+          });
+
+          consolidatedClasses.set(cls.class_name, {
+            id: cls.id,
+            class_name: cls.class_name,
+            class_type: cls.class_type,
+            games_subclass: cls.games_subclass,
+            judge_name: cls.judge_name,
+            trial_date: cls.trial_date,
+            trial_day_id: cls.trial_day_id,
+            participant_count: 0,
+            pass_count: 0,
+            fail_count: 0,
+            completed_runs: 0,
+            total_rounds: roundsForThisClass.length,
+            entries: [],
+          });
+        }
+
+        const consolidated = consolidatedClasses.get(cls.class_name);
+        consolidated.participant_count += cls.participant_count;
+        consolidated.pass_count += cls.pass_count;
+        consolidated.fail_count += cls.fail_count;
+        consolidated.completed_runs += cls.completed_runs;
+        consolidated.entries = consolidated.entries.concat(cls.entries);
+      });
+
+      const finalClassesWithEntries = Array.from(consolidatedClasses.values());
+
+      const summary = {
+        trial: trialResult.data,
+        classes: finalClassesWithEntries,
+        statistics: {
+          total_classes: finalClassesWithEntries.length,
+          total_participants: totalParticipants, // Excludes FEO
+          total_passes: totalPasses, // Excludes FEO
+          total_fails: totalFails, // Excludes FEO
+          total_completed: totalCompleted, // Excludes FEO
+          overall_pass_rate: totalParticipants > 0 ? (totalPasses / totalParticipants) * 100 : 0,
+          completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0,
+        },
+      };
+
+      console.log('Trial summary with scores compiled successfully (FEO excluded from statistics)');
+      return { success: true, data: summary };
+    } catch (error) {
+      console.error('Error getting trial summary with scores:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+  async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     try {
       console.log('Fetching running order data for day:', dayId);
-      
+
       // First get the day info
       const { data: dayData, error: dayError } = await supabase
         .from('trial_days')
@@ -2565,7 +2521,8 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
       // Get all classes for this day with their rounds and entries
       const { data: classesData, error: classesError } = await supabase
         .from('trial_classes')
-        .select(`
+        .select(
+          `
           id,
           class_name,
           class_type,
@@ -2588,7 +2545,8 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
               )
             )
           )
-        `)
+        `
+        )
         .eq('trial_day_id', dayId)
         .order('class_order');
 
@@ -2620,15 +2578,14 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
                 entry_status: selection.entry_status,
                 handler_name: selection.entries.handler_name,
                 dog_call_name: selection.entries.dog_call_name,
-                cwags_number: selection.entries.cwags_number
-              }))
-          }))
-        }))
+                cwags_number: selection.entries.cwags_number,
+              })),
+          })),
+        })),
       };
 
       console.log('Processed running order data:', processedData);
       return { success: true, data: processedData };
-      
     } catch (error) {
       console.error('Exception in getDayRunningOrderData:', error);
       return { success: false, error: 'Failed to fetch day running order data' };
@@ -2642,7 +2599,11 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     }
 
     // Handle Games subclass results - show subclass letter for passes
-    if (classInfo.class_type === 'games' && score.pass_fail === 'Pass' && classInfo.games_subclass) {
+    if (
+      classInfo.class_type === 'games' &&
+      score.pass_fail === 'Pass' &&
+      classInfo.games_subclass
+    ) {
       return classInfo.games_subclass; // Return just the subclass (GB, BJ, C, T, P)
     }
 
@@ -2654,7 +2615,5 @@ async getDayRunningOrderData(dayId: string): Promise<OperationResult> {
     }
 
     return '-';
-  }
-
+  },
 };
-

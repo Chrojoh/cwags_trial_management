@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { 
+import {
   Calendar,
   Plus,
   Search,
@@ -30,7 +30,7 @@ import {
   FileText,
   AlertCircle,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
@@ -66,15 +66,16 @@ export default function DraftTrialsPage() {
       setError(null);
 
       const result = await simpleTrialOperations.getAllTrials();
-      
+
       if (!result.success) {
         throw new Error(result.error?.toString() || 'Failed to load trials');
       }
 
       // Filter for draft trials only
-      const draftTrials = (result.data || []).filter((trial: Trial) => trial.trial_status === 'draft');
+      const draftTrials = (result.data || []).filter(
+        (trial: Trial) => trial.trial_status === 'draft'
+      );
       setTrials(draftTrials);
-
     } catch (err) {
       console.error('Error loading draft trials:', err);
       setError(err instanceof Error ? err.message : 'Failed to load draft trials');
@@ -87,28 +88,26 @@ export default function DraftTrialsPage() {
     return new Date(dateString).toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
-  const filteredTrials = trials.filter(trial => 
-    trial.trial_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trial.club_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    trial.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTrials = trials.filter(
+    (trial) =>
+      trial.trial_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      trial.club_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      trial.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const breadcrumbItems = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
-    { label: 'Draft Trials' }
+    { label: 'Draft Trials' },
   ];
 
   if (loading) {
     return (
-      <MainLayout 
-        title="Draft Trials"
-        breadcrumbItems={breadcrumbItems}
-      >
+      <MainLayout title="Draft Trials" breadcrumbItems={breadcrumbItems}>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-orange-600" />
@@ -120,22 +119,17 @@ export default function DraftTrialsPage() {
   }
 
   return (
-    <MainLayout 
-      title="Draft Trials"
-      breadcrumbItems={breadcrumbItems}
-    >
+    <MainLayout title="Draft Trials" breadcrumbItems={breadcrumbItems}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Draft Trials</h1>
-            <p className="text-gray-600 mt-1">
-              Trials in draft status - {trials.length} found
-            </p>
+            <p className="text-gray-600 mt-1">Trials in draft status - {trials.length} found</p>
           </div>
           <div className="flex items-center space-x-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => router.push('/dashboard/trials')}
               className="flex items-center space-x-2"
             >
@@ -158,12 +152,7 @@ export default function DraftTrialsPage() {
               <div className="flex items-center space-x-2 text-red-800">
                 <AlertCircle className="h-5 w-5" />
                 <span>{error}</span>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadDraftTrials}
-                  className="ml-auto"
-                >
+                <Button variant="outline" size="sm" onClick={loadDraftTrials} className="ml-auto">
                   Retry
                 </Button>
               </div>
@@ -194,8 +183,8 @@ export default function DraftTrialsPage() {
                   {trials.length === 0 ? 'No draft trials found' : 'No trials match your search'}
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  {trials.length === 0 
-                    ? 'All trials have been published or there are no trials yet.' 
+                  {trials.length === 0
+                    ? 'All trials have been published or there are no trials yet.'
                     : 'Try adjusting your search criteria.'}
                 </p>
                 {trials.length === 0 && (
@@ -203,19 +192,13 @@ export default function DraftTrialsPage() {
                     <Link href="/dashboard/trials/create">
                       <Button>Create New Trial</Button>
                     </Link>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => router.push('/dashboard/trials')}
-                    >
+                    <Button variant="outline" onClick={() => router.push('/dashboard/trials')}>
                       View All Trials
                     </Button>
                   </div>
                 )}
                 {trials.length > 0 && filteredTrials.length === 0 && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setSearchTerm('')}
-                  >
+                  <Button variant="outline" onClick={() => setSearchTerm('')}>
                     Clear Search
                   </Button>
                 )}
@@ -239,12 +222,12 @@ export default function DraftTrialsPage() {
                         </CardDescription>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Badge className="bg-gray-100 text-gray-800 border-gray-200 border">
                         Draft
                       </Badge>
-                      
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -252,11 +235,15 @@ export default function DraftTrialsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/trials/${trial.id}`)}>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/dashboard/trials/${trial.id}`)}
+                          >
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/trials/${trial.id}`)}>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/dashboard/trials/${trial.id}`)}
+                          >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Trial
                           </DropdownMenuItem>
@@ -274,7 +261,7 @@ export default function DraftTrialsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
@@ -284,41 +271,33 @@ export default function DraftTrialsPage() {
                         {trial.start_date !== trial.end_date && ` - ${formatDate(trial.end_date)}`}
                       </p>
                     </div>
-                    
+
                     <div>
                       <p className="text-gray-600 mb-1">Max Entries</p>
-                      <p className="font-medium">
-                        {trial.max_entries_per_day} per day
-                      </p>
+                      <p className="font-medium">{trial.max_entries_per_day} per day</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-gray-600 mb-1">Secretary</p>
                       <p className="font-medium">{trial.trial_secretary}</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-gray-600 mb-1">Status</p>
-                      <Badge variant="secondary">
-                        Ready to Configure
-                      </Badge>
+                      <Badge variant="secondary">Ready to Configure</Badge>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-sm text-gray-600">
-                      Created {formatDate(trial.created_at)}
-                    </p>
-                    
+                    <p className="text-sm text-gray-600">Created {formatDate(trial.created_at)}</p>
+
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm">
                         <Users className="h-4 w-4 mr-1" />
                         Setup
                       </Button>
                       <Link href={`/dashboard/trials/${trial.id}`}>
-                        <Button size="sm">
-                          Continue Setup
-                        </Button>
+                        <Button size="sm">Continue Setup</Button>
                       </Link>
                     </div>
                   </div>

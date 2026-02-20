@@ -55,13 +55,13 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
     movedSelections: 0,
     deletedSelections: 0,
     preservedScores: 0,
-    errors: [] as string[]
+    errors: [] as string[],
   };
 
   // Group by handler+dog+cwags
   const groups = new Map<string, DuplicateEntry[]>();
-  
-  duplicates.forEach(entry => {
+
+  duplicates.forEach((entry) => {
     const key = `${entry.handler_name}|${entry.dog_call_name}|${entry.cwags_number}`;
     if (!groups.has(key)) {
       groups.set(key, []);
@@ -74,12 +74,12 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
   // Process each group
   for (const [key, groupEntries] of groups.entries()) {
     console.log(`\n📝 Processing: ${key}`);
-    
+
     try {
       // Find primary and duplicates
-      const primary = groupEntries.find(e => e.status.startsWith('✅'));
-      const dups = groupEntries.filter(e => e.status.startsWith('❌'));
-      
+      const primary = groupEntries.find((e) => e.status.startsWith('✅'));
+      const dups = groupEntries.filter((e) => e.status.startsWith('❌'));
+
       if (!primary) {
         stats.errors.push(`No primary entry for ${key}`);
         continue;
@@ -92,10 +92,7 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
       for (const dup of dups) {
         if (dup.action === 'DELETE (empty)') {
           // Simple delete for empty entries
-          const { error } = await supabaseAdmin
-            .from('entries')
-            .delete()
-            .eq('id', dup.entry_id);
+          const { error } = await supabaseAdmin.from('entries').delete().eq('id', dup.entry_id);
 
           if (error) {
             stats.errors.push(`Failed to delete ${dup.entry_id}: ${error.message}`);
@@ -111,7 +108,9 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
             .eq('entry_id', dup.entry_id);
 
           if (fetchError) {
-            stats.errors.push(`Failed to fetch selections for ${dup.entry_id}: ${fetchError.message}`);
+            stats.errors.push(
+              `Failed to fetch selections for ${dup.entry_id}: ${fetchError.message}`
+            );
             continue;
           }
 
@@ -121,7 +120,7 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
               .from('entries')
               .delete()
               .eq('id', dup.entry_id);
-            
+
             if (!deleteError) {
               stats.deletedEntries++;
               console.log(`   ✅ Deleted empty entry`);
@@ -130,14 +129,14 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
           }
 
           // For each selection, check if it has scores by querying the scores table directly
-          const selectionIds = selections.map(s => s.id);
+          const selectionIds = selections.map((s) => s.id);
           const { data: scoresData } = await supabaseAdmin
             .from('scores')
             .select('entry_selection_id')
             .in('entry_selection_id', selectionIds);
 
           const selectionsWithScoresSet = new Set(
-            (scoresData || []).map(s => s.entry_selection_id)
+            (scoresData || []).map((s) => s.entry_selection_id)
           );
 
           // Get existing selections in primary
@@ -147,14 +146,14 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
             .eq('entry_id', primary.entry_id);
 
           const primaryKeys = new Set(
-            (primarySelections || []).map(s => `${s.trial_round_id}-${s.entry_type}`)
+            (primarySelections || []).map((s) => `${s.trial_round_id}-${s.entry_type}`)
           );
 
           // Separate selections into categories
           const selectionsWithScores: any[] = [];
           const selectionsWithoutScores: any[] = [];
 
-          selections.forEach(sel => {
+          selections.forEach((sel) => {
             const hasScores = selectionsWithScoresSet.has(sel.id);
             if (hasScores) {
               selectionsWithScores.push(sel);
@@ -163,23 +162,27 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
             }
           });
 
-          console.log(`   📊 Found ${selectionsWithScores.length} selections with scores, ${selectionsWithoutScores.length} without`);
+          console.log(
+            `   📊 Found ${selectionsWithScores.length} selections with scores, ${selectionsWithoutScores.length} without`
+          );
 
           // STEP 1: Move ALL selections with scores to primary (preserve scores!)
           if (selectionsWithScores.length > 0) {
-            console.log(`   🔄 Processing ${selectionsWithScores.length} selections with scores...`);
-            
+            console.log(
+              `   🔄 Processing ${selectionsWithScores.length} selections with scores...`
+            );
+
             let successfulMoves = 0;
             let totalScoresMoved = 0;
-            
+
             // Process each selection individually to handle conflicts
             for (const sel of selectionsWithScores) {
               // Check if primary already has a selection for this round
               const conflictKey = `${sel.trial_round_id}-${sel.entry_type}`;
-              
+
               if (primaryKeys.has(conflictKey)) {
                 console.log(`   ⚠️  Conflict detected for round ${sel.trial_round_id}`);
-                
+
                 // Get the conflicting selection from primary
                 const { data: conflictingSelections } = await supabaseAdmin
                   .from('entry_selections')
@@ -187,16 +190,16 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
                   .eq('entry_id', primary.entry_id)
                   .eq('trial_round_id', sel.trial_round_id)
                   .eq('entry_type', sel.entry_type);
-                
+
                 if (conflictingSelections && conflictingSelections.length > 0) {
                   const conflictId = conflictingSelections[0].id;
-                  
+
                   // Check if the conflicting selection has scores
                   const { data: conflictScores } = await supabaseAdmin
                     .from('scores')
                     .select('id')
                     .eq('entry_selection_id', conflictId);
-                  
+
                   if (!conflictScores || conflictScores.length === 0) {
                     // Primary's selection is empty - delete it to make room
                     console.log(`   🗑️  Deleting empty conflicting selection from primary`);
@@ -204,23 +207,27 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
                       .from('entry_selections')
                       .delete()
                       .eq('id', conflictId);
-                    
+
                     if (deleteError) {
-                      console.log(`   ❌ Failed to delete conflicting selection: ${deleteError.message}`);
+                      console.log(
+                        `   ❌ Failed to delete conflicting selection: ${deleteError.message}`
+                      );
                       continue;
                     }
-                    
+
                     // Remove from set so we don't think it exists anymore
                     primaryKeys.delete(conflictKey);
                   } else {
                     // Both have scores - this is a real conflict, can't merge
                     console.log(`   ❌ Both selections have scores - cannot merge this round`);
-                    stats.errors.push(`Cannot merge ${dup.entry_id}: both entries have scores for round ${sel.trial_round_id}`);
+                    stats.errors.push(
+                      `Cannot merge ${dup.entry_id}: both entries have scores for round ${sel.trial_round_id}`
+                    );
                     continue;
                   }
                 }
               }
-              
+
               // Now try to move the selection
               const { error: moveError } = await supabaseAdmin
                 .from('entry_selections')
@@ -232,24 +239,26 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
                 stats.errors.push(`Failed to move selection ${sel.id}: ${moveError.message}`);
               } else {
                 successfulMoves++;
-                
+
                 // Count scores for this selection
                 const { count } = await supabaseAdmin
                   .from('scores')
                   .select('*', { count: 'exact', head: true })
                   .eq('entry_selection_id', sel.id);
-                
+
                 totalScoresMoved += count || 0;
               }
             }
-            
+
             stats.movedSelections += successfulMoves;
             stats.preservedScores += totalScoresMoved;
-            
+
             if (successfulMoves > 0) {
-              console.log(`   ✅ Successfully moved ${successfulMoves} selections with ${totalScoresMoved} scores`);
+              console.log(
+                `   ✅ Successfully moved ${successfulMoves} selections with ${totalScoresMoved} scores`
+              );
             }
-            
+
             // If we couldn't move any selections, don't try to delete the entry
             if (successfulMoves === 0 && selectionsWithScores.length > 0) {
               console.log(`   ⚠️  Could not move any selections, skipping entry deletion`);
@@ -261,7 +270,7 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
           const selectionsToMove: any[] = [];
           const selectionsToDelete: any[] = [];
 
-          selectionsWithoutScores.forEach(sel => {
+          selectionsWithoutScores.forEach((sel) => {
             const key = `${sel.trial_round_id}-${sel.entry_type}`;
             if (primaryKeys.has(key)) {
               // Conflict: delete this selection (it's empty and duplicate)
@@ -274,15 +283,17 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
 
           // Move non-conflicting selections
           if (selectionsToMove.length > 0) {
-            const idsToMove = selectionsToMove.map(s => s.id);
-            
+            const idsToMove = selectionsToMove.map((s) => s.id);
+
             const { error: moveError } = await supabaseAdmin
               .from('entry_selections')
               .update({ entry_id: primary.entry_id })
               .in('id', idsToMove);
 
             if (moveError) {
-              stats.errors.push(`Failed to move non-conflicting selections for ${dup.entry_id}: ${moveError.message}`);
+              stats.errors.push(
+                `Failed to move non-conflicting selections for ${dup.entry_id}: ${moveError.message}`
+              );
             } else {
               stats.movedSelections += selectionsToMove.length;
               console.log(`   ✅ Moved ${selectionsToMove.length} non-conflicting selections`);
@@ -291,18 +302,22 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
 
           // Delete conflicting empty selections
           if (selectionsToDelete.length > 0) {
-            const idsToDelete = selectionsToDelete.map(s => s.id);
-            
+            const idsToDelete = selectionsToDelete.map((s) => s.id);
+
             const { error: deleteError } = await supabaseAdmin
               .from('entry_selections')
               .delete()
               .in('id', idsToDelete);
 
             if (deleteError) {
-              stats.errors.push(`Failed to delete conflicting selections for ${dup.entry_id}: ${deleteError.message}`);
+              stats.errors.push(
+                `Failed to delete conflicting selections for ${dup.entry_id}: ${deleteError.message}`
+              );
             } else {
               stats.deletedSelections += selectionsToDelete.length;
-              console.log(`   🗑️  Deleted ${selectionsToDelete.length} conflicting empty selections`);
+              console.log(
+                `   🗑️  Deleted ${selectionsToDelete.length} conflicting empty selections`
+              );
             }
           }
 
@@ -313,7 +328,9 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
             .eq('id', dup.entry_id);
 
           if (deleteEntryError) {
-            stats.errors.push(`Failed to delete merged entry ${dup.entry_id}: ${deleteEntryError.message}`);
+            stats.errors.push(
+              `Failed to delete merged entry ${dup.entry_id}: ${deleteEntryError.message}`
+            );
             console.log(`   ❌ Failed to delete entry: ${deleteEntryError.message}`);
           } else {
             stats.deletedEntries++;
@@ -342,6 +359,6 @@ async function mergeDuplicateEntries(duplicates: DuplicateEntry[]) {
 
   return {
     success: stats.errors.length === 0,
-    ...stats
+    ...stats,
   };
 }

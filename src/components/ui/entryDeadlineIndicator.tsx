@@ -16,19 +16,19 @@ interface EntryDeadlineIndicatorProps {
 export const EntryDeadlineIndicator: React.FC<EntryDeadlineIndicatorProps> = ({
   trialDate,
   trialTimezone,
-  className = ""
+  className = '',
 }) => {
   const now = new Date();
   const entryDeadline = calculateEntryDeadline(trialDate, trialTimezone);
   const lateEntryDeadline = calculateLateEntryDeadline(entryDeadline, trialTimezone);
-  
+
   const entriesOpen = now < entryDeadline;
   const lateEntriesOpen = now >= entryDeadline && now < lateEntryDeadline;
   const entriesClosed = now >= lateEntryDeadline;
-  
-  const formatDeadline = (date: Date) => 
+
+  const formatDeadline = (date: Date) =>
     formatDateForDisplay(date.toISOString(), trialTimezone, 'MMM dd, yyyy h:mm a zzz');
-  
+
   if (entriesOpen) {
     return (
       <Alert className={`border-green-200 bg-green-50 ${className}`}>
@@ -39,7 +39,7 @@ export const EntryDeadlineIndicator: React.FC<EntryDeadlineIndicatorProps> = ({
       </Alert>
     );
   }
-  
+
   if (lateEntriesOpen) {
     return (
       <Alert className={`border-yellow-200 bg-yellow-50 ${className}`}>
@@ -52,7 +52,7 @@ export const EntryDeadlineIndicator: React.FC<EntryDeadlineIndicatorProps> = ({
       </Alert>
     );
   }
-  
+
   return (
     <Alert className={`border-red-200 bg-red-50 ${className}`}>
       <XCircle className="h-4 w-4 text-red-600" />

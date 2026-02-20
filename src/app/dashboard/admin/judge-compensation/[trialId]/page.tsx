@@ -19,14 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { 
-  Calculator, 
-  AlertCircle, 
-  Loader2,
-  ArrowLeft,
-  CheckCircle,
-  DollarSign
-} from 'lucide-react';
+import { Calculator, AlertCircle, Loader2, ArrowLeft, CheckCircle, DollarSign } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 interface PricingInputs {
@@ -63,15 +56,15 @@ export default function JudgeCompensationPage() {
   const [step, setStep] = useState(1); // 1: Pricing, 2: Select Judges, 3: Match, 4: Results
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [trialName, setTrialName] = useState('');
   const [pricing, setPricing] = useState<PricingInputs>({
     standardEntryFee: '',
     cwagsPerRunFee: '',
     reducedEntryFee: '',
-    judgePaymentPerRun: ''
+    judgePaymentPerRun: '',
   });
-  
+
   const [handlers, setHandlers] = useState<HandlerEntry[]>([]);
   const [judgeNames, setJudgeNames] = useState<string[]>([]);
   const [judgeMatches, setJudgeMatches] = useState<Map<string, string | null>>(new Map());
@@ -92,9 +85,7 @@ export default function JudgeCompensationPage() {
       <MainLayout title="Access Denied">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Only administrators can access this feature.
-          </AlertDescription>
+          <AlertDescription>Only administrators can access this feature.</AlertDescription>
         </Alert>
       </MainLayout>
     );
@@ -118,44 +109,46 @@ export default function JudgeCompensationPage() {
       // Get all unique judges from trial rounds
       const { data: rounds, error: roundsError } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           judge_name,
           trial_classes!inner(
             trial_days!inner(
               trial_id
             )
           )
-        `)
+        `
+        )
         .eq('trial_classes.trial_days.trial_id', trialId);
 
       if (roundsError) throw roundsError;
 
-      const uniqueJudges = [...new Set(
-        rounds
-          .map(r => r.judge_name)
-          .filter(name => name && name.trim() !== '')
-      )].sort();
+      const uniqueJudges = [
+        ...new Set(rounds.map((r) => r.judge_name).filter((name) => name && name.trim() !== '')),
+      ].sort();
 
       setJudgeNames(uniqueJudges);
 
       // Get all handlers and their run counts
       const { data: entries, error: entriesError } = await supabase
         .from('entries')
-        .select(`
+        .select(
+          `
           handler_name,
           cwags_number,
           entry_selections!inner(
             entry_type,
             entry_status
           )
-        `)
+        `
+        )
         .eq('trial_id', trialId);
 
       if (entriesError) throw entriesError;
 
       // Aggregate runs per handler (sum across ALL their dogs)
       const handlerMap = new Map<string, HandlerEntry>();
-      
+
       entries.forEach((entry: any) => {
         const handlerName = entry.handler_name;
         if (!handlerMap.has(handlerName)) {
@@ -163,23 +156,23 @@ export default function JudgeCompensationPage() {
             handler_name: entry.handler_name,
             cwags_number: entry.cwags_number, // Store one for display
             total_runs: 0,
-            isJudge: false
+            isJudge: false,
           });
         }
-        
+
         // Count valid runs (not FEO, not withdrawn)
-        const validRuns = entry.entry_selections.filter((sel: any) => 
-          sel.entry_type?.toLowerCase() !== 'feo' && 
-          sel.entry_status?.toLowerCase() !== 'withdrawn'
+        const validRuns = entry.entry_selections.filter(
+          (sel: any) =>
+            sel.entry_type?.toLowerCase() !== 'feo' &&
+            sel.entry_status?.toLowerCase() !== 'withdrawn'
         ).length;
-        
+
         handlerMap.get(handlerName)!.total_runs += validRuns;
       });
 
-      setHandlers(Array.from(handlerMap.values()).sort((a, b) => 
-        a.handler_name.localeCompare(b.handler_name)
-      ));
-
+      setHandlers(
+        Array.from(handlerMap.values()).sort((a, b) => a.handler_name.localeCompare(b.handler_name))
+      );
     } catch (err) {
       console.error('Error loading trial data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load trial data');
@@ -191,14 +184,18 @@ export default function JudgeCompensationPage() {
   const handlePricingSubmit = () => {
     // Validate all pricing inputs
     const { standardEntryFee, cwagsPerRunFee, reducedEntryFee, judgePaymentPerRun } = pricing;
-    
+
     if (!standardEntryFee || !cwagsPerRunFee || !reducedEntryFee || !judgePaymentPerRun) {
       setError('All pricing fields are required');
       return;
     }
 
-    if (parseFloat(standardEntryFee) <= 0 || parseFloat(cwagsPerRunFee) <= 0 || 
-        parseFloat(reducedEntryFee) <= 0 || parseFloat(judgePaymentPerRun) <= 0) {
+    if (
+      parseFloat(standardEntryFee) <= 0 ||
+      parseFloat(cwagsPerRunFee) <= 0 ||
+      parseFloat(reducedEntryFee) <= 0 ||
+      parseFloat(judgePaymentPerRun) <= 0
+    ) {
       setError('All prices must be greater than zero');
       return;
     }
@@ -208,13 +205,13 @@ export default function JudgeCompensationPage() {
   };
 
   const toggleJudgeSelection = (handler_name: string) => {
-    setHandlers(prev => prev.map(h => 
-      h.handler_name === handler_name ? { ...h, isJudge: !h.isJudge } : h
-    ));
+    setHandlers((prev) =>
+      prev.map((h) => (h.handler_name === handler_name ? { ...h, isJudge: !h.isJudge } : h))
+    );
   };
 
   const handleJudgeSelectionSubmit = () => {
-    const selectedJudges = handlers.filter(h => h.isJudge);
+    const selectedJudges = handlers.filter((h) => h.isJudge);
     if (selectedJudges.length === 0) {
       setError('Please select at least one judge');
       return;
@@ -225,10 +222,10 @@ export default function JudgeCompensationPage() {
 
   const getSuggestedMatches = (judgeName: string): string[] => {
     const lowerJudge = judgeName.toLowerCase();
-    
+
     return handlers
-      .filter(h => h.isJudge)
-      .filter(h => {
+      .filter((h) => h.isJudge)
+      .filter((h) => {
         const lowerHandler = h.handler_name.toLowerCase();
         // Exact match
         if (lowerHandler === lowerJudge) return true;
@@ -238,12 +235,12 @@ export default function JudgeCompensationPage() {
         if (lowerJudge.includes(lowerHandler)) return true;
         return false;
       })
-      .map(h => h.handler_name)
+      .map((h) => h.handler_name)
       .slice(0, 3); // Top 3 suggestions
   };
 
   const selectMatch = (judgeName: string, handlerName: string | null) => {
-    setJudgeMatches(prev => new Map(prev).set(judgeName, handlerName));
+    setJudgeMatches((prev) => new Map(prev).set(judgeName, handlerName));
   };
 
   const handleMatchingSubmit = async () => {
@@ -252,7 +249,8 @@ export default function JudgeCompensationPage() {
       // Calculate runs judging for each judge
       const { data: rounds, error: roundsError } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           judge_name,
           entry_selections!inner(
@@ -264,27 +262,26 @@ export default function JudgeCompensationPage() {
               trial_id
             )
           )
-        `)
+        `
+        )
         .eq('trial_classes.trial_days.trial_id', trialId);
 
       if (roundsError) throw roundsError;
 
       // Count valid entries per judge
       const judgeRunCounts = new Map<string, number>();
-      
+
       rounds.forEach((round: any) => {
         const judgeName = round.judge_name;
         if (!judgeName) return;
-        
-        const validEntries = round.entry_selections.filter((sel: any) =>
-          sel.entry_type?.toLowerCase() !== 'feo' &&
-          sel.entry_status?.toLowerCase() !== 'withdrawn'
+
+        const validEntries = round.entry_selections.filter(
+          (sel: any) =>
+            sel.entry_type?.toLowerCase() !== 'feo' &&
+            sel.entry_status?.toLowerCase() !== 'withdrawn'
         ).length;
-        
-        judgeRunCounts.set(
-          judgeName,
-          (judgeRunCounts.get(judgeName) || 0) + validEntries
-        );
+
+        judgeRunCounts.set(judgeName, (judgeRunCounts.get(judgeName) || 0) + validEntries);
       });
 
       // Calculate results for each judge
@@ -293,15 +290,15 @@ export default function JudgeCompensationPage() {
         standard: parseFloat(pricing.standardEntryFee),
         cwags: parseFloat(pricing.cwagsPerRunFee),
         reduced: parseFloat(pricing.reducedEntryFee),
-        payment: parseFloat(pricing.judgePaymentPerRun)
+        payment: parseFloat(pricing.judgePaymentPerRun),
       };
 
       judgeMatches.forEach((handlerName, judgeName) => {
         const runsJudging = judgeRunCounts.get(judgeName) || 0;
         let runsCompeting = 0;
-        
+
         if (handlerName) {
-          const handler = handlers.find(h => h.handler_name === handlerName);
+          const handler = handlers.find((h) => h.handler_name === handlerName);
           runsCompeting = handler?.total_runs || 0;
         }
 
@@ -323,13 +320,12 @@ export default function JudgeCompensationPage() {
           runsJudging,
           scenarioAWaiveCost,
           scenarioBReducedPayNet,
-          savings
+          savings,
         });
       });
 
       setResults(calculatedResults.sort((a, b) => b.savings - a.savings));
       setStep(4);
-
     } catch (err) {
       console.error('Error calculating results:', err);
       setError(err instanceof Error ? err.message : 'Failed to calculate results');
@@ -344,13 +340,22 @@ export default function JudgeCompensationPage() {
     return value < 0 ? `-${formatted}` : formatted;
   };
 
-  const totals = results.reduce((acc, r) => ({
-    runsCompeting: acc.runsCompeting + r.runsCompeting,
-    runsJudging: acc.runsJudging + r.runsJudging,
-    scenarioAWaiveCost: acc.scenarioAWaiveCost + r.scenarioAWaiveCost,
-    scenarioBReducedPayNet: acc.scenarioBReducedPayNet + r.scenarioBReducedPayNet,
-    savings: acc.savings + r.savings
-  }), { runsCompeting: 0, runsJudging: 0, scenarioAWaiveCost: 0, scenarioBReducedPayNet: 0, savings: 0 });
+  const totals = results.reduce(
+    (acc, r) => ({
+      runsCompeting: acc.runsCompeting + r.runsCompeting,
+      runsJudging: acc.runsJudging + r.runsJudging,
+      scenarioAWaiveCost: acc.scenarioAWaiveCost + r.scenarioAWaiveCost,
+      scenarioBReducedPayNet: acc.scenarioBReducedPayNet + r.scenarioBReducedPayNet,
+      savings: acc.savings + r.savings,
+    }),
+    {
+      runsCompeting: 0,
+      runsJudging: 0,
+      scenarioAWaiveCost: 0,
+      scenarioBReducedPayNet: 0,
+      savings: 0,
+    }
+  );
 
   if (loading && step === 1) {
     return (
@@ -370,12 +375,8 @@ export default function JudgeCompensationPage() {
             <h2 className="text-xl font-semibold text-gray-900">{trialName}</h2>
           </div>
         )}
-        
-        <Button
-          variant="outline"
-          onClick={() => router.push('/dashboard')}
-          className="mb-4"
-        >
+
+        <Button variant="outline" onClick={() => router.push('/dashboard')} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Dashboard
         </Button>
@@ -384,12 +385,16 @@ export default function JudgeCompensationPage() {
         <div className="flex items-center gap-2 mb-6">
           {[1, 2, 3, 4].map((s) => (
             <div key={s} className="flex items-center">
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                step >= s ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'
-              }`}>
+              <div
+                className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                  step >= s ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}
+              >
                 {s}
               </div>
-              {s < 4 && <div className={`w-12 h-1 ${step > s ? 'bg-orange-600' : 'bg-gray-200'}`} />}
+              {s < 4 && (
+                <div className={`w-12 h-1 ${step > s ? 'bg-orange-600' : 'bg-gray-200'}`} />
+              )}
             </div>
           ))}
         </div>
@@ -410,9 +415,7 @@ export default function JudgeCompensationPage() {
               <DollarSign className="h-5 w-5 text-orange-600" />
               Step 1: Enter Pricing Information
             </CardTitle>
-            <CardDescription>
-              Enter the pricing details for this trial
-            </CardDescription>
+            <CardDescription>Enter the pricing details for this trial</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,10 +427,12 @@ export default function JudgeCompensationPage() {
                   step="0.01"
                   placeholder="22.00"
                   value={pricing.standardEntryFee}
-                  onChange={(e) => setPricing(prev => ({ ...prev, standardEntryFee: e.target.value }))}
+                  onChange={(e) =>
+                    setPricing((prev) => ({ ...prev, standardEntryFee: e.target.value }))
+                  }
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="cwagsPerRunFee">CWAGS Per-Run Fee</Label>
                 <Input
@@ -436,10 +441,12 @@ export default function JudgeCompensationPage() {
                   step="0.01"
                   placeholder="3.00"
                   value={pricing.cwagsPerRunFee}
-                  onChange={(e) => setPricing(prev => ({ ...prev, cwagsPerRunFee: e.target.value }))}
+                  onChange={(e) =>
+                    setPricing((prev) => ({ ...prev, cwagsPerRunFee: e.target.value }))
+                  }
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="reducedEntryFee">Reduced Entry Fee for Judges (per run)</Label>
                 <Input
@@ -448,10 +455,12 @@ export default function JudgeCompensationPage() {
                   step="0.01"
                   placeholder="15.00"
                   value={pricing.reducedEntryFee}
-                  onChange={(e) => setPricing(prev => ({ ...prev, reducedEntryFee: e.target.value }))}
+                  onChange={(e) =>
+                    setPricing((prev) => ({ ...prev, reducedEntryFee: e.target.value }))
+                  }
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="judgePaymentPerRun">Judge Payment (per run judged)</Label>
                 <Input
@@ -460,12 +469,17 @@ export default function JudgeCompensationPage() {
                   step="0.01"
                   placeholder="2.50"
                   value={pricing.judgePaymentPerRun}
-                  onChange={(e) => setPricing(prev => ({ ...prev, judgePaymentPerRun: e.target.value }))}
+                  onChange={(e) =>
+                    setPricing((prev) => ({ ...prev, judgePaymentPerRun: e.target.value }))
+                  }
                 />
               </div>
             </div>
-            
-            <Button onClick={handlePricingSubmit} className="w-full bg-orange-600 hover:bg-orange-700">
+
+            <Button
+              onClick={handlePricingSubmit}
+              className="w-full bg-orange-600 hover:bg-orange-700"
+            >
               Continue to Judge Selection
             </Button>
           </CardContent>
@@ -481,9 +495,12 @@ export default function JudgeCompensationPage() {
               Step 2: Select Which Handlers are Judges
             </CardTitle>
             <CardDescription>
-              Check all handlers who are judging at this trial ({handlers.filter(h => h.isJudge).length} selected)
+              Check all handlers who are judging at this trial (
+              {handlers.filter((h) => h.isJudge).length} selected)
               <br />
-              <span className="text-xs text-gray-500">Note: If a handler has multiple dogs, all their runs are summed together</span>
+              <span className="text-xs text-gray-500">
+                Note: If a handler has multiple dogs, all their runs are summed together
+              </span>
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -516,12 +533,15 @@ export default function JudgeCompensationPage() {
                 </TableBody>
               </Table>
             </div>
-            
+
             <div className="flex gap-3 mt-4">
               <Button variant="outline" onClick={() => setStep(1)}>
                 Back
               </Button>
-              <Button onClick={handleJudgeSelectionSubmit} className="flex-1 bg-orange-600 hover:bg-orange-700">
+              <Button
+                onClick={handleJudgeSelectionSubmit}
+                className="flex-1 bg-orange-600 hover:bg-orange-700"
+              >
                 Continue to Matching
               </Button>
             </div>
@@ -537,30 +557,32 @@ export default function JudgeCompensationPage() {
               <CheckCircle className="h-5 w-5 text-orange-600" />
               Step 3: Match Judge Names to Handler Entries
             </CardTitle>
-            <CardDescription>
-              Confirm which handler entry belongs to each judge
-            </CardDescription>
+            <CardDescription>Confirm which handler entry belongs to each judge</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {judgeNames.map((judgeName) => {
                 const suggestions = getSuggestedMatches(judgeName);
                 const currentMatch = judgeMatches.get(judgeName);
-                
+
                 return (
                   <div key={judgeName} className="border rounded-lg p-4">
                     <div className="font-semibold mb-2">Judge: {judgeName}</div>
-                    
+
                     <div className="flex flex-wrap gap-2">
                       {suggestions.length > 0 ? (
                         <>
                           {suggestions.map((suggestion) => (
                             <Button
                               key={suggestion}
-                              variant={currentMatch === suggestion ? "default" : "outline"}
+                              variant={currentMatch === suggestion ? 'default' : 'outline'}
                               size="sm"
                               onClick={() => selectMatch(judgeName, suggestion)}
-                              className={currentMatch === suggestion ? "bg-orange-600 hover:bg-orange-700" : ""}
+                              className={
+                                currentMatch === suggestion
+                                  ? 'bg-orange-600 hover:bg-orange-700'
+                                  : ''
+                              }
                             >
                               {suggestion}
                             </Button>
@@ -569,12 +591,12 @@ export default function JudgeCompensationPage() {
                       ) : (
                         <p className="text-sm text-gray-500">No matching handler entries found</p>
                       )}
-                      
+
                       <Button
-                        variant={currentMatch === null ? "default" : "outline"}
+                        variant={currentMatch === null ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => selectMatch(judgeName, null)}
-                        className={currentMatch === null ? "bg-gray-600 hover:bg-gray-700" : ""}
+                        className={currentMatch === null ? 'bg-gray-600 hover:bg-gray-700' : ''}
                       >
                         Not Competing
                       </Button>
@@ -583,13 +605,13 @@ export default function JudgeCompensationPage() {
                 );
               })}
             </div>
-            
+
             <div className="flex gap-3 mt-6">
               <Button variant="outline" onClick={() => setStep(2)}>
                 Back
               </Button>
-              <Button 
-                onClick={handleMatchingSubmit} 
+              <Button
+                onClick={handleMatchingSubmit}
                 disabled={loading}
                 className="flex-1 bg-orange-600 hover:bg-orange-700"
               >
@@ -624,14 +646,28 @@ export default function JudgeCompensationPage() {
             <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
               <h3 className="font-semibold text-sm mb-2">Understanding the Columns:</h3>
               <div className="text-sm text-gray-700 space-y-1">
-                <p><strong>Runs Competing:</strong> Total runs across all dogs for this judge (excludes FEO and withdrawn)</p>
-                <p><strong>Runs Judging:</strong> Total entries in all rounds this person is judging</p>
-                <p><strong>Waive Cost:</strong> Cost if judge doesn't pay (CWAGS fees only) = -(Runs × ${pricing.cwagsPerRunFee})</p>
-                <p><strong>Reduced+Pay Net:</strong> (Runs × ${pricing.reducedEntryFee}) - (Runs × ${pricing.cwagsPerRunFee}) - (Runs Judged × ${pricing.judgePaymentPerRun})</p>
-                <p className="pt-2 font-semibold"><strong>Savings:</strong> Positive = Reduced+Pay saves money | Negative = Waive is cheaper</p>
+                <p>
+                  <strong>Runs Competing:</strong> Total runs across all dogs for this judge
+                  (excludes FEO and withdrawn)
+                </p>
+                <p>
+                  <strong>Runs Judging:</strong> Total entries in all rounds this person is judging
+                </p>
+                <p>
+                  <strong>Waive Cost:</strong> Cost if judge doesn't pay (CWAGS fees only) = -(Runs
+                  × ${pricing.cwagsPerRunFee})
+                </p>
+                <p>
+                  <strong>Reduced+Pay Net:</strong> (Runs × ${pricing.reducedEntryFee}) - (Runs × $
+                  {pricing.cwagsPerRunFee}) - (Runs Judged × ${pricing.judgePaymentPerRun})
+                </p>
+                <p className="pt-2 font-semibold">
+                  <strong>Savings:</strong> Positive = Reduced+Pay saves money | Negative = Waive is
+                  cheaper
+                </p>
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -652,51 +688,75 @@ export default function JudgeCompensationPage() {
                       <TableCell>{result.handlerName || 'Not Competing'}</TableCell>
                       <TableCell className="text-right">{result.runsCompeting}</TableCell>
                       <TableCell className="text-right">{result.runsJudging}</TableCell>
-                      <TableCell className="text-right text-red-600">{formatCurrency(result.scenarioAWaiveCost)}</TableCell>
-                      <TableCell className={`text-right ${result.scenarioBReducedPayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <TableCell className="text-right text-red-600">
+                        {formatCurrency(result.scenarioAWaiveCost)}
+                      </TableCell>
+                      <TableCell
+                        className={`text-right ${result.scenarioBReducedPayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
                         {formatCurrency(result.scenarioBReducedPayNet)}
                       </TableCell>
-                      <TableCell className={`text-right font-semibold ${result.savings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <TableCell
+                        className={`text-right font-semibold ${result.savings >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
                         {formatCurrency(result.savings)}
                       </TableCell>
                     </TableRow>
                   ))}
-                  
+
                   {/* Totals Row */}
                   <TableRow className="bg-gray-50 font-semibold">
                     <TableCell colSpan={2}>TOTALS</TableCell>
                     <TableCell className="text-right">{totals.runsCompeting}</TableCell>
                     <TableCell className="text-right">{totals.runsJudging}</TableCell>
-                    <TableCell className="text-right text-red-600">{formatCurrency(totals.scenarioAWaiveCost)}</TableCell>
-                    <TableCell className={`text-right ${totals.scenarioBReducedPayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <TableCell className="text-right text-red-600">
+                      {formatCurrency(totals.scenarioAWaiveCost)}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right ${totals.scenarioBReducedPayNet >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                    >
                       {formatCurrency(totals.scenarioBReducedPayNet)}
                     </TableCell>
-                    <TableCell className={`text-right ${totals.savings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <TableCell
+                      className={`text-right ${totals.savings >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                    >
                       {formatCurrency(totals.savings)}
                     </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
             </div>
-            
+
             {/* Summary */}
             <div className="mt-6 p-4 bg-orange-50 rounded-lg">
               <h3 className="font-semibold mb-2">Summary</h3>
               <p className="text-sm text-gray-700">
                 {totals.savings >= 0 ? (
-                  <>Using the <strong>reduced rate + payment</strong> model would save you <strong>{formatCurrency(totals.savings)}</strong> compared to waiving fees.</>
+                  <>
+                    Using the <strong>reduced rate + payment</strong> model would save you{' '}
+                    <strong>{formatCurrency(totals.savings)}</strong> compared to waiving fees.
+                  </>
                 ) : (
-                  <>Waiving fees would save you <strong>{formatCurrency(Math.abs(totals.savings))}</strong> compared to the reduced rate + payment model.</>
+                  <>
+                    Waiving fees would save you{' '}
+                    <strong>{formatCurrency(Math.abs(totals.savings))}</strong> compared to the
+                    reduced rate + payment model.
+                  </>
                 )}
               </p>
             </div>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               onClick={() => {
                 setStep(1);
-                setPricing({ standardEntryFee: '', cwagsPerRunFee: '', reducedEntryFee: '', judgePaymentPerRun: '' });
-                setHandlers(prev => prev.map(h => ({ ...h, isJudge: false })));
+                setPricing({
+                  standardEntryFee: '',
+                  cwagsPerRunFee: '',
+                  reducedEntryFee: '',
+                  judgePaymentPerRun: '',
+                });
+                setHandlers((prev) => prev.map((h) => ({ ...h, isJudge: false })));
                 setJudgeMatches(new Map());
                 setResults([]);
               }}

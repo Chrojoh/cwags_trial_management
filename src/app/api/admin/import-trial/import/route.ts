@@ -10,20 +10,23 @@ export async function POST(request: NextRequest) {
   try {
     // Get auth from headers
     const authHeader = request.headers.get('authorization');
-    
+
     // Create Supabase client
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         global: {
-          headers: authHeader ? { Authorization: authHeader } : {}
-        }
+          headers: authHeader ? { Authorization: authHeader } : {},
+        },
       }
     );
-    
+
     // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -51,57 +54,233 @@ export async function POST(request: NextRequest) {
 
     // Official C-WAGS judges list for name matching
     const CWAGS_JUDGES = [
-      'Rhonda Robinson', 'Jeannine Barbour', 'Kirsten Robertson', 'Cathryn Kozak', 'Shirley Ottmer',
-      'Kim Malmer', 'Kayla Steponavicius', 'Alison Lux', 'Alison Boyd', 'Madelyn Davidson',
-      'Hope Schmeling', 'Joan Klingler', 'Tamara Champagne', 'Cynthia Sweet', 'Nell Jenkins',
-      'Teresa Zurberg', 'Cheramie Barbazuk', 'Christina Dunington', 'Rebecca Lawson', 'Bonnie Gutzwiller',
-      'Barb King', 'Lynne Johaneson', 'Sharon Jonas', 'Ariana Jones', 'Bonnie Hornfisher',
-      'Nancy Reyes', 'Hope Bean', 'Rebecca Roy', 'Sandy Sommerfeld', 'John Knoph',
-      'Kristin Heiden', 'Sara Wells', 'Colleen Herring', 'Elaine Mayowski', 'Janilee Benell',
-      'Monica Callahan', 'Holly Rupprecht', 'Amanda Labadie', 'Judy Soltesz', 'Joyce Engle',
-      'Kathleen Ingram', 'Sue Kotlarek', 'Trena Laswell', 'Katy McClellan', 'Diane Goff',
-      'Kristy Hubbard', 'Melanie Baker', 'Candice Lantos', 'Liza Lundell', 'Tammy Ruff',
-      'Shelley Dunlop', 'Suzan Boccarelli', 'Marla Williamson', 'Jackie McDonnell', 'Heather Schneider',
-      'MaryAnn Warren', 'Toni Sjoblom', 'Stephanie Barber', 'Patti Bien', 'Barb Burgess',
-      'Breanna Davidson', 'Kim Loar', 'Nicole Tate', 'Amy Wukotich', 'Liz McLeod',
-      'Paige Gordon', 'Joyce Charron', 'Deborah Corry', 'Paige Millward', 'Emil Pohodich',
-      'Gail Vendetti', 'Sarah-Jane Petti', 'Tina Parker', 'Beth Weidman', 'Tracey Miller',
-      'Megan Brooking', 'Shauna Ferby', 'Jill Robbins', 'Kathleen Tagliamonte', 'Deb Proc',
-      'Melissa Hodges', 'Jodie Boudreault', 'Patty Stafford', 'Laurie Schlossnagle', 'Rebecca Menapace',
-      'Cindy Knowlton', 'Susan Wetherell', 'Ginger Alpine', 'Alissa Sullivan', 'Lou-Anne Lambert',
-      'Meagan Benedetto', 'Alice Jantzen', 'Jamie Fenn', 'Cailey Christen', 'Pamela Hedrich',
-      'Samantha Langley', 'Kelly Muzzatti', 'Jennifer Kieffer', 'Tom Pawlisch', 'Joanne Shupp',
-      'Melissa Lane', 'Lane Michie', 'Dayna Dreger', 'Robbi Bitner', 'Paige Alpine-Malone',
-      'Lia Bijsterveld', 'Alycia Rogel', 'Kathy McKenzie', 'Chris Ruddock', 'Ryan Baugher',
-      'Tara Thompson', 'Gwen Carr', 'Mary Francis Martin', 'Samantha Speegle', 'Heather Lampman',
-      'Casey Palmer', 'Salina Ip', 'Terri Eyer', 'Kelly Morris', 'Cheree Richmond',
-      'Sharon Keppley', 'Stephanie Morin', 'Robbie Black', 'Cathy Jenkins', 'Kelly Ladouceur',
-      'Cindy Angiulo', 'Stacy Sadler', 'Kathleen Stevens', 'Trina Ho', 'Arleigh Bell',
-      'Jayne Meyer', 'Erin Lynes', 'Karen O\'Nail', 'Glenda Harris', 'Natasha Audy',
-      'Lisa Quibell', 'Jennieann Mitchell', 'Kathy Schneider', 'Renee Hall', 'Maribeth Hook',
-      'Margot Wagner', 'Marguerite Plank', 'Marcy Fenell', 'Lori Timberlake', 'Tricia Barstow',
-      'Daryl Meyers', 'Linda Hinsman', 'Shelley Cherkowski', 'Gary Truitt', 'Pam Thornburg',
-      'Diana Updike', 'Jill Snyder', 'Sharon Munshour', 'Yolanda Chirico', 'Karen Bereti',
-      'Patty Rimkus', 'Kailly Muthard', 'Leah Dykstra', 'Lisa Godfrey', 'Lesa Layman',
-      'Kathy Crosina', 'Amanda Mabus', 'Annie Hammer', 'Amy Randt', 'Deborah Swartz',
-      'Tara Gifford', 'Randy Sutton', 'Barb Herringshaw', 'Irene Schneider', 'Mark Eckley',
-      'Amy Rusenko', 'Elisa Jones', 'Beth Mann', 'Kayla Brandenberg', 'Ann Smorado',
-      'Lynmarie Hamel', 'Penny Stiles', 'Melissa Waters', 'Robin Ford', 'Allison Alcorn',
-      'Stephanie Sikora', 'Shanna Zook', 'Youlia Anderson', 'Liz Berna', 'Kim Dykstra',
-      'Judy Richardson', 'Jaye Pearce', 'Carolyn Martin', 'Sandra Carbonell', 'Brenda Cirricione',
-      'Michelle Riccelli', 'Katia Millette', 'Melissa Ramsay', 'Renea Dahms', 'Ali Brown',
-      'Kim Philipoff', 'Tori Lowry', 'Jodi Jarvis-Therrian', 'Laura Leonard', 'Julie Lakas',
-      'Hana Niemi-Robinson', 'Colleen Belanger', 'Aaryn Secker', 'Crystal Male', 'Elizabethanne Stevens',
-      'Sarah Knight', 'Deborah Csongradi', 'Karen Leman', 'Dionne Maccagno', 'Paula Smith',
-      'Ann Spurrier', 'Amy Atkinson', 'Michelle Wieser', 'Mykela Mahoney', 'Jeanne Shaw',
-      'Nicole Wiebe', 'Trishanna Ramsey', 'Becki Vander Weele', 'Marie Donahue', 'Megan Esherick',
-      'Pat Truitt'
+      'Rhonda Robinson',
+      'Jeannine Barbour',
+      'Kirsten Robertson',
+      'Cathryn Kozak',
+      'Shirley Ottmer',
+      'Kim Malmer',
+      'Kayla Steponavicius',
+      'Alison Lux',
+      'Alison Boyd',
+      'Madelyn Davidson',
+      'Hope Schmeling',
+      'Joan Klingler',
+      'Tamara Champagne',
+      'Cynthia Sweet',
+      'Nell Jenkins',
+      'Teresa Zurberg',
+      'Cheramie Barbazuk',
+      'Christina Dunington',
+      'Rebecca Lawson',
+      'Bonnie Gutzwiller',
+      'Barb King',
+      'Lynne Johaneson',
+      'Sharon Jonas',
+      'Ariana Jones',
+      'Bonnie Hornfisher',
+      'Nancy Reyes',
+      'Hope Bean',
+      'Rebecca Roy',
+      'Sandy Sommerfeld',
+      'John Knoph',
+      'Kristin Heiden',
+      'Sara Wells',
+      'Colleen Herring',
+      'Elaine Mayowski',
+      'Janilee Benell',
+      'Monica Callahan',
+      'Holly Rupprecht',
+      'Amanda Labadie',
+      'Judy Soltesz',
+      'Joyce Engle',
+      'Kathleen Ingram',
+      'Sue Kotlarek',
+      'Trena Laswell',
+      'Katy McClellan',
+      'Diane Goff',
+      'Kristy Hubbard',
+      'Melanie Baker',
+      'Candice Lantos',
+      'Liza Lundell',
+      'Tammy Ruff',
+      'Shelley Dunlop',
+      'Suzan Boccarelli',
+      'Marla Williamson',
+      'Jackie McDonnell',
+      'Heather Schneider',
+      'MaryAnn Warren',
+      'Toni Sjoblom',
+      'Stephanie Barber',
+      'Patti Bien',
+      'Barb Burgess',
+      'Breanna Davidson',
+      'Kim Loar',
+      'Nicole Tate',
+      'Amy Wukotich',
+      'Liz McLeod',
+      'Paige Gordon',
+      'Joyce Charron',
+      'Deborah Corry',
+      'Paige Millward',
+      'Emil Pohodich',
+      'Gail Vendetti',
+      'Sarah-Jane Petti',
+      'Tina Parker',
+      'Beth Weidman',
+      'Tracey Miller',
+      'Megan Brooking',
+      'Shauna Ferby',
+      'Jill Robbins',
+      'Kathleen Tagliamonte',
+      'Deb Proc',
+      'Melissa Hodges',
+      'Jodie Boudreault',
+      'Patty Stafford',
+      'Laurie Schlossnagle',
+      'Rebecca Menapace',
+      'Cindy Knowlton',
+      'Susan Wetherell',
+      'Ginger Alpine',
+      'Alissa Sullivan',
+      'Lou-Anne Lambert',
+      'Meagan Benedetto',
+      'Alice Jantzen',
+      'Jamie Fenn',
+      'Cailey Christen',
+      'Pamela Hedrich',
+      'Samantha Langley',
+      'Kelly Muzzatti',
+      'Jennifer Kieffer',
+      'Tom Pawlisch',
+      'Joanne Shupp',
+      'Melissa Lane',
+      'Lane Michie',
+      'Dayna Dreger',
+      'Robbi Bitner',
+      'Paige Alpine-Malone',
+      'Lia Bijsterveld',
+      'Alycia Rogel',
+      'Kathy McKenzie',
+      'Chris Ruddock',
+      'Ryan Baugher',
+      'Tara Thompson',
+      'Gwen Carr',
+      'Mary Francis Martin',
+      'Samantha Speegle',
+      'Heather Lampman',
+      'Casey Palmer',
+      'Salina Ip',
+      'Terri Eyer',
+      'Kelly Morris',
+      'Cheree Richmond',
+      'Sharon Keppley',
+      'Stephanie Morin',
+      'Robbie Black',
+      'Cathy Jenkins',
+      'Kelly Ladouceur',
+      'Cindy Angiulo',
+      'Stacy Sadler',
+      'Kathleen Stevens',
+      'Trina Ho',
+      'Arleigh Bell',
+      'Jayne Meyer',
+      'Erin Lynes',
+      "Karen O'Nail",
+      'Glenda Harris',
+      'Natasha Audy',
+      'Lisa Quibell',
+      'Jennieann Mitchell',
+      'Kathy Schneider',
+      'Renee Hall',
+      'Maribeth Hook',
+      'Margot Wagner',
+      'Marguerite Plank',
+      'Marcy Fenell',
+      'Lori Timberlake',
+      'Tricia Barstow',
+      'Daryl Meyers',
+      'Linda Hinsman',
+      'Shelley Cherkowski',
+      'Gary Truitt',
+      'Pam Thornburg',
+      'Diana Updike',
+      'Jill Snyder',
+      'Sharon Munshour',
+      'Yolanda Chirico',
+      'Karen Bereti',
+      'Patty Rimkus',
+      'Kailly Muthard',
+      'Leah Dykstra',
+      'Lisa Godfrey',
+      'Lesa Layman',
+      'Kathy Crosina',
+      'Amanda Mabus',
+      'Annie Hammer',
+      'Amy Randt',
+      'Deborah Swartz',
+      'Tara Gifford',
+      'Randy Sutton',
+      'Barb Herringshaw',
+      'Irene Schneider',
+      'Mark Eckley',
+      'Amy Rusenko',
+      'Elisa Jones',
+      'Beth Mann',
+      'Kayla Brandenberg',
+      'Ann Smorado',
+      'Lynmarie Hamel',
+      'Penny Stiles',
+      'Melissa Waters',
+      'Robin Ford',
+      'Allison Alcorn',
+      'Stephanie Sikora',
+      'Shanna Zook',
+      'Youlia Anderson',
+      'Liz Berna',
+      'Kim Dykstra',
+      'Judy Richardson',
+      'Jaye Pearce',
+      'Carolyn Martin',
+      'Sandra Carbonell',
+      'Brenda Cirricione',
+      'Michelle Riccelli',
+      'Katia Millette',
+      'Melissa Ramsay',
+      'Renea Dahms',
+      'Ali Brown',
+      'Kim Philipoff',
+      'Tori Lowry',
+      'Jodi Jarvis-Therrian',
+      'Laura Leonard',
+      'Julie Lakas',
+      'Hana Niemi-Robinson',
+      'Colleen Belanger',
+      'Aaryn Secker',
+      'Crystal Male',
+      'Elizabethanne Stevens',
+      'Sarah Knight',
+      'Deborah Csongradi',
+      'Karen Leman',
+      'Dionne Maccagno',
+      'Paula Smith',
+      'Ann Spurrier',
+      'Amy Atkinson',
+      'Michelle Wieser',
+      'Mykela Mahoney',
+      'Jeanne Shaw',
+      'Nicole Wiebe',
+      'Trishanna Ramsey',
+      'Becki Vander Weele',
+      'Marie Donahue',
+      'Megan Esherick',
+      'Pat Truitt',
     ];
 
     // Helper function to match abbreviated judge names
     const matchJudgeName = (input: string): string => {
       if (!input || input.trim() === '') return 'Unknown Judge';
-      
+
       // STEP 1: Aggressive cleaning - remove ALL junk characters
       // This handles: \r\n, leading numbers/dates, extra whitespace, tabs, etc.
       let cleaned = input
@@ -111,63 +290,65 @@ export async function POST(request: NextRequest) {
         .replace(/[\s\u00A0\t\r\n]+/g, ' ')
         // Trim leading/trailing whitespace
         .trim();
-      
+
       if (!cleaned) return 'Unknown Judge';
-      
+
       // STEP 2: Normalize to proper case (First Letter Of Each Word)
       const normalized = cleaned
         .toLowerCase()
         .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-      
+
       // STEP 3: Try exact match (case insensitive)
-      const exactMatch = CWAGS_JUDGES.find(judge => 
-        judge.toLowerCase() === normalized.toLowerCase()
+      const exactMatch = CWAGS_JUDGES.find(
+        (judge) => judge.toLowerCase() === normalized.toLowerCase()
       );
       if (exactMatch) return exactMatch;
-      
+
       // Try to match abbreviated name (e.g., "G Truitt" or "G. Truitt")
       // Remove periods and extra spaces
       const cleanInput = normalized.replace(/\./g, '').replace(/\s+/g, ' ').trim();
-      
+
       // Split into parts
       const parts = cleanInput.split(' ');
-      
+
       if (parts.length >= 2) {
         const firstPart = parts[0];
         const lastPart = parts[parts.length - 1];
-        
+
         // Check if first part is just an initial
         if (firstPart.length === 1) {
           // Match: initial + last name
-          const match = CWAGS_JUDGES.find(judge => {
+          const match = CWAGS_JUDGES.find((judge) => {
             const judgeParts = judge.split(' ');
             const judgeFirst = judgeParts[0];
             const judgeLast = judgeParts[judgeParts.length - 1];
-            
-            return judgeFirst[0].toUpperCase() === firstPart.toUpperCase() &&
-                   judgeLast.toLowerCase() === lastPart.toLowerCase();
+
+            return (
+              judgeFirst[0].toUpperCase() === firstPart.toUpperCase() &&
+              judgeLast.toLowerCase() === lastPart.toLowerCase()
+            );
           });
-          
+
           if (match) {
             console.log(`  📝 Matched "${input}" → "${match}"`);
             return match;
           }
         }
-        
+
         // Try fuzzy match on last name only
-        const lastNameMatch = CWAGS_JUDGES.find(judge => {
+        const lastNameMatch = CWAGS_JUDGES.find((judge) => {
           const judgeLast = judge.split(' ').pop()?.toLowerCase();
           return judgeLast === lastPart.toLowerCase();
         });
-        
+
         if (lastNameMatch) {
           console.log(`  📝 Matched "${input}" → "${lastNameMatch}" (by last name)`);
           return lastNameMatch;
         }
       }
-      
+
       // If no match found, return original input but log warning
       console.warn(`  ⚠️  Could not match judge name: "${input}"`);
       return normalized;
@@ -176,21 +357,21 @@ export async function POST(request: NextRequest) {
     // Helper function to detect if a value is a date
     const isDate = (value: any): boolean => {
       if (!value) return false;
-      
+
       // If it's already a Date object
       if (value instanceof Date && !isNaN(value.getTime())) return true;
-      
+
       // If it's a string, try to parse it
       if (typeof value === 'string') {
         const parsed = new Date(value);
         return !isNaN(parsed.getTime());
       }
-      
+
       // If it's a number (Excel date serial)
       if (typeof value === 'number' && value > 40000 && value < 60000) {
         return true; // Likely an Excel date
       }
-      
+
       return false;
     };
 
@@ -200,7 +381,9 @@ export async function POST(request: NextRequest) {
 
     // Extract basic info
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    const trialNameRaw = firstSheet['A1'] ? XLSX.utils.format_cell(firstSheet['A1']) : 'Imported Trial';
+    const trialNameRaw = firstSheet['A1']
+      ? XLSX.utils.format_cell(firstSheet['A1'])
+      : 'Imported Trial';
     const clubName = firstSheet['A2'] ? XLSX.utils.format_cell(firstSheet['A2']) : 'Imported Club';
 
     // Parse date range from trial name (e.g., "June 6 -- July 26, 2024")
@@ -212,8 +395,22 @@ export async function POST(request: NextRequest) {
       // Use noon local time to avoid timezone issues
       const startParsed = new Date(`${dateMatch[1]}, ${year}`);
       const endParsed = new Date(`${dateMatch[2]}, ${year}`);
-      startDate = new Date(startParsed.getFullYear(), startParsed.getMonth(), startParsed.getDate(), 12, 0, 0);
-      endDate = new Date(endParsed.getFullYear(), endParsed.getMonth(), endParsed.getDate(), 12, 0, 0);
+      startDate = new Date(
+        startParsed.getFullYear(),
+        startParsed.getMonth(),
+        startParsed.getDate(),
+        12,
+        0,
+        0
+      );
+      endDate = new Date(
+        endParsed.getFullYear(),
+        endParsed.getMonth(),
+        endParsed.getDate(),
+        12,
+        0,
+        0
+      );
     }
 
     // Helper function to format date safely for database
@@ -239,7 +436,7 @@ export async function POST(request: NextRequest) {
         trial_secretary: user.email || '',
         secretary_email: user.email || '',
         waiver_text: 'Imported from Excel - no waiver available',
-        fee_configuration: { regular: 0, feo: 0 } // $0 fees for imported trials
+        fee_configuration: { regular: 0, feo: 0 }, // $0 fees for imported trials
       })
       .select()
       .single();
@@ -260,26 +457,26 @@ export async function POST(request: NextRequest) {
 
       // Find dates and judges in rows 5-6 (order can vary!)
       const roundInfo: any[] = [];
-      
+
       for (let col = 4; col <= 26; col++) {
         const colLetter = String.fromCharCode(64 + col);
         const row5Cell = sheet[`${colLetter}5`];
         const row6Cell = sheet[`${colLetter}6`];
-        
+
         // Get values
         const row5Value = row5Cell?.v;
         const row6Value = row6Cell?.v;
-        
+
         // Skip if both are empty
         if (!row5Value && !row6Value) continue;
-        
+
         // Detect which row has the date and which has the judge
         let dateValue: any = null;
         let judgeValue: string = '';
-        
+
         const row5IsDate = isDate(row5Value);
         const row6IsDate = isDate(row6Value);
-        
+
         if (row5IsDate && !row6IsDate) {
           // Row 5 = date, Row 6 = judge (or empty)
           dateValue = row5Value;
@@ -298,7 +495,7 @@ export async function POST(request: NextRequest) {
           dateValue = row6Value;
           judgeValue = row5Value ? XLSX.utils.format_cell(row5Cell) : '';
         }
-        
+
         // Parse the date
         if (dateValue) {
           let date: Date;
@@ -310,20 +507,27 @@ export async function POST(request: NextRequest) {
           } else {
             date = new Date(dateValue);
           }
-          
+
           if (!isNaN(date.getTime())) {
             // Force to noon local time to avoid timezone issues
-            const noonDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+            const noonDate = new Date(
+              date.getFullYear(),
+              date.getMonth(),
+              date.getDate(),
+              12,
+              0,
+              0
+            );
             const dateStr = formatDateForDB(noonDate);
             allDatesSet.add(dateStr);
-            
+
             // Match judge name against official list
             const matchedJudge = matchJudgeName(judgeValue);
-            
+
             roundInfo.push({
               date: dateStr,
               judge: matchedJudge,
-              column: colLetter
+              column: colLetter,
             });
           }
         }
@@ -335,7 +539,7 @@ export async function POST(request: NextRequest) {
         const cwagsCell = sheet[`A${row}`];
         const dogCell = sheet[`B${row}`];
         const handlerCell = sheet[`C${row}`];
-        
+
         if (!cwagsCell || !cwagsCell.v) {
           if (row > 20 && entries.length > 0) break;
           continue;
@@ -359,7 +563,7 @@ export async function POST(request: NextRequest) {
           dogName,
           handlerName,
           scores,
-          row
+          row,
         });
       }
 
@@ -367,7 +571,7 @@ export async function POST(request: NextRequest) {
         classDataMap.set(className, {
           className,
           roundInfo,
-          entries
+          entries,
         });
       }
     }
@@ -383,7 +587,7 @@ export async function POST(request: NextRequest) {
           trial_id: trial.id,
           day_number: i + 1,
           trial_date: sortedDates[i],
-          day_status: 'completed'
+          day_status: 'completed',
         })
         .select()
         .single();
@@ -402,34 +606,34 @@ export async function POST(request: NextRequest) {
 
     // Helper function to normalize class names to official C-WAGS standards
     const normalizeClassName = (name: string): string => {
-  let normalized = name.trim();
-  
-  // Remove common prefixes
-  normalized = normalized.replace(/^League\s+/i, '');
-  normalized = normalized.replace(/^CWAGS\s+/i, '');
-  
-  // Standardize scent class names that are missing level numbers
-  if (normalized === 'Patrol') normalized = 'Patrol 1';
-  if (normalized === 'Detective') normalized = 'Detective 2';
-  if (normalized === 'Investigator') normalized = 'Investigator 3';
-  if (normalized === 'Super Sleuth') normalized = 'Super Sleuth 4';
-  
-  // Fix typos and variants
-  if (normalized.toLowerCase().includes('overseers')) normalized = 'Detective Diversions';
-  if (normalized.startsWith('Private Inv') && normalized !== 'Private Investigator') {
-    normalized = 'Private Investigator';
-  }
-  if (normalized.startsWith('Det Div')) normalized = 'Detective Diversions';
-  
-  return normalized.trim();
-};
+      let normalized = name.trim();
+
+      // Remove common prefixes
+      normalized = normalized.replace(/^League\s+/i, '');
+      normalized = normalized.replace(/^CWAGS\s+/i, '');
+
+      // Standardize scent class names that are missing level numbers
+      if (normalized === 'Patrol') normalized = 'Patrol 1';
+      if (normalized === 'Detective') normalized = 'Detective 2';
+      if (normalized === 'Investigator') normalized = 'Investigator 3';
+      if (normalized === 'Super Sleuth') normalized = 'Super Sleuth 4';
+
+      // Fix typos and variants
+      if (normalized.toLowerCase().includes('overseers')) normalized = 'Detective Diversions';
+      if (normalized.startsWith('Private Inv') && normalized !== 'Private Investigator') {
+        normalized = 'Private Investigator';
+      }
+      if (normalized.startsWith('Det Div')) normalized = 'Detective Diversions';
+
+      return normalized.trim();
+    };
 
     for (const [className, classData] of classDataMap) {
       // Normalize the class name
       const normalizedClassName = normalizeClassName(className);
-      
+
       console.log(`📋 Processing class: "${className}" → "${normalizedClassName}"`);
-      
+
       // Group rounds by date to organize by day
       const roundsByDate = new Map<string, any[]>();
       for (const round of classData.roundInfo) {
@@ -460,7 +664,7 @@ export async function POST(request: NextRequest) {
             entry_fee: 0, // $0 for imported trials
             feo_price: 0,
             class_order: 1,
-            class_status: 'completed'
+            class_status: 'completed',
           })
           .select()
           .single();
@@ -475,14 +679,14 @@ export async function POST(request: NextRequest) {
         // Create rounds for this class on this day
         for (let roundNum = 0; roundNum < rounds.length; roundNum++) {
           const roundData = rounds[roundNum];
-          
+
           const { data: trialRound, error: roundError } = await supabase
             .from('trial_rounds')
             .insert({
               trial_class_id: trialClass.id,
               round_number: roundNum + 1,
               judge_name: roundData.judge,
-              round_status: 'completed'
+              round_status: 'completed',
             })
             .select()
             .single();
@@ -499,9 +703,14 @@ export async function POST(request: NextRequest) {
             // Check if this entry has a score for this specific round
             const scoreValue = entryData.scores[roundData.column] || '';
             const trimmedScore = scoreValue.trim().toLowerCase();
-            
+
             // Skip if empty, dash, or other non-score indicators
-            if (!scoreValue || trimmedScore === '' || trimmedScore === '-' || trimmedScore === 'n/a') {
+            if (
+              !scoreValue ||
+              trimmedScore === '' ||
+              trimmedScore === '-' ||
+              trimmedScore === 'n/a'
+            ) {
               // Skip this entry - no score for this round
               continue;
             }
@@ -545,7 +754,7 @@ export async function POST(request: NextRequest) {
                   waiver_accepted: true,
                   total_fee: 0,
                   payment_status: 'paid',
-                  entry_status: 'confirmed'
+                  entry_status: 'confirmed',
                 })
                 .select()
                 .single();
@@ -583,7 +792,7 @@ export async function POST(request: NextRequest) {
                   trial_round_id: trialRound.id,
                   entry_type: 'regular',
                   fee: 0,
-                  entry_status: 'confirmed'
+                  entry_status: 'confirmed',
                 })
                 .select()
                 .single();
@@ -598,7 +807,7 @@ export async function POST(request: NextRequest) {
 
             // Create score
             let passFailValue = null;
-            
+
             // Convert score to pass/fail (use trimmedScore for comparison)
             if (trimmedScore === 'pass' || trimmedScore === 'p') {
               passFailValue = 'Pass';
@@ -611,21 +820,21 @@ export async function POST(request: NextRequest) {
             }
 
             if (passFailValue) {
-              const { error: scoreError } = await supabase
-                .from('scores')
-                .insert({
-                  entry_selection_id: entrySelection.id,
-                  trial_round_id: trialRound.id,
-                  pass_fail: passFailValue,
-                  entry_status: 'present'
-                });
+              const { error: scoreError } = await supabase.from('scores').insert({
+                entry_selection_id: entrySelection.id,
+                trial_round_id: trialRound.id,
+                pass_fail: passFailValue,
+                entry_status: 'present',
+              });
 
               if (!scoreError) {
                 totalScoresCreated++;
               }
             } else {
               // Score value exists but isn't recognized - log warning
-              console.warn(`⚠️  Unrecognized score value "${scoreValue}" for ${entryData.cwagsNumber} in ${roundData.column}`);
+              console.warn(
+                `⚠️  Unrecognized score value "${scoreValue}" for ${entryData.cwagsNumber} in ${roundData.column}`
+              );
             }
           }
         }
@@ -641,10 +850,9 @@ export async function POST(request: NextRequest) {
       trialId: trial.id,
       stats: {
         entriesCreated: totalEntriesCreated,
-        scoresCreated: totalScoresCreated
-      }
+        scoresCreated: totalScoresCreated,
+      },
     });
-
   } catch (error) {
     console.error('Import error:', error);
     return NextResponse.json(

@@ -20,14 +20,16 @@ export default function RegistryDebugTool() {
       supabaseData: null,
       matchingRecords: [],
       titleProgress: [],
-      errors: []
+      errors: [],
     };
 
     try {
       // Test 1: Load Excel file
       console.log('🔍 Testing Excel file...');
-      const response = await fetch('https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx');
-      
+      const response = await fetch(
+        'https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx'
+      );
+
       if (!response.ok) {
         debugInfo.errors.push(`Excel file not found: HTTP ${response.status}`);
       } else {
@@ -39,7 +41,7 @@ export default function RegistryDebugTool() {
         debugInfo.excelData = {
           totalRows: data.length,
           headers: data[0],
-          sampleRows: data.slice(0, 3)
+          sampleRows: data.slice(0, 3),
         };
 
         console.log('✅ Excel loaded:', data.length, 'rows');
@@ -53,7 +55,7 @@ export default function RegistryDebugTool() {
           if (!row || !row[0]) continue;
 
           const rowRegNumber = String(row[0] || '').trim();
-          
+
           if (rowRegNumber === regNumber.trim()) {
             // Parse date
             let trialDate = row[2];
@@ -71,7 +73,7 @@ export default function RegistryDebugTool() {
               judge: String(row[4] || '').trim(),
               qs: parseInt(row[5]) || 0,
               trialName: String(row[6] || '').trim(),
-              game: String(row[7] || '').trim()
+              game: String(row[7] || '').trim(),
             });
           }
         }
@@ -81,11 +83,11 @@ export default function RegistryDebugTool() {
 
         // Test 3: Calculate title progress
         if (matchingRecords.length > 0) {
-          const recordsWithQs = matchingRecords.filter(r => r.qs > 0);
-          
+          const recordsWithQs = matchingRecords.filter((r) => r.qs > 0);
+
           // Group by level
           const levelGroups = new Map<string, any[]>();
-          recordsWithQs.forEach(record => {
+          recordsWithQs.forEach((record) => {
             const level = record.level;
             if (!levelGroups.has(level)) {
               levelGroups.set(level, []);
@@ -95,7 +97,7 @@ export default function RegistryDebugTool() {
 
           const progress: any[] = [];
           levelGroups.forEach((levelRecords, level) => {
-            const uniqueJudges = new Set(levelRecords.map(r => r.judge)).size;
+            const uniqueJudges = new Set(levelRecords.map((r) => r.judge)).size;
             const totalQs = levelRecords.reduce((sum, r) => sum + r.qs, 0);
             const hasTitle = totalQs >= 4 && uniqueJudges >= 2;
 
@@ -106,17 +108,16 @@ export default function RegistryDebugTool() {
               hasTitle,
               qsToTitle: hasTitle ? 0 : Math.max(0, 4 - totalQs),
               judgesNeeded: hasTitle ? 0 : Math.max(0, 2 - uniqueJudges),
-              recordCount: levelRecords.length
+              recordCount: levelRecords.length,
             });
           });
 
           debugInfo.titleProgress = progress;
           console.log('✅ Title progress calculated:', progress);
         } else {
-          debugInfo.errors.push('No records found with Q\'s > 0');
+          debugInfo.errors.push("No records found with Q's > 0");
         }
       }
-
     } catch (error: any) {
       debugInfo.errors.push(`Error: ${error.message}`);
       console.error('❌ Debug error:', error);
@@ -169,7 +170,9 @@ export default function RegistryDebugTool() {
                   </div>
                   <ul className="space-y-1">
                     {results.errors.map((error: string, idx: number) => (
-                      <li key={idx} className="text-sm text-red-700 ml-6">• {error}</li>
+                      <li key={idx} className="text-sm text-red-700 ml-6">
+                        • {error}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -183,7 +186,9 @@ export default function RegistryDebugTool() {
                     Excel File Loaded
                   </div>
                   <div className="text-sm text-green-900 space-y-1">
-                    <p>Total rows: <strong>{results.excelData.totalRows}</strong></p>
+                    <p>
+                      Total rows: <strong>{results.excelData.totalRows}</strong>
+                    </p>
                     <p>Headers: {results.excelData.headers.join(', ')}</p>
                   </div>
                 </div>
@@ -211,8 +216,8 @@ export default function RegistryDebugTool() {
                         {results.matchingRecords.map((record: any, idx: number) => (
                           <tr key={idx} className="border-b border-slate-100">
                             <td className="p-2">
-                              {record.date instanceof Date 
-                                ? record.date.toLocaleDateString() 
+                              {record.date instanceof Date
+                                ? record.date.toLocaleDateString()
                                 : String(record.date)}
                             </td>
                             <td className="p-2">{record.level}</td>
@@ -232,7 +237,8 @@ export default function RegistryDebugTool() {
                     No Matching Records
                   </div>
                   <p className="text-sm text-yellow-700">
-                    No trial records found for registration number: <strong>{results.regNumber}</strong>
+                    No trial records found for registration number:{' '}
+                    <strong>{results.regNumber}</strong>
                   </p>
                   <p className="text-xs text-yellow-600 mt-2">
                     Check that:
@@ -259,9 +265,15 @@ export default function RegistryDebugTool() {
                           <div>
                             <h4 className="font-bold text-slate-900">{progress.level}</h4>
                             <div className="text-sm text-slate-600 mt-1 space-y-1">
-                              <p>Total Q's: <strong>{progress.totalQs}</strong></p>
-                              <p>Unique Judges: <strong>{progress.uniqueJudges}/2</strong></p>
-                              <p>Trial Records: <strong>{progress.recordCount}</strong></p>
+                              <p>
+                                Total Q's: <strong>{progress.totalQs}</strong>
+                              </p>
+                              <p>
+                                Unique Judges: <strong>{progress.uniqueJudges}/2</strong>
+                              </p>
+                              <p>
+                                Trial Records: <strong>{progress.recordCount}</strong>
+                              </p>
                             </div>
                           </div>
                           <div className="text-right">
@@ -278,7 +290,10 @@ export default function RegistryDebugTool() {
                                   <p>Need {progress.qsToTitle} more Q's</p>
                                 )}
                                 {progress.judgesNeeded > 0 && (
-                                  <p>Need {progress.judgesNeeded} more judge{progress.judgesNeeded > 1 ? 's' : ''}</p>
+                                  <p>
+                                    Need {progress.judgesNeeded} more judge
+                                    {progress.judgesNeeded > 1 ? 's' : ''}
+                                  </p>
                                 )}
                               </div>
                             )}
@@ -296,9 +311,7 @@ export default function RegistryDebugTool() {
                   View Raw Debug Data
                 </summary>
                 <div className="p-4 border-t border-slate-200 bg-slate-50">
-                  <pre className="text-xs overflow-x-auto">
-                    {JSON.stringify(results, null, 2)}
-                  </pre>
+                  <pre className="text-xs overflow-x-auto">{JSON.stringify(results, null, 2)}</pre>
                 </div>
               </details>
             </div>

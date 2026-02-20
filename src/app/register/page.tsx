@@ -1,60 +1,60 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function RegisterPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowser();
 
-  const [first, setFirst] = useState("");
-  const [last, setLast] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setError('');
     setLoading(true);
 
     // Validate inputs
     if (!first.trim() || !last.trim()) {
       setLoading(false);
-      return setError("First and last name are required");
+      return setError('First and last name are required');
     }
 
     if (password !== confirmPassword) {
       setLoading(false);
-      return setError("Passwords do not match");
+      return setError('Passwords do not match');
     }
 
     if (password.length < 6) {
       setLoading(false);
-      return setError("Password must be at least 6 characters");
+      return setError('Password must be at least 6 characters');
     }
 
     try {
-      console.log("Starting registration for:", email);
+      console.log('Starting registration for:', email);
 
       // Step 1: Check if user already exists in users table
       const { data: existingProfile, error: checkError } = await supabase
-        .from("users")
-        .select("id, email")
-        .eq("email", email.trim())
+        .from('users')
+        .select('id, email')
+        .eq('email', email.trim())
         .maybeSingle();
 
       if (checkError && checkError.code !== 'PGRST116') {
-        console.error("Error checking existing user:", checkError);
-        throw new Error("Failed to check existing user");
+        console.error('Error checking existing user:', checkError);
+        throw new Error('Failed to check existing user');
       }
 
       if (existingProfile) {
         setLoading(false);
-        return setError("An account with this email already exists. Please log in instead.");
+        return setError('An account with this email already exists. Please log in instead.');
       }
 
       // Step 2: Create auth user
@@ -66,74 +66,74 @@ export default function RegisterPage() {
           data: {
             first_name: first.trim(),
             last_name: last.trim(),
-          }
-        }
+          },
+        },
       });
 
       if (signUpError) {
-        console.error("Sign up error:", signUpError);
-        
+        console.error('Sign up error:', signUpError);
+
         // Handle specific error cases
-        if (signUpError.message.includes("already registered")) {
+        if (signUpError.message.includes('already registered')) {
           setLoading(false);
-          return setError("This email is already registered. Please log in instead.");
+          return setError('This email is already registered. Please log in instead.');
         }
-        
+
         throw new Error(signUpError.message);
       }
 
       if (!data.user) {
-        throw new Error("Failed to create user account");
+        throw new Error('Failed to create user account');
       }
 
-      console.log("Auth user created:", data.user.id);
+      console.log('Auth user created:', data.user.id);
 
       // Step 3: Check if profile was auto-created (shouldn't happen, but safety check)
       const { data: autoProfile } = await supabase
-        .from("users")
-        .select("id")
-        .eq("id", data.user.id)
+        .from('users')
+        .select('id')
+        .eq('id', data.user.id)
         .maybeSingle();
 
       if (autoProfile) {
-        console.log("User profile already exists (auto-created)");
+        console.log('User profile already exists (auto-created)');
         setLoading(false);
         alert(
-          "Registration successful! Please check your email to verify your account, then log in."
+          'Registration successful! Please check your email to verify your account, then log in.'
         );
-        router.push("/login");
+        router.push('/login');
         return;
       }
 
       // Step 4: Insert into users table
-      const { error: insertError } = await supabase.from("users").insert([
+      const { error: insertError } = await supabase.from('users').insert([
         {
           id: data.user.id,
           email: email.trim(),
           first_name: first.trim(),
           last_name: last.trim(),
-          role: "trial_secretary",
+          role: 'trial_secretary',
         },
       ]);
 
       if (insertError) {
-        console.error("User profile insert error:", insertError);
-        
+        console.error('User profile insert error:', insertError);
+
         // Handle duplicate key error specifically
         if (insertError.code === '23505') {
-          console.log("Profile already exists, proceeding anyway");
+          console.log('Profile already exists, proceeding anyway');
           setLoading(false);
           alert(
-            "Registration successful! Please check your email to verify your account, then log in."
+            'Registration successful! Please check your email to verify your account, then log in.'
           );
-          router.push("/login");
+          router.push('/login');
           return;
         }
-        
+
         throw new Error(`Failed to create user profile: ${insertError.message}`);
       }
 
-      console.log("User profile created successfully:", {
+      console.log('User profile created successfully:', {
         id: data.user.id,
         email: email.trim(),
         first_name: first.trim(),
@@ -142,15 +142,12 @@ export default function RegisterPage() {
 
       setLoading(false);
       alert(
-        "Registration successful! Please check your email to verify your account, then log in."
+        'Registration successful! Please check your email to verify your account, then log in.'
       );
-      router.push("/login");
-      
+      router.push('/login');
     } catch (err) {
-      console.error("Registration error:", err);
-      setError(
-        err instanceof Error ? err.message : "Registration failed. Please try again."
-      );
+      console.error('Registration error:', err);
+      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
       setLoading(false);
     }
   };
@@ -172,11 +169,7 @@ export default function RegisterPage() {
             <div className="rounded-md bg-red-50 p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg
-                    className="h-5 w-5 text-red-400"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                     <path
                       fillRule="evenodd"
                       d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
@@ -283,7 +276,7 @@ export default function RegisterPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </div>
 
@@ -291,7 +284,7 @@ export default function RegisterPage() {
             <span className="text-gray-600">Already have an account? </span>
             <button
               type="button"
-              onClick={() => router.push("/login")}
+              onClick={() => router.push('/login')}
               className="font-medium text-orange-600 hover:text-orange-500"
             >
               Sign in

@@ -1,34 +1,37 @@
 // src/app/page.tsx
-"use client"
+'use client';
 
-import { useAuth } from "@/hooks/useAuth"
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Trophy, Shield, Clock, MapPin } from "lucide-react"
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Calendar, Users, Trophy, Shield, Clock, MapPin } from 'lucide-react';
 
 export default function HomePage() {
-  const { user, loading } = useAuth()
-  const router = useRouter()
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   // Redirect authenticated users to dashboard
- useEffect(() => {
-  const params = new URLSearchParams(window.location.search)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
 
-  // 🔥 Do NOT redirect during recovery flow
-  if (params.get("type") === "recovery" || params.has("access_token") || params.has("token_hash")) {
-    return
-  }
+    // 🔥 Do NOT redirect during recovery flow
+    if (
+      params.get('type') === 'recovery' ||
+      params.has('access_token') ||
+      params.has('token_hash')
+    ) {
+      return;
+    }
 
-  // Normal redirect for actual logged-in users
-  if (!loading && user) {
-    router.push('/dashboard')
-  }
-}, [user, loading, router])
-
+    // Normal redirect for actual logged-in users
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -40,11 +43,11 @@ export default function HomePage() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (user) {
-    return null // Will redirect to dashboard
+    return null; // Will redirect to dashboard
   }
 
   return (
@@ -78,8 +81,8 @@ export default function HomePage() {
             Streamline Your C-WAGS Competitions
           </h2>
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-            Complete trial management solution designed specifically for C-WAGS competitions. 
-            Handle entries, running orders, scoring, and reporting all in one place.
+            Complete trial management solution designed specifically for C-WAGS competitions. Handle
+            entries, running orders, scoring, and reporting all in one place.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/login">
@@ -101,7 +104,9 @@ export default function HomePage() {
               <CardTitle>Trial Management</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-gray-600">Create and manage multi-day trials with dynamic class scheduling</p>
+              <p className="text-gray-600">
+                Create and manage multi-day trials with dynamic class scheduling
+              </p>
             </CardContent>
           </Card>
 
@@ -128,12 +133,10 @@ export default function HomePage() {
 
         {/* CTA Section */}
         <div className="bg-white rounded-lg p-8 text-center shadow-sm border border-gray-200">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">
-            Ready to Get Started?
-          </h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready to Get Started?</h3>
           <p className="text-gray-600 mb-6">
-            Join trial secretaries across North America who trust C-WAGS Trial Management 
-            for their competitions.
+            Join trial secretaries across North America who trust C-WAGS Trial Management for their
+            competitions.
           </p>
           <Link href="/login">
             <Button size="lg" className="bg-orange-600 hover:bg-orange-700">
@@ -143,5 +146,5 @@ export default function HomePage() {
         </div>
       </main>
     </div>
-  )
+  );
 }

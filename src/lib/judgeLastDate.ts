@@ -21,12 +21,14 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
 
   try {
     console.log('Loading judge last dates from Excel...');
-    const response = await fetch('https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx');
-    
+    const response = await fetch(
+      'https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx'
+    );
+
     if (!response.ok) {
       throw new Error('Failed to fetch Excel file');
     }
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -37,14 +39,18 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
     }
 
     // First row is headers
-    const headers = data[0].map((h: any) => String(h || '').toLowerCase().trim());
+    const headers = data[0].map((h: any) =>
+      String(h || '')
+        .toLowerCase()
+        .trim()
+    );
     console.log('Headers:', headers);
 
     // Find column indices
     const findColumn = (...names: string[]): number => {
       for (const name of names) {
-        const idx = headers.findIndex(h => 
-          h.includes(name.toLowerCase()) || name.toLowerCase().includes(h)
+        const idx = headers.findIndex(
+          (h) => h.includes(name.toLowerCase()) || name.toLowerCase().includes(h)
         );
         if (idx !== -1) return idx;
       }
@@ -99,8 +105,8 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
             lastDateFormatted: trialDate.toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
-              year: 'numeric'
-            })
+              year: 'numeric',
+            }),
           });
         }
       }
@@ -112,15 +118,14 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
       resultMap.set(key, {
         judgeName: key,
         lastDate: value.lastDate,
-        lastDateFormatted: value.lastDateFormatted
+        lastDateFormatted: value.lastDateFormatted,
       });
     });
 
     judgeLastDatesCache = resultMap;
     console.log(`Loaded last dates for ${resultMap.size} judges`);
-    
-    return resultMap;
 
+    return resultMap;
   } catch (error) {
     console.error('Error loading judge last dates:', error);
     return new Map();
@@ -133,25 +138,28 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
 export async function getJudgeLastDate(judgeName: string): Promise<string> {
   try {
     const judgeMap = await loadJudgeLastDates();
-    
+
     // Try exact match first
     let judgeData = judgeMap.get(judgeName);
-    
+
     // If no exact match, try case-insensitive partial match
     if (!judgeData) {
       const normalizedName = judgeName.toLowerCase().trim();
       for (const [key, value] of judgeMap.entries()) {
-        if (key.toLowerCase().includes(normalizedName) || normalizedName.includes(key.toLowerCase())) {
+        if (
+          key.toLowerCase().includes(normalizedName) ||
+          normalizedName.includes(key.toLowerCase())
+        ) {
           judgeData = value;
           break;
         }
       }
     }
-    
+
     if (judgeData && judgeData.lastDateFormatted) {
       return judgeData.lastDateFormatted;
     }
-    
+
     return 'No record found';
   } catch (error) {
     console.error('Error getting judge last date:', error);

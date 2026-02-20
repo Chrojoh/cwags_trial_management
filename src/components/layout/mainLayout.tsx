@@ -19,15 +19,10 @@ export interface MainLayoutProps {
   fullWidth?: boolean;
 }
 
-function MainLayout({ 
-  children, 
-  title, 
-  breadcrumbItems,
-  fullWidth = false 
-}: MainLayoutProps) {
+function MainLayout({ children, title, breadcrumbItems, fullWidth = false }: MainLayoutProps) {
   const { user, loading, error, isAuthenticated, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
-  
+
   const router = useRouter();
 
   // Show loading spinner while checking authentication
@@ -49,22 +44,13 @@ function MainLayout({
         <div className="max-w-md w-full">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Authentication Error: {error}
-            </AlertDescription>
+            <AlertDescription>Authentication Error: {error}</AlertDescription>
           </Alert>
           <div className="mt-4 flex gap-3">
-            <Button 
-              onClick={() => router.push('/login')}
-              className="flex-1"
-            >
+            <Button onClick={() => router.push('/login')} className="flex-1">
               Go to Login
             </Button>
-            <Button 
-              onClick={() => window.location.reload()}
-              variant="outline"
-              className="flex-1"
-            >
+            <Button onClick={() => window.location.reload()} variant="outline" className="flex-1">
               Retry
             </Button>
           </div>
@@ -92,23 +78,17 @@ function MainLayout({
   return (
     <div className="flex h-screen bg-gray-50">
       {/* ✅ SIDEBAR - Responsive with mobile slide-out */}
-      <Sidebar 
-        isMobileOpen={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-      />
+      <Sidebar isMobileOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header with hamburger menu for mobile */}
-        <Header 
-          user={user} 
-          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-        />
+        <Header user={user} onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Breadcrumbs */}
-          {(breadcrumbItems && breadcrumbItems.length > 0) && (
+          {breadcrumbItems && breadcrumbItems.length > 0 && (
             <div className="bg-white border-b border-gray-200 px-4 py-3">
               <Breadcrumbs items={breadcrumbItems} />
             </div>

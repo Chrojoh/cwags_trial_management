@@ -5,17 +5,17 @@ import type { Permission } from './constants';
 
 export function hasPermission(user: User | null, permission: Permission): boolean {
   if (!user) return false;
-  
+
   const userPermissions = ROLE_PERMISSIONS[user.role];
   return userPermissions?.includes(permission) || false;
 }
 
 export function hasAnyPermission(user: User | null, permissions: Permission[]): boolean {
   if (!user) return false;
-  return permissions.some(p => hasPermission(user, p));
+  return permissions.some((p) => hasPermission(user, p));
 }
 
 export function hasAllPermissions(user: User | null, permissions: Permission[]): boolean {
   if (!user) return false;
-  return permissions.every(p => hasPermission(user, p));
+  return permissions.every((p) => hasPermission(user, p));
 }

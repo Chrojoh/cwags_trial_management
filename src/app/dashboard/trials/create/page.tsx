@@ -9,7 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Calendar, MapPin, FileText, ArrowRight, ArrowLeft, Save, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,7 +23,7 @@ import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
 // Canadian provinces/territories and US states
 const LOCATIONS = {
-  'Canada': [
+  Canada: [
     { code: 'AB', name: 'Alberta' },
     { code: 'BC', name: 'British Columbia' },
     { code: 'SK', name: 'Saskatchewan' },
@@ -30,7 +36,7 @@ const LOCATIONS = {
     { code: 'NL', name: 'Newfoundland and Labrador' },
     { code: 'YT', name: 'Yukon' },
     { code: 'NT', name: 'Northwest Territories' },
-    { code: 'NU', name: 'Nunavut' }
+    { code: 'NU', name: 'Nunavut' },
   ],
   'United States': [
     { code: 'AL', name: 'Alabama' },
@@ -83,8 +89,8 @@ const LOCATIONS = {
     { code: 'WV', name: 'West Virginia' },
     { code: 'WI', name: 'Wisconsin' },
     { code: 'WY', name: 'Wyoming' },
-    { code: 'DC', name: 'District of Columbia' }
-  ]
+    { code: 'DC', name: 'District of Columbia' },
+  ],
 };
 
 // Default waiver text from the document
@@ -166,7 +172,7 @@ export default function CreateTrialPage() {
     default_entry_fee: 25,
     default_feo_price: 15,
     waiver_text: DEFAULT_WAIVER,
-    notes: ''
+    notes: '',
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof TrialFormData, string>>>({});
@@ -174,14 +180,13 @@ export default function CreateTrialPage() {
   // Auto-fill form fields when user data is available
   useEffect(() => {
     if (user) {
-      setTrialData(prev => ({
+      setTrialData((prev) => ({
         ...prev,
         club_name: user.club_name || '',
-        trial_secretary: user.first_name && user.last_name 
-          ? `${user.first_name} ${user.last_name}`.trim()
-          : '',
+        trial_secretary:
+          user.first_name && user.last_name ? `${user.first_name} ${user.last_name}`.trim() : '',
         secretary_email: user.email || '',
-        secretary_phone: user.phone || ''
+        secretary_phone: user.phone || '',
       }));
     }
   }, [user]);
@@ -197,13 +202,15 @@ export default function CreateTrialPage() {
       if (!trialData.country) newErrors.country = 'Country is required';
       if (!trialData.start_date) newErrors.start_date = 'Start date is required';
       if (!trialData.end_date) newErrors.end_date = 'End date is required';
-      if (!trialData.trial_secretary.trim()) newErrors.trial_secretary = 'Secretary name is required';
-      if (!trialData.secretary_email.trim()) newErrors.secretary_email = 'Secretary email is required';
-      
+      if (!trialData.trial_secretary.trim())
+        newErrors.trial_secretary = 'Secretary name is required';
+      if (!trialData.secretary_email.trim())
+        newErrors.secretary_email = 'Secretary email is required';
+
       if (trialData.start_date && trialData.end_date && trialData.start_date > trialData.end_date) {
         newErrors.end_date = 'End date must be after start date';
       }
-      
+
       if (trialData.default_entry_fee < 0) {
         newErrors.default_entry_fee = 'Entry fee must be 0 or greater';
       }
@@ -217,9 +224,9 @@ export default function CreateTrialPage() {
   };
 
   const handleInputChange = (field: keyof TrialFormData, value: string | number) => {
-    setTrialData(prev => ({ ...prev, [field]: value }));
+    setTrialData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
@@ -248,9 +255,9 @@ export default function CreateTrialPage() {
         trialData.venue_name,
         trialData.city,
         trialData.province,
-        trialData.country
-      ].filter(part => part.trim());
-      
+        trialData.country,
+      ].filter((part) => part.trim());
+
       const location = locationParts.join(', ');
 
       const trialToSave = {
@@ -272,13 +279,13 @@ export default function CreateTrialPage() {
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
         fee_configuration: {},
-        notes: trialData.notes || null
+        notes: trialData.notes || null,
       };
 
       console.log('Saving trial data:', trialToSave);
 
       const result = await simpleTrialOperations.createTrial(trialToSave);
-      
+
       if (result.success && result.data) {
         console.log('Trial created successfully:', result.data);
         setSavedTrialId(result.data.id);
@@ -307,9 +314,9 @@ export default function CreateTrialPage() {
         trialData.venue_name,
         trialData.city,
         trialData.province,
-        trialData.country
-      ].filter(part => part.trim());
-      
+        trialData.country,
+      ].filter((part) => part.trim());
+
       const location = locationParts.join(', ');
 
       const trialToSave = {
@@ -331,13 +338,13 @@ export default function CreateTrialPage() {
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
         fee_configuration: {},
-        notes: trialData.notes || null
+        notes: trialData.notes || null,
       };
 
       console.log('Saving trial data:', trialToSave);
 
       const result = await simpleTrialOperations.createTrial(trialToSave);
-      
+
       if (result.success && result.data) {
         console.log('Trial created successfully:', result.data);
         router.push(`/dashboard/trials/create/days?trial=${result.data.id}`);
@@ -394,9 +401,9 @@ export default function CreateTrialPage() {
         trialData.venue_name || 'TBD',
         trialData.city || 'TBD',
         trialData.province || 'AB',
-        trialData.country || 'Canada'
-      ].filter(part => part.trim());
-      
+        trialData.country || 'Canada',
+      ].filter((part) => part.trim());
+
       const location = locationParts.join(', ');
 
       const trialToSave = {
@@ -418,7 +425,7 @@ export default function CreateTrialPage() {
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
         fee_configuration: {},
-        notes: trialData.notes || null
+        notes: trialData.notes || null,
       };
 
       console.log('Saving draft:', trialToSave);
@@ -433,13 +440,13 @@ export default function CreateTrialPage() {
       } else {
         console.log('Creating new trial');
         result = await simpleTrialOperations.createTrial(trialToSave);
-        
+
         if (result.success && result.data) {
           const newUrl = `${window.location.pathname}?trial=${result.data.id}`;
           window.history.replaceState({}, '', newUrl);
         }
       }
-      
+
       if (result.success) {
         console.log('Draft saved successfully:', result.data);
         alert('Draft saved successfully!');
@@ -460,9 +467,7 @@ export default function CreateTrialPage() {
       <MainLayout title="Create New Trial">
         <div className="max-w-4xl mx-auto">
           <Alert variant="destructive">
-            <AlertDescription>
-              You must be logged in to create a trial.
-            </AlertDescription>
+            <AlertDescription>You must be logged in to create a trial.</AlertDescription>
           </Alert>
         </div>
       </MainLayout>
@@ -472,24 +477,19 @@ export default function CreateTrialPage() {
   const breadcrumbItems = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
-    { label: 'Create Trial' }
+    { label: 'Create Trial' },
   ];
 
-  const stepTitles = [
-    'Basic Information',
-    'Waiver & Notice Text'
-  ];
+  const stepTitles = ['Basic Information', 'Waiver & Notice Text'];
 
   return (
-    <MainLayout 
-      title="Create New Trial"
-      breadcrumbItems={breadcrumbItems}
-    >
+    <MainLayout title="Create New Trial" breadcrumbItems={breadcrumbItems}>
       <div className="max-w-4xl mx-auto space-y-6">
         {user && (
           <Alert className="bg-orange-50 border-orange-200">
             <AlertDescription className="text-orange-800">
-              <strong>Auto-filled:</strong> Form has been pre-populated with your account information. You can modify any field as needed.
+              <strong>Auto-filled:</strong> Form has been pre-populated with your account
+              information. You can modify any field as needed.
             </AlertDescription>
           </Alert>
         )}
@@ -500,27 +500,33 @@ export default function CreateTrialPage() {
             const stepNumber = index + 1;
             const isActive = stepNumber === currentStep;
             const isCompleted = stepNumber < currentStep;
-            
+
             return (
               <div key={stepNumber} className="flex items-center">
-                <div className={`flex items-center space-x-2 ${
-                  isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
-                }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    isActive 
-                      ? 'bg-orange-600 text-white' 
-                      : isCompleted 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                  }`}>
+                <div
+                  className={`flex items-center space-x-2 ${
+                    isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      isActive
+                        ? 'bg-orange-600 text-white'
+                        : isCompleted
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
                     {stepNumber}
                   </div>
                   <span className="text-xs sm:text-sm font-medium hidden sm:inline">{title}</span>
                 </div>
                 {index < stepTitles.length - 1 && (
-                  <div className={`ml-2 sm:ml-4 w-8 sm:w-16 h-0.5 ${
-                    stepNumber < currentStep ? 'bg-green-600' : 'bg-gray-200'
-                  }`} />
+                  <div
+                    className={`ml-2 sm:ml-4 w-8 sm:w-16 h-0.5 ${
+                      stepNumber < currentStep ? 'bg-green-600' : 'bg-gray-200'
+                    }`}
+                  />
                 )}
               </div>
             );
@@ -535,9 +541,7 @@ export default function CreateTrialPage() {
                 <Calendar className="h-5 w-5 text-orange-600" />
                 <span>Basic Trial Information</span>
               </CardTitle>
-              <CardDescription>
-                Enter the basic details for your C-WAGS trial event
-              </CardDescription>
+              <CardDescription>Enter the basic details for your C-WAGS trial event</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -550,15 +554,16 @@ export default function CreateTrialPage() {
                     placeholder="e.g., Spring Championship Trial"
                     className={`py-3 sm:py-2 text-base sm:text-sm ${errors.trial_name ? 'border-red-500' : ''}`}
                   />
-                  {errors.trial_name && (
-                    <p className="text-sm text-red-600">{errors.trial_name}</p>
-                  )}
+                  {errors.trial_name && <p className="text-sm text-red-600">{errors.trial_name}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="club_name">Host Club Name * 
+                  <Label htmlFor="club_name">
+                    Host Club Name *
                     {user?.club_name && (
-                      <Badge variant="secondary" className="ml-2 text-xs">Auto-filled</Badge>
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Auto-filled
+                      </Badge>
                     )}
                   </Label>
                   <Input
@@ -568,9 +573,7 @@ export default function CreateTrialPage() {
                     placeholder="e.g., Toronto Working Dogs Club"
                     className={`py-3 sm:py-2 text-base sm:text-sm ${errors.club_name ? 'border-red-500' : ''}`}
                   />
-                  {errors.club_name && (
-                    <p className="text-sm text-red-600">{errors.club_name}</p>
-                  )}
+                  {errors.club_name && <p className="text-sm text-red-600">{errors.club_name}</p>}
                 </div>
 
                 {/* Location Section */}
@@ -600,21 +603,21 @@ export default function CreateTrialPage() {
                         placeholder="e.g., Calgary"
                         className={`py-3 sm:py-2 text-base sm:text-sm ${errors.city ? 'border-red-500' : ''}`}
                       />
-                      {errors.city && (
-                        <p className="text-sm text-red-600">{errors.city}</p>
-                      )}
+                      {errors.city && <p className="text-sm text-red-600">{errors.city}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="country">Country *</Label>
-                      <Select 
+                      <Select
                         value={trialData.country}
                         onValueChange={(value) => {
                           handleInputChange('country', value);
                           handleInputChange('province', '');
                         }}
                       >
-                        <SelectTrigger className={`min-h-[44px] text-base sm:text-sm ${errors.country ? 'border-red-500' : ''}`}>
+                        <SelectTrigger
+                          className={`min-h-[44px] text-base sm:text-sm ${errors.country ? 'border-red-500' : ''}`}
+                        >
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
                         <SelectContent className="bg-white">
@@ -625,39 +628,44 @@ export default function CreateTrialPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {errors.country && (
-                        <p className="text-sm text-red-600">{errors.country}</p>
-                      )}
+                      {errors.country && <p className="text-sm text-red-600">{errors.country}</p>}
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="province">Province/State *</Label>
-                      <Select 
+                      <Select
                         value={trialData.province}
                         onValueChange={(value) => handleInputChange('province', value)}
                         disabled={!trialData.country}
                       >
-                        <SelectTrigger className={`min-h-[44px] text-base sm:text-sm ${errors.province ? 'border-red-500' : ''}`}>
-                          <SelectValue placeholder={
-                            trialData.country === 'Canada' ? 'Select province' : 
-                            trialData.country === 'United States' ? 'Select state' : 
-                            'Select country first'
-                          } />
+                        <SelectTrigger
+                          className={`min-h-[44px] text-base sm:text-sm ${errors.province ? 'border-red-500' : ''}`}
+                        >
+                          <SelectValue
+                            placeholder={
+                              trialData.country === 'Canada'
+                                ? 'Select province'
+                                : trialData.country === 'United States'
+                                  ? 'Select state'
+                                  : 'Select country first'
+                            }
+                          />
                         </SelectTrigger>
                         <SelectContent className="bg-white">
-                          {trialData.country && LOCATIONS[trialData.country as keyof typeof LOCATIONS]?.map((location) => (
-                            <SelectItem key={location.code} value={location.code}>
-                              {location.name} ({location.code})
-                            </SelectItem>
-                          ))}
+                          {trialData.country &&
+                            LOCATIONS[trialData.country as keyof typeof LOCATIONS]?.map(
+                              (location) => (
+                                <SelectItem key={location.code} value={location.code}>
+                                  {location.name} ({location.code})
+                                </SelectItem>
+                              )
+                            )}
                         </SelectContent>
                       </Select>
-                      {errors.province && (
-                        <p className="text-sm text-red-600">{errors.province}</p>
-                      )}
+                      {errors.province && <p className="text-sm text-red-600">{errors.province}</p>}
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2 pl-6">
                     <Label htmlFor="full_address">Full Address (Optional)</Label>
                     <Textarea
@@ -680,9 +688,7 @@ export default function CreateTrialPage() {
                     onChange={(e) => handleInputChange('start_date', e.target.value)}
                     className={`py-3 sm:py-2 text-base sm:text-sm ${errors.start_date ? 'border-red-500' : ''}`}
                   />
-                  {errors.start_date && (
-                    <p className="text-sm text-red-600">{errors.start_date}</p>
-                  )}
+                  {errors.start_date && <p className="text-sm text-red-600">{errors.start_date}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -694,15 +700,16 @@ export default function CreateTrialPage() {
                     onChange={(e) => handleInputChange('end_date', e.target.value)}
                     className={`py-3 sm:py-2 text-base sm:text-sm ${errors.end_date ? 'border-red-500' : ''}`}
                   />
-                  {errors.end_date && (
-                    <p className="text-sm text-red-600">{errors.end_date}</p>
-                  )}
+                  {errors.end_date && <p className="text-sm text-red-600">{errors.end_date}</p>}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="trial_secretary">Trial Secretary Name *
+                  <Label htmlFor="trial_secretary">
+                    Trial Secretary Name *
                     {user?.first_name && user?.last_name && (
-                      <Badge variant="secondary" className="ml-2 text-xs">Auto-filled</Badge>
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Auto-filled
+                      </Badge>
                     )}
                   </Label>
                   <Input
@@ -718,9 +725,12 @@ export default function CreateTrialPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="secretary_email">Secretary Email *
+                  <Label htmlFor="secretary_email">
+                    Secretary Email *
                     {user?.email && (
-                      <Badge variant="secondary" className="ml-2 text-xs">Auto-filled</Badge>
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Auto-filled
+                      </Badge>
                     )}
                   </Label>
                   <Input
@@ -737,9 +747,12 @@ export default function CreateTrialPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="secretary_phone">Secretary Phone
+                  <Label htmlFor="secretary_phone">
+                    Secretary Phone
                     {user?.phone && (
-                      <Badge variant="secondary" className="ml-2 text-xs">Auto-filled</Badge>
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Auto-filled
+                      </Badge>
                     )}
                   </Label>
                   <Input
@@ -759,7 +772,9 @@ export default function CreateTrialPage() {
                     min="1"
                     max="200"
                     value={trialData.max_entries_per_day}
-                    onChange={(e) => handleInputChange('max_entries_per_day', parseInt(e.target.value) || 50)}
+                    onChange={(e) =>
+                      handleInputChange('max_entries_per_day', parseInt(e.target.value) || 50)
+                    }
                     className="py-3 sm:py-2 text-base sm:text-sm"
                   />
                 </div>
@@ -771,7 +786,8 @@ export default function CreateTrialPage() {
                     <span>Default Entry Fees</span>
                   </Label>
                   <p className="text-sm text-gray-600 pl-6 mb-3">
-                    Set default fees for this trial. These can be adjusted for individual classes later.
+                    Set default fees for this trial. These can be adjusted for individual classes
+                    later.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6">
                     <div className="space-y-2">
@@ -782,13 +798,17 @@ export default function CreateTrialPage() {
                         min="0"
                         step="0.01"
                         value={trialData.default_entry_fee}
-                        onChange={(e) => handleInputChange('default_entry_fee', parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          handleInputChange('default_entry_fee', parseFloat(e.target.value) || 0)
+                        }
                         className={`py-3 sm:py-2 text-base sm:text-sm ${errors.default_entry_fee ? 'border-red-500' : ''}`}
                       />
                       {errors.default_entry_fee && (
                         <p className="text-sm text-red-600">{errors.default_entry_fee}</p>
                       )}
-                      <p className="text-xs text-gray-500">Standard entry fee for regular entries</p>
+                      <p className="text-xs text-gray-500">
+                        Standard entry fee for regular entries
+                      </p>
                     </div>
 
                     <div className="space-y-2">
@@ -799,7 +819,9 @@ export default function CreateTrialPage() {
                         min="0"
                         step="0.01"
                         value={trialData.default_feo_price}
-                        onChange={(e) => handleInputChange('default_feo_price', parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          handleInputChange('default_feo_price', parseFloat(e.target.value) || 0)
+                        }
                         className={`py-3 sm:py-2 text-base sm:text-sm ${errors.default_feo_price ? 'border-red-500' : ''}`}
                       />
                       {errors.default_feo_price && (
@@ -828,7 +850,9 @@ export default function CreateTrialPage() {
                 <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
                   <Label className="text-sm font-medium text-orange-900">Location Preview:</Label>
                   <p className="text-orange-800">
-                    {[trialData.venue_name, trialData.city, trialData.province, trialData.country].filter(Boolean).join(', ')}
+                    {[trialData.venue_name, trialData.city, trialData.province, trialData.country]
+                      .filter(Boolean)
+                      .join(', ')}
                   </p>
                 </div>
               )}
@@ -842,7 +866,8 @@ export default function CreateTrialPage() {
                     <p>FEO Entry: ${trialData.default_feo_price.toFixed(2)}</p>
                   </div>
                   <p className="text-xs text-green-700 mt-2">
-                    These fees will be applied to all classes by default and can be adjusted individually later.
+                    These fees will be applied to all classes by default and can be adjusted
+                    individually later.
                   </p>
                 </div>
               )}

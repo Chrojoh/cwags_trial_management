@@ -6,7 +6,7 @@ import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import type { User } from '@/types/auth';
 import { Button } from '@/components/ui/button';
-import Image from "next/image";
+import Image from 'next/image';
 
 import {
   DropdownMenu,
@@ -26,7 +26,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
   const { signOut } = useAuth();
-  
+
   // ✅ Clock state that updates every second
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleString());
 
@@ -65,14 +65,13 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
   };
 
   const formatRoleName = (role: string) => {
-    return role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 z-30">
       <div className="flex items-center justify-between h-14 sm:h-16 px-2 sm:px-4 lg:px-6">
-
-       {/* Left Section */}
+        {/* Left Section */}
         <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Mobile Menu Button */}
           <Button
@@ -103,9 +102,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
 
         {/* Center Section - Clock - Hidden on mobile */}
         <div className="hidden md:flex items-center justify-center">
-          <div className="text-sm font-medium text-gray-700">
-            {currentTime}
-          </div>
+          <div className="text-sm font-medium text-gray-700">{currentTime}</div>
         </div>
 
         {/* Right Section - User Menu */}
@@ -114,31 +111,33 @@ export const Header: React.FC<HeaderProps> = ({ user, onMenuClick }) => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center space-x-2 min-h-[44px] p-2">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-orange-600 flex items-center justify-center text-white font-semibold">
-                  {user.first_name[0]}{user.last_name[0]}
+                  {user.first_name[0]}
+                  {user.last_name[0]}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-sm font-medium text-gray-900">
                     {user.first_name} {user.last_name}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    {formatRoleName(user.role)}
-                  </p>
+                  <p className="text-xs text-gray-500">{formatRoleName(user.role)}</p>
                 </div>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-white">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">{user.first_name} {user.last_name}</p>
+                  <p className="text-sm font-medium">
+                    {user.first_name} {user.last_name}
+                  </p>
                   <p className="text-xs text-gray-500">{user.email}</p>
                   <p className="text-xs text-gray-500">{formatRoleName(user.role)}</p>
-                  {user.club_name && (
-                    <p className="text-xs text-gray-500">{user.club_name}</p>
-                  )}
+                  {user.club_name && <p className="text-xs text-gray-500">{user.club_name}</p>}
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Sign Out</span>
               </DropdownMenuItem>

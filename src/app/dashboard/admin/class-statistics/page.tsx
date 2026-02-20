@@ -16,18 +16,15 @@ export default function ClassStatisticsPage() {
     <MainLayout>
       <div className="max-w-6xl mx-auto p-6">
         <div className="mb-6">
-          <Button 
-            variant="ghost" 
-            onClick={() => router.push('/dashboard')}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={() => router.push('/dashboard')} className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Admin Dashboard
           </Button>
-          
+
           <h1 className="text-3xl font-bold mb-2">Class Judge Statistics</h1>
           <p className="text-gray-600">
-            Select a class to view all judges who have judged it, with detailed performance statistics
+            Select a class to view all judges who have judged it, with detailed performance
+            statistics
           </p>
         </div>
 

@@ -21,23 +21,25 @@ export const TrialDateTimeDisplay: React.FC<TrialDateTimeDisplayProps> = ({
   showCountdown = false,
   showEntryStatus = false,
   compact = false,
-  className = ""
+  className = '',
 }) => {
   const { formatTrialTime } = useTimezone();
   const trialTime = formatTrialTime(trialDate, trialTimezone);
   const timeRemaining = formatTimeRemaining(trialDate);
-  
+
   if (compact) {
     return (
       <div className={`flex items-center gap-2 text-sm ${className}`}>
         <Calendar className="w-4 h-4 text-gray-500" />
         <span>{trialTime.date}</span>
         <Clock className="w-4 h-4 text-gray-500" />
-        <span>{trialTime.time} {trialTime.timezone}</span>
+        <span>
+          {trialTime.time} {trialTime.timezone}
+        </span>
       </div>
     );
   }
-  
+
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-start gap-4">
@@ -45,11 +47,13 @@ export const TrialDateTimeDisplay: React.FC<TrialDateTimeDisplayProps> = ({
           <Calendar className="w-5 h-5 text-orange-600" />
           <div>
             <div className="font-medium">{trialTime.date}</div>
-            <div className="text-sm text-gray-600">{trialTime.time} {trialTime.timezone}</div>
+            <div className="text-sm text-gray-600">
+              {trialTime.time} {trialTime.timezone}
+            </div>
           </div>
         </div>
       </div>
-      
+
       {showCountdown && (
         <div className="flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-gray-500" />

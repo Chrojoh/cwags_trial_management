@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = getSupabaseBrowser();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
 
   const handleLogin = async (e: any) => {
     e.preventDefault();
-    setError("");
+    setError('');
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -28,18 +28,18 @@ export default function LoginPage() {
     }
 
     if (data?.user) {
-      localStorage.setItem("cwags_user", JSON.stringify(data.user));
-      router.push("/dashboard");
+      localStorage.setItem('cwags_user', JSON.stringify(data.user));
+      router.push('/dashboard');
     }
   };
 
   const handlePasswordReset = async (e: React.MouseEvent) => {
     e.preventDefault();
-    setError("");
-    setResetMessage("");
+    setError('');
+    setResetMessage('');
 
     if (!email) {
-      setError("Please enter your email above first.");
+      setError('Please enter your email above first.');
       return;
     }
 
@@ -49,9 +49,9 @@ export default function LoginPage() {
 
     if (error) {
       console.error(error);
-      setError("Error sending reset email.");
+      setError('Error sending reset email.');
     } else {
-      setResetMessage("Check your email for a password reset link.");
+      setResetMessage('Check your email for a password reset link.');
     }
   };
 
@@ -123,8 +123,8 @@ export default function LoginPage() {
             </button>
 
             <div className="text-center mt-6 pt-6 border-t">
-              <a 
-                href="/register" 
+              <a
+                href="/register"
                 className="text-orange-600 hover:text-orange-700 hover:underline transition-colors text-sm sm:text-base"
               >
                 Need an account? Register here

@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { useEffect, useState, Suspense } from "react";
-import { useRouter } from "next/navigation";
-import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 function ResetPasswordForm() {
   const supabase = getSupabaseBrowser();
   const router = useRouter();
 
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -18,47 +18,50 @@ function ResetPasswordForm() {
       // Check URL parameters
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const searchParams = new URLSearchParams(window.location.search);
-      
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
-      const type = searchParams.get("type");
-      
-      console.log("Recovery flow check:", {
+
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      const type = searchParams.get('type');
+
+      console.log('Recovery flow check:', {
         type,
         hasAccessToken: !!accessToken,
-        hasRefreshToken: !!refreshToken
+        hasRefreshToken: !!refreshToken,
       });
 
       // If we have access token in hash, manually set the session
       if (accessToken && refreshToken) {
-        console.log("Found tokens in URL hash, setting session...");
-        
+        console.log('Found tokens in URL hash, setting session...');
+
         const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
-          refresh_token: refreshToken
+          refresh_token: refreshToken,
         });
-        
-        console.log("Session set result:", { session: !!data.session, error });
-        
+
+        console.log('Session set result:', { session: !!data.session, error });
+
         if (data.session) {
           setReady(true);
           // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
-          setMessage("Invalid or expired reset link. Please request a new one.");
+          setMessage('Invalid or expired reset link. Please request a new one.');
         }
         return;
       }
 
       // Otherwise check for existing session
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      console.log("Existing session check:", { session: !!session, error, type });
-      
-      if (session && type === "recovery") {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
+      console.log('Existing session check:', { session: !!session, error, type });
+
+      if (session && type === 'recovery') {
         setReady(true);
-      } else if (type === "recovery") {
-        setMessage("Reset link processing... If this persists, request a new link.");
+      } else if (type === 'recovery') {
+        setMessage('Reset link processing... If this persists, request a new link.');
       }
     };
 
@@ -68,9 +71,9 @@ function ResetPasswordForm() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state change:", event, "Session:", !!session);
-      
-      if (event === "PASSWORD_RECOVERY" || (session && event === "INITIAL_SESSION")) {
+      console.log('Auth state change:', event, 'Session:', !!session);
+
+      if (event === 'PASSWORD_RECOVERY' || (session && event === 'INITIAL_SESSION')) {
         setReady(true);
       }
     });
@@ -81,16 +84,16 @@ function ResetPasswordForm() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
+    setMessage('');
 
     try {
       // First, verify we have a valid session
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      console.log("Session check:", sessionData, sessionError); // Debug log
-      
+
+      console.log('Session check:', sessionData, sessionError); // Debug log
+
       if (sessionError || !sessionData.session) {
-        setMessage("Session expired. Please request a new password reset link.");
+        setMessage('Session expired. Please request a new password reset link.');
         setLoading(false);
         return;
       }
@@ -100,25 +103,25 @@ function ResetPasswordForm() {
         password: password.trim(),
       });
 
-      console.log("Update result:", data, error); // Debug log
+      console.log('Update result:', data, error); // Debug log
 
       if (error) {
-        console.error("Password update error:", error);
+        console.error('Password update error:', error);
         setMessage(`Error: ${error.message}`);
         setLoading(false);
         return;
       }
 
-      setMessage("✅ Password updated successfully! Redirecting...");
-      
+      setMessage('✅ Password updated successfully! Redirecting...');
+
       // Sign out to clear the recovery session
       await supabase.auth.signOut();
-      
+
       // Redirect to login
-      setTimeout(() => router.replace("/login"), 2000);
+      setTimeout(() => router.replace('/login'), 2000);
     } catch (err) {
-      console.error("Unexpected error:", err);
-      setMessage("An unexpected error occurred. Please try again.");
+      console.error('Unexpected error:', err);
+      setMessage('An unexpected error occurred. Please try again.');
       setLoading(false);
     }
   };
@@ -150,11 +153,13 @@ function ResetPasswordForm() {
         disabled={loading}
         className="w-full bg-orange-600 text-white py-2 rounded hover:bg-orange-700 disabled:bg-gray-400"
       >
-        {loading ? "Updating..." : "Set New Password"}
+        {loading ? 'Updating...' : 'Set New Password'}
       </button>
 
       {message && (
-        <p className={`text-center ${message.includes("Error") ? "text-red-600" : "text-green-600"}`}>
+        <p
+          className={`text-center ${message.includes('Error') ? 'text-red-600' : 'text-green-600'}`}
+        >
           {message}
         </p>
       )}

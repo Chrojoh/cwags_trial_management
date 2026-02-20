@@ -28,7 +28,7 @@ interface EntryScore {
   dogName: string;
   handlerName: string;
   division?: string | null;
-  entry_type: 'regular' | 'feo';  // ✅ ADDED
+  entry_type: 'regular' | 'feo'; // ✅ ADDED
   // Scent fields
   scent1: string;
   scent2: string;
@@ -48,7 +48,9 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [scoreSheetType, setScoreSheetType] = useState<'scent' | 'rally_obedience' | 'games'>('scent');
+  const [scoreSheetType, setScoreSheetType] = useState<'scent' | 'rally_obedience' | 'games'>(
+    'scent'
+  );
 
   useEffect(() => {
     loadEntries();
@@ -57,14 +59,24 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
   useEffect(() => {
     // Determine score sheet type based on class type
     if (!selectedClass) return;
-    
+
     const className = selectedClass.class_name?.toLowerCase() || '';
     const classType = selectedClass.class_type?.toLowerCase() || '';
-    
-    if (classType === 'scent' || className.includes('patrol') || className.includes('detective') || 
-        className.includes('investigator') || className.includes('sleuth') || className.includes('private')) {
+
+    if (
+      classType === 'scent' ||
+      className.includes('patrol') ||
+      className.includes('detective') ||
+      className.includes('investigator') ||
+      className.includes('sleuth') ||
+      className.includes('private')
+    ) {
       setScoreSheetType('scent');
-    } else if (classType === 'rally' || className.includes('rally') || className.includes('obedience')) {
+    } else if (
+      classType === 'rally' ||
+      className.includes('rally') ||
+      className.includes('obedience')
+    ) {
       setScoreSheetType('rally_obedience');
     } else if (classType === 'games' || className.includes('games')) {
       setScoreSheetType('games');
@@ -90,32 +102,33 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           // ✅ Handle compound IDs for Games classes
           let baseRoundId = selectedClass.id;
           let targetSubclass = selectedClass.games_subclass;
-          
+
           if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
             const parts = selectedClass.id.split('-');
             const lastPart = parts[parts.length - 1];
-            
+
             if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
               baseRoundId = parts.slice(0, -1).join('-');
               targetSubclass = lastPart;
             }
           }
-          
+
           // Check if round ID matches
-          const roundMatches = selection.trial_round_id === selectedClass.id || 
-                              selection.trial_round_id === baseRoundId;
-          
+          const roundMatches =
+            selection.trial_round_id === selectedClass.id ||
+            selection.trial_round_id === baseRoundId;
+
           // For Games classes, also check subclass matches
           let subclassMatches = true;
           if (selectedClass.class_type === 'games' && targetSubclass) {
             subclassMatches = selection.games_subclass === targetSubclass;
           }
-          
+
           if (roundMatches && subclassMatches && selection.entry_status !== 'withdrawn') {
-            const scoresArray = Array.isArray(selection.scores) 
-              ? selection.scores 
-              : selection.scores 
-                ? [selection.scores] 
+            const scoresArray = Array.isArray(selection.scores)
+              ? selection.scores
+              : selection.scores
+                ? [selection.scores]
                 : [];
 
             const score = scoresArray[0] || {};
@@ -138,20 +151,22 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
               dogName,
               handlerName,
               division: selection.division || null,
-              entry_type: selection.entry_type || 'regular',  // ✅ ADDED
+              entry_type: selection.entry_type || 'regular', // ✅ ADDED
               scent1: score.scent1 ?? '',
               scent2: score.scent2 ?? '',
               scent3: score.scent3 ?? '',
               scent4: score.scent4 ?? '',
               fault1: score.fault1 ?? '',
               fault2: score.fault2 ?? '',
-              time_seconds: score.time_seconds !== null && score.time_seconds !== undefined
-                ? String(score.time_seconds)
-                : '',
-              numerical_score: score.numerical_score !== null && score.numerical_score !== undefined
-                ? String(score.numerical_score)
-                : '',
-              pass_fail: passFail,  // ✅ AUTO-FILLED FOR FEO
+              time_seconds:
+                score.time_seconds !== null && score.time_seconds !== undefined
+                  ? String(score.time_seconds)
+                  : '',
+              numerical_score:
+                score.numerical_score !== null && score.numerical_score !== undefined
+                  ? String(score.numerical_score)
+                  : '',
+              pass_fail: passFail, // ✅ AUTO-FILLED FOR FEO
             });
           }
         });
@@ -168,22 +183,24 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
   };
 
   const updateEntry = (index: number, field: keyof EntryScore, value: string) => {
-    setEntries(prev => {
+    setEntries((prev) => {
       const updated = [...prev];
       const entry = updated[index];
-      
+
       // ✅ PREVENT EDITING FEO PASS/FAIL
       if (entry.entry_type === 'feo' && field === 'pass_fail') {
         return prev; // Don't allow changes to FEO pass_fail
       }
-      
+
       updated[index] = { ...entry, [field]: value };
-      
+
       // Auto-calculate pass/fail for rally/obedience
       if (scoreSheetType === 'rally_obedience' && field === 'numerical_score') {
         const numScore = parseFloat(value);
-        const passingScore = selectedClass.class_name?.toLowerCase().includes('obedience 5') ? 120 : 70;
-        
+        const passingScore = selectedClass.class_name?.toLowerCase().includes('obedience 5')
+          ? 120
+          : 70;
+
         if (!isNaN(numScore)) {
           // ✅ FEO ENTRIES ALWAYS GET "FEO"
           if (entry.entry_type === 'feo') {
@@ -193,7 +210,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           }
         }
       }
-      
+
       return updated;
     });
     setSaved(false);
@@ -214,15 +231,17 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             scent4: entry.scent4 || null,
             fault1: entry.fault1 || null,
             fault2: entry.fault2 || null,
-            time_seconds: entry.time_seconds && !isNaN(parseFloat(entry.time_seconds)) 
-              ? parseFloat(entry.time_seconds) 
-              : null,
+            time_seconds:
+              entry.time_seconds && !isNaN(parseFloat(entry.time_seconds))
+                ? parseFloat(entry.time_seconds)
+                : null,
             pass_fail: entry.pass_fail || null,
           };
         } else if (scoreSheetType === 'rally_obedience') {
-          const numScore = entry.numerical_score && !isNaN(parseFloat(entry.numerical_score))
-            ? parseFloat(entry.numerical_score)
-            : null;
+          const numScore =
+            entry.numerical_score && !isNaN(parseFloat(entry.numerical_score))
+              ? parseFloat(entry.numerical_score)
+              : null;
           scoreData = {
             numerical_score: numScore,
             pass_fail: entry.pass_fail || null,
@@ -239,11 +258,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
         // Extract base round ID for Games classes with compound IDs
         let roundIdForScore = selectedClass.id;
-        
+
         if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
           const parts = selectedClass.id.split('-');
           const lastPart = parts[parts.length - 1];
-          
+
           if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
             roundIdForScore = parts.slice(0, -1).join('-');
           }
@@ -262,14 +281,13 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
       setSaved(true);
       alert('All scores saved successfully!');
-      
+
       await loadEntries();
 
       // Trigger reload of parent component
       if (window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('scoresUpdated'));
       }
-      
     } catch (error) {
       console.error('Error saving scores:', error);
       alert('Failed to save scores. Please try again.');
@@ -294,14 +312,17 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           )}
 
           <h2 className="text-xl font-bold mb-6">
-  {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge: {selectedClass?.judge_name}
-</h2>
+            {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge:{' '}
+            {selectedClass?.judge_name}
+          </h2>
 
-<p className="text-sm text-black-600 mb-5 italic">
-  The boxes for Scents, faults and time are provided for those who like to record everything — the only field we <strong>need</strong> filled in is <strong>Pass/Fail</strong>.
-</p>
+          <p className="text-sm text-black-600 mb-5 italic">
+            The boxes for Scents, faults and time are provided for those who like to record
+            everything — the only field we <strong>need</strong> filled in is{' '}
+            <strong>Pass/Fail</strong>.
+          </p>
 
-<div className="border border-gray-300 overflow-x-auto">
+          <div className="border border-gray-300 overflow-x-auto">
             {scoreSheetType === 'scent' && (
               <table className="w-full">
                 <thead className="bg-orange-300">
@@ -320,8 +341,8 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => (
-                    <tr 
-                      key={entry.id} 
+                    <tr
+                      key={entry.id}
                       className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
                         entry.entry_type === 'feo' ? 'opacity-75' : ''
                       }`}
@@ -333,13 +354,19 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                             <div className="font-semibold flex items-center gap-2">
                               {entry.dogName}
                               {entry.division && (
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                  entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
-                                  entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
-                                  entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
-                                  entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
-                                  'bg-gray-100 text-gray-700'
-                                }`}>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                    entry.division === 'A'
+                                      ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                      : entry.division === 'B'
+                                        ? 'bg-green-100 text-green-700 border border-green-300'
+                                        : entry.division === 'TO'
+                                          ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                          : entry.division === 'JR'
+                                            ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                            : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                >
                                   {entry.division}
                                 </span>
                               )}
@@ -354,11 +381,13 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           </div>
                         </div>
                       </td>
-                      {(['scent1', 'scent2', 'scent3', 'scent4'] as const).map(field => (
+                      {(['scent1', 'scent2', 'scent3', 'scent4'] as const).map((field) => (
                         <td className="border p-1 w-20" key={field}>
                           <Select
                             value={entry[field] || '-'}
-                            onValueChange={value => updateEntry(idx, field, value === '-' ? '' : value)}
+                            onValueChange={(value) =>
+                              updateEntry(idx, field, value === '-' ? '' : value)
+                            }
                             disabled={entry.entry_type === 'feo'}
                           >
                             <SelectTrigger className="h-8 bg-white">
@@ -372,11 +401,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           </Select>
                         </td>
                       ))}
-                      {(['fault1', 'fault2'] as const).map(field => (
+                      {(['fault1', 'fault2'] as const).map((field) => (
                         <td className="border p-1 w-40" key={field}>
                           <Input
                             value={entry[field]}
-                            onChange={e => updateEntry(idx, field, e.target.value)}
+                            onChange={(e) => updateEntry(idx, field, e.target.value)}
                             className="w-full h-8 text-center text-sm"
                             disabled={entry.entry_type === 'feo'}
                           />
@@ -385,7 +414,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                       <td className="border p-1 w-24">
                         <Input
                           value={entry.time_seconds}
-                          onChange={e => updateEntry(idx, 'time_seconds', e.target.value)}
+                          onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
                           type="number"
                           step="0.01"
                           className="w-full h-8 text-center text-sm"
@@ -396,7 +425,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                       <td className="border p-1 w-24">
                         <Select
                           value={entry.pass_fail || ''}
-                          onValueChange={value => updateEntry(idx, 'pass_fail', value)}
+                          onValueChange={(value) => updateEntry(idx, 'pass_fail', value)}
                           disabled={entry.entry_type === 'feo'}
                         >
                           <SelectTrigger className="h-8 bg-white">
@@ -426,8 +455,8 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => (
-                    <tr 
-                      key={entry.id} 
+                    <tr
+                      key={entry.id}
                       className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
                         entry.entry_type === 'feo' ? 'opacity-75' : ''
                       }`}
@@ -437,13 +466,19 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                         <div className="font-semibold flex items-center gap-2">
                           {entry.dogName}
                           {entry.division && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
-                              entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
-                              entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
-                              entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                entry.division === 'A'
+                                  ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                  : entry.division === 'B'
+                                    ? 'bg-green-100 text-green-700 border border-green-300'
+                                    : entry.division === 'TO'
+                                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                      : entry.division === 'JR'
+                                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                        : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
                               {entry.division}
                             </span>
                           )}
@@ -459,12 +494,24 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                       <td className="border p-1 w-32">
                         <Input
                           value={entry.numerical_score}
-                          onChange={e => updateEntry(idx, 'numerical_score', e.target.value)}
+                          onChange={(e) => updateEntry(idx, 'numerical_score', e.target.value)}
                           type="number"
-                          min={selectedClass.class_name?.toLowerCase().includes('obedience 5') ? 120 : 70}
-                          max={selectedClass.class_name?.toLowerCase().includes('obedience 5') ? 150 : 100}
+                          min={
+                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                              ? 120
+                              : 70
+                          }
+                          max={
+                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                              ? 150
+                              : 100
+                          }
                           className="w-full h-8 text-center text-sm"
-                          placeholder={selectedClass.class_name?.toLowerCase().includes('obedience 5') ? '120-150' : '70-100'}
+                          placeholder={
+                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                              ? '120-150'
+                              : '70-100'
+                          }
                           disabled={entry.entry_type === 'feo'}
                         />
                       </td>
@@ -490,8 +537,8 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 </thead>
                 <tbody>
                   {entries.map((entry, idx) => (
-                    <tr 
-                      key={entry.id} 
+                    <tr
+                      key={entry.id}
                       className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
                         entry.entry_type === 'feo' ? 'opacity-75' : ''
                       }`}
@@ -501,13 +548,19 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                         <div className="font-semibold flex items-center gap-2">
                           {entry.dogName}
                           {entry.division && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              entry.division === 'A' ? 'bg-orange-100 text-orange-700 border border-orange-300' :
-                              entry.division === 'B' ? 'bg-green-100 text-green-700 border border-green-300' :
-                              entry.division === 'TO' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
-                              entry.division === 'JR' ? 'bg-blue-100 text-blue-700 border border-blue-300' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                entry.division === 'A'
+                                  ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                  : entry.division === 'B'
+                                    ? 'bg-green-100 text-green-700 border border-green-300'
+                                    : entry.division === 'TO'
+                                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                      : entry.division === 'JR'
+                                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                        : 'bg-gray-100 text-gray-700'
+                              }`}
+                            >
                               {entry.division}
                             </span>
                           )}
@@ -523,7 +576,9 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                       <td className="border p-1 w-32">
                         <Select
                           value={entry.pass_fail || 'none'}
-                          onValueChange={value => updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)}
+                          onValueChange={(value) =>
+                            updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)
+                          }
                           disabled={entry.entry_type === 'feo'}
                         >
                           <SelectTrigger className="h-8 bg-white">

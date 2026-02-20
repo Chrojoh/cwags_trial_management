@@ -1,7 +1,7 @@
 // src/lib/titleRequirements.ts
 // ============================================================
 // C-WAGS Title Requirements Configuration
-// 
+//
 // This file defines all title requirements for the organization.
 // Easy to extend when new classes or title types are introduced.
 // ============================================================
@@ -10,27 +10,27 @@
 // Standard Title Requirements (Most Classes)
 // ============================================================
 export interface StandardTitleRequirements {
-  minQs: number;           // Minimum qualifying scores needed
-  minJudges: number;       // Minimum different judges needed
-  minGames?: number;       // For Games classes only: minimum game types
+  minQs: number; // Minimum qualifying scores needed
+  minJudges: number; // Minimum different judges needed
+  minGames?: number; // For Games classes only: minimum game types
 }
 
 export const STANDARD_TITLE: StandardTitleRequirements = {
   minQs: 4,
-  minJudges: 2
+  minJudges: 2,
 };
 
 export const GAMES_TITLE: StandardTitleRequirements = {
   minQs: 4,
   minJudges: 2,
-  minGames: 2  // Must qualify in 2 different game types
+  minGames: 2, // Must qualify in 2 different game types
 };
 
 // ============================================================
 // Ace Requirements (All Classes)
 // ============================================================
 export const ACE_REQUIREMENT = {
-  qsAfterTitle: 10  // 10 Q's after earning title = 1 Ace
+  qsAfterTitle: 10, // 10 Q's after earning title = 1 Ace
 };
 
 // ============================================================
@@ -42,7 +42,7 @@ export interface MasterTitleRequirement {
   abbreviation: string;
   description: string;
   requiredAces: Array<{
-    classes: string[];      // List of class names
+    classes: string[]; // List of class names
     operator: 'AND' | 'OR'; // How to combine them
     description: string;
   }>;
@@ -58,19 +58,19 @@ export const MASTER_TITLES: MasterTitleRequirement[] = [
       {
         classes: ['Super Sleuth 4'],
         operator: 'AND',
-        description: 'Ace in Super Sleuth 4'
+        description: 'Ace in Super Sleuth 4',
       },
       {
         classes: ['Ranger 4'],
         operator: 'AND',
-        description: 'Ace in Ranger 4'
+        description: 'Ace in Ranger 4',
       },
       {
         classes: ['Dasher 4'],
         operator: 'AND',
-        description: 'Ace in Dasher 4'
-      }
-    ]
+        description: 'Ace in Dasher 4',
+      },
+    ],
   },
   {
     id: 'master_scent_level_5',
@@ -81,19 +81,19 @@ export const MASTER_TITLES: MasterTitleRequirement[] = [
       {
         classes: ['Private Inv', 'Det Diversions'],
         operator: 'OR',
-        description: 'Ace in Private Inv OR Det Diversions'
+        description: 'Ace in Private Inv OR Det Diversions',
       },
       {
         classes: ['Ranger 5'],
         operator: 'AND',
-        description: 'Ace in Ranger 5'
+        description: 'Ace in Ranger 5',
       },
       {
         classes: ['Dasher 5'],
         operator: 'AND',
-        description: 'Ace in Dasher 5'
-      }
-    ]
+        description: 'Ace in Dasher 5',
+      },
+    ],
   },
   {
     id: 'grand_master_scent',
@@ -117,13 +117,13 @@ export const MASTER_TITLES: MasterTitleRequirement[] = [
           'Dasher 3',
           'Dasher 4',
           'Dasher 5',
-          'Dasher 6'
+          'Dasher 6',
         ],
         operator: 'AND',
-        description: 'Ace in ALL scent classes'
-      }
-    ]
-  }
+        description: 'Ace in ALL scent classes',
+      },
+    ],
+  },
 ];
 
 // ============================================================
@@ -137,41 +137,41 @@ export const CLASS_TITLE_MAP: Record<string, string> = {
   'Super Sleuth 4': 'CW-SS',
   'Private Inv': 'CW-SPI',
   'Det Diversions': 'CW-SDD',
-  
+
   // Ranger titles
   'Ranger 1': 'CW-ScR1',
   'Ranger 2': 'CW-ScR2',
   'Ranger 3': 'CW-ScR3',
   'Ranger 4': 'CW-ScR4',
   'Ranger 5': 'CW-ScR5',
-  
+
   // Dasher titles
   'Dasher 3': 'CW-SD3',
   'Dasher 4': 'CW-SD4',
   'Dasher 5': 'CW-SD5',
   'Dasher 6': 'CW-SD6',
-  
+
   // Obedience titles
   'Obedience 1': 'CW-Ob1',
   'Obedience 2': 'CW-Ob2',
   'Obedience 3': 'CW-Ob3',
   'Obedience 4': 'CW-Ob4',
   'Obedience 5': 'CW-Ob5',
-  
+
   // Rally titles
-  'Starter': 'CW-SR',
-  'Advanced': 'CW-AR',
-  'Pro': 'CW-PR',
-  'ARF': 'CW-ARF',
+  Starter: 'CW-SR',
+  Advanced: 'CW-AR',
+  Pro: 'CW-PR',
+  ARF: 'CW-ARF',
   'Zoom 1': 'CW-ZR1',
   'Zoom 1.5': 'CW-ZR1.5',
   'Zoom 2': 'CW-ZR2',
-  
+
   // Games titles
   'Games 1': 'CW-G1',
   'Games 2': 'CW-G2',
   'Games 3': 'CW-G3',
-  'Games 4': 'CW-G4'
+  'Games 4': 'CW-G4',
 };
 
 // ============================================================
@@ -198,9 +198,9 @@ export function getTitleAbbreviation(className: string): string {
 // ============================================================
 // EXTENSION GUIDE FOR FUTURE CLASSES
 // ============================================================
-// 
+//
 // To add a new class/title type:
-// 
+//
 // 1. Add to CLASS_TITLE_MAP:
 //    'New Class Name': 'CW-ABC'
 //

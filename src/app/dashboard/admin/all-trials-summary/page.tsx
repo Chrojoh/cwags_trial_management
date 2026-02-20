@@ -12,7 +12,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import {
@@ -22,14 +28,14 @@ import {
   AlertCircle,
   Trophy,
   TrendingUp,
-  X
+  X,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface ClassAggregate {
   class_name: string;
   class_type: string;
-  regular_runs: number;  // Only regular, non-FEO, non-ABS runs
+  regular_runs: number; // Only regular, non-FEO, non-ABS runs
   pass_count: number;
   pass_rate: number;
 }
@@ -69,9 +75,7 @@ export default function AllTrialsSummaryPage() {
   const loadClubsList = async () => {
     try {
       // Get all unique clubs with trial counts
-      const { data: trials, error } = await supabase
-        .from('trials')
-        .select('club_name');
+      const { data: trials, error } = await supabase.from('trials').select('club_name');
 
       if (error) throw error;
 
@@ -90,7 +94,6 @@ export default function AllTrialsSummaryPage() {
 
       setClubs(clubsList);
       console.log(`Loaded ${clubsList.length} clubs`);
-
     } catch (err) {
       console.error('Error loading clubs list:', err);
     }
@@ -116,20 +119,22 @@ export default function AllTrialsSummaryPage() {
           .from('scores')
           .select('*')
           .range(from, from + pageSize - 1);
-        
+
         if (error) {
           console.error('Error loading scores:', error);
           throw error;
         }
-        
+
         if (!data || data.length === 0) {
           hasMore = false;
           break;
         }
-        
+
         allScores = [...allScores, ...data];
-        console.log(`  ✓ Batch ${Math.floor(from / pageSize) + 1}: loaded ${data.length} scores (total: ${allScores.length})`);
-        
+        console.log(
+          `  ✓ Batch ${Math.floor(from / pageSize) + 1}: loaded ${data.length} scores (total: ${allScores.length})`
+        );
+
         hasMore = data.length === pageSize;
         from += pageSize;
       }
@@ -138,14 +143,12 @@ export default function AllTrialsSummaryPage() {
 
       // Build scores map
       const scoresMap = new Map();
-      allScores.forEach(score => {
+      allScores.forEach((score) => {
         scoresMap.set(score.entry_selection_id, score);
       });
 
       // STEP 2: Load classes with rounds and entries
-      let query = supabase
-        .from('trial_classes')
-        .select(`
+      let query = supabase.from('trial_classes').select(`
           id,
           class_name,
           class_type,
@@ -175,23 +178,25 @@ export default function AllTrialsSummaryPage() {
         throw classError;
       }
 
-      const filterMessage = selectedClub !== 'all' 
-        ? ` (filtered to club: ${selectedClub})`
-        : ' (all clubs)';
-      
+      const filterMessage =
+        selectedClub !== 'all' ? ` (filtered to club: ${selectedClub})` : ' (all clubs)';
+
       console.log(`\n=== ALL TRIALS SUMMARY DEBUG${filterMessage} ===`);
       console.log(`Total classes loaded: ${allClasses?.length || 0}`);
 
       // Group by class name (normalized)
-      const classGroups: Record<string, {
-        class_name: string;
-        class_type: string;
-        runs: Array<{
-          selection_id: string;
-          entry_type: string;
-          entry_status: string;
-        }>;
-      }> = {};
+      const classGroups: Record<
+        string,
+        {
+          class_name: string;
+          class_type: string;
+          runs: Array<{
+            selection_id: string;
+            entry_type: string;
+            entry_status: string;
+          }>;
+        }
+      > = {};
 
       (allClasses || []).forEach((cls: any) => {
         const className = cls.class_name;
@@ -201,7 +206,7 @@ export default function AllTrialsSummaryPage() {
           classGroups[className] = {
             class_name: className,
             class_type: cls.class_type || 'unknown',
-            runs: []
+            runs: [],
           };
         }
 
@@ -214,7 +219,7 @@ export default function AllTrialsSummaryPage() {
             classGroups[className].runs.push({
               selection_id: selection.id,
               entry_type: selection.entry_type || 'regular',
-              entry_status: selection.entry_status || 'entered'
+              entry_status: selection.entry_status || 'entered',
             });
           });
         });
@@ -223,28 +228,28 @@ export default function AllTrialsSummaryPage() {
       console.log(`Grouped into ${Object.keys(classGroups).length} unique classes`);
 
       // Calculate aggregates for each class using the scores map
-      const aggregates: ClassAggregate[] = Object.values(classGroups).map(group => {
+      const aggregates: ClassAggregate[] = Object.values(classGroups).map((group) => {
         // Filter for REGULAR runs only (exclude FEO)
-        const regularRuns = group.runs.filter(r => 
-          r.entry_type?.toLowerCase() === 'regular'
-        );
+        const regularRuns = group.runs.filter((r) => r.entry_type?.toLowerCase() === 'regular');
 
         // ✅ ONLY count SCORED runs (that have a score entered)
         // Exclude runs without scores AND exclude ABS
-        const scoredRegularRuns = regularRuns.filter(r => {
+        const scoredRegularRuns = regularRuns.filter((r) => {
           const score = scoresMap.get(r.selection_id);
           // Must have a score
           if (!score) return false;
           // Exclude ABS (absent)
           if (score.entry_status?.toUpperCase() === 'ABS') return false;
           // Must have a result: Pass/Fail/NQ OR numerical_score OR games results
-          return score.pass_fail || score.numerical_score !== null || score.numerical_score !== undefined;
+          return (
+            score.pass_fail || score.numerical_score !== null || score.numerical_score !== undefined
+          );
         });
 
         const regularRunCount = scoredRegularRuns.length;
-        
+
         // Count passes from the scored runs
-        const passCount = scoredRegularRuns.filter(r => {
+        const passCount = scoredRegularRuns.filter((r) => {
           const score = scoresMap.get(r.selection_id);
           return score?.pass_fail === 'Pass';
         }).length;
@@ -257,7 +262,7 @@ export default function AllTrialsSummaryPage() {
           class_type: group.class_type,
           regular_runs: regularRunCount,
           pass_count: passCount,
-          pass_rate: passRate
+          pass_rate: passRate,
         };
       });
 
@@ -272,7 +277,7 @@ export default function AllTrialsSummaryPage() {
         total_classes: aggregates.length,
         total_regular_runs: totalRegularRuns,
         total_passes: totalPasses,
-        overall_pass_rate: totalRegularRuns > 0 ? (totalPasses / totalRegularRuns) * 100 : 0
+        overall_pass_rate: totalRegularRuns > 0 ? (totalPasses / totalRegularRuns) * 100 : 0,
       };
 
       setClassData(aggregates);
@@ -282,7 +287,6 @@ export default function AllTrialsSummaryPage() {
       console.log(`Total classes: ${overall.total_classes}`);
       console.log(`Total runs: ${overall.total_regular_runs}`);
       console.log(`Overall pass rate: ${overall.overall_pass_rate.toFixed(1)}%`);
-
     } catch (err) {
       console.error('Error loading all trials data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -293,11 +297,11 @@ export default function AllTrialsSummaryPage() {
 
   const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(
-      classData.map(cls => ({
+      classData.map((cls) => ({
         'Class Name': cls.class_name,
         'Total Runs': cls.regular_runs,
-        'Passes': cls.pass_count,
-        'Pass Rate': `${cls.pass_rate.toFixed(1)}%`
+        Passes: cls.pass_count,
+        'Pass Rate': `${cls.pass_rate.toFixed(1)}%`,
       }))
     );
 
@@ -305,9 +309,8 @@ export default function AllTrialsSummaryPage() {
     XLSX.utils.book_append_sheet(wb, ws, 'Class Summary');
 
     const date = new Date().toISOString().split('T')[0];
-    const clubSuffix = selectedClub !== 'all' 
-      ? `_${selectedClub.replace(/[^a-zA-Z0-9]/g, '_')}` 
-      : '';
+    const clubSuffix =
+      selectedClub !== 'all' ? `_${selectedClub.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
     XLSX.writeFile(wb, `All_Trials_Class_Summary${clubSuffix}_${date}.xlsx`);
   };
 
@@ -338,7 +341,9 @@ export default function AllTrialsSummaryPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">All Trials Summary</h1>
-          <p className="text-gray-600">Aggregate statistics and dog performance across all trials</p>
+          <p className="text-gray-600">
+            Aggregate statistics and dog performance across all trials
+          </p>
         </div>
 
         {/* 🆕 TAB NAVIGATION */}
@@ -352,10 +357,7 @@ export default function AllTrialsSummaryPage() {
           <TabsContent value="summary" className="space-y-6">
             {/* Export Button */}
             <div className="flex justify-end">
-              <Button
-                onClick={exportToExcel}
-                className="bg-green-600 hover:bg-green-700"
-              >
+              <Button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Export to Excel
               </Button>
@@ -439,9 +441,8 @@ export default function AllTrialsSummaryPage() {
                   <span>All Classes Summary</span>
                 </CardTitle>
                 <CardDescription>
-                  Classes ordered by C-WAGS standard progression • {selectedClub === 'all' 
-                    ? 'All clubs' 
-                    : selectedClub}
+                  Classes ordered by C-WAGS standard progression •{' '}
+                  {selectedClub === 'all' ? 'All clubs' : selectedClub}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -485,8 +486,8 @@ export default function AllTrialsSummaryPage() {
                                   cls.pass_rate >= 80
                                     ? 'text-green-600'
                                     : cls.pass_rate >= 60
-                                    ? 'text-yellow-600'
-                                    : 'text-red-600'
+                                      ? 'text-yellow-600'
+                                      : 'text-red-600'
                                 }`}
                               >
                                 {cls.pass_rate.toFixed(1)}%
@@ -496,9 +497,11 @@ export default function AllTrialsSummaryPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedClassForStats(
-                                  selectedClassForStats === index ? null : index
-                                )}
+                                onClick={() =>
+                                  setSelectedClassForStats(
+                                    selectedClassForStats === index ? null : index
+                                  )
+                                }
                                 className="text-xs"
                               >
                                 {selectedClassForStats === index ? (
@@ -536,9 +539,7 @@ export default function AllTrialsSummaryPage() {
                 </div>
 
                 {classData.length === 0 && (
-                  <p className="text-center text-gray-500 py-8">
-                    No class data available
-                  </p>
+                  <p className="text-center text-gray-500 py-8">No class data available</p>
                 )}
               </CardContent>
             </Card>
@@ -553,7 +554,3 @@ export default function AllTrialsSummaryPage() {
     </MainLayout>
   );
 }
-
-
-
-

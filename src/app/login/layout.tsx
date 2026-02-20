@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

@@ -1,23 +1,16 @@
-
 //src/components/ui/mobileNavigation.tsx
-
 
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  Home, 
-  Calendar, 
-  Users, 
-  Settings, 
+import {
+  Home,
+  Calendar,
   Database,
   Trophy,
-  ClipboardList,
-  BarChart3,
-  Menu,
-  X
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,26 +39,20 @@ const navigation: NavigationItem[] = [
   },
   {
     name: 'Trials',
-    href: '/dashboard/trials',  // ✅ FIXED
+    href: '/dashboard/trials', // ✅ FIXED
     icon: Calendar,
     roles: ['administrator', 'trial_secretary'],
   },
   {
     name: 'Registry',
-    href: '/dashboard/admin/registry',  // ✅ FIXED
+    href: '/dashboard/admin/registry', // ✅ FIXED
     icon: Database,
     roles: ['administrator'],
   },
   {
     name: 'Judges',
-    href: '/dashboard/admin/judges',  // ✅ FIXED
+    href: '/dashboard/judges',
     icon: Trophy,
-    roles: ['administrator'],
-  },
-  {
-    name: 'Users',
-    href: '/dashboard/admin/users',  // ✅ FIXED
-    icon: Users,
     roles: ['administrator'],
   },
 ];
@@ -73,7 +60,7 @@ const navigation: NavigationItem[] = [
 export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
   const pathname = usePathname();
   const { user } = useAuth();
-  
+
   // ✅ ADDED: Swipe-to-close functionality
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
@@ -117,8 +104,8 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
   }
 
   // Filter navigation items based on user role
-  const filteredNavigation = navigation.filter(item => 
-    user && user.role && item.roles.includes(user.role)
+  const filteredNavigation = navigation.filter(
+    (item) => user && user.role && item.roles.includes(user.role)
   );
 
   if (!isOpen) return null;
@@ -126,13 +113,10 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={onClose} />
 
       {/* Slide-out menu with swipe support */}
-      <div 
+      <div
         className="fixed top-0 left-0 bottom-0 w-64 sm:w-80 bg-white shadow-xl transform transition-transform"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -149,12 +133,7 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
               <p className="text-xs text-gray-500">Trial Management</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="min-h-[44px] min-w-[44px]"
-          >
+          <Button variant="ghost" size="sm" onClick={onClose} className="min-h-[44px] min-w-[44px]">
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -164,16 +143,16 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
           <ul className="space-y-1">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-              
+
               return (
                 <li key={item.name}>
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors min-h-[44px]",
+                      'flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors min-h-[44px]',
                       isActive
-                        ? "bg-orange-50 text-orange-700 border-l-4 border-orange-700"
-                        : "text-gray-700 hover:bg-gray-100"
+                        ? 'bg-orange-50 text-orange-700 border-l-4 border-orange-700'
+                        : 'text-gray-700 hover:bg-gray-100'
                     )}
                     onClick={onClose}
                   >
@@ -201,9 +180,7 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
               <p className="text-gray-600 capitalize text-xs sm:text-sm">
                 {user.role?.replace('_', ' ')}
               </p>
-              {user.club_name && (
-                <p className="text-gray-500 text-xs">{user.club_name}</p>
-              )}
+              {user.club_name && <p className="text-gray-500 text-xs">{user.club_name}</p>}
             </div>
           </div>
         )}

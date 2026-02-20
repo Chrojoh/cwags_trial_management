@@ -31,7 +31,7 @@ export async function logEntrySubmitted(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     // Create comprehensive snapshot of what was submitted
     const snapshot = {
       handler_name: entryData.handler_name,
@@ -41,7 +41,7 @@ export async function logEntrySubmitted(
       handler_phone: entryData.handler_phone,
       total_fee: entryData.total_fee,
       class_count: classes.length,
-      classes: classes.map(c => ({
+      classes: classes.map((c) => ({
         name: c.class_name || 'Unknown Class',
         round: c.round || 1,
         fee: c.fee || 0,
@@ -49,18 +49,18 @@ export async function logEntrySubmitted(
         entry_type: c.entry_type || 'regular',
         day_number: c.day_number || null,
         trial_date: c.trial_date || null,
-        jump_height: c.jump_height || null
-      }))
+        jump_height: c.jump_height || null,
+      })),
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'entry_submitted',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: entryData.handler_name
+      user_name: entryData.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log entry submission:', error);
     } else {
@@ -92,7 +92,7 @@ export async function logEntryModified(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     // Create comprehensive snapshot showing what changed
     const snapshot = {
       handler_name: beforeSnapshot.handler_name,
@@ -100,27 +100,27 @@ export async function logEntryModified(
       before: {
         class_count: beforeSnapshot.class_count,
         total_fee: beforeSnapshot.total_fee,
-        classes: beforeSnapshot.classes
+        classes: beforeSnapshot.classes,
       },
       after: {
         class_count: afterSnapshot.class_count,
         total_fee: afterSnapshot.total_fee,
-        classes: afterSnapshot.classes
+        classes: afterSnapshot.classes,
       },
       change: {
         class_count_delta: afterSnapshot.class_count - beforeSnapshot.class_count,
-        fee_delta: afterSnapshot.total_fee - beforeSnapshot.total_fee
-      }
+        fee_delta: afterSnapshot.total_fee - beforeSnapshot.total_fee,
+      },
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'entry_modified',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: beforeSnapshot.handler_name
+      user_name: beforeSnapshot.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log entry modification:', error);
     } else {
@@ -154,45 +154,43 @@ export async function logSubstitution(
 ): Promise<void> {
   try {
     const supabase = getSupabaseBrowser();
-    
-    // Log substitution to trial_activity_log
-    const { error } = await supabase
-      .from('trial_activity_log')
-      .insert({
-        trial_id: trialId,
-        activity_type: 'dog_substituted',
-        entry_id: substitutionData.original_entry_id,
-        snapshot_data: {
-          original: {
-            dog_call_name: substitutionData.original_dog_name,
-            handler_name: substitutionData.original_handler_name,
-            cwags_number: substitutionData.original_cwags,
-            entry_id: substitutionData.original_entry_id
-          },
-          substitute: {
-            dog_call_name: substitutionData.substitute_dog_name,
-            handler_name: substitutionData.substitute_handler_name,
-            cwags_number: substitutionData.substitute_cwags,
-            entry_id: substitutionData.substitute_entry_id
-          },
-          class_details: {
-            class_name: substitutionData.class_name,
-            round: substitutionData.round_number,
-            running_position: substitutionData.running_position,
-            day_number: substitutionData.day_number,
-            trial_date: substitutionData.trial_date
-          },
-          timestamp: new Date().toISOString()
-        },
-        user_name: substitutionData.original_handler_name
-      });
 
-   if (error) {
-  console.error('Error logging substitution:', error);
-  // Don't throw - allow the substitution to complete even if logging fails
-} else {
-  console.log('✅ Logged substitution to journal');
-}
+    // Log substitution to trial_activity_log
+    const { error } = await supabase.from('trial_activity_log').insert({
+      trial_id: trialId,
+      activity_type: 'dog_substituted',
+      entry_id: substitutionData.original_entry_id,
+      snapshot_data: {
+        original: {
+          dog_call_name: substitutionData.original_dog_name,
+          handler_name: substitutionData.original_handler_name,
+          cwags_number: substitutionData.original_cwags,
+          entry_id: substitutionData.original_entry_id,
+        },
+        substitute: {
+          dog_call_name: substitutionData.substitute_dog_name,
+          handler_name: substitutionData.substitute_handler_name,
+          cwags_number: substitutionData.substitute_cwags,
+          entry_id: substitutionData.substitute_entry_id,
+        },
+        class_details: {
+          class_name: substitutionData.class_name,
+          round: substitutionData.round_number,
+          running_position: substitutionData.running_position,
+          day_number: substitutionData.day_number,
+          trial_date: substitutionData.trial_date,
+        },
+        timestamp: new Date().toISOString(),
+      },
+      user_name: substitutionData.original_handler_name,
+    });
+
+    if (error) {
+      console.error('Error logging substitution:', error);
+      // Don't throw - allow the substitution to complete even if logging fails
+    } else {
+      console.log('✅ Logged substitution to journal');
+    }
   } catch (error) {
     console.error('Failed to log substitution:', error);
     // Don't throw - don't fail substitution if logging fails
@@ -219,7 +217,7 @@ export async function logPaymentReceived(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     // Create comprehensive snapshot of payment transaction
     const snapshot = {
       handler_name: entryInfo.handler_name,
@@ -229,24 +227,24 @@ export async function logPaymentReceived(
         method: paymentData.payment_method,
         received_by: paymentData.payment_received_by || 'Unknown',
         payment_date: paymentData.payment_date,
-        notes: paymentData.notes || null
+        notes: paymentData.notes || null,
       },
       financial_status: {
         amount_owed: entryInfo.amount_owed,
         amount_paid_before: entryInfo.amount_paid_before,
         amount_paid_after: entryInfo.amount_paid_after,
-        remaining_balance: entryInfo.amount_owed - entryInfo.amount_paid_after
-      }
+        remaining_balance: entryInfo.amount_owed - entryInfo.amount_paid_after,
+      },
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'payment_received',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: entryInfo.handler_name
+      user_name: entryInfo.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log payment:', error);
     } else {
@@ -280,7 +278,7 @@ export async function logPaymentEdited(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     const snapshot = {
       handler_name: entryInfo.handler_name,
       dog_call_name: entryInfo.dog_call_name,
@@ -289,18 +287,18 @@ export async function logPaymentEdited(
       changes: {
         amount_changed: beforePayment.amount !== afterPayment.amount,
         method_changed: beforePayment.payment_method !== afterPayment.payment_method,
-        date_changed: beforePayment.payment_date !== afterPayment.payment_date
-      }
+        date_changed: beforePayment.payment_date !== afterPayment.payment_date,
+      },
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'payment_edited',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: entryInfo.handler_name
+      user_name: entryInfo.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log payment edit:', error);
     } else {
@@ -334,7 +332,7 @@ export async function logRefundProcessed(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     const snapshot = {
       handler_name: entryInfo.handler_name,
       dog_call_name: entryInfo.dog_call_name,
@@ -343,24 +341,24 @@ export async function logRefundProcessed(
         method: refundData.refund_method,
         issued_by: refundData.refund_issued_by || 'Unknown',
         refund_date: refundData.refund_date,
-        notes: refundData.notes || null
+        notes: refundData.notes || null,
       },
       financial_status: {
         amount_owed: entryInfo.amount_owed,
         amount_paid_before: entryInfo.amount_paid_before,
         amount_paid_after: entryInfo.amount_paid_after,
-        remaining_balance: entryInfo.amount_owed - entryInfo.amount_paid_after
-      }
+        remaining_balance: entryInfo.amount_owed - entryInfo.amount_paid_after,
+      },
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'refund_processed',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: entryInfo.handler_name
+      user_name: entryInfo.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log refund:', error);
     } else {
@@ -392,14 +390,14 @@ export async function logEntrySubmittedOrModified(
     fee?: number;
     division?: string;
     entry_type?: string;
-    day_number?: number;      // ← ADD THIS
-    trial_date?: string;      // ← ADD THIS
-    jump_height?: string;     // ← ADD THIS
+    day_number?: number; // ← ADD THIS
+    trial_date?: string; // ← ADD THIS
+    jump_height?: string; // ← ADD THIS
   }>
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     // Create snapshot of CURRENT state
     const currentSnapshot = {
       handler_name: entryData.handler_name,
@@ -409,18 +407,18 @@ export async function logEntrySubmittedOrModified(
       handler_phone: entryData.handler_phone,
       total_fee: entryData.total_fee,
       class_count: classes.length,
-      classes: classes.map(c => ({
+      classes: classes.map((c) => ({
         name: c.class_name || 'Unknown Class',
         round: c.round || 1,
         fee: c.fee || 0,
         division: c.division || null,
         entry_type: c.entry_type || 'regular',
-        day_number: c.day_number || null,      // ← ADD THIS
-        trial_date: c.trial_date || null,      // ← ADD THIS
-        jump_height: c.jump_height || null     // ← ADD THIS
-      }))
+        day_number: c.day_number || null, // ← ADD THIS
+        trial_date: c.trial_date || null, // ← ADD THIS
+        jump_height: c.jump_height || null, // ← ADD THIS
+      })),
     };
-    
+
     // Check if this entry already has activity logs
     const { data: previousActivity, error: fetchError } = await supabase
       .from('trial_activity_log')
@@ -429,12 +427,12 @@ export async function logEntrySubmittedOrModified(
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
-    
+
     if (fetchError && fetchError.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is fine for new entries
       console.error('Error checking previous activity:', fetchError);
     }
-    
+
     // If no previous activity, this is a NEW SUBMISSION
     if (!previousActivity) {
       const { error } = await supabase.from('trial_activity_log').insert({
@@ -442,9 +440,9 @@ export async function logEntrySubmittedOrModified(
         activity_type: 'entry_submitted',
         entry_id: entryId,
         snapshot_data: currentSnapshot,
-        user_name: entryData.handler_name
+        user_name: entryData.handler_name,
       });
-      
+
       if (error) {
         console.error('Failed to log entry submission:', error);
       } else {
@@ -452,18 +450,17 @@ export async function logEntrySubmittedOrModified(
       }
       return;
     }
-    
-  // We have a previous snapshot - compare to see if anything changed
+
+    // We have a previous snapshot - compare to see if anything changed
     const previousSnapshot = previousActivity.snapshot_data;
     const previousActivityType = previousActivity.activity_type;
-    
+
     // Extract the "current state" from previous snapshot
     // If previous was a modification, use the "after" state
     // If previous was a submission, use the snapshot directly
-    const previousState = previousActivityType === 'entry_modified' 
-      ? previousSnapshot.after 
-      : previousSnapshot;
-    
+    const previousState =
+      previousActivityType === 'entry_modified' ? previousSnapshot.after : previousSnapshot;
+
     // Safety check - if previous state is missing required fields, treat as new
     if (!previousState || previousState.class_count === undefined) {
       console.warn('Previous snapshot missing required fields, treating as new entry');
@@ -472,9 +469,9 @@ export async function logEntrySubmittedOrModified(
         activity_type: 'entry_submitted',
         entry_id: entryId,
         snapshot_data: currentSnapshot,
-        user_name: entryData.handler_name
+        user_name: entryData.handler_name,
       });
-      
+
       if (error) {
         console.error('Failed to log entry submission:', error);
       } else {
@@ -482,99 +479,94 @@ export async function logEntrySubmittedOrModified(
       }
       return;
     }
-    
+
     // Compare key fields
     const classCountChanged = previousState.class_count !== currentSnapshot.class_count;
     const feeChanged = Number(previousState.total_fee) !== Number(currentSnapshot.total_fee);
-    
+
     // If nothing changed, don't log
     if (!classCountChanged && !feeChanged) {
       console.log('⏭️ No changes detected, skipping journal log');
       return;
     }
-    
-   // Determine what was added/removed - use unique identifiers for each round
-const previousClasses = previousState.classes || [];
-const currentClasses = currentSnapshot.classes || [];
 
-// Create unique keys: className-Round#-Day#
-const makeClassKey = (c: any) => {
-  const name = c.name || 'Unknown';
-  const round = c.round || 1;
-  const day = c.day_number || 'TBD';
-  return `${name}-R${round}-D${day}`;
-};
+    // Determine what was added/removed - use unique identifiers for each round
+    const previousClasses = previousState.classes || [];
+    const currentClasses = currentSnapshot.classes || [];
 
-const previousClassKeys = new Map(
-  previousClasses.map((c: any) => [makeClassKey(c), c])
-);
-const currentClassKeys = new Map(
-  currentClasses.map((c: any) => [makeClassKey(c), c])
-);
+    // Create unique keys: className-Round#-Day#
+    const makeClassKey = (c: any) => {
+      const name = c.name || 'Unknown';
+      const round = c.round || 1;
+      const day = c.day_number || 'TBD';
+      return `${name}-R${round}-D${day}`;
+    };
 
-// Find added classes (in current but not in previous)
-const addedClasses = currentClasses
-  .filter(c => !previousClassKeys.has(makeClassKey(c)))
-  .map(c => {
-    const name = c.name || 'Unknown';
-    const round = c.round || 1;
-    return `${name} (Round ${round})`;
-  });
+    const previousClassKeys = new Map(previousClasses.map((c: any) => [makeClassKey(c), c]));
+    const currentClassKeys = new Map(currentClasses.map((c: any) => [makeClassKey(c), c]));
 
-// Find removed classes (in previous but not in current)
-const removedClasses = previousClasses
-  .filter((c: any) => !currentClassKeys.has(makeClassKey(c)))
-  .map((c: any) => {
-    const name = c.name || 'Unknown';
-    const round = c.round || 1;
-    return `${name} (Round ${round})`;
-  });
+    // Find added classes (in current but not in previous)
+    const addedClasses = currentClasses
+      .filter((c) => !previousClassKeys.has(makeClassKey(c)))
+      .map((c) => {
+        const name = c.name || 'Unknown';
+        const round = c.round || 1;
+        return `${name} (Round ${round})`;
+      });
 
-// Something changed - log as MODIFICATION
-const modificationSnapshot: any = {
-  handler_name: entryData.handler_name,
-  dog_call_name: entryData.dog_call_name,
-  cwags_number: entryData.cwags_number,
-  before: {
-    class_count: previousState.class_count,
-    total_fee: previousState.total_fee,
-    classes: previousClasses
-  },
-  after: {
-    class_count: currentSnapshot.class_count,
-    total_fee: currentSnapshot.total_fee,
-    classes: currentClasses
-  },
-  change: {
-    class_count_delta: currentSnapshot.class_count - previousState.class_count,
-    fee_delta: currentSnapshot.total_fee - previousState.total_fee,
-    ...(addedClasses.length > 0 && { added_classes: addedClasses }),
-    ...(removedClasses.length > 0 && { removed_classes: removedClasses })
+    // Find removed classes (in previous but not in current)
+    const removedClasses = previousClasses
+      .filter((c: any) => !currentClassKeys.has(makeClassKey(c)))
+      .map((c: any) => {
+        const name = c.name || 'Unknown';
+        const round = c.round || 1;
+        return `${name} (Round ${round})`;
+      });
+
+    // Something changed - log as MODIFICATION
+    const modificationSnapshot: any = {
+      handler_name: entryData.handler_name,
+      dog_call_name: entryData.dog_call_name,
+      cwags_number: entryData.cwags_number,
+      before: {
+        class_count: previousState.class_count,
+        total_fee: previousState.total_fee,
+        classes: previousClasses,
+      },
+      after: {
+        class_count: currentSnapshot.class_count,
+        total_fee: currentSnapshot.total_fee,
+        classes: currentClasses,
+      },
+      change: {
+        class_count_delta: currentSnapshot.class_count - previousState.class_count,
+        fee_delta: currentSnapshot.total_fee - previousState.total_fee,
+        ...(addedClasses.length > 0 && { added_classes: addedClasses }),
+        ...(removedClasses.length > 0 && { removed_classes: removedClasses }),
+      },
+    };
+
+    const { error } = await supabase.from('trial_activity_log').insert({
+      trial_id: trialId,
+      activity_type: 'entry_modified',
+      entry_id: entryId,
+      snapshot_data: modificationSnapshot,
+      user_name: entryData.handler_name,
+    });
+
+    if (error) {
+      console.error('Failed to log entry modification:', error);
+    } else {
+      console.log('✅ Logged entry MODIFICATION to journal');
+      console.log('   Changes:', {
+        added: addedClasses,
+        removed: removedClasses,
+        fee_delta: modificationSnapshot.change.fee_delta,
+      });
+    }
+  } catch (error) {
+    console.error('Error logging entry activity:', error);
   }
-};
-
-const { error } = await supabase.from('trial_activity_log').insert({
-  trial_id: trialId,
-  activity_type: 'entry_modified',
-  entry_id: entryId,
-  snapshot_data: modificationSnapshot,
-  user_name: entryData.handler_name
-});
-
-if (error) {
-  console.error('Failed to log entry modification:', error);
-} else {
-  console.log('✅ Logged entry MODIFICATION to journal');
-  console.log('   Changes:', {
-    added: addedClasses,
-    removed: removedClasses,
-    fee_delta: modificationSnapshot.change.fee_delta
-  });
-}
-
-} catch (error) {
-  console.error('Error logging entry activity:', error);
-}
 }
 
 /**
@@ -592,22 +584,22 @@ export async function logFeesWaived(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-    
+
     const snapshot = {
       handler_name: entryInfo.handler_name,
       dog_call_name: entryInfo.dog_call_name,
       amount_waived: entryInfo.amount_owed,
-      reason: entryInfo.reason
+      reason: entryInfo.reason,
     };
-    
+
     const { error } = await supabase.from('trial_activity_log').insert({
       trial_id: trialId,
       activity_type: 'fees_waived',
       entry_id: entryId,
       snapshot_data: snapshot,
-      user_name: entryInfo.handler_name
+      user_name: entryInfo.handler_name,
     });
-    
+
     if (error) {
       console.error('Failed to log fee waiver:', error);
     } else {

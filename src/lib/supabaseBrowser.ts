@@ -1,5 +1,5 @@
 // src/lib/supabaseBrowser.ts
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient } from '@supabase/ssr';
 
 export function getSupabaseBrowser() {
   return createBrowserClient(
@@ -10,7 +10,7 @@ export function getSupabaseBrowser() {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-       }
+      },
     }
   );
 }

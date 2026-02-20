@@ -4,10 +4,10 @@ import * as XLSX from 'xlsx';
 
 export async function POST(request: Request) {
   console.log('🎯 API route called');
-  
+
   try {
     console.log('🔑 Creating Supabase client');
-    
+
     // Check if env vars exist
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
@@ -15,15 +15,15 @@ export async function POST(request: Request) {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY');
     }
-    
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       {
         auth: {
           autoRefreshToken: false,
-          persistSession: false
-        }
+          persistSession: false,
+        },
       }
     );
 
@@ -33,10 +33,7 @@ export async function POST(request: Request) {
 
     if (!file) {
       console.log('❌ No file provided');
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     console.log('📄 File received:', file.name, 'Size:', file.size);
@@ -50,10 +47,10 @@ export async function POST(request: Request) {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     console.log('📑 Sheet name:', sheetName);
-    
+
     const worksheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-    
+
     console.log('📏 Total rows (including header):', data.length);
 
     // Skip header row and process data
@@ -66,11 +63,11 @@ export async function POST(request: Request) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      
+
       if (i % 100 === 0) {
         console.log(`Processing row ${i + 1} of ${rows.length}`);
       }
-      
+
       // Col A = index 0, Col B = index 1, Col D = index 3
       const cwags_number = row[0]?.toString().trim();
       const dog_call_name = row[1]?.toString().trim();
@@ -99,14 +96,12 @@ export async function POST(request: Request) {
         }
 
         // Insert new record
-        const { error: insertError } = await supabase
-          .from('cwags_registry')
-          .insert({
-            cwags_number,
-            dog_call_name,
-            handler_name,
-            is_active: true,
-          });
+        const { error: insertError } = await supabase.from('cwags_registry').insert({
+          cwags_number,
+          dog_call_name,
+          handler_name,
+          is_active: true,
+        });
 
         if (insertError) {
           throw insertError;
@@ -134,9 +129,6 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('💥 Import error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Import failed' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Import failed' }, { status: 500 });
   }
 }

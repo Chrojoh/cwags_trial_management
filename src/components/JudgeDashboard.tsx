@@ -63,9 +63,10 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
     if (!searchTerm.trim()) {
       setFilteredJudges(judges);
     } else {
-      const filtered = judges.filter(judge =>
-        judge.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        judge.email.toLowerCase().includes(searchTerm.toLowerCase())
+      const filtered = judges.filter(
+        (judge) =>
+          judge.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          judge.email.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredJudges(filtered);
     }
@@ -103,7 +104,7 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardContent className="flex items-center p-6">
             <Award className="h-8 w-8 text-green-600 mr-3" />
@@ -116,9 +117,11 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
 
         <Card>
           <CardContent className="flex items-center p-6">
-            <MapPin className="h-8 w-8 text-purple
+            <MapPin
+              className="h-8 w-8 text-purple
 
--600 mr-3" />
+-600 mr-3"
+            />
             <div>
               <p className="text-2xl font-bold">2</p>
               <p className="text-sm text-gray-600">Countries</p>
@@ -144,9 +147,7 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
             <Search className="h-5 w-5" />
             Judge Management
           </CardTitle>
-          <CardDescription>
-            Full judge management will be available in Step 48
-          </CardDescription>
+          <CardDescription>Full judge management will be available in Step 48</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-4">
@@ -168,19 +169,19 @@ export default function JudgeDashboard({ className }: JudgeDashboardProps) {
       <Card>
         <CardHeader>
           <CardTitle>Judge Directory</CardTitle>
-          <CardDescription>
-            Advanced judge management coming in Step 48
-          </CardDescription>
+          <CardDescription>Advanced judge management coming in Step 48</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-gray-500">
             <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-lg font-semibold mb-2">Judge Management Coming Soon</h3>
             <p className="mb-4">
-              Full judge search, filtering, and management capabilities will be implemented in Step 48 - Admin Data Management.
+              Full judge search, filtering, and management capabilities will be implemented in Step
+              48 - Admin Data Management.
             </p>
             <p className="text-sm text-gray-400">
-              Current Status: Step 10 - Basic Navigation Structure (Complete)<br/>
+              Current Status: Step 10 - Basic Navigation Structure (Complete)
+              <br />
               Next: Step 11 - Trial Creation Form
             </p>
           </div>

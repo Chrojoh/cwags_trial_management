@@ -4,14 +4,13 @@ export interface User {
   email: string;
   first_name: string;
   last_name: string;
-  role: "administrator" | "trial_secretary";
+  role: 'administrator' | 'trial_secretary';
   club_name: string | null;
   phone: string | null;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
 }
-
 
 export interface AuthState {
   user: User | null;

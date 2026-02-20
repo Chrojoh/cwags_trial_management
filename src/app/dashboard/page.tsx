@@ -21,8 +21,8 @@ interface Trial {
   trial_status: string;
   club_name: string;
   location: string;
-  entries_close_date?: string;  // ADDED: For trial closing alerts
-  entry_status?: string;         // ADDED: For filtering which trials show alerts
+  entries_close_date?: string; // ADDED: For trial closing alerts
+  entry_status?: string; // ADDED: For filtering which trials show alerts
 }
 
 // ADDED: Enhanced alert interface with trial navigation support
@@ -39,22 +39,22 @@ export default function DashboardPage() {
   const supabase = getSupabaseBrowser();
   const { user, getDisplayInfo } = useAuth();
   const userInfo = getDisplayInfo();
- 
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Admin stats
   const [adminStats, setAdminStats] = useState({
     totalTrials: 0,
     activeTrials: 0,
     upcomingTrials: 0,
     totalUsers: 0,
-    totalRegistryEntries: 0
+    totalRegistryEntries: 0,
   });
   const [recentTrials, setRecentTrials] = useState<Trial[]>([]);
   const [allTrials, setAllTrials] = useState<Trial[]>([]);
-  const [adminAlerts, setAdminAlerts] = useState<EnhancedAlert[]>([]);  // CHANGED: Now uses EnhancedAlert type
-  
+  const [adminAlerts, setAdminAlerts] = useState<EnhancedAlert[]>([]); // CHANGED: Now uses EnhancedAlert type
+
   // Secretary data
   const [userTrials, setUserTrials] = useState<Trial[]>([]);
 
@@ -96,9 +96,9 @@ export default function DashboardPage() {
     // Calculate trial stats
     const totalTrials = trials.length;
     const activeTrials = trials.filter((trial: Trial) => trial.trial_status === 'active').length;
-    const upcomingTrials = trials.filter((trial: Trial) => 
-      trial.start_date > todayStr && 
-      ['draft', 'published'].includes(trial.trial_status)
+    const upcomingTrials = trials.filter(
+      (trial: Trial) =>
+        trial.start_date > todayStr && ['draft', 'published'].includes(trial.trial_status)
     ).length;
 
     // Get total users count
@@ -116,84 +116,88 @@ export default function DashboardPage() {
       activeTrials,
       upcomingTrials,
       totalUsers: totalUsers || 0,
-      totalRegistryEntries: totalRegistryEntries || 0
+      totalRegistryEntries: totalRegistryEntries || 0,
     });
 
     // Get recent trials (last 5)
     const recent = trials
-      .sort((a: Trial, b: Trial) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+      .sort(
+        (a: Trial, b: Trial) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+      )
       .slice(0, 5);
-    
+
     setRecentTrials(recent);
 
     // Store all trials for judge compensation dropdown
-    const allTrialsSorted = [...trials].sort((a: Trial, b: Trial) => 
-      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    const allTrialsSorted = [...trials].sort(
+      (a: Trial, b: Trial) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
     setAllTrials(allTrialsSorted);
 
     // === ENHANCED: Generate admin alerts with trial details ===
     const alerts: EnhancedAlert[] = [];
-    
+
     // Check for trials without secretary assignments
     const { data: trialsWithoutSecretary } = await supabase
       .from('trials')
       .select('id')
       .is('trial_secretary', null);
-    
+
     if (trialsWithoutSecretary && trialsWithoutSecretary.length > 0) {
       alerts.push({
         type: 'warning',
-        message: `${trialsWithoutSecretary.length} ${trialsWithoutSecretary.length === 1 ? 'trial needs' : 'trials need'} secretary assignment`
+        message: `${trialsWithoutSecretary.length} ${trialsWithoutSecretary.length === 1 ? 'trial needs' : 'trials need'} secretary assignment`,
       });
     }
 
     // NEW: Enhanced check for trials closing entries soon
     const oneWeekFromNow = new Date();
     oneWeekFromNow.setDate(oneWeekFromNow.getDate() + 7);
-    
+
     // Find trials with entries_close_date set and within the next 7 days
     const closingSoon = trials.filter((t: Trial) => {
       if (!t.entries_close_date || t.entry_status !== 'open') {
         return false;
       }
-      
+
       const closeDate = new Date(t.entries_close_date);
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       closeDate.setHours(0, 0, 0, 0);
-      
+
       // Check if closing date is in the future and within 7 days
       return closeDate >= todayDate && closeDate <= oneWeekFromNow;
     });
-    
+
     // Sort by closing date (soonest first)
     closingSoon.sort((a: Trial, b: Trial) => {
       const dateA = new Date(a.entries_close_date!).getTime();
       const dateB = new Date(b.entries_close_date!).getTime();
       return dateA - dateB;
     });
-    
+
     // Create individual alerts for each trial closing soon
     closingSoon.forEach((trial: Trial) => {
       const closeDate = new Date(trial.entries_close_date!);
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       closeDate.setHours(0, 0, 0, 0);
-      
-      const daysUntil = Math.ceil((closeDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
-      
+
+      const daysUntil = Math.ceil(
+        (closeDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
       let timeText = '';
       if (daysUntil === 0) timeText = 'today';
       else if (daysUntil === 1) timeText = 'tomorrow';
       else timeText = `in ${daysUntil} days`;
-      
+
       alerts.push({
         type: daysUntil <= 1 ? 'warning' : 'info',
         message: `${trial.trial_name} closes entries ${timeText}`,
         trialId: trial.id,
         trialName: trial.trial_name,
-        closingDate: trial.entries_close_date
+        closingDate: trial.entries_close_date,
       });
     });
 
@@ -211,31 +215,35 @@ export default function DashboardPage() {
     // Check trial_secretaries table for assigned trials
     const { data: assignedFromSecretaries } = await supabase
       .from('trial_secretaries')
-      .select(`
+      .select(
+        `
         trial_id,
         trials (*)
-      `)
+      `
+      )
       .eq('user_id', user?.id);
 
     // Check trial_assignments table for assigned trials
     const { data: assignedFromAssignments } = await supabase
       .from('trial_assignments')
-      .select(`
+      .select(
+        `
         trial_id,
         trials (*)
-      `)
+      `
+      )
       .eq('user_id', user?.id);
 
     // Combine all sources of trials
     const allSecretaryTrials = [
       ...(createdTrials || []),
       ...(assignedFromSecretaries?.map((at: any) => at.trials).filter(Boolean) || []),
-      ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || [])
+      ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || []),
     ];
 
     // Remove duplicates by trial id and sort by start date
     const uniqueTrials = Array.from(
-      new Map(allSecretaryTrials.map(t => [t.id, t])).values()
+      new Map(allSecretaryTrials.map((t) => [t.id, t])).values()
     ).sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
 
     setUserTrials(uniqueTrials);
@@ -270,9 +278,7 @@ export default function DashboardPage() {
                 {userInfo?.role === 'administrator' ? 'Administrator' : 'Trial Secretary'}
               </p>
               {userInfo?.club_name && (
-                <p className="text-orange-200 text-sm mt-1">
-                  {userInfo.club_name}
-                </p>
+                <p className="text-orange-200 text-sm mt-1">{userInfo.club_name}</p>
               )}
             </div>
             <div className="text-right">
@@ -281,7 +287,7 @@ export default function DashboardPage() {
                   weekday: 'long',
                   year: 'numeric',
                   month: 'long',
-                  day: 'numeric'
+                  day: 'numeric',
                 })}
               </p>
             </div>
@@ -294,12 +300,7 @@ export default function DashboardPage() {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>{error}</span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={loadDashboardData}
-                className="ml-4"
-              >
+              <Button variant="outline" size="sm" onClick={loadDashboardData} className="ml-4">
                 Retry
               </Button>
             </AlertDescription>
@@ -308,23 +309,18 @@ export default function DashboardPage() {
 
         {/* Role-Based Dashboard */}
         {user?.role === 'administrator' ? (
-          <AdminDashboard 
+          <AdminDashboard
             stats={adminStats}
             recentTrials={recentTrials}
             allTrials={allTrials}
             alerts={adminAlerts}
           />
         ) : user?.role === 'trial_secretary' ? (
-          <SecretaryDashboard 
-            userTrials={userTrials}
-            userId={user.id}
-          />
+          <SecretaryDashboard userTrials={userTrials} userId={user.id} />
         ) : (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Unknown user role. Please contact support.
-            </AlertDescription>
+            <AlertDescription>Unknown user role. Please contact support.</AlertDescription>
           </Alert>
         )}
       </div>

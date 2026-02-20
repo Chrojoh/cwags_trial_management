@@ -26,7 +26,7 @@ export const TrialDateTimeInputs: React.FC<TrialDateTimeInputsProps> = ({
   onTimeChange,
   onTimezoneChange,
   disabled = false,
-  className = ""
+  className = '',
 }) => {
   // Preview the resulting UTC datetime
   const getPreviewDateTime = () => {
@@ -40,7 +40,7 @@ export const TrialDateTimeInputs: React.FC<TrialDateTimeInputsProps> = ({
     }
     return '';
   };
-  
+
   return (
     <div className={`space-y-4 ${className}`}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,7 +57,7 @@ export const TrialDateTimeInputs: React.FC<TrialDateTimeInputsProps> = ({
             className="w-full"
           />
         </div>
-        
+
         <div className="space-y-2">
           <Label htmlFor="trial-time" className="flex items-center gap-2">
             Start Time
@@ -72,13 +72,9 @@ export const TrialDateTimeInputs: React.FC<TrialDateTimeInputsProps> = ({
           />
         </div>
       </div>
-      
-      <TimezoneSelector
-        value={timezone}
-        onChange={onTimezoneChange}
-        disabled={disabled}
-      />
-      
+
+      <TimezoneSelector value={timezone} onChange={onTimezoneChange} disabled={disabled} />
+
       {date && time && timezone && (
         <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
           <div className="text-sm font-medium text-orange-800">Preview:</div>

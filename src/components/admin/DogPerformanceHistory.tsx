@@ -4,7 +4,15 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Trophy, Calendar, MapPin, ChevronDown, ChevronUp, FileSpreadsheet } from 'lucide-react';
+import {
+  Search,
+  Trophy,
+  Calendar,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
@@ -70,7 +78,8 @@ export default function DogPerformanceHistory() {
       // Step 1: Get all entries for this dog
       const { data: entries, error: entriesError } = await supabase
         .from('entries')
-        .select(`
+        .select(
+          `
           id,
           cwags_number,
           dog_call_name,
@@ -99,7 +108,8 @@ export default function DogPerformanceHistory() {
               )
             )
           )
-        `)
+        `
+        )
         .eq('cwags_number', cwagsNumber.trim())
         .neq('entry_status', 'withdrawn');
 
@@ -114,9 +124,13 @@ export default function DogPerformanceHistory() {
       }
 
       console.log(`✅ Found ${entries.length} entries`);
-      
+
       // Debug: Log first entry structure to verify query
-      if (entries.length > 0 && entries[0].entry_selections && entries[0].entry_selections.length > 0) {
+      if (
+        entries.length > 0 &&
+        entries[0].entry_selections &&
+        entries[0].entry_selections.length > 0
+      ) {
         const firstSelection = entries[0].entry_selections[0];
         // Handle trial_rounds as either array or object
         const trialRound = Array.isArray(firstSelection.trial_rounds)
@@ -128,7 +142,7 @@ export default function DogPerformanceHistory() {
           has_trial_classes: !!trialRound?.trial_classes,
           class_name: trialRound?.trial_classes?.class_name,
           has_trial_days: !!trialRound?.trial_classes?.trial_days,
-          trial_date: trialRound?.trial_classes?.trial_days?.trial_date
+          trial_date: trialRound?.trial_classes?.trial_days?.trial_date,
         });
       }
 
@@ -137,8 +151,10 @@ export default function DogPerformanceHistory() {
       entries.forEach((entry: any) => {
         entry.entry_selections?.forEach((selection: any) => {
           // Only count regular runs (not FEO)
-          if (selection.entry_type?.toLowerCase() === 'regular' &&
-              selection.entry_status?.toLowerCase() !== 'withdrawn') {
+          if (
+            selection.entry_type?.toLowerCase() === 'regular' &&
+            selection.entry_status?.toLowerCase() !== 'withdrawn'
+          ) {
             selectionIds.push(selection.id);
           }
         });
@@ -166,11 +182,14 @@ export default function DogPerformanceHistory() {
       console.log(`✅ Loaded ${scores?.length || 0} scores`);
 
       // Step 4: Process data
-      const classStatsMap = new Map<string, { 
-        total_runs: number; 
-        passes: number;
-        run_details: RunDetail[];
-      }>();
+      const classStatsMap = new Map<
+        string,
+        {
+          total_runs: number;
+          passes: number;
+          run_details: RunDetail[];
+        }
+      >();
       const trialDates: string[] = [];
       const trialIds = new Set<string>();
       const clubs = new Set<string>();
@@ -178,7 +197,7 @@ export default function DogPerformanceHistory() {
       let dogInfo = {
         cwags_number: cwagsNumber,
         dog_call_name: '',
-        handler_name: ''
+        handler_name: '',
       };
 
       entries.forEach((entry: any) => {
@@ -206,23 +225,25 @@ export default function DogPerformanceHistory() {
         // Process selections
         entry.entry_selections?.forEach((selection: any) => {
           // Only count regular runs (not FEO) and not withdrawn
-          if (selection.entry_type?.toLowerCase() !== 'regular' ||
-              selection.entry_status?.toLowerCase() === 'withdrawn') {
+          if (
+            selection.entry_type?.toLowerCase() !== 'regular' ||
+            selection.entry_status?.toLowerCase() === 'withdrawn'
+          ) {
             return;
           }
 
           // Extract trial_rounds as object (not array)
           // Supabase returns this as a single object for many-to-one relationships
-          const trialRound = Array.isArray(selection.trial_rounds) 
-            ? selection.trial_rounds[0] 
+          const trialRound = Array.isArray(selection.trial_rounds)
+            ? selection.trial_rounds[0]
             : selection.trial_rounds;
-          
+
           const className = trialRound?.trial_classes?.class_name;
           if (!className) return;
 
           // Check if this run was scored
           const score = scoresMap.get(selection.id);
-          
+
           // Only count if scored (exclude no-shows/absent)
           if (!score || score.entry_status?.toUpperCase() === 'ABS') {
             return;
@@ -230,10 +251,10 @@ export default function DogPerformanceHistory() {
 
           // Initialize class stats if needed
           if (!classStatsMap.has(className)) {
-            classStatsMap.set(className, { 
-              total_runs: 0, 
+            classStatsMap.set(className, {
+              total_runs: 0,
               passes: 0,
-              run_details: []
+              run_details: [],
             });
           }
 
@@ -255,7 +276,7 @@ export default function DogPerformanceHistory() {
               judgeName,
               result,
               raw_trial_round: trialRound,
-              judge_from_round: trialRound?.judge_name
+              judge_from_round: trialRound?.judge_name,
             });
           }
 
@@ -264,7 +285,7 @@ export default function DogPerformanceHistory() {
             trial_date: trialDate,
             trial_name: trialName,
             judge_name: judgeName,
-            result: result
+            result: result,
           });
 
           // Count passes
@@ -275,27 +296,29 @@ export default function DogPerformanceHistory() {
       });
 
       // Step 5: Build class stats array
-      const classStats: DogClassStats[] = Array.from(classStatsMap.entries()).map(([className, stats]) => {
-        // Sort run details by date (newest first)
-        const sortedRunDetails = stats.run_details.sort((a, b) => {
-          try {
-            const dateA = safeDateFromISO(a.trial_date).getTime();
-            const dateB = safeDateFromISO(b.trial_date).getTime();
-            return dateB - dateA; // Newest first
-          } catch {
-            return 0; // If dates can't be parsed, maintain order
-          }
-        });
+      const classStats: DogClassStats[] = Array.from(classStatsMap.entries()).map(
+        ([className, stats]) => {
+          // Sort run details by date (newest first)
+          const sortedRunDetails = stats.run_details.sort((a, b) => {
+            try {
+              const dateA = safeDateFromISO(a.trial_date).getTime();
+              const dateB = safeDateFromISO(b.trial_date).getTime();
+              return dateB - dateA; // Newest first
+            } catch {
+              return 0; // If dates can't be parsed, maintain order
+            }
+          });
 
-        return {
-          class_name: className,
-          total_runs: stats.total_runs,
-          passes: stats.passes,
-          pass_rate: stats.total_runs > 0 ? (stats.passes / stats.total_runs) * 100 : 0,
-          class_order: getClassOrder(className),
-          run_details: sortedRunDetails
-        };
-      });
+          return {
+            class_name: className,
+            total_runs: stats.total_runs,
+            passes: stats.passes,
+            pass_rate: stats.total_runs > 0 ? (stats.passes / stats.total_runs) * 100 : 0,
+            class_order: getClassOrder(className),
+            run_details: sortedRunDetails,
+          };
+        }
+      );
 
       // Sort by C-WAGS order
       classStats.sort((a, b) => a.class_order - b.class_order);
@@ -310,7 +333,7 @@ export default function DogPerformanceHistory() {
       });
       const dateRange = {
         earliest: trialDates[0] || 'Unknown',
-        latest: trialDates[trialDates.length - 1] || 'Unknown'
+        latest: trialDates[trialDates.length - 1] || 'Unknown',
       };
 
       const result: DogPerformanceData = {
@@ -318,12 +341,11 @@ export default function DogPerformanceHistory() {
         date_range: dateRange,
         trial_count: trialIds.size,
         club_count: clubs.size,
-        class_stats: classStats
+        class_stats: classStats,
       };
 
       console.log('✅ Performance data compiled:', result);
       setPerformanceData(result);
-
     } catch (err) {
       console.error('Error loading dog performance:', err);
       setError(err instanceof Error ? err.message : 'Failed to load dog performance data');
@@ -339,7 +361,7 @@ export default function DogPerformanceHistory() {
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: 'numeric'
+        day: 'numeric',
       });
     } catch {
       return dateString;
@@ -365,21 +387,24 @@ export default function DogPerformanceHistory() {
         ['Handler Name:', performanceData.dog_info.handler_name],
         ['C-WAGS Number:', performanceData.dog_info.cwags_number],
         [],
-        ['Date Range:', `${formatDate(performanceData.date_range.earliest)} - ${formatDate(performanceData.date_range.latest)}`],
+        [
+          'Date Range:',
+          `${formatDate(performanceData.date_range.earliest)} - ${formatDate(performanceData.date_range.latest)}`,
+        ],
         ['Total Trials:', performanceData.trial_count],
         ['Total Clubs:', performanceData.club_count],
         [],
         ['Class Summary'],
-        ['Class Name', 'Total Runs', 'Passes', 'Pass Rate']
+        ['Class Name', 'Total Runs', 'Passes', 'Pass Rate'],
       ];
 
       // Add class statistics to summary
-      performanceData.class_stats.forEach(classData => {
+      performanceData.class_stats.forEach((classData) => {
         summaryData.push([
           classData.class_name,
           classData.total_runs,
           classData.passes,
-          `${classData.pass_rate.toFixed(1)}%`
+          `${classData.pass_rate.toFixed(1)}%`,
         ]);
       });
 
@@ -387,16 +412,16 @@ export default function DogPerformanceHistory() {
 
       // Set column widths for summary sheet
       summarySheet['!cols'] = [
-        { wch: 25 },  // Class Name / Label
-        { wch: 15 },  // Total Runs / Value
-        { wch: 15 },  // Passes
-        { wch: 15 }   // Pass Rate
+        { wch: 25 }, // Class Name / Label
+        { wch: 15 }, // Total Runs / Value
+        { wch: 15 }, // Passes
+        { wch: 15 }, // Pass Rate
       ];
 
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
       // SHEET 2+: One sheet per class with run details
-      performanceData.class_stats.forEach(classData => {
+      performanceData.class_stats.forEach((classData) => {
         const classSheetData = [
           [classData.class_name],
           [],
@@ -405,16 +430,16 @@ export default function DogPerformanceHistory() {
           ['Pass Rate:', `${classData.pass_rate.toFixed(1)}%`],
           [],
           ['Run Details'],
-          ['Trial Date', 'Trial Name', 'Judge', 'Result']
+          ['Trial Date', 'Trial Name', 'Judge', 'Result'],
         ];
 
         // Add each run detail
-        classData.run_details.forEach(run => {
+        classData.run_details.forEach((run) => {
           classSheetData.push([
             formatDate(run.trial_date),
             run.trial_name,
             run.judge_name,
-            run.result
+            run.result,
           ]);
         });
 
@@ -422,16 +447,16 @@ export default function DogPerformanceHistory() {
 
         // Set column widths for class sheets
         classSheet['!cols'] = [
-          { wch: 15 },  // Trial Date
-          { wch: 30 },  // Trial Name
-          { wch: 20 },  // Judge
-          { wch: 10 }   // Result
+          { wch: 15 }, // Trial Date
+          { wch: 30 }, // Trial Name
+          { wch: 20 }, // Judge
+          { wch: 10 }, // Result
         ];
 
         // Sanitize sheet name (Excel sheet names can't contain certain characters)
         const sheetName = classData.class_name
-          .replace(/[:\\/?*\[\]]/g, '')  // Remove invalid characters
-          .substring(0, 31);  // Excel limit is 31 characters
+          .replace(/[:\\/?*\[\]]/g, '') // Remove invalid characters
+          .substring(0, 31); // Excel limit is 31 characters
 
         XLSX.utils.book_append_sheet(workbook, classSheet, sheetName);
       });
@@ -445,7 +470,6 @@ export default function DogPerformanceHistory() {
       // Write and download
       XLSX.writeFile(workbook, filename);
       console.log('✅ Excel file generated:', filename);
-
     } catch (err) {
       console.error('Error generating Excel export:', err);
       alert('Failed to generate Excel file');
@@ -488,9 +512,7 @@ export default function DogPerformanceHistory() {
               {loading ? 'Searching...' : 'Search'}
             </Button>
           </div>
-          {error && (
-            <p className="text-sm text-red-600 mt-2">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
         </CardContent>
       </Card>
 
@@ -500,11 +522,10 @@ export default function DogPerformanceHistory() {
           {/* Dog Info Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                {performanceData.dog_info.dog_call_name}
-              </CardTitle>
+              <CardTitle className="text-2xl">{performanceData.dog_info.dog_call_name}</CardTitle>
               <CardDescription>
-                Handler: {performanceData.dog_info.handler_name} • C-WAGS #{performanceData.dog_info.cwags_number}
+                Handler: {performanceData.dog_info.handler_name} • C-WAGS #
+                {performanceData.dog_info.cwags_number}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -514,7 +535,8 @@ export default function DogPerformanceHistory() {
                   <div>
                     <div className="text-sm text-gray-600">Date Range</div>
                     <div className="font-semibold">
-                      {formatDate(performanceData.date_range.earliest)} - {formatDate(performanceData.date_range.latest)}
+                      {formatDate(performanceData.date_range.earliest)} -{' '}
+                      {formatDate(performanceData.date_range.latest)}
                     </div>
                   </div>
                 </div>
@@ -535,10 +557,7 @@ export default function DogPerformanceHistory() {
               </div>
               {/* Export Button */}
               <div className="mt-6 flex justify-end">
-                <Button
-                  onClick={exportToExcel}
-                  className="bg-green-600 hover:bg-green-700"
-                >
+                <Button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
                   Export to Excel
                 </Button>
@@ -577,11 +596,13 @@ export default function DogPerformanceHistory() {
                     {performanceData.class_stats.map((classData, index) => (
                       <React.Fragment key={index}>
                         {/* Main Class Row - Clickable */}
-                        <tr 
+                        <tr
                           className="hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() => setExpandedClass(
-                            expandedClass === classData.class_name ? null : classData.class_name
-                          )}
+                          onClick={() =>
+                            setExpandedClass(
+                              expandedClass === classData.class_name ? null : classData.class_name
+                            )
+                          }
                         >
                           <td className="border border-gray-300 px-4 py-3">
                             <div className="flex items-center justify-between">
@@ -605,8 +626,8 @@ export default function DogPerformanceHistory() {
                                 classData.pass_rate >= 80
                                   ? 'text-green-600'
                                   : classData.pass_rate >= 60
-                                  ? 'text-yellow-600'
-                                  : 'text-red-600'
+                                    ? 'text-yellow-600'
+                                    : 'text-red-600'
                               }`}
                             >
                               {classData.pass_rate.toFixed(1)}%
@@ -626,32 +647,37 @@ export default function DogPerformanceHistory() {
                                   <table className="w-full">
                                     <thead>
                                       <tr className="bg-gray-100 text-xs">
-                                        <th className="px-3 py-2 text-left font-semibold">Trial Date</th>
-                                        <th className="px-3 py-2 text-left font-semibold">Trial Name</th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                          Trial Date
+                                        </th>
+                                        <th className="px-3 py-2 text-left font-semibold">
+                                          Trial Name
+                                        </th>
                                         <th className="px-3 py-2 text-left font-semibold">Judge</th>
-                                        <th className="px-3 py-2 text-center font-semibold">Result</th>
+                                        <th className="px-3 py-2 text-center font-semibold">
+                                          Result
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {classData.run_details.map((run, runIndex) => (
-                                        <tr key={runIndex} className="border-t border-gray-100 hover:bg-gray-50">
+                                        <tr
+                                          key={runIndex}
+                                          className="border-t border-gray-100 hover:bg-gray-50"
+                                        >
                                           <td className="px-3 py-2 text-sm">
                                             {formatDate(run.trial_date)}
                                           </td>
-                                          <td className="px-3 py-2 text-sm">
-                                            {run.trial_name}
-                                          </td>
-                                          <td className="px-3 py-2 text-sm">
-                                            {run.judge_name}
-                                          </td>
+                                          <td className="px-3 py-2 text-sm">{run.trial_name}</td>
+                                          <td className="px-3 py-2 text-sm">{run.judge_name}</td>
                                           <td className="px-3 py-2 text-center">
                                             <span
                                               className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                                                 run.result === 'Pass'
                                                   ? 'bg-green-100 text-green-800'
                                                   : run.result === 'Fail'
-                                                  ? 'bg-red-100 text-red-800'
-                                                  : 'bg-gray-100 text-gray-800'
+                                                    ? 'bg-red-100 text-red-800'
+                                                    : 'bg-gray-100 text-gray-800'
                                               }`}
                                             >
                                               {run.result}
@@ -672,9 +698,7 @@ export default function DogPerformanceHistory() {
                 </table>
               </div>
               {performanceData.class_stats.length === 0 && (
-                <p className="text-center text-gray-500 py-8">
-                  No scored runs found for this dog
-                </p>
+                <p className="text-center text-gray-500 py-8">No scored runs found for this dog</p>
               )}
             </CardContent>
           </Card>

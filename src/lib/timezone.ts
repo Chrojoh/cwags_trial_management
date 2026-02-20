@@ -1,20 +1,13 @@
 // src/lib/timezone.ts - SIMPLE VERSION WITHOUT date-fns-tz
-import { 
-  format, 
-  parseISO, 
-  differenceInHours,
-  differenceInMinutes,
-  addDays,
-  isAfter,
-  isBefore
-} from 'date-fns';
+import { format, parseISO, differenceInHours, differenceInMinutes, addDays } from 'date-fns';
 
 export const TIMEZONE_CONFIG = {
   storage: 'UTC' as const,
-  display: typeof window !== 'undefined' 
-    ? Intl.DateTimeFormat().resolvedOptions().timeZone 
-    : 'America/Toronto',
-  
+  display:
+    typeof window !== 'undefined'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : 'America/Toronto',
+
   commonTimezones: [
     'America/Toronto',
     'America/Winnipeg',
@@ -24,7 +17,7 @@ export const TIMEZONE_CONFIG = {
     'America/Chicago',
     'America/Denver',
     'America/Los_Angeles',
-  ] as const
+  ] as const,
 };
 
 export const TRIAL_TIME_CONFIG = {
@@ -39,13 +32,13 @@ export const formatDateForStorage = (date: Date, sourceTimezone?: string): strin
 };
 
 export const formatDateForDisplay = (
-  utcDateString: string, 
+  utcDateString: string,
   targetTimezone?: string,
   formatString: string = 'MMM dd, yyyy h:mm a zzz'
 ): string => {
   const timezone = targetTimezone || TIMEZONE_CONFIG.display;
   const date = parseISO(utcDateString);
-  
+
   // Use Intl.DateTimeFormat for timezone conversion
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -55,9 +48,9 @@ export const formatDateForDisplay = (
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-    timeZoneName: 'short'
+    timeZoneName: 'short',
   });
-  
+
   return formatter.format(date);
 };
 
@@ -74,29 +67,23 @@ export const createTrialDateTime = (
   return new Date(dateTimeString);
 };
 
-export const getTrialLocalTime = (
-  utcDateString: string,
-  timezone: string
-): string => {
+export const getTrialLocalTime = (utcDateString: string, timezone: string): string => {
   const date = parseISO(utcDateString);
   return date.toLocaleTimeString('en-US', {
     timeZone: timezone,
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
   });
 };
 
-export const getTrialLocalDate = (
-  utcDateString: string,
-  timezone: string
-): string => {
+export const getTrialLocalDate = (utcDateString: string, timezone: string): string => {
   const date = parseISO(utcDateString);
   return date.toLocaleDateString('en-US', {
     timeZone: timezone,
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   });
 };
 
@@ -106,15 +93,15 @@ export const getTimeUntilTrial = (
 ): { days: number; hours: number; isPast: boolean } => {
   const trialDate = parseISO(trialDateUtc);
   const now = currentDate;
-  
+
   if (now > trialDate) {
     return { days: 0, hours: 0, isPast: true };
   }
-  
+
   const totalHours = differenceInHours(trialDate, now);
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
-  
+
   return { days, hours, isPast: false };
 };
 
@@ -123,18 +110,18 @@ export const formatTimeRemaining = (
   currentDate: Date = new Date()
 ): string => {
   const { days, hours, isPast } = getTimeUntilTrial(trialDateUtc, currentDate);
-  
+
   if (isPast) return 'Trial has passed';
-  
+
   if (days > 0) {
     return `${days} day${days !== 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
   }
-  
+
   if (hours > 0) {
     const minutes = differenceInMinutes(parseISO(trialDateUtc), currentDate) % 60;
     return `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
   }
-  
+
   const minutes = differenceInMinutes(parseISO(trialDateUtc), currentDate);
   return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
 };
@@ -151,64 +138,56 @@ export const isValidTimezone = (timezone: string): boolean => {
 export const getTimezoneOffset = (timezone: string, date: Date = new Date()): string => {
   const formatter = new Intl.DateTimeFormat('en', {
     timeZone: timezone,
-    timeZoneName: 'longOffset'
+    timeZoneName: 'longOffset',
   });
-  return formatter.formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
+  return formatter.formatToParts(date).find((part) => part.type === 'timeZoneName')?.value || '';
 };
 
 export const getTimezoneAbbreviation = (timezone: string, date: Date = new Date()): string => {
   const formatter = new Intl.DateTimeFormat('en', {
     timeZone: timezone,
-    timeZoneName: 'short'
+    timeZoneName: 'short',
   });
-  return formatter.formatToParts(date).find(part => part.type === 'timeZoneName')?.value || '';
+  return formatter.formatToParts(date).find((part) => part.type === 'timeZoneName')?.value || '';
 };
 
 export const formatters = {
-  trialDate: (utcDate: string, timezone: string) => 
-    formatDateForDisplay(utcDate, timezone),
-  
-  trialDateTime: (utcDate: string, timezone: string) => 
-    formatDateForDisplay(utcDate, timezone),
-  
-  shortDate: (utcDate: string, timezone: string) => 
-    getTrialLocalDate(utcDate, timezone),
-  
-  timeOnly: (utcDate: string, timezone: string) => 
-    getTrialLocalTime(utcDate, timezone),
-  
-  deadlineReminder: (utcDate: string, timezone: string) => 
-    formatDateForDisplay(utcDate, timezone),
-    
-  dateInput: (utcDate: string, timezone: string) => 
-    parseISO(utcDate).toISOString().split('T')[0],
-    
-  timeInput: (utcDate: string, timezone: string) => 
-    parseISO(utcDate).toTimeString().slice(0, 5),
+  trialDate: (utcDate: string, timezone: string) => formatDateForDisplay(utcDate, timezone),
+
+  trialDateTime: (utcDate: string, timezone: string) => formatDateForDisplay(utcDate, timezone),
+
+  shortDate: (utcDate: string, timezone: string) => getTrialLocalDate(utcDate, timezone),
+
+  timeOnly: (utcDate: string, timezone: string) => getTrialLocalTime(utcDate, timezone),
+
+  deadlineReminder: (utcDate: string, timezone: string) => formatDateForDisplay(utcDate, timezone),
+
+  dateInput: (utcDate: string, timezone: string) => parseISO(utcDate).toISOString().split('T')[0],
+
+  timeInput: (utcDate: string, timezone: string) => parseISO(utcDate).toTimeString().slice(0, 5),
 };
 
 export const useTimezone = () => {
   const getCurrentTimezone = () => TIMEZONE_CONFIG.display;
-  
-  const formatForUser = (utcDate: string, formatString?: string) => 
+
+  const formatForUser = (utcDate: string, formatString?: string) =>
     formatDateForDisplay(utcDate, getCurrentTimezone(), formatString);
-  
+
   const formatTrialTime = (utcDate: string, timezone: string) => ({
     date: getTrialLocalDate(utcDate, timezone),
     time: getTrialLocalTime(utcDate, timezone),
     timezone: getTimezoneAbbreviation(timezone, parseISO(utcDate)),
-    full: formatDateForDisplay(utcDate, timezone)
+    full: formatDateForDisplay(utcDate, timezone),
   });
-  
+
   return {
     getCurrentTimezone,
     formatForUser,
     formatTrialTime,
-    getTimeRemaining: (trialDate: string) => 
-      formatTimeRemaining(trialDate),
+    getTimeRemaining: (trialDate: string) => formatTimeRemaining(trialDate),
   };
 };
 
 export type TimezoneConfig = typeof TIMEZONE_CONFIG;
-export type CommonTimezone = typeof TIMEZONE_CONFIG.commonTimezones[number];
+export type CommonTimezone = (typeof TIMEZONE_CONFIG.commonTimezones)[number];
 export type TrialTimeConfig = typeof TRIAL_TIME_CONFIG;

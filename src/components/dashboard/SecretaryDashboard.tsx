@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
+import {
   Award,
   Calendar,
   Users,
@@ -27,10 +27,10 @@ import {
   Mail,
   TrendingUp,
   Plus,
-  Download
+  Download,
 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import  CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
+import CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
 import { financialOperations } from '@/lib/financialOperations';
 
 interface Trial {
@@ -125,12 +125,12 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
   useEffect(() => {
     if (userTrials.length > 0 && !selectedTrialId) {
       // Priority: active > published > upcoming > draft
-      const activeTrial = userTrials.find(t => t.trial_status === 'active');
-      const publishedTrial = userTrials.find(t => t.trial_status === 'published');
+      const activeTrial = userTrials.find((t) => t.trial_status === 'active');
+      const publishedTrial = userTrials.find((t) => t.trial_status === 'published');
       const upcomingTrial = [...userTrials]
-        .filter(t => new Date(t.start_date) > new Date())
+        .filter((t) => new Date(t.start_date) > new Date())
         .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())[0];
-      
+
       const defaultTrial = activeTrial || publishedTrial || upcomingTrial || userTrials[0];
       setSelectedTrialId(defaultTrial.id);
     }
@@ -157,7 +157,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Get all entries for this trial
       const { data: entries } = await supabase
         .from('entries')
-        .select(`
+        .select(
+          `
           id,
           entry_status,
           payment_status,
@@ -169,22 +170,24 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             entry_type,
             entry_status
           )
-        `)
+        `
+        )
         .eq('trial_id', trialId);
 
       // Count entries by status (excluding FEO)
-      const nonFeoEntries = entries?.filter(e => 
-        e.entry_selections?.some(s => s.entry_type?.toLowerCase() !== 'feo')
-      ) || [];
+      const nonFeoEntries =
+        entries?.filter((e) =>
+          e.entry_selections?.some((s) => s.entry_type?.toLowerCase() !== 'feo')
+        ) || [];
 
       const totalEntries = nonFeoEntries.length;
-      const pendingPayment = nonFeoEntries.filter(e => e.payment_status === 'pending').length;
-      const waitlisted = nonFeoEntries.filter(e => e.entry_status === 'waitlisted').length;
-      const confirmed = nonFeoEntries.filter(e => e.entry_status === 'confirmed').length;
+      const pendingPayment = nonFeoEntries.filter((e) => e.payment_status === 'pending').length;
+      const waitlisted = nonFeoEntries.filter((e) => e.entry_status === 'waitlisted').length;
+      const confirmed = nonFeoEntries.filter((e) => e.entry_status === 'confirmed').length;
 
       // Get financial metrics using the SAME function as the Financial Summary page
       const financialsResult = await financialOperations.getCompetitorFinancials(trialId);
-      
+
       if (!financialsResult.success || !financialsResult.data) {
         throw new Error('Failed to load financial data');
       }
@@ -192,22 +195,28 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const competitors = financialsResult.data;
 
       // Calculate totals using EXACT same formula as financials page
-      const expectedRevenue = competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0);
+      const expectedRevenue = competitors.reduce(
+        (sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed),
+        0
+      );
       const collected = competitors.reduce((sum, c) => sum + c.amount_paid, 0);
       const outstanding = competitors.reduce((sum, c) => {
-        const balance = c.fees_waived ? 0 : (c.amount_owed - c.amount_paid);
+        const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
         return sum + balance;
       }, 0);
 
       // Calculate days until start
       const startDate = new Date(trialData?.start_date || '');
       const today = new Date();
-      const daysUntilStart = Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const daysUntilStart = Math.ceil(
+        (startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
       // Check if running order is published (ANY round with status 'published')
       const { data: roundsData } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           round_status,
           trial_classes!inner(
@@ -215,15 +224,18 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
               trial_id
             )
           )
-        `)
+        `
+        )
         .eq('trial_classes.trial_days.trial_id', trialId);
 
-      const runningOrderPublished = roundsData?.some(r => r.round_status === 'published') || false;
+      const runningOrderPublished =
+        roundsData?.some((r) => r.round_status === 'published') || false;
 
       // Count total rounds for this trial (each round needs a judge)
       const { data: allRounds } = await supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           judge_name,
           trial_classes!inner(
@@ -231,17 +243,19 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
               trial_id
             )
           )
-        `)
+        `
+        )
         .eq('trial_classes.trial_days.trial_id', trialId);
 
       const totalRounds = allRounds?.length || 0;
 
       // Count rounds with judges assigned
-      const roundsWithJudges = allRounds?.filter(r => r.judge_name && r.judge_name.trim() !== '') || [];
+      const roundsWithJudges =
+        allRounds?.filter((r) => r.judge_name && r.judge_name.trim() !== '') || [];
       const configuredRounds = roundsWithJudges.length;
 
       // Get unique judges assigned
-      const uniqueJudges = new Set(roundsWithJudges.map(r => r.judge_name)).size;
+      const uniqueJudges = new Set(roundsWithJudges.map((r) => r.judge_name)).size;
 
       // Load break-even analysis (full analysis like financials page)
       const { data: breakEvenConfig } = await supabase
@@ -256,49 +270,52 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         // Calculate current status (RUNS not ENTRIES!)
         const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
         const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
-        const totalWaivedRegular = competitors.reduce((sum, c) => sum + (c.waived_regular_runs || 0), 0);
+        const totalWaivedRegular = competitors.reduce(
+          (sum, c) => sum + (c.waived_regular_runs || 0),
+          0
+        );
         const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
 
         // Calculate total regular runs (both paid and waived - ALL are charged C-WAGS fee)
         const totalRegularRuns = totalPaidRuns + totalWaivedRegular;
-        
+
         // C-WAGS fees are charged on ALL regular runs (paid and waived)
         const cwagsExpense = totalRegularRuns * breakEvenConfig.regular_cwags_fee;
-        
+
         // Calculate fixed costs INCLUDING C-WAGS fees
-        const totalFixedCosts = 
-          breakEvenConfig.hall_rental + 
-          breakEvenConfig.ribbons + 
-          breakEvenConfig.insurance + 
+        const totalFixedCosts =
+          breakEvenConfig.hall_rental +
+          breakEvenConfig.ribbons +
+          breakEvenConfig.insurance +
           breakEvenConfig.other_fixed_costs +
-          cwagsExpense;  // ← C-WAGS is a fixed cost based on total runs
+          cwagsExpense; // ← C-WAGS is a fixed cost based on total runs
 
         // Calculate net per run
-        const regularNetPerRun = 
-          breakEvenConfig.regular_entry_fee - 
-          breakEvenConfig.regular_cwags_fee - 
+        const regularNetPerRun =
+          breakEvenConfig.regular_entry_fee -
+          breakEvenConfig.regular_cwags_fee -
           breakEvenConfig.regular_judge_fee;
 
-        const feoNetPerRun = 
-          breakEvenConfig.feo_entry_fee - 
-          breakEvenConfig.feo_judge_fee;
+        const feoNetPerRun = breakEvenConfig.feo_entry_fee - breakEvenConfig.feo_judge_fee;
 
         // Calculate waived run costs (only judge fees, C-WAGS already in fixed costs)
-        const waivedJudgeCosts = (totalWaivedRegular * breakEvenConfig.regular_judge_fee) + 
-                                  (totalWaivedFeo * breakEvenConfig.feo_judge_fee);
+        const waivedJudgeCosts =
+          totalWaivedRegular * breakEvenConfig.regular_judge_fee +
+          totalWaivedFeo * breakEvenConfig.feo_judge_fee;
 
         // Calculate revenue and costs
-        const currentRevenue = (totalPaidRuns * regularNetPerRun) + (totalFeoRuns * feoNetPerRun);
+        const currentRevenue = totalPaidRuns * regularNetPerRun + totalFeoRuns * feoNetPerRun;
         const totalAllCosts = totalFixedCosts + waivedJudgeCosts;
         const currentNetIncome = currentRevenue - totalAllCosts;
 
         // Calculate break-even point
-        const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
+        const breakEvenRuns =
+          regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
         const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
 
         breakEvenAnalysis = {
           totalFixedCosts,
-          cwagsExpense,  // Track C-WAGS separately for display
+          cwagsExpense, // Track C-WAGS separately for display
           regularNetPerRun,
           feoNetPerRun,
           totalPaidRuns,
@@ -312,7 +329,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           breakEvenRuns,
           paidRunsNeeded,
           isProfitable: currentNetIncome >= 0,
-          progressPercent: breakEvenRuns > 0 ? Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100)) : 100
+          progressPercent:
+            breakEvenRuns > 0
+              ? Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))
+              : 100,
         };
       }
 
@@ -328,18 +348,18 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         runningOrderPublished,
         classesSetUp: {
           total: totalRounds,
-          configured: configuredRounds
+          configured: configuredRounds,
         },
         judgesAssigned: {
           total: totalRounds,
-          assigned: uniqueJudges
+          assigned: uniqueJudges,
         },
-        breakEvenAnalysis
+        breakEvenAnalysis,
       });
 
       // Generate action items and outstanding entries list
       const items: ActionItem[] = [];
-      
+
       // Get handler emails from entries table
       const { data: entriesWithEmails } = await supabase
         .from('entries')
@@ -353,22 +373,22 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           emailLookup[e.handler_name] = e.handler_email;
         }
       });
-      
+
       // Get detailed list of entries with outstanding balances
       const outstandingList: OutstandingEntry[] = competitors
-        .map(c => {
-          const balance = c.fees_waived ? 0 : (c.amount_owed - c.amount_paid);
+        .map((c) => {
+          const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
           return {
             handler_name: c.handler_name,
             handler_email: emailLookup[c.handler_name] || '',
-            balance: balance
+            balance: balance,
           };
         })
-        .filter(entry => entry.balance > 0)
+        .filter((entry) => entry.balance > 0)
         .sort((a, b) => b.balance - a.balance); // Sort by balance descending
-      
+
       setOutstandingEntries(outstandingList);
-      
+
       // Check for days approaching time limit
       const { data: trialDays } = await supabase
         .from('trial_days')
@@ -390,7 +410,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           // Get all classes for this day with entry counts
           const { data: dayClasses } = await supabase
             .from('trial_classes')
-            .select(`
+            .select(
+              `
               id,
               class_name,
               class_type,
@@ -398,7 +419,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 id,
                 entry_selections(id, entry_status)
               )
-            `)
+            `
+            )
             .eq('trial_day_id', day.id);
 
           // Get time configurations for this trial
@@ -418,7 +440,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           let scheduledMinutes = 0;
           (dayClasses || []).forEach((cls: any) => {
             const minutesPerRun = timeLookup[cls.class_name] || 2.5; // Default 2.5 min if not configured
-            
+
             // Count active entries across all rounds
             const totalEntries = cls.trial_rounds.reduce((sum: number, round: any) => {
               const activeEntries = (round.entry_selections || []).filter(
@@ -436,26 +458,28 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             const minutesOver = scheduledMinutes - allottedMinutes;
             items.push({
               type: 'warning',
-              message: minutesOver > 0
-                ? `Day ${day.day_number} is ${minutesOver.toFixed(0)} minutes over time limit (${scheduledMinutes.toFixed(0)}/${allottedMinutes} min)`
-                : `Day ${day.day_number} is at ${percentUsed.toFixed(0)}% capacity (${scheduledMinutes.toFixed(0)}/${allottedMinutes} min)`
+              message:
+                minutesOver > 0
+                  ? `Day ${day.day_number} is ${minutesOver.toFixed(0)} minutes over time limit (${scheduledMinutes.toFixed(0)}/${allottedMinutes} min)`
+                  : `Day ${day.day_number} is at ${percentUsed.toFixed(0)}% capacity (${scheduledMinutes.toFixed(0)}/${allottedMinutes} min)`,
             });
           }
         }
       }
-      
+
       if (waitlisted > 0) {
         items.push({
           type: 'info',
           message: `${waitlisted} waitlisted ${waitlisted === 1 ? 'entry' : 'entries'}`,
-          count: waitlisted
+          count: waitlisted,
         });
       }
 
       // Check for near-capacity classes (90% or more full)
       const { data: classesWithCounts } = await supabase
         .from('trial_classes')
-        .select(`
+        .select(
+          `
           id,
           class_name,
           max_entries,
@@ -466,29 +490,34 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           trial_days!inner(
             trial_id
           )
-        `)
+        `
+        )
         .eq('trial_days.trial_id', trialId);
 
       const nearCapacityClasses: string[] = [];
       classesWithCounts?.forEach((cls: any) => {
-        const totalEntries = cls.trial_rounds?.reduce((sum: number, round: any) => {
-          const activeEntries = round.entry_selections?.filter(
-            (sel: any) => sel.entry_status?.toLowerCase() !== 'withdrawn'
-          ).length || 0;
-          return sum + activeEntries;
-        }, 0) || 0;
+        const totalEntries =
+          cls.trial_rounds?.reduce((sum: number, round: any) => {
+            const activeEntries =
+              round.entry_selections?.filter(
+                (sel: any) => sel.entry_status?.toLowerCase() !== 'withdrawn'
+              ).length || 0;
+            return sum + activeEntries;
+          }, 0) || 0;
 
         const capacityPercent = (totalEntries / cls.max_entries) * 100;
         if (capacityPercent >= 90) {
           const spotsLeft = cls.max_entries - totalEntries;
-          nearCapacityClasses.push(`${cls.class_name} (${spotsLeft} ${spotsLeft === 1 ? 'spot' : 'spots'} left)`);
+          nearCapacityClasses.push(
+            `${cls.class_name} (${spotsLeft} ${spotsLeft === 1 ? 'spot' : 'spots'} left)`
+          );
         }
       });
 
       if (nearCapacityClasses.length > 0) {
         items.push({
           type: 'warning',
-          message: `Classes near capacity: ${nearCapacityClasses.join(', ')}`
+          message: `Classes near capacity: ${nearCapacityClasses.join(', ')}`,
         });
       }
 
@@ -503,30 +532,38 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         .from('trial_activity_log')
         .select('*')
         .eq('trial_id', trialId)
-        .in('activity_type', ['entry_submitted', 'entry_modified', 'dog_substituted', 'fees_waived'])
+        .in('activity_type', [
+          'entry_submitted',
+          'entry_modified',
+          'dog_substituted',
+          'fees_waived',
+        ])
         .gte('created_at', twoDaysAgoISO)
         .order('created_at', { ascending: false });
 
       const activity: RecentActivity[] = [];
-      
+
       (activityData || []).forEach((item: any) => {
         const snapshot = item.snapshot_data || {};
-        
+
         if (item.activity_type === 'entry_submitted') {
           activity.push({
             id: item.id,
             type: 'entry_created',
             message: `New entry: ${snapshot.dog_call_name} (${snapshot.handler_name}) - ${snapshot.class_count} ${snapshot.class_count === 1 ? 'class' : 'classes'}`,
-            timestamp: item.created_at
+            timestamp: item.created_at,
           });
         } else if (item.activity_type === 'entry_modified') {
           const added = (snapshot.after?.class_count || 0) - (snapshot.before?.class_count || 0);
-          const action = added > 0 ? `Added ${added} class${Math.abs(added) !== 1 ? 'es' : ''}` : `Removed ${Math.abs(added)} class${Math.abs(added) !== 1 ? 'es' : ''}`;
+          const action =
+            added > 0
+              ? `Added ${added} class${Math.abs(added) !== 1 ? 'es' : ''}`
+              : `Removed ${Math.abs(added)} class${Math.abs(added) !== 1 ? 'es' : ''}`;
           activity.push({
             id: item.id,
             type: 'entry_modified',
             message: `Modified: ${snapshot.dog_call_name} - ${action}`,
-            timestamp: item.created_at
+            timestamp: item.created_at,
           });
         } else if (item.activity_type === 'dog_substituted') {
           const substitute = snapshot.substitute || {};
@@ -535,14 +572,14 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             id: item.id,
             type: 'dog_substituted',
             message: `Dog substitution: ${substitute.dog_call_name} replaced ${original.dog_call_name}`,
-            timestamp: item.created_at
+            timestamp: item.created_at,
           });
         } else if (item.activity_type === 'fees_waived') {
           activity.push({
             id: item.id,
             type: 'fees_waived',
             message: `Fees waived: ${snapshot.dog_call_name} ($${snapshot.amount_waived || 0})`,
-            timestamp: item.created_at
+            timestamp: item.created_at,
           });
         }
       });
@@ -554,17 +591,19 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         .eq('trial_id', trialId);
 
       const entryIds = (entriesData || []).map((e: any) => e.id);
-      
+
       if (entryIds.length > 0) {
         const { data: paymentsData } = await supabase
           .from('entry_payment_transactions')
-          .select(`
+          .select(
+            `
             id,
             amount,
             payment_date,
             created_at,
             entries!inner(handler_name, dog_call_name)
-          `)
+          `
+          )
           .in('entry_id', entryIds)
           .gte('payment_date', twoDaysAgoISO)
           .order('payment_date', { ascending: false });
@@ -574,7 +613,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             id: `payment-${payment.id}`,
             type: 'payment_received',
             message: `Payment: ${payment.entries.handler_name} - $${payment.amount}`,
-            timestamp: payment.payment_date || payment.created_at
+            timestamp: payment.payment_date || payment.created_at,
           });
         });
       }
@@ -582,7 +621,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Sort all activity by timestamp (all from last 2 days)
       activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setRecentActivity(activity);
-
     } catch (error) {
       console.error('Error loading trial metrics:', error);
     } finally {
@@ -590,7 +628,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
     }
   };
 
-  const selectedTrial = userTrials.find(t => t.id === selectedTrialId);
+  const selectedTrial = userTrials.find((t) => t.id === selectedTrialId);
 
   const exportToCSV = async () => {
     if (!selectedTrialId) return;
@@ -598,7 +636,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
     try {
       // Get financial data grouped by owner
       const financialsResult = await financialOperations.getCompetitorFinancials(selectedTrialId);
-      
+
       if (!financialsResult.success || !financialsResult.data) {
         alert('Failed to load financial data for export');
         return;
@@ -613,15 +651,15 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         .eq('trial_id', selectedTrialId);
 
       const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
-      
-      entries?.forEach(entry => {
+
+      entries?.forEach((entry) => {
         const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
         const ownerId = cwagsMatch ? cwagsMatch[1] : entry.cwags_number;
-        
+
         if (!ownerContactInfo[ownerId]) {
           ownerContactInfo[ownerId] = {
             email: entry.handler_email || 'N/A',
-            phone: entry.handler_phone || 'N/A'
+            phone: entry.handler_phone || 'N/A',
           };
         }
       });
@@ -633,15 +671,15 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         'Phone',
         'Dogs (Runs)',
         'Total Runs',
-        'Amount Owing'
+        'Amount Owing',
       ];
-      
+
       // Create CSV rows
-      const rows = competitors.map(comp => {
+      const rows = competitors.map((comp) => {
         const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
         const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
         const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
-        
+
         // Format dogs with run counts
         const dogsWithRuns = (comp.dogs || [])
           .map((dog: any) => {
@@ -649,43 +687,45 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             return `${dog.dog_call_name} (${totalRuns})`;
           })
           .join(' ');
-        
+
         // Calculate total runs
-        const totalRuns = comp.regular_runs + comp.feo_runs + 
-                         comp.waived_regular_runs + comp.waived_feo_runs;
-        
+        const totalRuns =
+          comp.regular_runs + comp.feo_runs + comp.waived_regular_runs + comp.waived_feo_runs;
+
         // Calculate balance
-        const balance = comp.fees_waived ? 0 : (comp.amount_owed - comp.amount_paid);
-        
+        const balance = comp.fees_waived ? 0 : comp.amount_owed - comp.amount_paid;
+
         return [
           comp.handler_name,
           contact.email,
           contact.phone,
           dogsWithRuns,
           totalRuns.toString(),
-          balance.toFixed(2)
+          balance.toFixed(2),
         ];
       });
 
       // Combine headers and rows
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
       ].join('\n');
 
       // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
+
       link.setAttribute('href', url);
-      link.setAttribute('download', `${selectedTrial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        'download',
+        `${selectedTrial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`
+      );
       link.style.visibility = 'hidden';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
     } catch (error) {
       console.error('Error exporting to CSV:', error);
       alert('Failed to export CSV');
@@ -718,42 +758,38 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       }
 
       // Create CSV header
-      const headers = [
-        'Handler Name',
-        'Dog Name',
-        'Titles/Aces Close To',
-        'Email',
-        'Phone'
-      ];
+      const headers = ['Handler Name', 'Dog Name', 'Titles/Aces Close To', 'Email', 'Phone'];
 
       // Create CSV rows
-      const rows = entries.map(entry => [
+      const rows = entries.map((entry) => [
         entry.handler_name,
         entry.dog_call_name,
         entry.close_to_titles || 'N/A',
         entry.handler_email || 'N/A',
-        entry.handler_phone || 'N/A'
+        entry.handler_phone || 'N/A',
       ]);
 
       // Combine headers and rows
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
       ].join('\n');
 
       // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
+
       link.setAttribute('href', url);
-      link.setAttribute('download', `${selectedTrial?.trial_name || 'trial'}_possible_titles_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        'download',
+        `${selectedTrial?.trial_name || 'trial'}_possible_titles_${new Date().toISOString().split('T')[0]}.csv`
+      );
       link.style.visibility = 'hidden';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
     } catch (error) {
       console.error('Error exporting titles CSV:', error);
       alert('Failed to export titles CSV');
@@ -799,8 +835,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Build dynamic headers based on trial days
       const baseHeaders = ['Handler Name', 'Dog Name', 'Email', 'Phone'];
       const dayHeaders: string[] = [];
-      
-      trialDays.forEach(day => {
+
+      trialDays.forEach((day) => {
         dayHeaders.push(
           `Day ${day.day_number} - Timer`,
           `Day ${day.day_number} - Clean_box_setter`,
@@ -812,24 +848,27 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const headers = [...baseHeaders, ...dayHeaders];
 
       // Create CSV rows
-      const rows = entries.map(entry => {
-        const volunteerPrefs = entry.volunteer_preferences as Record<string, VolunteerDayPreferences>;
-        
+      const rows = entries.map((entry) => {
+        const volunteerPrefs = entry.volunteer_preferences as Record<
+          string,
+          VolunteerDayPreferences
+        >;
+
         const baseData = [
           entry.handler_name,
           entry.dog_call_name,
           entry.handler_email || 'N/A',
-          entry.handler_phone || 'N/A'
+          entry.handler_phone || 'N/A',
         ];
 
         const volunteerData: string[] = [];
-        trialDays.forEach(day => {
+        trialDays.forEach((day) => {
           const dayKey = `day_${day.day_number}`;
           const dayPrefs = volunteerPrefs?.[dayKey] || {
             Timer: false,
             Clean_box_setter: false,
             Gate_person: false,
-            Shoe_runner: false
+            Shoe_runner: false,
           };
 
           volunteerData.push(
@@ -846,22 +885,24 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Combine headers and rows
       const csvContent = [
         headers.join(','),
-        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
       ].join('\n');
 
       // Create blob and download
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
-      
+
       link.setAttribute('href', url);
-      link.setAttribute('download', `${selectedTrial?.trial_name || 'trial'}_volunteers_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute(
+        'download',
+        `${selectedTrial?.trial_name || 'trial'}_volunteers_${new Date().toISOString().split('T')[0]}.csv`
+      );
       link.style.visibility = 'hidden';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
     } catch (error) {
       console.error('Error exporting volunteers CSV:', error);
       alert('Failed to export volunteers CSV');
@@ -870,25 +911,20 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
 
   const formatDate = (dateString: string) => {
     const parts = dateString.split('-');
-    const date = new Date(
-      parseInt(parts[0]),
-      parseInt(parts[1]) - 1,
-      parseInt(parts[2]),
-      12, 0, 0
-    );
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
   const getStatusBadge = (status: string) => {
     const colors = {
-      'active': 'bg-green-100 text-green-800',
-      'published': 'bg-orange-100 text-orange-800',
-      'draft': 'bg-gray-100 text-gray-800',
-      'completed': 'bg-purple-100 text-purple-800'
+      active: 'bg-green-100 text-green-800',
+      published: 'bg-orange-100 text-orange-800',
+      draft: 'bg-gray-100 text-gray-800',
+      completed: 'bg-purple-100 text-purple-800',
     };
     return colors[status as keyof typeof colors] || colors.draft;
   };
@@ -911,9 +947,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-700 mb-2 block">
-                Select Trial
-              </label>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">Select Trial</label>
               <Select value={selectedTrialId} onValueChange={setSelectedTrialId}>
                 <SelectTrigger className="w-full max-w-md">
                   <SelectValue />
@@ -932,14 +966,15 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 </SelectContent>
               </Select>
             </div>
-            
+
             {selectedTrial && (
               <div className="text-right">
                 <p className="text-sm text-gray-600">{formatDate(selectedTrial.start_date)}</p>
                 {metrics && metrics.daysUntilStart > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
                     <Clock className="h-3 w-3 inline mr-1" />
-                    Starts in {metrics.daysUntilStart} {metrics.daysUntilStart === 1 ? 'day' : 'days'}
+                    Starts in {metrics.daysUntilStart}{' '}
+                    {metrics.daysUntilStart === 1 ? 'day' : 'days'}
                   </p>
                 )}
               </div>
@@ -967,21 +1002,21 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <div className="text-sm text-gray-600">Total Entries</div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-orange-200">
                 <CardContent className="pt-6 text-center">
                   <div className="text-3xl font-bold text-orange-600">{metrics.pendingPayment}</div>
                   <div className="text-sm text-gray-600">Pending Payment</div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-yellow-200">
                 <CardContent className="pt-6 text-center">
                   <div className="text-3xl font-bold text-yellow-600">{metrics.waitlisted}</div>
                   <div className="text-sm text-gray-600">Waitlisted</div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-green-200">
                 <CardContent className="pt-6 text-center">
                   <div className="text-3xl font-bold text-green-600">{metrics.confirmed}</div>
@@ -1003,7 +1038,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <div className="text-sm text-gray-600">Expected Revenue</div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-orange-200">
                 <CardContent className="pt-6 text-center">
                   <div className="text-2xl font-bold text-orange-600">
@@ -1012,7 +1047,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <div className="text-sm text-gray-600">Outstanding</div>
                 </CardContent>
               </Card>
-              
+
               <Card className="border-green-200">
                 <CardContent className="pt-6 text-center">
                   <div className="text-2xl font-bold text-green-600">
@@ -1044,8 +1079,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                       <Download className="h-4 w-4 mr-2" />
                       Export CSV
                     </Button>
-                   
-                    <Button 
+
+                    <Button
                       variant="outline"
                       size="sm"
                       className="bg-green-50 hover:bg-green-100"
@@ -1063,9 +1098,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <table className="w-full">
                     <thead className="border-b bg-gray-50">
                       <tr>
-                        <th className="text-left p-3 text-sm font-semibold text-gray-700">Competitor</th>
+                        <th className="text-left p-3 text-sm font-semibold text-gray-700">
+                          Competitor
+                        </th>
                         <th className="text-left p-3 text-sm font-semibold text-gray-700">Email</th>
-                        <th className="text-right p-3 text-sm font-semibold text-gray-700">Balance</th>
+                        <th className="text-right p-3 text-sm font-semibold text-gray-700">
+                          Balance
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
@@ -1089,8 +1128,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             </Card>
           )}
 
-          
-
           {/* Other Action Items */}
           {actionItems.length > 0 && (
             <Card className="border-orange-200 bg-orange-50">
@@ -1104,7 +1141,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 <ul className="space-y-2">
                   {actionItems.map((item, idx) => (
                     <li key={idx} className="flex items-center space-x-2 text-sm">
-                      <span className={item.type === 'warning' ? 'text-orange-700' : 'text-blue-700'}>
+                      <span
+                        className={item.type === 'warning' ? 'text-orange-700' : 'text-blue-700'}
+                      >
                         • {item.message}
                       </span>
                     </li>
@@ -1116,20 +1155,36 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
 
           {/* Break-Even Analysis */}
           {metrics.breakEvenAnalysis && (
-            <Card className={metrics.breakEvenAnalysis.isProfitable ? 'border-green-300 bg-green-50' : 'border-orange-300 bg-orange-50'}>
+            <Card
+              className={
+                metrics.breakEvenAnalysis.isProfitable
+                  ? 'border-green-300 bg-green-50'
+                  : 'border-orange-300 bg-orange-50'
+              }
+            >
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <DollarSign className={`h-5 w-5 ${metrics.breakEvenAnalysis.isProfitable ? 'text-green-600' : 'text-orange-600'}`} />
+                  <DollarSign
+                    className={`h-5 w-5 ${metrics.breakEvenAnalysis.isProfitable ? 'text-green-600' : 'text-orange-600'}`}
+                  />
                   <span>Break-Even Analysis</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {/* Status Alert */}
-                  <div className={`p-3 rounded-lg ${metrics.breakEvenAnalysis.isProfitable ? 'bg-green-100' : 'bg-orange-100'}`}>
-                    <p className={`font-semibold ${metrics.breakEvenAnalysis.isProfitable ? 'text-green-800' : 'text-orange-800'}`}>
+                  <div
+                    className={`p-3 rounded-lg ${metrics.breakEvenAnalysis.isProfitable ? 'bg-green-100' : 'bg-orange-100'}`}
+                  >
+                    <p
+                      className={`font-semibold ${metrics.breakEvenAnalysis.isProfitable ? 'text-green-800' : 'text-orange-800'}`}
+                    >
                       {metrics.breakEvenAnalysis.isProfitable ? (
-                        <>✓ Profitable! ${Math.abs(metrics.breakEvenAnalysis.currentNetIncome).toFixed(2)} above break-even</>
+                        <>
+                          ✓ Profitable! $
+                          {Math.abs(metrics.breakEvenAnalysis.currentNetIncome).toFixed(2)} above
+                          break-even
+                        </>
                       ) : (
                         <>Need {metrics.breakEvenAnalysis.paidRunsNeeded} more paid runs</>
                       )}
@@ -1159,7 +1214,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <div className="bg-white p-3 rounded">
                     <div className="text-xs text-gray-600 mb-1">Break-Even Point</div>
                     <p className="text-sm">
-                      Need <strong>{metrics.breakEvenAnalysis.breakEvenRuns} paid runs</strong> at ${metrics.breakEvenAnalysis.regularNetPerRun.toFixed(2)}/run
+                      Need <strong>{metrics.breakEvenAnalysis.breakEvenRuns} paid runs</strong> at $
+                      {metrics.breakEvenAnalysis.regularNetPerRun.toFixed(2)}/run
                     </p>
                   </div>
 
@@ -1167,22 +1223,30 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Paid Regular Runs:</span>
-                      <span className="font-semibold">{metrics.breakEvenAnalysis.totalPaidRuns}</span>
+                      <span className="font-semibold">
+                        {metrics.breakEvenAnalysis.totalPaidRuns}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Paid FEO Runs:</span>
-                      <span className="font-semibold">{metrics.breakEvenAnalysis.totalFeoRuns}</span>
+                      <span className="font-semibold">
+                        {metrics.breakEvenAnalysis.totalFeoRuns}
+                      </span>
                     </div>
                     {metrics.breakEvenAnalysis.totalWaivedRegular > 0 && (
                       <div className="flex justify-between text-sm text-purple-700">
                         <span>Waived Regular Runs:</span>
-                        <span className="font-semibold">{metrics.breakEvenAnalysis.totalWaivedRegular}</span>
+                        <span className="font-semibold">
+                          {metrics.breakEvenAnalysis.totalWaivedRegular}
+                        </span>
                       </div>
                     )}
                     {metrics.breakEvenAnalysis.totalWaivedFeo > 0 && (
                       <div className="flex justify-between text-sm text-purple-700">
                         <span>Waived FEO Runs:</span>
-                        <span className="font-semibold">{metrics.breakEvenAnalysis.totalWaivedFeo}</span>
+                        <span className="font-semibold">
+                          {metrics.breakEvenAnalysis.totalWaivedFeo}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1203,7 +1267,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                     </div>
                     <div className="flex justify-between text-sm pt-2 border-t">
                       <span className="font-semibold">Net Income:</span>
-                      <span className={`font-bold ${metrics.breakEvenAnalysis.currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      <span
+                        className={`font-bold ${metrics.breakEvenAnalysis.currentNetIncome >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                      >
                         ${metrics.breakEvenAnalysis.currentNetIncome.toFixed(2)}
                       </span>
                     </div>
@@ -1216,9 +1282,11 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                       <span>{metrics.breakEvenAnalysis.progressPercent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className={`h-2 rounded-full transition-all ${
-                          metrics.breakEvenAnalysis.progressPercent >= 100 ? 'bg-green-600' : 'bg-orange-600'
+                          metrics.breakEvenAnalysis.progressPercent >= 100
+                            ? 'bg-green-600'
+                            : 'bg-orange-600'
                         }`}
                         style={{ width: `${metrics.breakEvenAnalysis.progressPercent}%` }}
                       ></div>
@@ -1240,7 +1308,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button 
+                <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => router.push('/dashboard/trials')}
@@ -1248,8 +1316,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <Users className="h-4 w-4 mr-2" />
                   Manage Trials
                 </Button>
-                
-                <Button 
+
+                <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/live-event`)}
@@ -1257,18 +1325,20 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <FileText className="h-4 w-4 mr-2" />
                   Running Order
                 </Button>
-                
-                <Button 
-  variant="outline"
-  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
-  onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/close-to-titles`)}
-  disabled={!selectedTrialId}
->
-  <Trophy className="h-4 w-4 mr-2" />
-  Close to Titles Report
-</Button>
 
-                <Button 
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+                  onClick={() =>
+                    router.push(`/dashboard/trials/${selectedTrialId}/close-to-titles`)
+                  }
+                  disabled={!selectedTrialId}
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  Close to Titles Report
+                </Button>
+
+                <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/financials`)}
@@ -1276,8 +1346,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   <DollarSign className="h-4 w-4 mr-2" />
                   Financial Summary
                 </Button>
-                
-                <Button 
+
+                <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/journal`)}
@@ -1286,7 +1356,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   Activity Journal
                 </Button>
 
-                <Button 
+                <Button
                   variant="outline"
                   className="w-full justify-start"
                   onClick={exportToCSV}
@@ -1296,7 +1366,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   Export Entries CSV
                 </Button>
 
-                <Button 
+                <Button
                   onClick={() => router.push('/dashboard/trials/create')}
                   className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white mt-4"
                 >
@@ -1328,7 +1398,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                             month: 'short',
                             day: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </p>
                       </div>
@@ -1340,6 +1410,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           </div>
         </>
       )}
-     </div>
+    </div>
   );
 }

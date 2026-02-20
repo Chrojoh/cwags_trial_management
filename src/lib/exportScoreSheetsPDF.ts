@@ -27,7 +27,7 @@ export async function exportScoreSheetsPDF(
     x: margin,
     y,
     size: 18,
-    font: bold
+    font: bold,
   });
 
   // Date (right)
@@ -35,14 +35,14 @@ export async function exportScoreSheetsPDF(
     x: width - margin - 200,
     y,
     size: 14,
-    font: bold
+    font: bold,
   });
 
   y -= 40;
 
   /* ───────────────── LOGOS ───────────────── */
 
-  const logoBytes = await fetch('/cwags-logo.png').then(r => r.arrayBuffer());
+  const logoBytes = await fetch('/cwags-logo.png').then((r) => r.arrayBuffer());
   const logo = await pdf.embedPng(logoBytes);
 
   const logoHeight = 50;
@@ -53,7 +53,7 @@ export async function exportScoreSheetsPDF(
     x: margin,
     y: y - logoHeight,
     width: logoWidth,
-    height: logoHeight
+    height: logoHeight,
   });
 
   // Right logo
@@ -61,7 +61,7 @@ export async function exportScoreSheetsPDF(
     x: width - margin - logoWidth,
     y: y - logoHeight,
     width: logoWidth,
-    height: logoHeight
+    height: logoHeight,
   });
 
   y -= logoHeight + 20;
@@ -74,7 +74,7 @@ export async function exportScoreSheetsPDF(
     x: margin,
     y,
     size: 14,
-    font: bold
+    font: bold,
   });
 
   page.drawText(
@@ -83,7 +83,7 @@ export async function exportScoreSheetsPDF(
       x: margin,
       y: y - 20,
       size: 14,
-      font: bold
+      font: bold,
     }
   );
 
@@ -91,7 +91,7 @@ export async function exportScoreSheetsPDF(
     x: width / 2,
     y,
     size: 14,
-    font: bold
+    font: bold,
   });
 
   y -= 60;
@@ -110,14 +110,14 @@ export async function exportScoreSheetsPDF(
       width: scentBoxWidth,
       height: scentBoxHeight,
       borderColor: rgb(0, 0, 0),
-      borderWidth: 1
+      borderWidth: 1,
     });
 
     page.drawText(label, {
       x: x + 6,
       y: y + scentBoxHeight - 18,
       size: 10,
-      font: bold
+      font: bold,
     });
   });
 
@@ -130,25 +130,25 @@ export async function exportScoreSheetsPDF(
     { label: 'Reg #', w: 80 },
     { label: 'Handler / Dog', w: 230 },
     { label: 'Time', w: 80 },
-    { label: 'Pass / Fail', w: 80 }
+    { label: 'Pass / Fail', w: 80 },
   ];
 
   let x = margin;
-  cols.forEach(col => {
+  cols.forEach((col) => {
     page.drawRectangle({
       x,
       y,
       width: col.w,
       height: rowHeight,
       borderColor: rgb(0, 0, 0),
-      borderWidth: 1
+      borderWidth: 1,
     });
 
     page.drawText(col.label, {
       x: x + 6,
       y: y + 6,
       size: 10,
-      font: bold
+      font: bold,
     });
 
     x += col.w;
@@ -173,7 +173,7 @@ export async function exportScoreSheetsPDF(
         entry.cwags_number,
         `${entry.handler_name} / ${entry.dog_call_name}${sel.entry_type === 'feo' ? ' (FEO)' : ''}`,
         '',
-        ''
+        '',
       ];
 
       values.forEach((val, i) => {
@@ -183,14 +183,14 @@ export async function exportScoreSheetsPDF(
           width: cols[i].w,
           height: rowHeight,
           borderColor: rgb(0, 0, 0),
-          borderWidth: 1
+          borderWidth: 1,
         });
 
         page.drawText(val || '', {
           x: x + 6,
           y: y + 6,
           size: 10,
-          font
+          font,
         });
 
         x += cols[i].w;
@@ -202,22 +202,13 @@ export async function exportScoreSheetsPDF(
 
   /* ───────────────── SAVE ───────────────── */
 
-const bytes = await pdf.save();
+  const bytes = await pdf.save();
 
-
-
-/**
- * TypeScript DOM libs are overly strict about Uint8Array / BlobPart.
- * This cast is safe and standard in browser binaries.
- */
-const blob = new Blob(
-  [bytes as unknown as BlobPart],
-  { type: 'application/pdf' }
-);
-
-
-
-
+  /**
+   * TypeScript DOM libs are overly strict about Uint8Array / BlobPart.
+   * This cast is safe and standard in browser binaries.
+   */
+  const blob = new Blob([bytes as unknown as BlobPart], { type: 'application/pdf' });
 
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);

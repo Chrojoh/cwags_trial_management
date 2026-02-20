@@ -16,7 +16,10 @@ console.log('================================');
 
 console.log('1. Environment Variables:');
 console.log('   URL:', supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'Missing');
-console.log('   Service Key:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'Missing');
+console.log(
+  '   Service Key:',
+  supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'Missing'
+);
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('❌ Missing environment variables');
@@ -30,11 +33,11 @@ console.log('✅ Client created');
 async function testConnection() {
   try {
     console.log('\n3. Testing Basic Connection...');
-    
+
     // Test 1: Simple query to a system table
     console.log('   Testing system access...');
     const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
-    
+
     if (authError) {
       console.error('   ❌ Auth test failed:', authError.message);
       console.error('   This usually means the service role key is incorrect');
@@ -43,7 +46,7 @@ async function testConnection() {
     }
 
     console.log('\n4. Testing Database Access...');
-    
+
     // Test 2: Check if judges table exists
     console.log('   Checking if judges table exists...');
     const { data: tableData, error: tableError } = await supabase
@@ -54,12 +57,14 @@ async function testConnection() {
       console.error('   ❌ Judges table access failed:', tableError.message);
       console.error('   Error code:', tableError.code);
       console.error('   Error details:', tableError.details);
-      
+
       if (tableError.code === '42P01') {
         console.log('\n   📋 The judges table does not exist. Creating it...');
         await createJudgesTable();
       } else if (tableError.code === '42501') {
-        console.error('\n   🔐 Permission denied. Check your service role key has the correct permissions.');
+        console.error(
+          '\n   🔐 Permission denied. Check your service role key has the correct permissions.'
+        );
       }
     } else {
       console.log('   ✅ Judges table accessible');
@@ -67,7 +72,7 @@ async function testConnection() {
     }
 
     console.log('\n5. Testing Insert Permissions...');
-    
+
     // Test 3: Try to insert a test record
     const testJudge = {
       first_name: 'Test',
@@ -80,7 +85,7 @@ async function testConnection() {
       rally_levels: [],
       games_levels: [],
       scent_levels: [],
-      is_active: true
+      is_active: true,
     };
 
     const { data: insertData, error: insertError } = await supabase
@@ -93,17 +98,13 @@ async function testConnection() {
       console.error('   Error code:', insertError.code);
     } else {
       console.log('   ✅ Insert permissions working');
-      
+
       // Clean up test record
       if (insertData && insertData[0]) {
-        await supabase
-          .from('judges')
-          .delete()
-          .eq('id', insertData[0].id);
+        await supabase.from('judges').delete().eq('id', insertData[0].id);
         console.log('   🧹 Test record cleaned up');
       }
     }
-
   } catch (error) {
     console.error('💥 Unexpected error:', error);
   }
@@ -111,7 +112,7 @@ async function testConnection() {
 
 async function createJudgesTable() {
   console.log('   Creating judges table...');
-  
+
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS judges (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -134,7 +135,7 @@ async function createJudgesTable() {
 
   try {
     const { error } = await supabase.rpc('exec_sql', { sql: createTableSQL });
-    
+
     if (error) {
       console.error('   ❌ Failed to create table:', error.message);
       console.log('\n   📋 Please create the table manually in Supabase SQL Editor:');

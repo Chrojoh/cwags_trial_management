@@ -10,15 +10,31 @@ import { Input } from '@/components/ui/input';
 import { hasPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/lib/constants';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Clock, Users, UserCheck, ArrowRight, ArrowLeft, Save, Plus, Trash2, Edit, Settings } from 'lucide-react';
+import {
+  Clock,
+  Users,
+  UserCheck,
+  ArrowRight,
+  ArrowLeft,
+  Save,
+  Plus,
+  Trash2,
+  Edit,
+  Settings,
+} from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
-
 
 interface DatabaseJudge {
   id: string;
@@ -62,7 +78,7 @@ interface RoundData {
   reset_judge_name: string;
   reset_judge_email: string;
   notes: string;
-  is_reset?: boolean;   
+  is_reset?: boolean;
 }
 
 interface Trial {
@@ -83,7 +99,7 @@ function CreateRoundsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  
+
   const trialId = searchParams.get('trial');
   const isEditMode = searchParams.get('mode') === 'edit';
 
@@ -93,31 +109,34 @@ function CreateRoundsPageContent() {
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string>(''); // NEW: Track selected day
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
-  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: DatabaseJudge[] }>({});
+  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: DatabaseJudge[] }>(
+    {}
+  );
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [rounds, setRounds] = useState<{ [classId: string]: RoundData[] }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const sortJudgesByProximity = (judges: DatabaseJudge[], trialData: Trial): DatabaseJudge[] => {
-    if (!trialData?.location) return judges.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    
-    const locationParts = trialData.location.split(',').map(part => part.trim());
-    const trialProvinceState = locationParts.length >= 2 ? 
-      locationParts[locationParts.length - 2] : '';
-    
+    if (!trialData?.location)
+      return judges.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+    const locationParts = trialData.location.split(',').map((part) => part.trim());
+    const trialProvinceState =
+      locationParts.length >= 2 ? locationParts[locationParts.length - 2] : '';
+
     return judges.sort((a, b) => {
       const aIsLocal = a.province_state === trialProvinceState;
       const bIsLocal = b.province_state === trialProvinceState;
-      
+
       if (aIsLocal && !bIsLocal) return -1;
       if (!aIsLocal && bIsLocal) return 1;
-      
+
       return (a.name || '').localeCompare(b.name || '');
     });
   };
 
   const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): DatabaseJudge[] => {
-    return judges.filter(judge => {
+    return judges.filter((judge) => {
       switch (classType.toLowerCase()) {
         case 'scent':
           return judge.scent_levels && judge.scent_levels.length > 0;
@@ -135,17 +154,12 @@ function CreateRoundsPageContent() {
 
   const formatShortDate = (dateString: string) => {
     const parts = dateString.split('-');
-    const date = new Date(
-      parseInt(parts[0]),
-      parseInt(parts[1]) - 1,
-      parseInt(parts[2]),
-      12, 0, 0
-    );
-    
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -199,8 +213,8 @@ function CreateRoundsPageContent() {
               trial_day_id: day.id,
               trial_days: {
                 day_number: day.day_number,
-                trial_date: day.trial_date
-              }
+                trial_date: day.trial_date,
+              },
             }));
             allClasses.push(...dayClasses);
           }
@@ -210,22 +224,22 @@ function CreateRoundsPageContent() {
       }
 
       // Sort classes by day number first, then by official CWAGS class order
-const sortedClasses = allClasses.sort((a, b) => {
-  // First sort by day number
-  const dayA = a.trial_days?.day_number || 0;
-  const dayB = b.trial_days?.day_number || 0;
-  if (dayA !== dayB) return dayA - dayB;
-  
-  // Then sort by the official CWAGS class order
-  return getClassOrder(a.class_name) - getClassOrder(b.class_name);
-});
+      const sortedClasses = allClasses.sort((a, b) => {
+        // First sort by day number
+        const dayA = a.trial_days?.day_number || 0;
+        const dayB = b.trial_days?.day_number || 0;
+        if (dayA !== dayB) return dayA - dayB;
 
-setTrialClasses(sortedClasses);
+        // Then sort by the official CWAGS class order
+        return getClassOrder(a.class_name) - getClassOrder(b.class_name);
+      });
+
+      setTrialClasses(sortedClasses);
 
       const judgesResult = await simpleTrialOperations.getAllJudges();
       if (judgesResult.success) {
         const allJudgesData = judgesResult.data || [];
-        
+
         const qualifiedMap: { [classId: string]: DatabaseJudge[] } = {};
         for (const cls of allClasses) {
           const certifiedJudges = filterJudgesByClassType(allJudgesData, cls.class_type);
@@ -247,18 +261,18 @@ setTrialClasses(sortedClasses);
             start_time: round.start_time || '',
             estimated_duration: round.estimated_duration || '',
             max_entries: round.max_entries || cls.max_entries || 50,
-            has_reset: false,            // will be set below
-            reset_judge_name: '',        // will be set below
-            reset_judge_email: '',       // will be set below
+            has_reset: false, // will be set below
+            reset_judge_name: '', // will be set below
+            reset_judge_email: '', // will be set below
             notes: round.notes || '',
             is_reset: round.is_reset || false,
           }));
 
           // For each reset round (N.5), back-fill has_reset + judge info onto its parent (N)
-          loaded.forEach(round => {
+          loaded.forEach((round) => {
             if (round.is_reset) {
               const parentNum = Math.floor(round.round_number);
-              const parent = loaded.find(r => !r.is_reset && r.round_number === parentNum);
+              const parent = loaded.find((r) => !r.is_reset && r.round_number === parentNum);
               if (parent) {
                 parent.has_reset = true;
                 parent.reset_judge_name = round.judge_name;
@@ -269,29 +283,30 @@ setTrialClasses(sortedClasses);
 
           roundsData[cls.id] = loaded;
         } else {
-          roundsData[cls.id] = [{
-            round_number: 1,
-            judge_name: '',
-            judge_email: '',
-            start_time: '',
-            estimated_duration: '',
-            max_entries: cls.max_entries || 50,
-            has_reset: false,
-            reset_judge_name: '',
-            reset_judge_email: '',
-            notes: ''
-          }];
+          roundsData[cls.id] = [
+            {
+              round_number: 1,
+              judge_name: '',
+              judge_email: '',
+              start_time: '',
+              estimated_duration: '',
+              max_entries: cls.max_entries || 50,
+              has_reset: false,
+              reset_judge_name: '',
+              reset_judge_email: '',
+              notes: '',
+            },
+          ];
         }
       }
 
       setRounds(roundsData);
 
       // NEW: Set selected class to first class of selected day
-      const firstDayClass = allClasses.find(c => c.trial_day_id === (days[0]?.id || ''));
+      const firstDayClass = allClasses.find((c) => c.trial_day_id === (days[0]?.id || ''));
       if (firstDayClass && !selectedClassId) {
         setSelectedClassId(firstDayClass.id);
       }
-
     } catch (error) {
       console.error('Error loading trial data:', error);
     } finally {
@@ -302,8 +317,8 @@ setTrialClasses(sortedClasses);
   // NEW: When day changes, update selected class to first class of that day
   useEffect(() => {
     if (selectedDayId && trialClasses.length > 0) {
-      const dayClasses = trialClasses.filter(c => c.trial_day_id === selectedDayId);
-      if (dayClasses.length > 0 && !dayClasses.find(c => c.id === selectedClassId)) {
+      const dayClasses = trialClasses.filter((c) => c.trial_day_id === selectedDayId);
+      if (dayClasses.length > 0 && !dayClasses.find((c) => c.id === selectedClassId)) {
         setSelectedClassId(dayClasses[0].id);
       }
     }
@@ -311,164 +326,182 @@ setTrialClasses(sortedClasses);
 
   const handleJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
     const classQualifiedJudges = qualifiedJudges[classId] || [];
-    const judge = classQualifiedJudges.find(j => j.id === judgeId);
+    const judge = classQualifiedJudges.find((j) => j.id === judgeId);
     if (!judge) return;
 
-    setRounds(prev => ({
+    setRounds((prev) => ({
       ...prev,
-      [classId]: prev[classId]?.map((round, idx) => 
-        idx === roundIndex 
-          ? { ...round, judge_name: judge.name || '', judge_email: judge.email || '' }
-          : round
-      ) || []
+      [classId]:
+        prev[classId]?.map((round, idx) =>
+          idx === roundIndex
+            ? { ...round, judge_name: judge.name || '', judge_email: judge.email || '' }
+            : round
+        ) || [],
     }));
   };
 
   const handleResetJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
-  const classQualifiedJudges = qualifiedJudges[classId] || [];
-  const judge = classQualifiedJudges.find(j => j.id === judgeId);
-  if (!judge) return;
+    const classQualifiedJudges = qualifiedJudges[classId] || [];
+    const judge = classQualifiedJudges.find((j) => j.id === judgeId);
+    if (!judge) return;
 
-  setRounds(prev => {
-    const classRounds = [...(prev[classId] || [])];
-    const parentRound = classRounds[roundIndex];
-    const resetRoundNumber = parentRound.round_number + 0.5;
-
-    // Update the parent round's display fields (for the UI selector)
-    classRounds[roundIndex] = {
-      ...parentRound,
-      reset_judge_name: judge.name || '',
-      reset_judge_email: judge.email || '',
-    };
-
-    // Also push the judge onto the actual reset round record
-    const resetIdx = classRounds.findIndex(r => r.round_number === resetRoundNumber && r.is_reset);
-    if (resetIdx !== -1) {
-      classRounds[resetIdx] = {
-        ...classRounds[resetIdx],
-        judge_name: judge.name || '',
-        judge_email: judge.email || '',
-      };
-    }
-
-    return { ...prev, [classId]: classRounds };
-  });
-};
-
-  const handleRoundChange = (classId: string, roundIndex: number, field: keyof RoundData, value: any) => {
-  // Special handling: toggling has_reset creates/removes a separate reset round in the array
-  if (field === 'has_reset') {
-    setRounds(prev => {
+    setRounds((prev) => {
       const classRounds = [...(prev[classId] || [])];
       const parentRound = classRounds[roundIndex];
       const resetRoundNumber = parentRound.round_number + 0.5;
 
-      if (value === true) {
-        // Mark parent as having a reset
-        classRounds[roundIndex] = { ...parentRound, has_reset: true };
-        // Only add the reset round if it doesn't already exist
-        const alreadyExists = classRounds.some(r => r.round_number === resetRoundNumber && r.is_reset);
-        if (!alreadyExists) {
-          const resetRound: RoundData = {
-            round_number: resetRoundNumber,
-            judge_name: '',
-            judge_email: '',
-            start_time: '',
-            estimated_duration: '',
-            max_entries: parentRound.max_entries,
-            has_reset: false,
-            reset_judge_name: '',
-            reset_judge_email: '',
-            notes: '',
-            is_reset: true,
-          };
-          // Insert immediately after the parent round
-          classRounds.splice(roundIndex + 1, 0, resetRound);
-        }
-      } else {
-        // Unmark parent
-        classRounds[roundIndex] = { ...parentRound, has_reset: false, reset_judge_name: '', reset_judge_email: '' };
-        // Remove the associated reset round
-        const resetIdx = classRounds.findIndex(r => r.round_number === resetRoundNumber && r.is_reset);
-        if (resetIdx !== -1) classRounds.splice(resetIdx, 1);
+      // Update the parent round's display fields (for the UI selector)
+      classRounds[roundIndex] = {
+        ...parentRound,
+        reset_judge_name: judge.name || '',
+        reset_judge_email: judge.email || '',
+      };
+
+      // Also push the judge onto the actual reset round record
+      const resetIdx = classRounds.findIndex(
+        (r) => r.round_number === resetRoundNumber && r.is_reset
+      );
+      if (resetIdx !== -1) {
+        classRounds[resetIdx] = {
+          ...classRounds[resetIdx],
+          judge_name: judge.name || '',
+          judge_email: judge.email || '',
+        };
       }
 
       return { ...prev, [classId]: classRounds };
     });
-    return;
-  }
+  };
 
-  // All other fields: update normally
-  setRounds(prev => ({
-    ...prev,
-    [classId]: prev[classId]?.map((round, idx) =>
-      idx === roundIndex ? { ...round, [field]: value } : round
-    ) || []
-  }));
-};
+  const handleRoundChange = (
+    classId: string,
+    roundIndex: number,
+    field: keyof RoundData,
+    value: any
+  ) => {
+    // Special handling: toggling has_reset creates/removes a separate reset round in the array
+    if (field === 'has_reset') {
+      setRounds((prev) => {
+        const classRounds = [...(prev[classId] || [])];
+        const parentRound = classRounds[roundIndex];
+        const resetRoundNumber = parentRound.round_number + 0.5;
+
+        if (value === true) {
+          // Mark parent as having a reset
+          classRounds[roundIndex] = { ...parentRound, has_reset: true };
+          // Only add the reset round if it doesn't already exist
+          const alreadyExists = classRounds.some(
+            (r) => r.round_number === resetRoundNumber && r.is_reset
+          );
+          if (!alreadyExists) {
+            const resetRound: RoundData = {
+              round_number: resetRoundNumber,
+              judge_name: '',
+              judge_email: '',
+              start_time: '',
+              estimated_duration: '',
+              max_entries: parentRound.max_entries,
+              has_reset: false,
+              reset_judge_name: '',
+              reset_judge_email: '',
+              notes: '',
+              is_reset: true,
+            };
+            // Insert immediately after the parent round
+            classRounds.splice(roundIndex + 1, 0, resetRound);
+          }
+        } else {
+          // Unmark parent
+          classRounds[roundIndex] = {
+            ...parentRound,
+            has_reset: false,
+            reset_judge_name: '',
+            reset_judge_email: '',
+          };
+          // Remove the associated reset round
+          const resetIdx = classRounds.findIndex(
+            (r) => r.round_number === resetRoundNumber && r.is_reset
+          );
+          if (resetIdx !== -1) classRounds.splice(resetIdx, 1);
+        }
+
+        return { ...prev, [classId]: classRounds };
+      });
+      return;
+    }
+
+    // All other fields: update normally
+    setRounds((prev) => ({
+      ...prev,
+      [classId]:
+        prev[classId]?.map((round, idx) =>
+          idx === roundIndex ? { ...round, [field]: value } : round
+        ) || [],
+    }));
+  };
 
   const addRound = (classId: string) => {
-  const classRounds = rounds[classId] || [];
-  const newRound: RoundData = {
-    round_number: classRounds.filter(r => !r.is_reset).length + 1,
+    const classRounds = rounds[classId] || [];
+    const newRound: RoundData = {
+      round_number: classRounds.filter((r) => !r.is_reset).length + 1,
       judge_name: '',
       judge_email: '',
       start_time: '',
       estimated_duration: '',
-      max_entries: trialClasses.find(c => c.id === classId)?.max_entries || 50,
+      max_entries: trialClasses.find((c) => c.id === classId)?.max_entries || 50,
       has_reset: false,
       reset_judge_name: '',
       reset_judge_email: '',
-      notes: ''
+      notes: '',
     };
-    
-    setRounds(prev => ({
+
+    setRounds((prev) => ({
       ...prev,
-      [classId]: [...(prev[classId] || []), newRound]
+      [classId]: [...(prev[classId] || []), newRound],
     }));
   };
 
   const removeRound = (classId: string, roundIndex: number) => {
-  setRounds(prev => {
-    const classRounds = prev[classId] || [];
-    const roundToRemove = classRounds[roundIndex];
-    const resetRoundNumber = roundToRemove.round_number + 0.5;
+    setRounds((prev) => {
+      const classRounds = prev[classId] || [];
+      const roundToRemove = classRounds[roundIndex];
+      const resetRoundNumber = roundToRemove.round_number + 0.5;
 
-    // Remove the parent and its reset round (if any)
-    const filtered = classRounds.filter((round, idx) => {
-      if (idx === roundIndex) return false;
-      if (round.round_number === resetRoundNumber && round.is_reset) return false;
-      return true;
-    });
+      // Remove the parent and its reset round (if any)
+      const filtered = classRounds.filter((round, idx) => {
+        if (idx === roundIndex) return false;
+        if (round.round_number === resetRoundNumber && round.is_reset) return false;
+        return true;
+      });
 
-    // Renumber: give main rounds 1, 2, 3... and keep track of old→new mapping
-    const oldToNew: Record<number, number> = {};
-    let counter = 0;
-    const renumbered = filtered.map(round => {
-      if (!round.is_reset) {
-        const oldNum = round.round_number;
-        counter++;
-        oldToNew[oldNum] = counter;
-        return { ...round, round_number: counter };
-      }
-      return round; // reset rounds fixed below
-    });
-
-    // Fix reset round numbers to stay attached to their parent's new number
-    const finalRounds = renumbered.map(round => {
-      if (round.is_reset) {
-        const oldParentNum = Math.floor(round.round_number);
-        const newParentNum = oldToNew[oldParentNum];
-        if (newParentNum !== undefined) {
-          return { ...round, round_number: newParentNum + 0.5 };
+      // Renumber: give main rounds 1, 2, 3... and keep track of old→new mapping
+      const oldToNew: Record<number, number> = {};
+      let counter = 0;
+      const renumbered = filtered.map((round) => {
+        if (!round.is_reset) {
+          const oldNum = round.round_number;
+          counter++;
+          oldToNew[oldNum] = counter;
+          return { ...round, round_number: counter };
         }
-      }
-      return round;
-    });
+        return round; // reset rounds fixed below
+      });
 
-    return { ...prev, [classId]: finalRounds };
-  });
-};
+      // Fix reset round numbers to stay attached to their parent's new number
+      const finalRounds = renumbered.map((round) => {
+        if (round.is_reset) {
+          const oldParentNum = Math.floor(round.round_number);
+          const newParentNum = oldToNew[oldParentNum];
+          if (newParentNum !== undefined) {
+            return { ...round, round_number: newParentNum + 0.5 };
+          }
+        }
+        return round;
+      });
+
+      return { ...prev, [classId]: finalRounds };
+    });
+  };
 
   const validateRounds = (): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -481,7 +514,8 @@ setTrialClasses(sortedClasses);
           isValid = false;
         }
         if (round.has_reset && (!round.reset_judge_name || !round.reset_judge_email)) {
-          newErrors[`${classId}-${idx}-reset-judge`] = 'Reset judge is required when reset is enabled';
+          newErrors[`${classId}-${idx}-reset-judge`] =
+            'Reset judge is required when reset is enabled';
           isValid = false;
         }
       });
@@ -491,7 +525,7 @@ setTrialClasses(sortedClasses);
     return isValid;
   };
 
- const handleSaveProgress = async () => {
+  const handleSaveProgress = async () => {
     // No validation for Save Progress - allow partial saves!
     setLoading(true);
     try {
@@ -500,9 +534,7 @@ setTrialClasses(sortedClasses);
 
       for (const [classId, classRounds] of Object.entries(rounds)) {
         // Only save rounds that have at least a judge assigned
-        const completeRounds = classRounds.filter(round => 
-          round.judge_name && round.judge_email
-        );
+        const completeRounds = classRounds.filter((round) => round.judge_name && round.judge_email);
 
         if (completeRounds.length === 0) {
           console.log(`Skipping class ${classId} - no judges assigned yet`);
@@ -510,7 +542,7 @@ setTrialClasses(sortedClasses);
           continue;
         }
 
-       const roundsData = completeRounds.map(round => ({
+        const roundsData = completeRounds.map((round) => ({
           id: round.id,
           round_number: round.round_number,
           judge_name: round.judge_name,
@@ -524,32 +556,33 @@ setTrialClasses(sortedClasses);
           reset_judge_name: round.reset_judge_name || null,
           reset_judge_email: round.reset_judge_email || null,
           notes: round.notes || null,
-          is_reset: round.is_reset || false,        // ← NEW
+          is_reset: round.is_reset || false, // ← NEW
         }));
 
         const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
-        
+
         if (!result.success) {
-          const errorMessage = typeof result.error === 'string' 
-            ? result.error 
-            : result.error?.message || 'Failed to save rounds';
+          const errorMessage =
+            typeof result.error === 'string'
+              ? result.error
+              : result.error?.message || 'Failed to save rounds';
           throw new Error(errorMessage);
         }
-        
+
         savedCount++;
       }
 
-      const message = savedCount > 0
-        ? `Saved ${savedCount} class(es) successfully!${skippedCount > 0 ? ` Skipped ${skippedCount} class(es) without judges.` : ''}`
-        : 'No rounds with judges assigned to save yet. Assign at least one judge to save progress.';
-      
+      const message =
+        savedCount > 0
+          ? `Saved ${savedCount} class(es) successfully!${skippedCount > 0 ? ` Skipped ${skippedCount} class(es) without judges.` : ''}`
+          : 'No rounds with judges assigned to save yet. Assign at least one judge to save progress.';
+
       alert(message);
-      
+
       // Reload the data to get the saved round IDs
       if (savedCount > 0) {
         await loadTrialData();
       }
-      
     } catch (error) {
       console.error('Error saving rounds:', error);
       alert(`Error saving rounds: ${error instanceof Error ? error.message : 'Please try again.'}`);
@@ -567,7 +600,7 @@ setTrialClasses(sortedClasses);
     setLoading(true);
     try {
       for (const [classId, classRounds] of Object.entries(rounds)) {
-        const roundsData = classRounds.map(round => ({
+        const roundsData = classRounds.map((round) => ({
           id: round.id,
           round_number: round.round_number,
           judge_name: round.judge_name,
@@ -581,20 +614,21 @@ setTrialClasses(sortedClasses);
           reset_judge_name: round.reset_judge_name || null,
           reset_judge_email: round.reset_judge_email || null,
           notes: round.notes || null,
-          is_reset: round.is_reset || false,        // ← NEW
+          is_reset: round.is_reset || false, // ← NEW
         }));
 
         const result = await simpleTrialOperations.saveTrialRounds(classId, roundsData);
-        
+
         if (!result.success) {
-          const errorMessage = typeof result.error === 'string' 
-            ? result.error 
-            : result.error?.message || 'Failed to save rounds';
+          const errorMessage =
+            typeof result.error === 'string'
+              ? result.error
+              : result.error?.message || 'Failed to save rounds';
           throw new Error(errorMessage);
         }
       }
 
-     alert('Rounds saved successfully!');
+      alert('Rounds saved successfully!');
       // Always navigate after "Save & Continue"
       router.push(`/dashboard/trials/${trialId}`);
     } catch (error) {
@@ -641,7 +675,7 @@ setTrialClasses(sortedClasses);
 
   if (initialLoading) {
     return (
-      <MainLayout title={isEditMode ? "Edit Trial - Rounds & Judges" : "Trial Rounds"}>
+      <MainLayout title={isEditMode ? 'Edit Trial - Rounds & Judges' : 'Trial Rounds'}>
         <div className="flex items-center justify-center min-h-64">
           <div className="flex items-center space-x-2">
             <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
@@ -654,9 +688,11 @@ setTrialClasses(sortedClasses);
 
   if (!trial) {
     return (
-      <MainLayout title={isEditMode ? "Edit Trial - Rounds & Judges" : "Trial Rounds"}>
+      <MainLayout title={isEditMode ? 'Edit Trial - Rounds & Judges' : 'Trial Rounds'}>
         <Alert variant="destructive">
-          <AlertDescription>Trial not found. Please check the trial ID and try again.</AlertDescription>
+          <AlertDescription>
+            Trial not found. Please check the trial ID and try again.
+          </AlertDescription>
         </Alert>
       </MainLayout>
     );
@@ -665,21 +701,25 @@ setTrialClasses(sortedClasses);
   const breadcrumbItems = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
-    ...(isEditMode 
-      ? [{ label: trial.trial_name, href: `/dashboard/trials/${trialId}` }, { label: 'Edit Rounds' }]
-      : [{ label: 'Create Trial', href: '/dashboard/trials/create' }, { label: 'Rounds' }]
-    )
+    ...(isEditMode
+      ? [
+          { label: trial.trial_name, href: `/dashboard/trials/${trialId}` },
+          { label: 'Edit Rounds' },
+        ]
+      : [{ label: 'Create Trial', href: '/dashboard/trials/create' }, { label: 'Rounds' }]),
   ];
 
-  const selectedClass = trialClasses.find(c => c.id === selectedClassId);
+  const selectedClass = trialClasses.find((c) => c.id === selectedClassId);
   const selectedClassRounds = selectedClassId ? rounds[selectedClassId] || [] : [];
-  
+
   // NEW: Filter classes by selected day
-  const dayClasses = trialClasses.filter(c => c.trial_day_id === selectedDayId);
+  const dayClasses = trialClasses.filter((c) => c.trial_day_id === selectedDayId);
 
   return (
-    <MainLayout 
-      title={isEditMode ? "Edit Trial - Rounds & Judge Assignment" : "Trial Rounds & Judge Assignment"}
+    <MainLayout
+      title={
+        isEditMode ? 'Edit Trial - Rounds & Judge Assignment' : 'Trial Rounds & Judge Assignment'
+      }
       breadcrumbItems={breadcrumbItems}
     >
       <div className="max-w-6xl mx-auto space-y-6">
@@ -691,7 +731,8 @@ setTrialClasses(sortedClasses);
                 <span>Editing Rounds & Judge Assignments</span>
               </CardTitle>
               <CardDescription className="text-orange-700">
-                You are editing the rounds and judge assignments for this trial. Changes will be saved immediately.
+                You are editing the rounds and judge assignments for this trial. Changes will be
+                saved immediately.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -703,18 +744,19 @@ setTrialClasses(sortedClasses);
               <div>
                 <CardTitle>{trial.trial_name}</CardTitle>
                 <CardDescription>
-  {trial.location} • {formatShortDate(trial.start_date)} - {formatShortDate(trial.end_date)}
-</CardDescription>
+                  {trial.location} • {formatShortDate(trial.start_date)} -{' '}
+                  {formatShortDate(trial.end_date)}
+                </CardDescription>
               </div>
               {hasPermission(user, PERMISSIONS.MANAGE_JUDGES) && (
-  <Button 
-    variant="outline" 
-    onClick={() => router.push('/dashboard/judges')}
-    className="w-full justify-start"
-  >
-    <UserCheck className="h-4 w-4 mr-2" />
-    Manage Judges
-  </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/dashboard/judges')}
+                  className="w-full justify-start"
+                >
+                  <UserCheck className="h-4 w-4 mr-2" />
+                  Manage Judges
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -727,24 +769,26 @@ setTrialClasses(sortedClasses);
             <CardDescription>Choose which day to assign judges for</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${trialDays.length}, minmax(0, 1fr))` }}>
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: `repeat(${trialDays.length}, minmax(0, 1fr))` }}
+            >
               {trialDays.map((day) => (
                 <button
                   key={day.id}
                   onClick={() => setSelectedDayId(day.id)}
                   className={`
                     px-4 py-3 rounded-lg font-semibold transition-all border-2
-                    ${selectedDayId === day.id 
-                      ? 'bg-[#5b3214] text-white border-[#5b3214]' 
-                      : 'bg-white text-[#5b3214] border-[#5b3214] hover:bg-[#5b3214] hover:text-white'
+                    ${
+                      selectedDayId === day.id
+                        ? 'bg-[#5b3214] text-white border-[#5b3214]'
+                        : 'bg-white text-[#5b3214] border-[#5b3214] hover:bg-[#5b3214] hover:text-white'
                     }
                   `}
                 >
                   <div className="text-center">
                     <div className="text-sm font-semibold">Day {day.day_number}</div>
-                    <div className="text-xs mt-1 opacity-90">
-                      {formatShortDate(day.trial_date)}
-                    </div>
+                    <div className="text-xs mt-1 opacity-90">{formatShortDate(day.trial_date)}</div>
                   </div>
                 </button>
               ))}
@@ -760,22 +804,18 @@ setTrialClasses(sortedClasses);
                 <Users className="h-5 w-5" />
                 <span>Classes</span>
               </CardTitle>
-              <CardDescription>
-                Select a class to configure rounds
-              </CardDescription>
+              <CardDescription>Select a class to configure rounds</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               {/* NEW: Fixed height scrollable container */}
               <div className="max-h-[500px] overflow-y-auto px-6 py-4 space-y-2">
                 {dayClasses.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">
-                    No classes for this day
-                  </div>
+                  <div className="text-center text-gray-500 py-8">No classes for this day</div>
                 ) : (
                   dayClasses.map((cls) => {
                     const classRoundCount = rounds[cls.id]?.length || 0;
-                    const hasJudges = rounds[cls.id]?.some(r => r.judge_name) || false;
-                    
+                    const hasJudges = rounds[cls.id]?.some((r) => r.judge_name) || false;
+
                     return (
                       <div
                         key={cls.id}
@@ -792,12 +832,13 @@ setTrialClasses(sortedClasses);
                             <p className="text-xs text-gray-600">{cls.class_level}</p>
                           </div>
                           <div className="flex flex-col items-end space-y-1">
-                            <Badge variant={hasJudges ? "default" : "secondary"} className="text-xs">
+                            <Badge
+                              variant={hasJudges ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
                               {classRoundCount} round{classRoundCount !== 1 ? 's' : ''}
                             </Badge>
-                            {hasJudges && (
-                              <UserCheck className="h-4 w-4 text-green-600" />
-                            )}
+                            {hasJudges && <UserCheck className="h-4 w-4 text-green-600" />}
                           </div>
                         </div>
                       </div>
@@ -823,11 +864,7 @@ setTrialClasses(sortedClasses);
                   )}
                 </div>
                 {selectedClass && (
-                  <Button
-                    onClick={() => addRound(selectedClassId)}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onClick={() => addRound(selectedClassId)} variant="outline" size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Round
                   </Button>
@@ -842,10 +879,7 @@ setTrialClasses(sortedClasses);
               ) : (
                 <div className="space-y-6">
                   {selectedClassRounds.map((round, roundIndex) => (
-                    <div
-                      key={roundIndex}
-                      className="border rounded-lg p-4 space-y-4"
-                    >
+                    <div key={roundIndex} className="border rounded-lg p-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-lg">Round {round.round_number}</h3>
                         {selectedClassRounds.length > 1 && (
@@ -864,28 +898,37 @@ setTrialClasses(sortedClasses);
                         <div className="col-span-2">
                           <Label className="text-base font-semibold">Judge *</Label>
                           <Select
-                            value={qualifiedJudges[selectedClassId]?.find(j => j.name === round.judge_name)?.id || ''}
-                            onValueChange={(judgeId) => handleJudgeSelect(selectedClassId, roundIndex, judgeId)}
+                            value={
+                              qualifiedJudges[selectedClassId]?.find(
+                                (j) => j.name === round.judge_name
+                              )?.id || ''
+                            }
+                            onValueChange={(judgeId) =>
+                              handleJudgeSelect(selectedClassId, roundIndex, judgeId)
+                            }
                           >
                             <SelectTrigger
                               className={`mt-1 text-base h-auto py-3 ${
-                                errors[`${selectedClassId}-${roundIndex}-judge`] 
-                                  ? 'border-red-500 bg-red-50' 
+                                errors[`${selectedClassId}-${roundIndex}-judge`]
+                                  ? 'border-red-500 bg-red-50'
                                   : 'border-gray-400 hover:border-orange-500 focus:border-orange-600'
                               }`}
                             >
                               <SelectValue placeholder="👤 Select a judge..." />
                             </SelectTrigger>
                             <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
-                              {qualifiedJudges[selectedClassId] && qualifiedJudges[selectedClassId].length > 0 ? (
+                              {qualifiedJudges[selectedClassId] &&
+                              qualifiedJudges[selectedClassId].length > 0 ? (
                                 qualifiedJudges[selectedClassId].map((judge) => (
-                                  <SelectItem 
-                                    key={judge.id} 
+                                  <SelectItem
+                                    key={judge.id}
                                     value={judge.id}
                                     className="text-base py-3 hover:bg-orange-100 focus:bg-orange-100 cursor-pointer"
                                   >
                                     <div className="w-full">
-                                      <div className="font-semibold text-gray-900">{judge.name}</div>
+                                      <div className="font-semibold text-gray-900">
+                                        {judge.name}
+                                      </div>
                                       <div className="text-sm text-gray-600">
                                         {judge.city}, {judge.province_state}
                                       </div>
@@ -911,7 +954,14 @@ setTrialClasses(sortedClasses);
                           <Input
                             type="time"
                             value={round.start_time}
-                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'start_time', e.target.value)}
+                            onChange={(e) =>
+                              handleRoundChange(
+                                selectedClassId,
+                                roundIndex,
+                                'start_time',
+                                e.target.value
+                              )
+                            }
                           />
                         </div>
 
@@ -920,7 +970,14 @@ setTrialClasses(sortedClasses);
                           <Input
                             placeholder="e.g., 2 hours"
                             value={round.estimated_duration}
-                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'estimated_duration', e.target.value)}
+                            onChange={(e) =>
+                              handleRoundChange(
+                                selectedClassId,
+                                roundIndex,
+                                'estimated_duration',
+                                e.target.value
+                              )
+                            }
                           />
                         </div>
 
@@ -929,7 +986,14 @@ setTrialClasses(sortedClasses);
                           <Input
                             type="number"
                             value={round.max_entries}
-                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'max_entries', parseInt(e.target.value))}
+                            onChange={(e) =>
+                              handleRoundChange(
+                                selectedClassId,
+                                roundIndex,
+                                'max_entries',
+                                parseInt(e.target.value)
+                              )
+                            }
                           />
                         </div>
 
@@ -937,7 +1001,9 @@ setTrialClasses(sortedClasses);
                           <Checkbox
                             id={`reset-${roundIndex}`}
                             checked={round.has_reset}
-                            onCheckedChange={(checked) => handleRoundChange(selectedClassId, roundIndex, 'has_reset', checked)}
+                            onCheckedChange={(checked) =>
+                              handleRoundChange(selectedClassId, roundIndex, 'has_reset', checked)
+                            }
                           />
                           <Label htmlFor={`reset-${roundIndex}`} className="cursor-pointer">
                             Has Reset Judge
@@ -948,13 +1014,19 @@ setTrialClasses(sortedClasses);
                           <div className="col-span-2">
                             <Label>Reset Judge *</Label>
                             <Select
-                              value={qualifiedJudges[selectedClassId]?.find(j => j.name === round.reset_judge_name)?.id || ''}
-                              onValueChange={(judgeId) => handleResetJudgeSelect(selectedClassId, roundIndex, judgeId)}
+                              value={
+                                qualifiedJudges[selectedClassId]?.find(
+                                  (j) => j.name === round.reset_judge_name
+                                )?.id || ''
+                              }
+                              onValueChange={(judgeId) =>
+                                handleResetJudgeSelect(selectedClassId, roundIndex, judgeId)
+                              }
                             >
                               <SelectTrigger
                                 className={`mt-1 ${
-                                  errors[`${selectedClassId}-${roundIndex}-reset-judge`] 
-                                    ? 'border-red-500 bg-red-50' 
+                                  errors[`${selectedClassId}-${roundIndex}-reset-judge`]
+                                    ? 'border-red-500 bg-red-50'
                                     : ''
                                 }`}
                               >
@@ -981,7 +1053,14 @@ setTrialClasses(sortedClasses);
                           <Textarea
                             placeholder="Optional notes for this round..."
                             value={round.notes}
-                            onChange={(e) => handleRoundChange(selectedClassId, roundIndex, 'notes', e.target.value)}
+                            onChange={(e) =>
+                              handleRoundChange(
+                                selectedClassId,
+                                roundIndex,
+                                'notes',
+                                e.target.value
+                              )
+                            }
                             rows={2}
                           />
                         </div>
@@ -994,26 +1073,17 @@ setTrialClasses(sortedClasses);
           </Card>
         </div>
 
-       {/* Action Buttons */}
+        {/* Action Buttons */}
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between">
-              <Button
-                onClick={handleBack}
-                variant="outline"
-                disabled={loading}
-              >
+              <Button onClick={handleBack} variant="outline" disabled={loading}>
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              
               <div className="flex gap-3">
                 {/* NEW: Save Progress Button */}
-                <Button
-                  onClick={handleSaveProgress}
-                  variant="outline"
-                  disabled={loading}
-                >
+                <Button onClick={handleSaveProgress} variant="outline" disabled={loading}>
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-orange-600 border-t-transparent rounded-full animate-spin mr-2" />
@@ -1044,8 +1114,10 @@ setTrialClasses(sortedClasses);
                     </>
                   )}
                 </Button>
-              </div>  {/* ← ADD THIS LINE - closes "flex gap-3" */}
-            </div>    {/* ← This closes "flex justify-between" */}
+              </div>{' '}
+              {/* ← ADD THIS LINE - closes "flex gap-3" */}
+            </div>{' '}
+            {/* ← This closes "flex justify-between" */}
           </CardContent>
         </Card>
       </div>
@@ -1055,13 +1127,15 @@ setTrialClasses(sortedClasses);
 
 export default function CreateRoundsPage() {
   return (
-    <Suspense fallback={
-      <MainLayout title="Loading...">
-        <div className="flex items-center justify-center min-h-64">
-          <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </MainLayout>
-    }>
+    <Suspense
+      fallback={
+        <MainLayout title="Loading...">
+          <div className="flex items-center justify-center min-h-64">
+            <div className="w-6 h-6 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        </MainLayout>
+      }
+    >
       <CreateRoundsPageContent />
     </Suspense>
   );

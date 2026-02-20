@@ -24,13 +24,15 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
 
   // Loading state
   if (loading) {
-    return fallback || (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading...</p>
+    return (
+      fallback || (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <LoadingSpinner size="lg" />
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
         </div>
-      </div>
+      )
     );
   }
 
@@ -41,22 +43,13 @@ export function AuthGuard({ children, fallback }: AuthGuardProps) {
         <div className="max-w-md w-full">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Authentication Error: {error}
-            </AlertDescription>
+            <AlertDescription>Authentication Error: {error}</AlertDescription>
           </Alert>
           <div className="mt-4 flex gap-3">
-            <Button 
-              onClick={() => router.push('/login')}
-              className="flex-1"
-            >
+            <Button onClick={() => router.push('/login')} className="flex-1">
               Go to Login
             </Button>
-            <Button 
-              onClick={() => window.location.reload()}
-              variant="outline"
-              className="flex-1"
-            >
+            <Button onClick={() => window.location.reload()} variant="outline" className="flex-1">
               Retry
             </Button>
           </div>

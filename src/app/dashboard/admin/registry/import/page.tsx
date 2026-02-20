@@ -22,61 +22,59 @@ export default function RegistryImportPage() {
     }
   };
 
- const handleImport = async () => {
-  if (!file) return;
+  const handleImport = async () => {
+    if (!file) return;
 
-  console.log('🚀 Starting import with file:', file.name);
-  setImporting(true);
-  setResult(null);
+    console.log('🚀 Starting import with file:', file.name);
+    setImporting(true);
+    setResult(null);
 
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    console.log('📤 Sending request to /api/registry/import');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-    const response = await fetch('/api/registry/import', {
-      method: 'POST',
-      body: formData,
-    });
+      console.log('📤 Sending request to /api/registry/import');
 
-    console.log('📥 Response received, status:', response.status);
-    
-    const data = await response.json();
-    console.log('📊 Response data:', data);
+      const response = await fetch('/api/registry/import', {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Import failed');
+      console.log('📥 Response received, status:', response.status);
+
+      const data = await response.json();
+      console.log('📊 Response data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Import failed');
+      }
+
+      setResult(data);
+    } catch (error: any) {
+      console.error('❌ Import error:', error);
+      setResult({
+        success: false,
+        message: error.message || 'Import failed',
+      });
+    } finally {
+      console.log('✅ Import process finished');
+      setImporting(false);
     }
-
-    setResult(data);
-  } catch (error: any) {
-    console.error('❌ Import error:', error);
-    setResult({
-      success: false,
-      message: error.message || 'Import failed',
-    });
-  } finally {
-    console.log('✅ Import process finished');
-    setImporting(false);
-  }
-};
+  };
 
   return (
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Import Registry Data</h1>
         <p className="text-gray-600">
-          Upload an Excel file with cwags_number (Col A), dog_call_name (Col B),
-          and handler_name (Col D)
+          Upload an Excel file with cwags_number (Col A), dog_call_name (Col B), and handler_name
+          (Col D)
         </p>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow">
         <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">
-            Select Excel File (.xlsx)
-          </label>
+          <label className="block text-sm font-medium mb-2">Select Excel File (.xlsx)</label>
           <input
             type="file"
             accept=".xlsx,.xls"
@@ -112,19 +110,17 @@ export default function RegistryImportPage() {
         {result && (
           <div
             className={`mt-6 p-4 rounded-md ${
-              result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+              result.success
+                ? 'bg-green-50 border border-green-200'
+                : 'bg-red-50 border border-red-200'
             }`}
           >
             <h3
-              className={`font-semibold mb-2 ${
-                result.success ? 'text-green-800' : 'text-red-800'
-              }`}
+              className={`font-semibold mb-2 ${result.success ? 'text-green-800' : 'text-red-800'}`}
             >
               {result.success ? 'Import Complete' : 'Import Failed'}
             </h3>
-            <p className={result.success ? 'text-green-700' : 'text-red-700'}>
-              {result.message}
-            </p>
+            <p className={result.success ? 'text-green-700' : 'text-red-700'}>{result.message}</p>
 
             {result.errors && result.errors.length > 0 && (
               <div className="mt-3">

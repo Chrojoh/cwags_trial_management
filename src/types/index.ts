@@ -19,22 +19,14 @@ export type {
   UserRole,
   Permission,
   ErrorCode,
-  NotificationType
+  NotificationType,
 } from '@/lib/constants';
 
 // From timezone.ts (your existing working timezone system)
-export type {
-  TimezoneConfig,
-  CommonTimezone,
-  TrialTimeConfig
-} from '@/lib/timezone';
+export type { TimezoneConfig, CommonTimezone, TrialTimeConfig } from '@/lib/timezone';
 
 // From auth.ts (your existing working auth system)
-export type {
-  User,
-  UserSession, // Commented out - causing error
-  AuthState
-} from './auth';
+export type { User, AuthState } from './auth';
 
 // From forms.ts (clean form types)
 export type {
@@ -46,7 +38,7 @@ export type {
   ScentScoreForm,
   NumericalScoreForm,
   FieldValidationResult,
-  FormValidationResult
+  FormValidationResult,
 } from './forms';
 
 // From api.ts (clean API types)
@@ -59,7 +51,7 @@ export type {
   CreateEntryApiRequest,
   BaseApiService,
   ApiError,
-  ValidationError
+  ValidationError,
 } from './api';
 
 // =============================================================================
@@ -145,12 +137,12 @@ export interface AsyncState<T> {
 export const defaultPaginationConfig: PaginationConfig = {
   page: 1,
   pageSize: 25,
-  total: 0
+  total: 0,
 };
 
 export const defaultSortConfig: SortConfig = {
   field: 'created_at',
-  direction: 'desc'
+  direction: 'desc',
 };
 // Add these exports
 export type { User as UserType } from './auth';

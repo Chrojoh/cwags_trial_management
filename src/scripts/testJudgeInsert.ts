@@ -23,23 +23,20 @@ async function testMinimalInsert() {
   // Test 1: Absolute minimal data
   console.log('\n1. Testing with minimal required fields...');
   const minimalJudge = {
-    name: "Test Judge",
-    email: "test@example.com",
-    is_active: true
+    name: 'Test Judge',
+    email: 'test@example.com',
+    is_active: true,
   };
 
   try {
-    const { data, error } = await supabase
-      .from('judges')
-      .insert([minimalJudge])
-      .select();
+    const { data, error } = await supabase.from('judges').insert([minimalJudge]).select();
 
     if (error) {
       console.error('❌ Minimal insert failed:', error.message);
       console.error('Error details:', error);
     } else {
       console.log('✅ Minimal insert succeeded:', data[0].id);
-      
+
       // Clean up
       await supabase.from('judges').delete().eq('id', data[0].id);
       console.log('🧹 Cleaned up test record');
@@ -51,17 +48,14 @@ async function testMinimalInsert() {
   // Test 2: Add province_state field
   console.log('\n2. Testing with province_state field...');
   const judgeWithState = {
-    name: "Test Judge 2",
-    email: "test2@example.com", 
-    province_state: "AB",
-    is_active: true
+    name: 'Test Judge 2',
+    email: 'test2@example.com',
+    province_state: 'AB',
+    is_active: true,
   };
 
   try {
-    const { data, error } = await supabase
-      .from('judges')
-      .insert([judgeWithState])
-      .select();
+    const { data, error } = await supabase.from('judges').insert([judgeWithState]).select();
 
     if (error) {
       console.error('❌ Province state insert failed:', error.message);
@@ -77,19 +71,16 @@ async function testMinimalInsert() {
   // Test 3: Add arrays
   console.log('\n3. Testing with array fields...');
   const judgeWithArrays = {
-    name: "Test Judge 3",
-    email: "test3@example.com",
-    province_state: "AB", 
-    certified_classes: ["Rally"],
-    advanced_classes: ["Scent"],
-    is_active: true
+    name: 'Test Judge 3',
+    email: 'test3@example.com',
+    province_state: 'AB',
+    certified_classes: ['Rally'],
+    advanced_classes: ['Scent'],
+    is_active: true,
   };
 
   try {
-    const { data, error } = await supabase
-      .from('judges')
-      .insert([judgeWithArrays])
-      .select();
+    const { data, error } = await supabase.from('judges').insert([judgeWithArrays]).select();
 
     if (error) {
       console.error('❌ Array insert failed:', error.message);
@@ -105,20 +96,29 @@ async function testMinimalInsert() {
 
   // Test 4: Test with long values to identify the problematic field
   console.log('\n4. Testing with progressively longer values...');
-  
+
   const testFields = [
     { field: 'name', value: 'This is a very long judge name that might exceed limits' },
-    { field: 'email', value: 'this.is.a.very.long.email.address.that.might.exceed.database.limits@example.com' },
+    {
+      field: 'email',
+      value: 'this.is.a.very.long.email.address.that.might.exceed.database.limits@example.com',
+    },
     { field: 'phone', value: '1234567890123456789012345678901234567890' },
     { field: 'city', value: 'This is a very long city name that might exceed database limits' },
     { field: 'province_state', value: 'VERYLONGSTATE' },
-    { field: 'country', value: 'This is a very long country name that might exceed database limits' },
-    { field: 'level', value: 'This is a very long judge level description that might exceed database limits' }
+    {
+      field: 'country',
+      value: 'This is a very long country name that might exceed database limits',
+    },
+    {
+      field: 'level',
+      value: 'This is a very long judge level description that might exceed database limits',
+    },
   ];
 
   for (const testField of testFields) {
     console.log(`\n   Testing ${testField.field} with long value...`);
-    
+
     const testJudge = {
       name: testField.field === 'name' ? testField.value : 'Test Judge',
       email: testField.field === 'email' ? testField.value : 'test@example.com',
@@ -127,14 +127,11 @@ async function testMinimalInsert() {
       province_state: testField.field === 'province_state' ? testField.value : 'AB',
       country: testField.field === 'country' ? testField.value : undefined,
       level: testField.field === 'level' ? testField.value : undefined,
-      is_active: true
+      is_active: true,
     };
 
     try {
-      const { data, error } = await supabase
-        .from('judges')
-        .insert([testJudge])
-        .select();
+      const { data, error } = await supabase.from('judges').insert([testJudge]).select();
 
       if (error) {
         console.error(`   ❌ ${testField.field} failed:`, error.message);
@@ -150,7 +147,7 @@ async function testMinimalInsert() {
     }
 
     // Small delay between tests
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
 

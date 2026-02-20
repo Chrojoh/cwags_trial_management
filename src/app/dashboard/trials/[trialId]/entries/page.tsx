@@ -23,7 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { 
+import {
   Users,
   Search,
   Filter,
@@ -38,7 +38,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
-  Download
+  Download,
 } from 'lucide-react';
 import { simpleTrialOperations, type EntryData } from '@/lib/trialOperationsSimple';
 
@@ -54,8 +54,8 @@ interface Trial {
 
 interface EntryWithSelections extends EntryData {
   amount_paid?: number;
-  fees_waived?: boolean;      // ✅ ADD THIS
-  amount_owed?: number;        // ✅ ADD THIS
+  fees_waived?: boolean; // ✅ ADD THIS
+  amount_owed?: number; // ✅ ADD THIS
   entry_selections?: {
     id: string;
     trial_round_id: string;
@@ -91,8 +91,8 @@ interface GroupedEntry {
   is_junior_handler: boolean;
   total_fee: number;
   amount_paid: number;
-  fees_waived: boolean;     
-  amount_owed: number; 
+  fees_waived: boolean;
+  amount_owed: number;
   entry_selections: {
     id: string;
     trial_round_id: string;
@@ -115,16 +115,39 @@ interface EntryStats {
 // Helper function to get class order for sorting
 const getClassOrder = (className: string): number => {
   const classOrder = [
-    'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth',
-    'Private Investigator', 'Detective Diversions',
-    'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-    'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-    'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-    'Starter', 'Advanced', 'Pro', 'ARF',
-    'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-    'Games 1', 'Games 2', 'Games 3', 'Games 4'
+    'Patrol 1',
+    'Detective 2',
+    'Investigator 3',
+    'Super Sleuth',
+    'Private Investigator',
+    'Detective Diversions',
+    'Ranger 1',
+    'Ranger 2',
+    'Ranger 3',
+    'Ranger 4',
+    'Ranger 5',
+    'Dasher 3',
+    'Dasher 4',
+    'Dasher 5',
+    'Dasher 6',
+    'Obedience 1',
+    'Obedience 2',
+    'Obedience 3',
+    'Obedience 4',
+    'Obedience 5',
+    'Starter',
+    'Advanced',
+    'Pro',
+    'ARF',
+    'Zoom 1',
+    'Zoom 1.5',
+    'Zoom 2',
+    'Games 1',
+    'Games 2',
+    'Games 3',
+    'Games 4',
   ];
-  
+
   const index = classOrder.indexOf(className);
   return index === -1 ? 999 : index;
 };
@@ -141,13 +164,13 @@ export default function TrialEntriesPage() {
   const [entryStats, setEntryStats] = useState<EntryStats>({
     total: 0,
     byStatus: {},
-    byPayment: {}
+    byPayment: {},
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   // NEW: State for tracking expanded entries
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
@@ -167,7 +190,7 @@ export default function TrialEntriesPage() {
 
   // NEW: Toggle function for expanding/collapsing entries
   const toggleExpanded = (cwagsNumber: string) => {
-    setExpandedEntries(prev => {
+    setExpandedEntries((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(cwagsNumber)) {
         newSet.delete(cwagsNumber);
@@ -208,7 +231,6 @@ export default function TrialEntriesPage() {
       setEntryStats(stats);
 
       console.log('Trial and entries loaded successfully');
-
     } catch (err) {
       console.error('Error loading trial and entries:', err);
       setError(err instanceof Error ? err.message : 'Failed to load trial and entries');
@@ -221,9 +243,9 @@ export default function TrialEntriesPage() {
     // Group entries by cwags_number
     const grouped: Record<string, GroupedEntry> = {};
 
-    entries.forEach(entry => {
+    entries.forEach((entry) => {
       const cwagsNumber = entry.cwags_number;
-      
+
       if (!grouped[cwagsNumber]) {
         // Create new grouped entry
         grouped[cwagsNumber] = {
@@ -238,10 +260,10 @@ export default function TrialEntriesPage() {
           is_junior_handler: entry.is_junior_handler,
           total_fee: 0,
           amount_paid: entry.amount_paid || 0,
-          fees_waived: entry.fees_waived || false,   
+          fees_waived: entry.fees_waived || false,
           amount_owed: entry.amount_owed || 0,
           entry_selections: [],
-          entry_ids: []
+          entry_ids: [],
         };
       }
 
@@ -249,43 +271,43 @@ export default function TrialEntriesPage() {
       grouped[cwagsNumber].entry_ids.push(entry.id!);
 
       // ✅ SORT entry selections by day number, then by class order
-const sortedSelections = entry.entry_selections 
-  ? [...entry.entry_selections].sort((a, b) => {
-      // First sort by day number
-      const dayA = a.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
-      const dayB = b.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
-      
-      if (dayA !== dayB) {
-        return dayA - dayB;
-      }
-      
-      // Then sort by class order
-      const classNameA = a.trial_rounds?.trial_classes?.class_name || '';
-      const classNameB = b.trial_rounds?.trial_classes?.class_name || '';
-      const orderA = getClassOrder(classNameA);
-      const orderB = getClassOrder(classNameB);
-      
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-      
-      // Finally sort by round number
-      const roundA = a.trial_rounds?.round_number || 1;
-      const roundB = b.trial_rounds?.round_number || 1;
-      return roundA - roundB;
-    })
-  : [];
+      const sortedSelections = entry.entry_selections
+        ? [...entry.entry_selections].sort((a, b) => {
+            // First sort by day number
+            const dayA = a.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
+            const dayB = b.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
 
-// Add all sorted entry selections to the group
-if (sortedSelections.length > 0) {
-  sortedSelections.forEach(selection => {
-          const dayInfo = selection.trial_rounds?.trial_classes?.trial_days 
+            if (dayA !== dayB) {
+              return dayA - dayB;
+            }
+
+            // Then sort by class order
+            const classNameA = a.trial_rounds?.trial_classes?.class_name || '';
+            const classNameB = b.trial_rounds?.trial_classes?.class_name || '';
+            const orderA = getClassOrder(classNameA);
+            const orderB = getClassOrder(classNameB);
+
+            if (orderA !== orderB) {
+              return orderA - orderB;
+            }
+
+            // Finally sort by round number
+            const roundA = a.trial_rounds?.round_number || 1;
+            const roundB = b.trial_rounds?.round_number || 1;
+            return roundA - roundB;
+          })
+        : [];
+
+      // Add all sorted entry selections to the group
+      if (sortedSelections.length > 0) {
+        sortedSelections.forEach((selection) => {
+          const dayInfo = selection.trial_rounds?.trial_classes?.trial_days
             ? `Day ${selection.trial_rounds.trial_classes.trial_days.day_number}`
             : 'Day 1';
-          
+
           const className = selection.trial_rounds?.trial_classes?.class_name || 'Unknown Class';
           const roundNumber = selection.trial_rounds?.round_number || 1;
-          
+
           grouped[cwagsNumber].entry_selections.push({
             id: selection.id,
             trial_round_id: selection.trial_round_id,
@@ -295,7 +317,7 @@ if (sortedSelections.length > 0) {
             entry_status: selection.entry_status,
             class_display: `${className} - R${roundNumber}`,
             day_info: dayInfo,
-            division: selection.division
+            division: selection.division,
           });
 
           // Add to total fee
@@ -312,17 +334,18 @@ if (sortedSelections.length > 0) {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(entry => 
-        entry.handler_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.dog_call_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.cwags_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        entry.handler_email.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (entry) =>
+          entry.handler_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.dog_call_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.cwags_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.handler_email.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Status filter
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(entry => entry.entry_status === statusFilter);
+      filtered = filtered.filter((entry) => entry.entry_status === statusFilter);
     }
 
     setFilteredEntries(filtered);
@@ -333,61 +356,61 @@ if (sortedSelections.length > 0) {
   };
 
   const confirmEntry = async (entryId: string, handlerName: string, dogName: string) => {
-  if (!confirm(`Confirm entry for ${handlerName} - ${dogName}?`)) return;
+    if (!confirm(`Confirm entry for ${handlerName} - ${dogName}?`)) return;
 
-  try {
-    const { error } = await supabase
-      .from('entries')
-      .update({ entry_status: 'confirmed' })
-      .eq('id', entryId);
+    try {
+      const { error } = await supabase
+        .from('entries')
+        .update({ entry_status: 'confirmed' })
+        .eq('id', entryId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    alert('Entry confirmed successfully!');
-    loadTrialAndEntries(); // Reload the entries list
-  } catch (err) {
-    console.error('Error confirming entry:', err);
-    alert('Failed to confirm entry');
-  }
-};
+      alert('Entry confirmed successfully!');
+      loadTrialAndEntries(); // Reload the entries list
+    } catch (err) {
+      console.error('Error confirming entry:', err);
+      alert('Failed to confirm entry');
+    }
+  };
 
-const waitlistEntry = async (entryId: string, handlerName: string, dogName: string) => {
-  if (!confirm(`Move entry to waitlist for ${handlerName} - ${dogName}?`)) return;
+  const waitlistEntry = async (entryId: string, handlerName: string, dogName: string) => {
+    if (!confirm(`Move entry to waitlist for ${handlerName} - ${dogName}?`)) return;
 
-  try {
-    const { error } = await supabase
-      .from('entries')
-      .update({ entry_status: 'waitlisted' })
-      .eq('id', entryId);
+    try {
+      const { error } = await supabase
+        .from('entries')
+        .update({ entry_status: 'waitlisted' })
+        .eq('id', entryId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    alert('Entry moved to waitlist successfully!');
-    loadTrialAndEntries(); // Reload the entries list
-  } catch (err) {
-    console.error('Error waitlisting entry:', err);
-    alert('Failed to waitlist entry');
-  }
-};
+      alert('Entry moved to waitlist successfully!');
+      loadTrialAndEntries(); // Reload the entries list
+    } catch (err) {
+      console.error('Error waitlisting entry:', err);
+      alert('Failed to waitlist entry');
+    }
+  };
 
-const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName: string) => {
-  if (!confirm(`Promote ${handlerName} - ${dogName} from waitlist to confirmed?`)) return;
+  const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName: string) => {
+    if (!confirm(`Promote ${handlerName} - ${dogName} from waitlist to confirmed?`)) return;
 
-  try {
-    const { error } = await supabase
-      .from('entries')
-      .update({ entry_status: 'confirmed' })
-      .eq('id', entryId);
+    try {
+      const { error } = await supabase
+        .from('entries')
+        .update({ entry_status: 'confirmed' })
+        .eq('id', entryId);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    alert('Entry promoted to confirmed successfully!');
-    loadTrialAndEntries(); // Reload the entries list
-  } catch (err) {
-    console.error('Error promoting entry:', err);
-    alert('Failed to promote entry');
-  }
-};
+      alert('Entry promoted to confirmed successfully!');
+      loadTrialAndEntries(); // Reload the entries list
+    } catch (err) {
+      console.error('Error promoting entry:', err);
+      alert('Failed to promote entry');
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -427,142 +450,134 @@ const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName
   };
 
   const formatDate = (dateString: string) => {
-  if (!dateString) return 'N/A';
-  
-  // Check if it's a date-only string (YYYY-MM-DD) or datetime
-  if (dateString.includes('T') || dateString.includes(' ')) {
-    // Has time component, use directly
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    if (!dateString) return 'N/A';
+
+    // Check if it's a date-only string (YYYY-MM-DD) or datetime
+    if (dateString.includes('T') || dateString.includes(' ')) {
+      // Has time component, use directly
+      return new Date(dateString).toLocaleDateString('en-CA', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    // Date only - use noon trick
+    const parts = dateString.split('-');
+    const date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+
+    return date.toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
     });
-  }
-  
-  // Date only - use noon trick
-  const parts = dateString.split('-');
-  const date = new Date(
-    parseInt(parts[0]),
-    parseInt(parts[1]) - 1,
-    parseInt(parts[2]),
-    12, 0, 0
-  );
-  
-  return date.toLocaleDateString('en-CA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
-      currency: 'CAD'
+      currency: 'CAD',
     }).format(amount);
   };
 
-const exportToCSV = async () => {
-  try {
-    // Get financial data grouped by owner (this has correct balance calculation)
-    const financialsResult = await financialOperations.getCompetitorFinancials(trialId);
-    
-    if (!financialsResult.success || !financialsResult.data) {
-      alert('Failed to load financial data for export');
-      return;
-    }
+  const exportToCSV = async () => {
+    try {
+      // Get financial data grouped by owner (this has correct balance calculation)
+      const financialsResult = await financialOperations.getCompetitorFinancials(trialId);
 
-    const competitors = financialsResult.data;
-
-    // Create a map of owner_id to email/phone from entries
-    const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
-    
-    entries.forEach(entry => {
-      // Extract owner ID from C-WAGS number (middle 4 digits)
-      const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
-      const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
-      
-      if (!ownerContactInfo[ownerId]) {
-        ownerContactInfo[ownerId] = {
-          email: entry.handler_email || 'N/A',
-          phone: entry.handler_phone || 'N/A'
-        };
+      if (!financialsResult.success || !financialsResult.data) {
+        alert('Failed to load financial data for export');
+        return;
       }
-    });
 
-    // Create CSV header
-    const headers = [
-      'Handler Name',
-      'Email',
-      'Phone',
-      'Dogs (Runs)',
-      'Total Runs',
-      'Amount Owing'
-    ];
-    
-    // Create CSV rows from competitor financials
-    const rows = competitors.map(comp => {
-      // Get contact info
-      const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
-      const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
-      const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
-      
-      // Format dogs with run counts: "Roxy (2) Fluffy (8) Rosey (4)"
-      const dogsWithRuns = (comp.dogs || [])
-  .map((dog: any) => {
-          const totalRuns = dog.regular_runs + dog.feo_runs;
-          return `${dog.dog_call_name} (${totalRuns})`;
-        })
-        .join(' ');
-      
-      // Calculate total runs
-      const totalRuns = comp.regular_runs + comp.feo_runs + 
-                       comp.waived_regular_runs + comp.waived_feo_runs;
-      
-      // Calculate balance using the SAME formula as financials page
-      const balance = calculateBalance(
-  comp.amount_owed,
-  comp.amount_paid
-);
+      const competitors = financialsResult.data;
 
+      // Create a map of owner_id to email/phone from entries
+      const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
 
-      
-      return [
-        comp.handler_name,
-        contact.email,
-        contact.phone,
-        dogsWithRuns,
-        totalRuns.toString(),
-        balance.toFixed(2)
+      entries.forEach((entry) => {
+        // Extract owner ID from C-WAGS number (middle 4 digits)
+        const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
+        const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
+
+        if (!ownerContactInfo[ownerId]) {
+          ownerContactInfo[ownerId] = {
+            email: entry.handler_email || 'N/A',
+            phone: entry.handler_phone || 'N/A',
+          };
+        }
+      });
+
+      // Create CSV header
+      const headers = [
+        'Handler Name',
+        'Email',
+        'Phone',
+        'Dogs (Runs)',
+        'Total Runs',
+        'Amount Owing',
       ];
-    });
 
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      // Create CSV rows from competitor financials
+      const rows = competitors.map((comp) => {
+        // Get contact info
+        const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
+        const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
+        const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
 
-    // Create blob and download
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${trial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-  } catch (error) {
-    console.error('Error exporting to CSV:', error);
-    alert('Failed to export CSV');
-  }
-};
+        // Format dogs with run counts: "Roxy (2) Fluffy (8) Rosey (4)"
+        const dogsWithRuns = (comp.dogs || [])
+          .map((dog: any) => {
+            const totalRuns = dog.regular_runs + dog.feo_runs;
+            return `${dog.dog_call_name} (${totalRuns})`;
+          })
+          .join(' ');
+
+        // Calculate total runs
+        const totalRuns =
+          comp.regular_runs + comp.feo_runs + comp.waived_regular_runs + comp.waived_feo_runs;
+
+        // Calculate balance using the SAME formula as financials page
+        const balance = calculateBalance(comp.amount_owed, comp.amount_paid);
+
+        return [
+          comp.handler_name,
+          contact.email,
+          contact.phone,
+          dogsWithRuns,
+          totalRuns.toString(),
+          balance.toFixed(2),
+        ];
+      });
+
+      // Combine headers and rows
+      const csvContent = [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ].join('\n');
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute(
+        'download',
+        `${trial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`
+      );
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export CSV');
+    }
+  };
 
   if (loading) {
     return (
@@ -609,9 +624,7 @@ const exportToCSV = async () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {entryStats.total}
-              </div>
+              <div className="text-2xl font-bold text-orange-600">{entryStats.total}</div>
               <div className="text-sm text-gray-600">Total Entries</div>
             </CardContent>
           </Card>
@@ -661,7 +674,7 @@ const exportToCSV = async () => {
                 className="pl-10"
               />
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center space-x-2">
@@ -669,7 +682,7 @@ const exportToCSV = async () => {
                   <span>Status: {statusFilter === 'all' ? 'All' : statusFilter}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end"className="bg-white">
+              <DropdownMenuContent align="end" className="bg-white">
                 <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setStatusFilter('all')}>
@@ -693,15 +706,17 @@ const exportToCSV = async () => {
 
           <div className="flex space-x-2">
             <Button onClick={exportToCSV}>
-  <Download className="h-4 w-4 mr-2" />
-  Export to CSV
-</Button>
-            <Button onClick={() => {
-              const entryLink = `${window.location.origin}/entries/${trialId}`;
-              navigator.clipboard.writeText(entryLink).then(() => {
-                alert('Entry link copied to clipboard!');
-              });
-            }}>
+              <Download className="h-4 w-4 mr-2" />
+              Export to CSV
+            </Button>
+            <Button
+              onClick={() => {
+                const entryLink = `${window.location.origin}/entries/${trialId}`;
+                navigator.clipboard.writeText(entryLink).then(() => {
+                  alert('Entry link copied to clipboard!');
+                });
+              }}
+            >
               Copy Entry Link
             </Button>
           </div>
@@ -723,13 +738,13 @@ const exportToCSV = async () => {
                   {groupedEntries.length === 0 ? 'No entries yet' : 'No entries match your filters'}
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  {groupedEntries.length === 0 
-                    ? 'Entries will appear here once competitors register.' 
+                  {groupedEntries.length === 0
+                    ? 'Entries will appear here once competitors register.'
                     : 'Try adjusting your search or filter criteria.'}
                 </p>
                 {groupedEntries.length > 0 && filteredEntries.length === 0 && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       setSearchTerm('');
                       setStatusFilter('all');
@@ -742,10 +757,13 @@ const exportToCSV = async () => {
             ) : (
               <div className="space-y-4">
                 {filteredEntries.map((entry) => {
-                   const isExpanded = expandedEntries.has(entry.cwags_number);
-                 
+                  const isExpanded = expandedEntries.has(entry.cwags_number);
+
                   return (
-                    <div key={entry.cwags_number} className="border rounded-lg p-6 hover:bg-gray-50 transition-colors">
+                    <div
+                      key={entry.cwags_number}
+                      className="border rounded-lg p-6 hover:bg-gray-50 transition-colors"
+                    >
                       {/* Team Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
@@ -759,99 +777,123 @@ const exportToCSV = async () => {
                               </p>
                             </div>
                             <div className="flex items-center space-x-2">
-                             <div className="flex items-center gap-2">
-  <Badge className={`${getStatusColor(entry.entry_status)} border`}>
-    {entry.entry_status}
-  </Badge>
-  
-  {/* Buttons for SUBMITTED entries */}
-  {entry.entry_status === 'submitted' && (
-    <div className="flex gap-1">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => confirmEntry(entry.entry_ids[0], entry.handler_name, entry.dog_call_name)}
-        className="h-6 px-2 py-0 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
-      >
-        <CheckCircle className="h-3 w-3 mr-1" />
-        Confirm
-      </Button>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => waitlistEntry(entry.entry_ids[0], entry.handler_name, entry.dog_call_name)}
-        className="h-6 px-2 py-0 text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-300"
-      >
-        <Clock className="h-3 w-3 mr-1" />
-        Waitlist
-      </Button>
-    </div>
-      )}
-  
-  {/* Button for WAITLISTED entries */}
-  {entry.entry_status === 'waitlisted' && (
-    <Button
-      size="sm"
-      variant="outline"
-      onClick={() => promoteFromWaitlist(entry.entry_ids[0], entry.handler_name, entry.dog_call_name)}
-      className="h-6 px-2 py-0 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
-    >
-      <ArrowUpCircle className="h-3 w-3 mr-1" />
-      Promote to Confirmed
-    </Button>
-  )}
-</div>
+                              <div className="flex items-center gap-2">
+                                <Badge className={`${getStatusColor(entry.entry_status)} border`}>
+                                  {entry.entry_status}
+                                </Badge>
+
+                                {/* Buttons for SUBMITTED entries */}
+                                {entry.entry_status === 'submitted' && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        confirmEntry(
+                                          entry.entry_ids[0],
+                                          entry.handler_name,
+                                          entry.dog_call_name
+                                        )
+                                      }
+                                      className="h-6 px-2 py-0 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-300"
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Confirm
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        waitlistEntry(
+                                          entry.entry_ids[0],
+                                          entry.handler_name,
+                                          entry.dog_call_name
+                                        )
+                                      }
+                                      className="h-6 px-2 py-0 text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-yellow-300"
+                                    >
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      Waitlist
+                                    </Button>
+                                  </div>
+                                )}
+
+                                {/* Button for WAITLISTED entries */}
+                                {entry.entry_status === 'waitlisted' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      promoteFromWaitlist(
+                                        entry.entry_ids[0],
+                                        entry.handler_name,
+                                        entry.dog_call_name
+                                      )
+                                    }
+                                    className="h-6 px-2 py-0 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                  >
+                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                    Promote to Confirmed
+                                  </Button>
+                                )}
+                              </div>
                               <Badge className={getPaymentStatusColor(entry.payment_status)}>
                                 {entry.payment_status}
                               </Badge>
                               {entry.is_junior_handler && (
-                                <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                                <Badge
+                                  variant="outline"
+                                  className="bg-orange-50 text-orange-700 border-orange-200"
+                                >
                                   Junior Handler
                                 </Badge>
                               )}
                               {/* Show unique divisions */}
                               {(() => {
-                                const divisions = [...new Set(
-                                  entry.entry_selections
-                                    .map(sel => sel.division)
-                                    .filter(div => div != null)
-                                )];
-                                
+                                const divisions = [
+                                  ...new Set(
+                                    entry.entry_selections
+                                      .map((sel) => sel.division)
+                                      .filter((div) => div != null)
+                                  ),
+                                ];
+
                                 return divisions.map((division: string) => (
-                                  <Badge 
-                                    key={division}
-                                    className={getDivisionColor(division)}
-                                  >
+                                  <Badge key={division} className={getDivisionColor(division)}>
                                     Div {division}
                                   </Badge>
                                 ));
                               })()}
                             </div>
                           </div>
-                          
+
                           {/* PROMINENT EMAIL AND AMOUNT OWED */}
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                             <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                               <Mail className="h-5 w-5 text-blue-600 flex-shrink-0" />
                               <div className="min-w-0">
                                 <p className="text-xs font-medium text-blue-900 mb-0.5">Email</p>
-                                <p className="text-sm text-blue-700 truncate">{entry.handler_email}</p>
+                                <p className="text-sm text-blue-700 truncate">
+                                  {entry.handler_email}
+                                </p>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-200">
-  <DollarSign className="h-5 w-5 text-green-600 flex-shrink-0" />
-  <div>
-    <p className="text-xs font-medium text-green-900 mb-0.5">Entry Fee</p>
-    <p className="text-lg font-bold text-green-700">
-      {formatCurrency(entry.total_fee)}
-    </p>
-    <p className="text-xs text-green-600 mt-0.5">
-      {entry.entry_selections.length} run{entry.entry_selections.length !== 1 ? 's' : ''}
-    </p>
-  </div>
-</div>
-
+                              <DollarSign className="h-5 w-5 text-green-600 flex-shrink-0" />
+                              <div>
+                                <p className="text-xs font-medium text-green-900 mb-0.5">
+                                  Entry Fee
+                                </p>
+                                <p className="text-lg font-bold text-green-700">
+                                  {formatCurrency(entry.total_fee)}
+                                </p>
+                                <p className="text-xs text-green-600 mt-0.5">
+                                  {entry.entry_selections.length} run
+                                  {entry.entry_selections.length !== 1 ? 's' : ''}
+                                </p>
+                              </div>
+                            </div>
                           </div>
 
                           {/* Phone */}
@@ -860,11 +902,11 @@ const exportToCSV = async () => {
                             <span>{entry.handler_phone}</span>
                           </div>
                         </div>
-                        
+
                         {/* Edit button */}
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleEditEntry(entry)}
                           >
@@ -877,14 +919,18 @@ const exportToCSV = async () => {
                       {/* Entry Summary & Collapse Toggle */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="text-sm text-gray-600">
-                          <span className="font-medium">{entry.entry_selections.length}</span> class selections
+                          <span className="font-medium">{entry.entry_selections.length}</span> class
+                          selections
                           {entry.amount_paid > 0 && (
                             <span className="ml-4">
-                              Paid: <span className="font-medium text-green-600">{formatCurrency(entry.amount_paid)}</span>
+                              Paid:{' '}
+                              <span className="font-medium text-green-600">
+                                {formatCurrency(entry.amount_paid)}
+                              </span>
                             </span>
                           )}
                         </div>
-                        
+
                         <Button
                           variant="ghost"
                           size="sm"
@@ -908,12 +954,19 @@ const exportToCSV = async () => {
                       {/* COLLAPSIBLE Class Selections */}
                       {isExpanded && (
                         <div className="mt-4 pt-4 border-t">
-                          <p className="text-sm font-medium text-gray-700 mb-3">Class Selections:</p>
+                          <p className="text-sm font-medium text-gray-700 mb-3">
+                            Class Selections:
+                          </p>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {entry.entry_selections.map((selection, index) => (
-                              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                              >
                                 <div className="flex items-center space-x-3">
-                                  <Badge className={`${getEntryTypeColor(selection.entry_type)} border text-xs`}>
+                                  <Badge
+                                    className={`${getEntryTypeColor(selection.entry_type)} border text-xs`}
+                                  >
                                     {selection.entry_type.toUpperCase()}
                                   </Badge>
                                   <div>
@@ -921,7 +974,8 @@ const exportToCSV = async () => {
                                       {selection.day_info} - {selection.class_display}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      Running Position: #{selection.running_position} • Status: {selection.entry_status}
+                                      Running Position: #{selection.running_position} • Status:{' '}
+                                      {selection.entry_status}
                                     </p>
                                   </div>
                                 </div>

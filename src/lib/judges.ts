@@ -13,10 +13,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
  * Get all judges
  */
 export async function getAllJudges(): Promise<Judge[]> {
-  const { data, error } = await supabase
-    .from('judges')
-    .select('*')
-    .order('name');
+  const { data, error } = await supabase.from('judges').select('*').order('name');
 
   if (error) {
     console.error('Error fetching judges:', error);
@@ -48,11 +45,7 @@ export async function getActiveJudges(): Promise<Judge[]> {
  * Get judge by ID
  */
 export async function getJudgeById(id: string): Promise<Judge | null> {
-  const { data, error } = await supabase
-    .from('judges')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const { data, error } = await supabase.from('judges').select('*').eq('id', id).single();
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -71,19 +64,21 @@ export async function getJudgeById(id: string): Promise<Judge | null> {
 export async function createJudge(formData: JudgeFormData): Promise<Judge> {
   const { data, error } = await supabase
     .from('judges')
-    .insert([{
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone || null,
-      city: formData.city || null,
-      province_state: formData.province_state || null,
-      country: formData.country || null,
-      obedience_levels: formData.obedience_levels,
-      rally_levels: formData.rally_levels,
-      games_levels: formData.games_levels,
-      scent_levels: formData.scent_levels,
-      is_active: formData.is_active
-    }])
+    .insert([
+      {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        city: formData.city || null,
+        province_state: formData.province_state || null,
+        country: formData.country || null,
+        obedience_levels: formData.obedience_levels,
+        rally_levels: formData.rally_levels,
+        games_levels: formData.games_levels,
+        scent_levels: formData.scent_levels,
+        is_active: formData.is_active,
+      },
+    ])
     .select()
     .single();
 
@@ -113,7 +108,7 @@ export async function updateJudge(id: string, formData: JudgeFormData): Promise<
       games_levels: formData.games_levels,
       scent_levels: formData.scent_levels,
       is_active: formData.is_active,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
     .eq('id', id)
     .select()
@@ -131,10 +126,7 @@ export async function updateJudge(id: string, formData: JudgeFormData): Promise<
  * Delete a judge
  */
 export async function deleteJudge(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('judges')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.from('judges').delete().eq('id', id);
 
   if (error) {
     console.error('Error deleting judge:', error);
@@ -171,14 +163,11 @@ export async function getJudgesByDiscipline(
     obedience: 'obedience_levels',
     rally: 'rally_levels',
     games: 'games_levels',
-    scent: 'scent_levels'
+    scent: 'scent_levels',
   };
 
   const column = columnMap[discipline];
-  let query = supabase
-    .from('judges')
-    .select('*')
-    .eq('is_active', true);
+  let query = supabase.from('judges').select('*').eq('is_active', true);
 
   if (level) {
     query = query.contains(column, [level]);

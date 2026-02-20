@@ -3,13 +3,30 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { ArrowLeft, Calendar, DollarSign, FileEdit, UserPlus, RefreshCw, Trash2, AlertCircle, Filter, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  DollarSign,
+  FileEdit,
+  UserPlus,
+  RefreshCw,
+  Trash2,
+  AlertCircle,
+  Filter,
+  X,
+} from 'lucide-react';
 
 interface JournalEntry {
   id: string;
   timestamp: string;
-  type: 'entry_created' | 'entry_modified' | 'payment_received' | 
-      'entry_withdrawn' | 'fees_waived' | 'selection_modified' | 'dog_substituted';
+  type:
+    | 'entry_created'
+    | 'entry_modified'
+    | 'payment_received'
+    | 'entry_withdrawn'
+    | 'fees_waived'
+    | 'selection_modified'
+    | 'dog_substituted';
   handler_name: string;
   dog_call_name: string;
   cwags_number: string;
@@ -34,12 +51,12 @@ export default function TrialJournalPage() {
   const [filteredEntries, setFilteredEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
-  
+
   // Details modal state
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
   const [entryDetails, setEntryDetails] = useState<any>(null);
@@ -54,15 +71,15 @@ export default function TrialJournalPage() {
   }, [journalEntries, searchTerm, typeFilter, dateRange]);
 
   // Add this helper function near the top with other functions (after imports, around line 30)
-const formatDateWithDay = (dateString: string) => {
-  if (!dateString) return '';
-  
-  // Parse date manually to avoid timezone issues
-  const [year, month, day] = dateString.split('-').map(Number);
-  const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
-  
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+  const formatDateWithDay = (dateString: string) => {
+    if (!dateString) return '';
+
+    // Parse date manually to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
+
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const loadJournalData = async () => {
     try {
@@ -86,7 +103,12 @@ const formatDateWithDay = (dateString: string) => {
         .from('trial_activity_log')
         .select('*')
         .eq('trial_id', trialId)
-        .in('activity_type', ['entry_submitted', 'entry_modified', 'fees_waived', 'dog_substituted'])
+        .in('activity_type', [
+          'entry_submitted',
+          'entry_modified',
+          'fees_waived',
+          'dog_substituted',
+        ])
         .order('created_at', { ascending: false });
 
       if (activityError) throw activityError;
@@ -94,7 +116,7 @@ const formatDateWithDay = (dateString: string) => {
       // Process activity log entries with snapshots
       (activityData || []).forEach((activity: any) => {
         const snapshot = activity.snapshot_data || {};
-        
+
         if (activity.activity_type === 'entry_submitted') {
           entries.push({
             id: activity.id,
@@ -106,85 +128,82 @@ const formatDateWithDay = (dateString: string) => {
             description: `Entry submitted for ${snapshot.dog_call_name} with ${snapshot.class_count || 0} class${(snapshot.class_count || 0) !== 1 ? 'es' : ''}`,
             amount: snapshot.total_fee || 0,
             entry_id: activity.entry_id,
-            snapshot: snapshot // Store snapshot for modal
+            snapshot: snapshot, // Store snapshot for modal
           });
-        } 
-        
-      else if (activity.activity_type === 'entry_modified') {
-  const snapshot = activity.snapshot_data || {};
-  
-  // Calculate added/removed classes from before/after arrays
-  // This works even if change.added_classes/removed_classes are missing
-  const beforeClasses = snapshot.before?.classes || [];
-  const afterClasses = snapshot.after?.classes || [];
-  
-  // Create unique keys for comparison
-  const makeClassKey = (c: any) => {
-    const name = c.name || 'Unknown';
-    const round = c.round || 1;
-    const day = c.day_number || 'TBD';
-    return `${name}-R${round}-D${day}`;
-  };
-  
-  const beforeKeys = new Set(beforeClasses.map(makeClassKey));
-  const afterKeys = new Set(afterClasses.map(makeClassKey));
-  
-  // Calculate added classes with day info
-  const addedClasses = afterClasses
-    .filter((c: any) => !beforeKeys.has(makeClassKey(c)))
-    .map((c: any) => {
-      const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
-      return `${c.name} (Round ${c.round}${dayInfo})`;
-    });
-  
-  // Calculate removed classes with day info
-  const removedClasses = beforeClasses
-    .filter((c: any) => !afterKeys.has(makeClassKey(c)))
-    .map((c: any) => {
-      const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
-      return `${c.name} (Round ${c.round}${dayInfo})`;
-    });
-  
-  // Build description
-  const changes: string[] = [];
-  
-  if (addedClasses.length > 0) {
-    changes.push(`➕ Added: ${addedClasses.join(', ')}`);
-  }
-  
-  if (removedClasses.length > 0) {
-    changes.push(`➖ Removed: ${removedClasses.join(', ')}`);
-  }
-  
-  const classCountBefore = snapshot.before?.class_count || 0;
-  const classCountAfter = snapshot.after?.class_count || 0;
-  const feeBefore = snapshot.before?.total_fee || 0;
-  const feeAfter = snapshot.after?.total_fee || 0;
-  
-  entries.push({
-    id: activity.id,
-    timestamp: activity.created_at,
-    type: 'entry_modified',
-    handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
-    dog_call_name: snapshot.dog_call_name || 'Unknown',
-    cwags_number: snapshot.cwags_number || 'Unknown',
-    description: `Modified entry for ${snapshot.dog_call_name}\n${changes.join('\n')}\nClasses: ${classCountBefore} → ${classCountAfter}\nFee: $${feeBefore} → $${feeAfter}`,
-    amount: feeAfter,
-    entry_id: activity.entry_id,
-    snapshot: snapshot
-  });
-}
-       else if (activity.activity_type === 'dog_substituted') {
+        } else if (activity.activity_type === 'entry_modified') {
+          const snapshot = activity.snapshot_data || {};
+
+          // Calculate added/removed classes from before/after arrays
+          // This works even if change.added_classes/removed_classes are missing
+          const beforeClasses = snapshot.before?.classes || [];
+          const afterClasses = snapshot.after?.classes || [];
+
+          // Create unique keys for comparison
+          const makeClassKey = (c: any) => {
+            const name = c.name || 'Unknown';
+            const round = c.round || 1;
+            const day = c.day_number || 'TBD';
+            return `${name}-R${round}-D${day}`;
+          };
+
+          const beforeKeys = new Set(beforeClasses.map(makeClassKey));
+          const afterKeys = new Set(afterClasses.map(makeClassKey));
+
+          // Calculate added classes with day info
+          const addedClasses = afterClasses
+            .filter((c: any) => !beforeKeys.has(makeClassKey(c)))
+            .map((c: any) => {
+              const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
+              return `${c.name} (Round ${c.round}${dayInfo})`;
+            });
+
+          // Calculate removed classes with day info
+          const removedClasses = beforeClasses
+            .filter((c: any) => !afterKeys.has(makeClassKey(c)))
+            .map((c: any) => {
+              const dayInfo = c.day_number ? `, Day ${c.day_number}` : '';
+              return `${c.name} (Round ${c.round}${dayInfo})`;
+            });
+
+          // Build description
+          const changes: string[] = [];
+
+          if (addedClasses.length > 0) {
+            changes.push(`➕ Added: ${addedClasses.join(', ')}`);
+          }
+
+          if (removedClasses.length > 0) {
+            changes.push(`➖ Removed: ${removedClasses.join(', ')}`);
+          }
+
+          const classCountBefore = snapshot.before?.class_count || 0;
+          const classCountAfter = snapshot.after?.class_count || 0;
+          const feeBefore = snapshot.before?.total_fee || 0;
+          const feeAfter = snapshot.after?.total_fee || 0;
+
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'entry_modified',
+            handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Modified entry for ${snapshot.dog_call_name}\n${changes.join('\n')}\nClasses: ${classCountBefore} → ${classCountAfter}\nFee: $${feeBefore} → $${feeAfter}`,
+            amount: feeAfter,
+            entry_id: activity.entry_id,
+            snapshot: snapshot,
+          });
+        } else if (activity.activity_type === 'dog_substituted') {
           const original = snapshot.original || {};
           const substitute = snapshot.substitute || {};
           const classDetails = snapshot.class_details || {};
-          
+
           // Build position and class info (shared by both cards)
           let classInfo = `${classDetails.class_name || 'Unknown'}, Round ${classDetails.round || 1}, Position ${classDetails.running_position || 'Unknown'}`;
           if (classDetails.day_number) {
             classInfo += `, Day ${classDetails.day_number}`;
           }
-          
+
           // CARD 1: Dog Added (the new dog - substitute)
           entries.push({
             id: `${activity.id}-add`,
@@ -195,9 +214,9 @@ const formatDateWithDay = (dateString: string) => {
             cwags_number: substitute.cwags_number || 'Unknown',
             description: `✅ Added ${substitute.dog_call_name} (${substitute.cwags_number}) to ${classInfo}`,
             entry_id: activity.entry_id,
-            snapshot: snapshot
+            snapshot: snapshot,
           });
-          
+
           // CARD 2: Dog Removed (the original dog)
           entries.push({
             id: `${activity.id}-remove`,
@@ -208,12 +227,9 @@ const formatDateWithDay = (dateString: string) => {
             cwags_number: original.cwags_number || 'Unknown',
             description: `❌ Removed ${original.dog_call_name} (${original.cwags_number}) from ${classInfo}`,
             entry_id: activity.entry_id,
-            snapshot: snapshot
+            snapshot: snapshot,
           });
-        }
-
-
-        else if (activity.activity_type === 'fees_waived') {
+        } else if (activity.activity_type === 'fees_waived') {
           entries.push({
             id: activity.id,
             timestamp: activity.created_at,
@@ -225,7 +241,7 @@ const formatDateWithDay = (dateString: string) => {
             notes: snapshot.reason || 'No reason provided',
             amount: snapshot.amount_waived || 0,
             entry_id: activity.entry_id,
-            snapshot: snapshot // Store snapshot for modal
+            snapshot: snapshot, // Store snapshot for modal
           });
         }
       });
@@ -239,8 +255,8 @@ const formatDateWithDay = (dateString: string) => {
 
       if (entriesError) throw entriesError;
 
-      const entryIds = (entriesData || []).map(e => e.id);
-      
+      const entryIds = (entriesData || []).map((e) => e.id);
+
       if (entryIds.length > 0) {
         const { data: paymentsData, error: paymentsError } = await supabase
           .from('entry_payment_transactions')
@@ -252,8 +268,8 @@ const formatDateWithDay = (dateString: string) => {
 
         // Add payments to journal entries
         (paymentsData || []).forEach((payment: any) => {
-          const entry = entriesData?.find(e => e.id === payment.entry_id);
-          
+          const entry = entriesData?.find((e) => e.id === payment.entry_id);
+
           entries.push({
             id: `payment-${payment.id}`,
             timestamp: payment.payment_date || payment.created_at,
@@ -266,7 +282,7 @@ const formatDateWithDay = (dateString: string) => {
             payment_method: payment.payment_method,
             payment_received_by: payment.payment_received_by,
             notes: payment.notes,
-            entry_id: payment.entry_id
+            entry_id: payment.entry_id,
           });
         });
       }
@@ -289,17 +305,18 @@ const formatDateWithDay = (dateString: string) => {
     // Apply search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(entry =>
-        entry.handler_name.toLowerCase().includes(search) ||
-        entry.dog_call_name.toLowerCase().includes(search) ||
-        entry.cwags_number.toLowerCase().includes(search) ||
-        entry.description.toLowerCase().includes(search)
+      filtered = filtered.filter(
+        (entry) =>
+          entry.handler_name.toLowerCase().includes(search) ||
+          entry.dog_call_name.toLowerCase().includes(search) ||
+          entry.cwags_number.toLowerCase().includes(search) ||
+          entry.description.toLowerCase().includes(search)
       );
     }
 
     // Apply type filter
     if (typeFilter !== 'all') {
-      filtered = filtered.filter(entry => entry.type === typeFilter);
+      filtered = filtered.filter((entry) => entry.type === typeFilter);
     }
 
     // Apply date range filter
@@ -310,7 +327,7 @@ const formatDateWithDay = (dateString: string) => {
       startOfWeek.setDate(startOfToday.getDate() - 7);
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      filtered = filtered.filter(entry => {
+      filtered = filtered.filter((entry) => {
         const entryDate = new Date(entry.timestamp);
         if (dateRange === 'today') return entryDate >= startOfToday;
         if (dateRange === 'week') return entryDate >= startOfWeek;
@@ -330,12 +347,11 @@ const formatDateWithDay = (dateString: string) => {
       // Use snapshot data if available (for entry submissions and modifications)
       if (entry.snapshot) {
         const snapshot = entry.snapshot;
-        
+
         // For entry_modified, use the 'after' state
-        const displayState = entry.type === 'entry_modified' && snapshot.after 
-          ? snapshot.after 
-          : snapshot;
-        
+        const displayState =
+          entry.type === 'entry_modified' && snapshot.after ? snapshot.after : snapshot;
+
         // Build selections from snapshot classes
         const selections = (displayState.classes || []).map((classData: any, index: number) => ({
           id: `snapshot-${index}`,
@@ -352,9 +368,9 @@ const formatDateWithDay = (dateString: string) => {
             round_number: classData.round || 1,
             trial_classes: {
               class_name: classData.name || 'Unknown Class',
-              class_order: index
-            }
-          }
+              class_order: index,
+            },
+          },
         }));
 
         // Fetch current payments for this entry (still from transactions table)
@@ -375,17 +391,18 @@ const formatDateWithDay = (dateString: string) => {
             entry_status: 'active',
             fees_waived: false,
             from_snapshot: true, // Flag to show this is historical data
-            snapshot_timestamp: entry.timestamp
+            snapshot_timestamp: entry.timestamp,
           },
           selections: selections,
-          payments: paymentsData || []
+          payments: paymentsData || [],
         });
-      } 
+      }
       // For payments, fetch current entry details
       else {
         const { data: entryData, error: entryError } = await supabase
           .from('entries')
-          .select(`
+          .select(
+            `
             *,
             entry_selections (
               *,
@@ -401,7 +418,8 @@ const formatDateWithDay = (dateString: string) => {
                 )
               )
             )
-          `)
+          `
+          )
           .eq('id', entry.entry_id)
           .single();
 
@@ -417,13 +435,13 @@ const formatDateWithDay = (dateString: string) => {
         const selectionsWithDays = (entryData?.entry_selections || []).map((sel: any) => ({
           ...sel,
           day_number: sel.trial_rounds?.trial_classes?.trial_days?.day_number,
-          trial_date: sel.trial_rounds?.trial_classes?.trial_days?.trial_date
+          trial_date: sel.trial_rounds?.trial_classes?.trial_days?.trial_date,
         }));
 
         setEntryDetails({
           entry: entryData,
           selections: selectionsWithDays,
-          payments: paymentsData || []
+          payments: paymentsData || [],
         });
       }
     } catch (err) {
@@ -450,7 +468,7 @@ const formatDateWithDay = (dateString: string) => {
         return <AlertCircle className="h-5 w-5 text-purple-600" />;
       case 'entry_withdrawn':
         return <Trash2 className="h-5 w-5 text-red-600" />;
-        case 'dog_substituted':
+      case 'dog_substituted':
         return <RefreshCw className="h-5 w-5 text-cyan-600" />;
       default:
         return <FileEdit className="h-5 w-5 text-gray-600" />;
@@ -483,10 +501,10 @@ const formatDateWithDay = (dateString: string) => {
     const isToday = date.toDateString() === today.toDateString();
     const isYesterday = date.toDateString() === yesterday.toDateString();
 
-    const timeStr = date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    const timeStr = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
 
     if (isToday) {
@@ -494,18 +512,20 @@ const formatDateWithDay = (dateString: string) => {
     } else if (isYesterday) {
       return `Yesterday at ${timeStr}`;
     } else {
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
-      }) + ` at ${timeStr}`;
+      return (
+        date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+        }) + ` at ${timeStr}`
+      );
     }
   };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'USD',
     }).format(amount);
   };
 
@@ -548,16 +568,21 @@ const formatDateWithDay = (dateString: string) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Activity Journal</h1>
-{trial && (
-  <p className="text-gray-600 mt-1">
-    {trial.trial_name} • {(() => {
-      if (!trial.start_date) return '';
-      const [year, month, day] = trial.start_date.split('-').map(Number);
-      const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    })()}
-  </p>
-)}
+              {trial && (
+                <p className="text-gray-600 mt-1">
+                  {trial.trial_name} •{' '}
+                  {(() => {
+                    if (!trial.start_date) return '';
+                    const [year, month, day] = trial.start_date.split('-').map(Number);
+                    const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone shift
+                    return date.toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    });
+                  })()}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-gray-400" />
@@ -651,21 +676,17 @@ const formatDateWithDay = (dateString: string) => {
                 onClick={() => openDetailsModal(entry)}
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 mt-1">
-                    {getTypeIcon(entry.type)}
-                  </div>
+                  <div className="flex-shrink-0 mt-1">{getTypeIcon(entry.type)}</div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900">
-                          {entry.handler_name}
-                        </span>
+                        <span className="font-semibold text-gray-900">{entry.handler_name}</span>
                         <span className="text-gray-400">•</span>
-                        <span className="text-gray-700">
-                          {entry.dog_call_name}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeColor(entry.type)}`}>
+                        <span className="text-gray-700">{entry.dog_call_name}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeBadgeColor(entry.type)}`}
+                        >
                           {entry.type.replace('_', ' ')}
                         </span>
                       </div>
@@ -674,9 +695,7 @@ const formatDateWithDay = (dateString: string) => {
                       </div>
                     </div>
 
-                    <div className="text-gray-700 whitespace-pre-line">
-                      {entry.description}
-                    </div>
+                    <div className="text-gray-700 whitespace-pre-line">{entry.description}</div>
 
                     {entry.amount !== undefined && (
                       <div className="mt-2 text-sm font-semibold text-gray-900">
@@ -690,16 +709,15 @@ const formatDateWithDay = (dateString: string) => {
                         {entry.payment_received_by && (
                           <>
                             <span className="mx-2">•</span>
-                            <span className="font-medium">Received by:</span> {entry.payment_received_by}
+                            <span className="font-medium">Received by:</span>{' '}
+                            {entry.payment_received_by}
                           </>
                         )}
                       </div>
                     )}
 
                     {entry.notes && (
-                      <div className="mt-2 text-sm text-gray-600 italic">
-                        Note: {entry.notes}
-                      </div>
+                      <div className="mt-2 text-sm text-gray-600 italic">Note: {entry.notes}</div>
                     )}
                   </div>
                 </div>
@@ -725,18 +743,17 @@ const formatDateWithDay = (dateString: string) => {
                   )}
                 </div>
                 <p className="text-sm text-gray-600">
-                  {selectedEntry.handler_name} • {selectedEntry.dog_call_name} • {selectedEntry.cwags_number}
+                  {selectedEntry.handler_name} • {selectedEntry.dog_call_name} •{' '}
+                  {selectedEntry.cwags_number}
                 </p>
                 {entryDetails?.entry?.from_snapshot && (
                   <p className="text-xs text-blue-600 mt-1">
-                    📸 Showing entry as it was on {formatTimestamp(entryDetails.entry.snapshot_timestamp)}
+                    📸 Showing entry as it was on{' '}
+                    {formatTimestamp(entryDetails.entry.snapshot_timestamp)}
                   </p>
                 )}
               </div>
-              <button
-                onClick={closeDetailsModal}
-                className="text-gray-400 hover:text-gray-600"
-              >
+              <button onClick={closeDetailsModal} className="text-gray-400 hover:text-gray-600">
                 <X className="h-6 w-6" />
               </button>
             </div>
@@ -752,22 +769,26 @@ const formatDateWithDay = (dateString: string) => {
                 <div className="space-y-6">
                   {/* Entry Information */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Entry Information
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Entry Information</h3>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">Handler Name:</span>
-                          <p className="font-medium text-gray-900">{entryDetails.entry.handler_name}</p>
+                          <p className="font-medium text-gray-900">
+                            {entryDetails.entry.handler_name}
+                          </p>
                         </div>
                         <div>
                           <span className="text-gray-600">Dog Name:</span>
-                          <p className="font-medium text-gray-900">{entryDetails.entry.dog_call_name}</p>
+                          <p className="font-medium text-gray-900">
+                            {entryDetails.entry.dog_call_name}
+                          </p>
                         </div>
                         <div>
                           <span className="text-gray-600">CWAGS Number:</span>
-                          <p className="font-medium text-gray-900">{entryDetails.entry.cwags_number}</p>
+                          <p className="font-medium text-gray-900">
+                            {entryDetails.entry.cwags_number}
+                          </p>
                         </div>
                         <div>
                           <span className="text-gray-600">Entry Status:</span>
@@ -788,14 +809,12 @@ const formatDateWithDay = (dateString: string) => {
                       {entryDetails.selections.map((selection: any) => {
                         const trialClass = selection.trial_rounds?.trial_classes;
                         const isWithdrawn = selection.entry_status === 'withdrawn';
-                        
+
                         return (
                           <div
                             key={selection.id}
                             className={`border rounded-lg p-4 ${
-                              isWithdrawn 
-                                ? 'bg-red-50 border-red-200' 
-                                : 'bg-white border-amber-200'
+                              isWithdrawn ? 'bg-red-50 border-red-200' : 'bg-white border-amber-200'
                             }`}
                           >
                             <div className="flex items-start justify-between">
@@ -819,45 +838,52 @@ const formatDateWithDay = (dateString: string) => {
                                       Day {selection.day_number}
                                     </span>
                                   )}
-                                 {selection.trial_date && (
-  <span className="text-xs text-gray-500">
-    {formatDateWithDay(selection.trial_date)}
-  </span>
-)}
+                                  {selection.trial_date && (
+                                    <span className="text-xs text-gray-500">
+                                      {formatDateWithDay(selection.trial_date)}
+                                    </span>
+                                  )}
                                 </div>
-                                
+
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                   {selection.entry_type && (
                                     <div className="text-gray-600">
-                                      Type: <span className="text-gray-900">
+                                      Type:{' '}
+                                      <span className="text-gray-900">
                                         {selection.entry_type === 'feo' ? 'FEO' : 'Regular'}
                                       </span>
                                     </div>
                                   )}
                                   {selection.division && (
                                     <div className="text-gray-600">
-                                      Division: <span className="text-gray-900">{selection.division}</span>
+                                      Division:{' '}
+                                      <span className="text-gray-900">{selection.division}</span>
                                     </div>
                                   )}
                                   {selection.jump_height && (
                                     <div className="text-gray-600">
-                                      Jump Height: <span className="text-gray-900">{selection.jump_height}</span>
+                                      Jump Height:{' '}
+                                      <span className="text-gray-900">{selection.jump_height}</span>
                                     </div>
                                   )}
                                   {selection.running_position && (
                                     <div className="text-gray-600">
-                                      Running Position: <span className="text-gray-900">#{selection.running_position}</span>
+                                      Running Position:{' '}
+                                      <span className="text-gray-900">
+                                        #{selection.running_position}
+                                      </span>
                                     </div>
                                   )}
-                                  
+
                                   <div className="text-gray-600 col-span-2 mt-1 pt-1 border-t border-amber-200">
-                                    Entered: <span className="text-gray-900">
+                                    Entered:{' '}
+                                    <span className="text-gray-900">
                                       {formatTimestamp(selection.created_at)}
                                     </span>
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div className="text-right ml-4">
                                 <p className="font-semibold text-gray-900">
                                   {formatCurrency(selection.fee)}
@@ -878,9 +904,7 @@ const formatDateWithDay = (dateString: string) => {
 
                   {/* Financial Summary */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Financial Summary
-                    </h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Financial Summary</h3>
                     <div className="bg-white border border-amber-200 rounded-lg p-4">
                       <div className="space-y-2">
                         <div className="flex justify-between">
@@ -900,8 +924,14 @@ const formatDateWithDay = (dateString: string) => {
                         <div className="border-t border-amber-200 pt-2 mt-2">
                           <div className="flex justify-between text-lg font-bold">
                             <span>Amount Due:</span>
-                            <span className={entryDetails.entry.fees_waived ? 'text-green-600' : ''}>
-                              {formatCurrency(entryDetails.entry.fees_waived ? 0 : (entryDetails.entry.total_fee || 0))}
+                            <span
+                              className={entryDetails.entry.fees_waived ? 'text-green-600' : ''}
+                            >
+                              {formatCurrency(
+                                entryDetails.entry.fees_waived
+                                  ? 0
+                                  : entryDetails.entry.total_fee || 0
+                              )}
                             </span>
                           </div>
                         </div>
@@ -931,24 +961,33 @@ const formatDateWithDay = (dateString: string) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                   <div className="text-gray-600">
-                                    Date: <span className="text-gray-900">
-                                      {new Date(payment.payment_date || payment.created_at).toLocaleDateString('en-US', {
+                                    Date:{' '}
+                                    <span className="text-gray-900">
+                                      {new Date(
+                                        payment.payment_date || payment.created_at
+                                      ).toLocaleDateString('en-US', {
                                         month: 'short',
                                         day: 'numeric',
                                         year: 'numeric',
                                         hour: 'numeric',
-                                        minute: '2-digit'
+                                        minute: '2-digit',
                                       })}
                                     </span>
                                   </div>
                                   {payment.payment_method && (
                                     <div className="text-gray-600">
-                                      Method: <span className="text-gray-900">{payment.payment_method}</span>
+                                      Method:{' '}
+                                      <span className="text-gray-900">
+                                        {payment.payment_method}
+                                      </span>
                                     </div>
                                   )}
                                   {payment.payment_received_by && (
                                     <div className="text-gray-600">
-                                      Received by: <span className="text-gray-900">{payment.payment_received_by}</span>
+                                      Received by:{' '}
+                                      <span className="text-gray-900">
+                                        {payment.payment_received_by}
+                                      </span>
                                     </div>
                                   )}
                                   {payment.notes && (
@@ -971,9 +1010,7 @@ const formatDateWithDay = (dateString: string) => {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No details available
-                </div>
+                <div className="text-center py-8 text-gray-500">No details available</div>
               )}
             </div>
 

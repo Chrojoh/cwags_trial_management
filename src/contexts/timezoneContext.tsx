@@ -24,7 +24,7 @@ export const TimezoneProvider: React.FC<TimezoneProviderProps> = ({ children }) 
   useEffect(() => {
     // Check for saved timezone preference in localStorage
     const savedTimezone = localStorage.getItem('cwags-user-timezone');
-    
+
     if (savedTimezone) {
       setUserTimezoneState(savedTimezone);
     } else {
@@ -32,7 +32,7 @@ export const TimezoneProvider: React.FC<TimezoneProviderProps> = ({ children }) 
       const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       setUserTimezoneState(detectedTimezone);
     }
-    
+
     setIsLoading(false);
   }, []);
 
@@ -42,11 +42,13 @@ export const TimezoneProvider: React.FC<TimezoneProviderProps> = ({ children }) 
   };
 
   return (
-    <TimezoneContext.Provider value={{ 
-      userTimezone, 
-      setUserTimezone, 
-      isLoading 
-    }}>
+    <TimezoneContext.Provider
+      value={{
+        userTimezone,
+        setUserTimezone,
+        isLoading,
+      }}
+    >
       {children}
     </TimezoneContext.Provider>
   );

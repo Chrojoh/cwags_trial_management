@@ -24,24 +24,16 @@ export const OBEDIENCE_LEVELS = [
   'Obedience 2',
   'Obedience 3',
   'Obedience 4',
-  'Obedience 5'
+  'Obedience 5',
 ];
 
-export const RALLY_LEVELS = [
-  'Starter',
-  'Advanced',
-  'Pro',
-  'ARF',
-  'Zoom 1',
-  'Zoom 1.5',
-  'Zoom 2'
-];
+export const RALLY_LEVELS = ['Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2'];
 
 export const SCENT_LEVELS = [
-  'Patrol 1',              // ✅ FIXED
-  'Detective 2',           // ✅ FIXED
-  'Investigator 3',        // ✅ FIXED
-  'Super Sleuth 4',        // ✅ FIXED
+  'Patrol 1',
+  'Detective 2',
+  'Investigator 3',
+  'Super Sleuth 4',
   'Private Investigator',
   'Detective Diversions',
   'Ranger 1',
@@ -52,15 +44,10 @@ export const SCENT_LEVELS = [
   'Dasher 3',
   'Dasher 4',
   'Dasher 5',
-  'Dasher 6'
+  'Dasher 6',
 ];
 
-export const GAMES_LEVELS = [
-  'Games 1',
-  'Games 2',
-  'Games 3',
-  'Games 4'
-];
+export const GAMES_LEVELS = ['Games 1', 'Games 2', 'Games 3', 'Games 4'];
 
 // Helper function to sort badges in proper order
 export function sortCertificationLevels(levels: string[], allLevels: string[]): string[] {
@@ -97,5 +84,5 @@ export const emptyJudgeForm: JudgeFormData = {
   rally_levels: [],
   games_levels: [],
   scent_levels: [],
-  is_active: true
+  is_active: true,
 };

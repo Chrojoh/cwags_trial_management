@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ShareableEntryLink from '@/components/public/ShareableEntryLink';
-import { 
+import {
   Calendar,
   Edit,
   Save,
@@ -28,7 +28,7 @@ import {
   Loader2,
   ExternalLink,
   BarChart3,
-  CheckCircle
+  CheckCircle,
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
@@ -145,20 +145,19 @@ export default function TrialDetailPage() {
       setTrial(trialResult.data);
       setTrialDays(daysResult.data || []);
       const sortedClasses = (classesResult.data || []).sort((a: any, b: any) => {
-  // First sort by day number
-  const dayA = a.trial_days?.day_number || 0;
-  const dayB = b.trial_days?.day_number || 0;
-  if (dayA !== dayB) return dayA - dayB;
-  
-  // Then sort by the official CWAGS class order
-  return getClassOrder(a.class_name) - getClassOrder(b.class_name);
-});
+        // First sort by day number
+        const dayA = a.trial_days?.day_number || 0;
+        const dayB = b.trial_days?.day_number || 0;
+        if (dayA !== dayB) return dayA - dayB;
 
-setTrialClasses(sortedClasses);
+        // Then sort by the official CWAGS class order
+        return getClassOrder(a.class_name) - getClassOrder(b.class_name);
+      });
+
+      setTrialClasses(sortedClasses);
       setTrialRounds(roundsResult.data || []);
 
       console.log('Trial data loaded successfully');
-
     } catch (err) {
       console.error('Error loading trial data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load trial data');
@@ -196,12 +195,12 @@ setTrialClasses(sortedClasses);
         setEditingSection(null);
         setEditData({});
       } else {
-        const errorMessage = typeof result?.error === 'string' 
-          ? result.error 
-          : result?.error?.message || 'Failed to save changes';
+        const errorMessage =
+          typeof result?.error === 'string'
+            ? result.error
+            : result?.error?.message || 'Failed to save changes';
         throw new Error(errorMessage);
       }
-
     } catch (err) {
       console.error('Error saving section:', err);
       setError(err instanceof Error ? err.message : 'Failed to save changes');
@@ -210,18 +209,18 @@ setTrialClasses(sortedClasses);
     }
   };
 
- const handleEditNavigation = (editType: string) => {
-     console.log('handleEditNavigation called with:', editType);
-  const routes = {
-    days: `/dashboard/trials/create/days?trial=${trialId}&mode=edit`,
-    classes: `/dashboard/trials/create/levels?trial=${trialId}&mode=edit`,
-    rounds: `/dashboard/trials/create/rounds?trial=${trialId}&mode=edit`  // Change this line
+  const handleEditNavigation = (editType: string) => {
+    console.log('handleEditNavigation called with:', editType);
+    const routes = {
+      days: `/dashboard/trials/create/days?trial=${trialId}&mode=edit`,
+      classes: `/dashboard/trials/create/levels?trial=${trialId}&mode=edit`,
+      rounds: `/dashboard/trials/create/rounds?trial=${trialId}&mode=edit`, // Change this line
+    };
+
+    if (routes[editType as keyof typeof routes]) {
+      router.push(routes[editType as keyof typeof routes]);
+    }
   };
-  
-  if (routes[editType as keyof typeof routes]) {
-    router.push(routes[editType as keyof typeof routes]);
-  }
-};
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -238,22 +237,24 @@ setTrialClasses(sortedClasses);
     }
   };
 
-const formatDate = (dateString: string) => {
-  const parts = dateString.split('-');
-  const date = new Date(
-    parseInt(parts[0]),
-    parseInt(parts[1]) - 1,
-    parseInt(parts[2]),
-    12, 0, 0  // Set to noon to avoid timezone issues
-  );
-  
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
+  const formatDate = (dateString: string) => {
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12,
+      0,
+      0 // Set to noon to avoid timezone issues
+    );
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
   if (loading) {
     return (
       <MainLayout title="Loading Trial...">
@@ -276,13 +277,12 @@ const formatDate = (dateString: string) => {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {error || 'Trial not found. It may have been deleted or you may not have permission to view it.'}
+              {error ||
+                'Trial not found. It may have been deleted or you may not have permission to view it.'}
             </AlertDescription>
           </Alert>
           <div className="mt-4">
-            <Button onClick={() => router.push('/dashboard/trials')}>
-              Back to Trials
-            </Button>
+            <Button onClick={() => router.push('/dashboard/trials')}>Back to Trials</Button>
           </div>
         </div>
       </MainLayout>
@@ -292,14 +292,11 @@ const formatDate = (dateString: string) => {
   const breadcrumbItems = [
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
-    { label: trial.trial_name }
+    { label: trial.trial_name },
   ];
 
   return (
-    <MainLayout 
-      title={trial.trial_name}
-      breadcrumbItems={breadcrumbItems}
-    >
+    <MainLayout title={trial.trial_name} breadcrumbItems={breadcrumbItems}>
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Trial Header */}
         <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
@@ -315,7 +312,9 @@ const formatDate = (dateString: string) => {
                     </span>
                     <span className="flex items-center space-x-1">
                       <Calendar className="h-4 w-4" />
-                      <span>{formatDate(trial.start_date)} - {formatDate(trial.end_date)}</span>
+                      <span>
+                        {formatDate(trial.start_date)} - {formatDate(trial.end_date)}
+                      </span>
                     </span>
                   </span>
                 </CardDescription>
@@ -356,7 +355,7 @@ const formatDate = (dateString: string) => {
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {[...new Set(trialRounds.map(r => r.judge_name))].length}
+                {[...new Set(trialRounds.map((r) => r.judge_name))].length}
               </div>
               <div className="text-sm text-gray-600">Judges</div>
             </CardContent>
@@ -372,10 +371,7 @@ const formatDate = (dateString: string) => {
         )}
 
         {/* Entry Control Panel */}
-        <EntryControlPanel 
-          trialId={trialId} 
-          currentStatus={trial.entry_status || 'draft'} 
-        />
+        <EntryControlPanel trialId={trialId} currentStatus={trial.entry_status || 'draft'} />
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="basic" className="w-full">
@@ -423,54 +419,60 @@ const formatDate = (dateString: string) => {
           {/* Basic Information Tab */}
           <TabsContent value="basic">
             <Card>
-            <CardHeader>
-  <div className="flex items-center justify-between">
-    <CardTitle className="flex items-center space-x-2">
-      <FileText className="h-5 w-5 text-orange-600" />
-      <span>Basic Trial Information</span>
-    </CardTitle>
-    
-    <div className="flex items-center space-x-2">
-      {/* Show Publish button if trial is in draft status */}
-      {trial.trial_status === 'draft' && editingSection !== 'basic' && (
-        <Button 
-          className="bg-green-600 hover:bg-green-700 text-white"
-          onClick={async () => {
-            if (confirm('Are you sure you want to publish this trial? This will make it visible to the public.')) {
-              try {
-                const result = await simpleTrialOperations.publishTrial(trialId);
-                if (result.success) {
-                  alert('Trial published successfully!');
-                  loadTrialData();
-                } else {
-                  alert('Failed to publish trial: ' + (result.error || 'Unknown error'));
-                }
-              } catch (error) {
-                console.error('Error publishing trial:', error);
-                alert('Failed to publish trial');
-              }
-            }
-          }}
-        >
-          <CheckCircle className="h-4 w-4 mr-2" />
-          Publish Trial
-        </Button>
-      )}
-      
-      {/* Edit button - always show when not editing */}
-      {editingSection !== 'basic' && (
-        <Button 
-          variant="outline" 
-          onClick={() => startEditing('basic', trial)}
-          className="flex items-center space-x-2"
-        >
-          <Edit className="h-4 w-4" />
-          <span>Edit</span>
-        </Button>
-      )}
-    </div>
-  </div>
-</CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center space-x-2">
+                    <FileText className="h-5 w-5 text-orange-600" />
+                    <span>Basic Trial Information</span>
+                  </CardTitle>
+
+                  <div className="flex items-center space-x-2">
+                    {/* Show Publish button if trial is in draft status */}
+                    {trial.trial_status === 'draft' && editingSection !== 'basic' && (
+                      <Button
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={async () => {
+                          if (
+                            confirm(
+                              'Are you sure you want to publish this trial? This will make it visible to the public.'
+                            )
+                          ) {
+                            try {
+                              const result = await simpleTrialOperations.publishTrial(trialId);
+                              if (result.success) {
+                                alert('Trial published successfully!');
+                                loadTrialData();
+                              } else {
+                                alert(
+                                  'Failed to publish trial: ' + (result.error || 'Unknown error')
+                                );
+                              }
+                            } catch (error) {
+                              console.error('Error publishing trial:', error);
+                              alert('Failed to publish trial');
+                            }
+                          }
+                        }}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Publish Trial
+                      </Button>
+                    )}
+
+                    {/* Edit button - always show when not editing */}
+                    {editingSection !== 'basic' && (
+                      <Button
+                        variant="outline"
+                        onClick={() => startEditing('basic', trial)}
+                        className="flex items-center space-x-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span>Edit</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent>
                 {editingSection === 'basic' ? (
                   <div className="space-y-4">
@@ -480,7 +482,12 @@ const formatDate = (dateString: string) => {
                         <Input
                           id="trial_name"
                           value={editData.trial_name || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, trial_name: e.target.value }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              trial_name: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -488,7 +495,12 @@ const formatDate = (dateString: string) => {
                         <Input
                           id="club_name"
                           value={editData.club_name || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, club_name: e.target.value }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              club_name: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -496,7 +508,12 @@ const formatDate = (dateString: string) => {
                         <Input
                           id="trial_secretary"
                           value={editData.trial_secretary || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, trial_secretary: e.target.value }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              trial_secretary: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -505,7 +522,12 @@ const formatDate = (dateString: string) => {
                           id="secretary_email"
                           type="email"
                           value={editData.secretary_email || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, secretary_email: e.target.value }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              secretary_email: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -513,7 +535,12 @@ const formatDate = (dateString: string) => {
                         <Input
                           id="secretary_phone"
                           value={editData.secretary_phone || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, secretary_phone: e.target.value }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              secretary_phone: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -523,7 +550,12 @@ const formatDate = (dateString: string) => {
                           type="number"
                           min="1"
                           value={editData.max_entries_per_day || ''}
-                          onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, max_entries_per_day: parseInt(e.target.value) || 0 }))}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              max_entries_per_day: parseInt(e.target.value) || 0,
+                            }))
+                          }
                         />
                       </div>
                     </div>
@@ -532,13 +564,18 @@ const formatDate = (dateString: string) => {
                       <Textarea
                         id="notes"
                         value={editData.notes || ''}
-                        onChange={(e) => setEditData((prev: Partial<TrialData>) => ({ ...prev, notes: e.target.value }))}
+                        onChange={(e) =>
+                          setEditData((prev: Partial<TrialData>) => ({
+                            ...prev,
+                            notes: e.target.value,
+                          }))
+                        }
                         rows={3}
                       />
                     </div>
                     <div className="flex space-x-2">
-                      <Button 
-                        onClick={() => saveSection('basic')} 
+                      <Button
+                        onClick={() => saveSection('basic')}
                         disabled={saving}
                         className="flex items-center space-x-2"
                       >
@@ -585,10 +622,14 @@ const formatDate = (dateString: string) => {
                     </div>
                     <div>
                       <Label className="text-sm font-medium text-gray-600">Secretary Phone</Label>
-                      <p className="text-gray-900 mt-1">{trial.secretary_phone || 'Not provided'}</p>
+                      <p className="text-gray-900 mt-1">
+                        {trial.secretary_phone || 'Not provided'}
+                      </p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium text-gray-600">Max Entries Per Day</Label>
+                      <Label className="text-sm font-medium text-gray-600">
+                        Max Entries Per Day
+                      </Label>
                       <p className="text-gray-900 mt-1">{trial.max_entries_per_day}</p>
                     </div>
                     {trial.notes && (
@@ -622,9 +663,7 @@ const formatDate = (dateString: string) => {
                   <Calendar className="h-5 w-5 text-orange-600" />
                   <span>Trial Days</span>
                 </CardTitle>
-                <CardDescription>
-                  Days configured for this trial
-                </CardDescription>
+                <CardDescription>Days configured for this trial</CardDescription>
               </CardHeader>
               <CardContent>
                 {trialDays.length === 0 ? (
@@ -641,9 +680,7 @@ const formatDate = (dateString: string) => {
                           <Badge variant="outline">{day.day_status}</Badge>
                         </div>
                         <p className="text-sm text-gray-600">{formatDate(day.trial_date)}</p>
-                        {day.notes && (
-                          <p className="text-sm text-gray-500 mt-2">{day.notes}</p>
-                        )}
+                        {day.notes && <p className="text-sm text-gray-500 mt-2">{day.notes}</p>}
                       </div>
                     ))}
                   </div>
@@ -660,9 +697,7 @@ const formatDate = (dateString: string) => {
                   <Users className="h-5 w-5 text-orange-600" />
                   <span>Trial Classes</span>
                 </CardTitle>
-                <CardDescription>
-                  Classes and levels configured for this trial
-                </CardDescription>
+                <CardDescription>Classes and levels configured for this trial</CardDescription>
               </CardHeader>
               <CardContent>
                 {trialClasses.length === 0 ? (
@@ -678,7 +713,8 @@ const formatDate = (dateString: string) => {
                           <div>
                             <h3 className="font-medium">{cls.class_name}</h3>
                             <p className="text-sm text-gray-600">
-                              Day {cls.trial_days?.day_number || 'N/A'} • {cls.class_type} • {cls.class_level}
+                              Day {cls.trial_days?.day_number || 'N/A'} • {cls.class_type} •{' '}
+                              {cls.class_level}
                             </p>
                           </div>
                           <div className="text-right">
@@ -702,9 +738,7 @@ const formatDate = (dateString: string) => {
                   <Clock className="h-5 w-5 text-orange-600" />
                   <span>Trial Rounds</span>
                 </CardTitle>
-                <CardDescription>
-                  Rounds and judge assignments for this trial
-                </CardDescription>
+                <CardDescription>Rounds and judge assignments for this trial</CardDescription>
               </CardHeader>
               <CardContent>
                 {trialRounds.length === 0 ? (
@@ -716,22 +750,27 @@ const formatDate = (dateString: string) => {
                   <div className="space-y-4">
                     {trialRounds.map((round) => {
                       // Find the corresponding day for this round's class
-                      const roundDay = trialDays.find(day => 
-                        trialClasses.some(cls => 
-                          String(cls.trial_day_id) === String(day.id) && 
-                          String(cls.id) === String(round.trial_class_id)
+                      const roundDay = trialDays.find((day) =>
+                        trialClasses.some(
+                          (cls) =>
+                            String(cls.trial_day_id) === String(day.id) &&
+                            String(cls.id) === String(round.trial_class_id)
                         )
                       );
-                      
+
                       return (
                         <div key={round.id} className="border rounded-lg p-4">
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="font-medium">
-                                {round.trial_classes?.class_name || 'Unknown Class'} - Round {round.round_number}
+                                {round.trial_classes?.class_name || 'Unknown Class'} - Round{' '}
+                                {round.round_number}
                               </h3>
                               <p className="text-sm text-gray-600">
-                                Day {roundDay?.day_number || round.trial_classes?.trial_days?.day_number || 'N/A'}
+                                Day{' '}
+                                {roundDay?.day_number ||
+                                  round.trial_classes?.trial_days?.day_number ||
+                                  'N/A'}
                                 {round.start_time && ` • ${round.start_time}`}
                               </p>
                             </div>
@@ -749,7 +788,7 @@ const formatDate = (dateString: string) => {
             </Card>
           </TabsContent>
 
-         {/* Settings Tab */}
+          {/* Settings Tab */}
           <TabsContent value="settings">
             <Card>
               <CardHeader>
@@ -757,88 +796,94 @@ const formatDate = (dateString: string) => {
                   <Settings className="h-5 w-5 text-orange-600" />
                   <span>Trial Settings & Actions</span>
                 </CardTitle>
-                <CardDescription>
-                  Manage trial status and edit trial components
-                </CardDescription>
+                <CardDescription>Manage trial status and edit trial components</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div>
-  <Label className="text-sm font-medium text-gray-600">Current Status</Label>
-  <div className="mt-2 flex items-center gap-3">
-    <Badge className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}>
-      {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
-    </Badge>
-    
-    {/* Draft → Published */}
-    {trial.trial_status === 'draft' && (
-      <Button 
-        className="bg-green-600 hover:bg-green-700 text-white"
-        onClick={async () => {
-          const result = await simpleTrialOperations.publishTrial(trialId);
-          if (result.success) {
-            alert('Trial published successfully!');
-            loadTrialData();
-          }
-        }}
-      >
-        <CheckCircle className="h-4 w-4 mr-2" />
-        Publish Trial
-      </Button>
-    )}
-    
-    {/* Published → Active */}
-    {trial.trial_status === 'published' && (
-      <Button
-        size="sm"
-        variant="outline"
-        className="text-green-600 border-green-600 hover:bg-green-50"
-        onClick={async () => {
-          if (confirm('Mark this trial as Active?')) {
-            const result = await simpleTrialOperations.updateTrialStatus(trialId, 'active');
-            if (result.success) {
-              alert('Trial marked as Active!');
-              loadTrialData();
-            } else {
-              alert('Error updating status');
-            }
-          }
-        }}
-      >
-        Mark Active
-      </Button>
-    )}
-    
-    {/* Active → Completed */}
-    {trial.trial_status === 'active' && (
-      <Button
-        size="sm"
-        variant="outline"
-        className="text-purple-600 border-purple-600 hover:bg-purple-50"
-        onClick={async () => {
-          if (confirm('Mark this trial as Completed?')) {
-            const result = await simpleTrialOperations.updateTrialStatus(trialId, 'completed');
-            if (result.success) {
-              alert('Trial marked as Completed!');
-              loadTrialData();
-            } else {
-              alert('Error updating status');
-            }
-          }
-        }}
-      >
-        Mark Completed
-      </Button>
-    )}
-  </div>
-</div>
+                    <Label className="text-sm font-medium text-gray-600">Current Status</Label>
+                    <div className="mt-2 flex items-center gap-3">
+                      <Badge
+                        className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}
+                      >
+                        {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
+                      </Badge>
+
+                      {/* Draft → Published */}
+                      {trial.trial_status === 'draft' && (
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={async () => {
+                            const result = await simpleTrialOperations.publishTrial(trialId);
+                            if (result.success) {
+                              alert('Trial published successfully!');
+                              loadTrialData();
+                            }
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Publish Trial
+                        </Button>
+                      )}
+
+                      {/* Published → Active */}
+                      {trial.trial_status === 'published' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-green-600 border-green-600 hover:bg-green-50"
+                          onClick={async () => {
+                            if (confirm('Mark this trial as Active?')) {
+                              const result = await simpleTrialOperations.updateTrialStatus(
+                                trialId,
+                                'active'
+                              );
+                              if (result.success) {
+                                alert('Trial marked as Active!');
+                                loadTrialData();
+                              } else {
+                                alert('Error updating status');
+                              }
+                            }
+                          }}
+                        >
+                          Mark Active
+                        </Button>
+                      )}
+
+                      {/* Active → Completed */}
+                      {trial.trial_status === 'active' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                          onClick={async () => {
+                            if (confirm('Mark this trial as Completed?')) {
+                              const result = await simpleTrialOperations.updateTrialStatus(
+                                trialId,
+                                'completed'
+                              );
+                              if (result.success) {
+                                alert('Trial marked as Completed!');
+                                loadTrialData();
+                              } else {
+                                alert('Error updating status');
+                              }
+                            }
+                          }}
+                        >
+                          Mark Completed
+                        </Button>
+                      )}
+                    </div>
+                  </div>
 
                   {/* Entry Management Section */}
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4">Entry Management</h3>
                     <div className="space-y-3">
-                      <Button 
-                        variant="default" 
+                      <Button
+                        variant="default"
                         className="w-full justify-start bg-green-600 hover:bg-green-700"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/entries`)}
                       >
@@ -846,39 +891,40 @@ const formatDate = (dateString: string) => {
                         Manage Entries (0 entries)
                       </Button>
                       <div className="mt-4 mb-4">
-  <ShareableEntryLink 
-    trialId={trialId} 
-    trialName={trial?.trial_name || 'Trial'}
-  />
-</div>
-                       <Button 
-      variant="outline" 
-      className="w-full justify-start"
-      onClick={() => router.push(`/dashboard/trials/${trialId}/time-calculator`)}
-    >
-      <Clock className="h-4 w-4 mr-2" />
-      Trial Time Calculator
-    </Button>
-       
-    {/* NEW: Close to Titles Report Button */}
-    <Button 
-  variant="outline" 
-  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
-  onClick={() => router.push(`/dashboard/trials/${trialId}/close-to-titles`)}
->
-  <Trophy className="h-4 w-4 mr-2" />
-  Close to Titles Report
-</Button>
-                      <Button 
-                        variant="default" 
+                        <ShareableEntryLink
+                          trialId={trialId}
+                          trialName={trial?.trial_name || 'Trial'}
+                        />
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => router.push(`/dashboard/trials/${trialId}/time-calculator`)}
+                      >
+                        <Clock className="h-4 w-4 mr-2" />
+                        Trial Time Calculator
+                      </Button>
+
+                      {/* NEW: Close to Titles Report Button */}
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+                        onClick={() => router.push(`/dashboard/trials/${trialId}/close-to-titles`)}
+                      >
+                        <Trophy className="h-4 w-4 mr-2" />
+                        Close to Titles Report
+                      </Button>
+                      <Button
+                        variant="default"
                         className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/live-event`)}
                       >
                         <FileText className="h-4 w-4 mr-2" />
-                        Live Event Management / Customizable Running Order and Score Sheets/Score Entry
+                        Live Event Management / Customizable Running Order and Score Sheets/Score
+                        Entry
                       </Button>
-                      <Button 
-                        variant="default" 
+                      <Button
+                        variant="default"
                         className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
                         onClick={() => router.push(`/dashboard/trials/${trialId}/summary`)}
                       >
@@ -887,28 +933,28 @@ const formatDate = (dateString: string) => {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="pt-4 border-t">
                     <h3 className="text-lg font-medium mb-4">Edit Trial Components</h3>
                     <div className="space-y-3">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full justify-start"
                         onClick={() => handleEditNavigation('days')}
                       >
                         <Calendar className="h-4 w-4 mr-2" />
                         Edit Days ({trialDays.length} configured)
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full justify-start"
                         onClick={() => handleEditNavigation('classes')}
                       >
                         <Users className="h-4 w-4 mr-2" />
                         Edit Classes & Levels ({trialClasses.length} configured)
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full justify-start"
                         onClick={() => handleEditNavigation('rounds')}
                       >
@@ -916,8 +962,8 @@ const formatDate = (dateString: string) => {
                         Edit Rounds & Judges ({trialRounds.length} configured)
                       </Button>
                     </div>
-                  </div>  
-                   </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

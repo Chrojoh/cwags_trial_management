@@ -57,12 +57,12 @@ let trialingDataCache: any[] | null = null;
 export function parseRegistrationNumber(regNumber: string) {
   const match = regNumber.match(/(\d{2})-(\d{4})-(\d{2})/);
   if (!match) return null;
-  
+
   return {
     year: match[1],
     ownerId: match[2],
     dogNumber: match[3],
-    full: regNumber
+    full: regNumber,
   };
 }
 
@@ -82,16 +82,16 @@ async function loadTrialingData(): Promise<any[]> {
 
   try {
     console.log('Loading Data for Tracker web.xlsx...');
-   const response = await fetch('/Data-for-Tracker-web.xlsx');
+    const response = await fetch('/Data-for-Tracker-web.xlsx');
     if (!response.ok) throw new Error('Failed to fetch data-for-tracker-web.xlsx');
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    
-    const data: any[][] = XLSX.utils.sheet_to_json(worksheet, { 
-      header: 1, 
-      raw: false
+
+    const data: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+      header: 1,
+      raw: false,
     });
 
     if (data.length === 0) {
@@ -105,9 +105,9 @@ async function loadTrialingData(): Promise<any[]> {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       if (!row || !row[0]) continue;
-      
+
       const regNumber = String(row[0] || '').trim();
-      
+
       // Skip header row
       if (regNumber.toLowerCase().includes('reg') || regNumber.toLowerCase().includes('number')) {
         console.log('Skipping header row:', i);
@@ -115,7 +115,7 @@ async function loadTrialingData(): Promise<any[]> {
       }
 
       const points = parseInt(row[6]) || 0; // Column 6 = Points (Q count)
-      
+
       // Only include records with points > 0
       if (points > 0) {
         records.push({
@@ -127,7 +127,7 @@ async function loadTrialingData(): Promise<any[]> {
           judge: String(row[5] || '').trim(),
           Qs: points, // Use Points column for Q count
           trialName: String(row[7] || '').trim(), // Column 7 if it exists
-          game: String(row[4] || '').trim() // Store game type from Results
+          game: String(row[4] || '').trim(), // Store game type from Results
         });
       }
     }
@@ -208,7 +208,7 @@ export async function getOwnersDogs(regNumber: string): Promise<RegistryDog[]> {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error getting owner\'s dogs:', error);
+    console.error("Error getting owner's dogs:", error);
     return [];
   }
 }
@@ -226,10 +226,7 @@ export async function getLitterMates(regNumber: string): Promise<RegistryDog[]> 
  */
 export async function updateRegistry(id: string, updates: Partial<RegistryDog>): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('cwags_registry')
-      .update(updates)
-      .eq('id', id);
+    const { error } = await supabase.from('cwags_registry').update(updates).eq('id', id);
 
     if (error) throw error;
     console.log('✅ Updated dog information in database');
@@ -246,40 +243,43 @@ export async function updateRegistry(id: string, updates: Partial<RegistryDog>):
 export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord[]> {
   try {
     const trialingData = await loadTrialingData();
-    const dogRecords = trialingData.filter(r => r.regNumber === regNumber && r.Qs > 0);
+    const dogRecords = trialingData.filter((r) => r.regNumber === regNumber && r.Qs > 0);
 
-    return dogRecords.map(record => {
-      // Parse date
-      let dateStr = 'Unknown';
-      if (record.trialDate) {
-        try {
-          const date = record.trialDate instanceof Date ? record.trialDate : new Date(record.trialDate);
-          if (!isNaN(date.getTime())) {
-            dateStr = date.toLocaleDateString();
+    return dogRecords
+      .map((record) => {
+        // Parse date
+        let dateStr = 'Unknown';
+        if (record.trialDate) {
+          try {
+            const date =
+              record.trialDate instanceof Date ? record.trialDate : new Date(record.trialDate);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleDateString();
+            }
+          } catch (e) {
+            dateStr = String(record.trialDate);
           }
-        } catch (e) {
-          dateStr = String(record.trialDate);
         }
-      }
 
-      return {
-        date: dateStr,
-        trial: record.trialName || 'Unknown Trial',
-        judge: record.judge || 'Unknown',
-        qs: record.Qs || 1,
-        class: record.level || 'Unknown',
-        game: record.game || record.results || '' // ✅ ADD THIS LINE
-      };
-    }).sort((a, b) => {
-      // Sort by date descending (newest first)
-      try {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return dateB - dateA;
-      } catch {
-        return 0;
-      }
-    });
+        return {
+          date: dateStr,
+          trial: record.trialName || 'Unknown Trial',
+          judge: record.judge || 'Unknown',
+          qs: record.Qs || 1,
+          class: record.level || 'Unknown',
+          game: record.game || record.results || '', // ✅ ADD THIS LINE
+        };
+      })
+      .sort((a, b) => {
+        // Sort by date descending (newest first)
+        try {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        } catch {
+          return 0;
+        }
+      });
   } catch (error) {
     console.error('Error getting trial history:', error);
     return [];
@@ -291,18 +291,18 @@ export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord
 function getUniqueGames(records: TrialRecord[]): Set<string> {
   const games = new Set<string>();
   const gamesList = ['BJ', 'C', 'P', 'T', 'GB'];
-  
-  records.forEach(record => {
+
+  records.forEach((record) => {
     if (record.game) {
       const gameStr = record.game.toString().toUpperCase();
-      gamesList.forEach(game => {
+      gamesList.forEach((game) => {
         if (gameStr.includes(game)) {
           games.add(game);
         }
       });
     }
   });
-  
+
   return games;
 }
 
@@ -311,8 +311,8 @@ function getUniqueGames(records: TrialRecord[]): Set<string> {
  */
 export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] {
   const levelGroups = new Map<string, TrialRecord[]>();
-  
-  records.forEach(record => {
+
+  records.forEach((record) => {
     const level = record.class;
     if (!levelGroups.has(level)) {
       levelGroups.set(level, []);
@@ -334,9 +334,9 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
       }
     });
 
-    const uniqueJudges = new Set(sortedRecords.map(r => r.judge)).size;
+    const uniqueJudges = new Set(sortedRecords.map((r) => r.judge)).size;
     const totalQs = sortedRecords.reduce((sum, r) => sum + r.qs, 0);
-    
+
     // Check if this is a Games level
     const isGamesLevel = level.startsWith('Games ');
     const uniqueGames = isGamesLevel ? getUniqueGames(sortedRecords) : new Set();
@@ -349,29 +349,29 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
     let cumulativeQs = 0;
     let judges = new Set<string>();
     let gamesAtPoint = new Set<string>();
-    
+
     for (const record of sortedRecords) {
       const prevQs = cumulativeQs;
       const prevJudgeCount = judges.size;
       const prevGameCount = gamesAtPoint.size;
-      
+
       cumulativeQs += record.qs;
       if (record.judge) judges.add(record.judge);
-      
+
       // Track games for Games levels
       if (isGamesLevel && record.game) {
         const gameStr = record.game.toString().toUpperCase();
-        ['BJ', 'C', 'P', 'T', 'GB'].forEach(game => {
+        ['BJ', 'C', 'P', 'T', 'GB'].forEach((game) => {
           if (gameStr.includes(game)) {
             gamesAtPoint.add(game);
           }
         });
       }
-      
+
       // Check if title requirements are NOW met (but weren't before)
       let nowHasTitle: boolean;
       let previouslyHadTitle: boolean;
-      
+
       if (isGamesLevel) {
         // Games: needs 4 Q's AND 2 judges AND 2 different games
         nowHasTitle = cumulativeQs >= 4 && judges.size >= 2 && gamesAtPoint.size >= 2;
@@ -381,14 +381,14 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
         nowHasTitle = cumulativeQs >= 4 && judges.size >= 2;
         previouslyHadTitle = prevQs >= 4 && prevJudgeCount >= 2;
       }
-      
+
       if (nowHasTitle && !previouslyHadTitle) {
         // Title was just earned with this record
         titleDate = record.date;
-        
+
         // Calculate how many Q's from THIS record went to earning the title
         let qsTowardTitle = record.qs;
-        
+
         // Case 1: Already had Q's & judges but needed games (Games only)
         if (isGamesLevel && prevQs >= 4 && prevJudgeCount >= 2 && prevGameCount < 2) {
           qsTowardTitle = 1; // Only 1 Q needed to satisfy game requirement
@@ -405,7 +405,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
         else if (prevQs < 4 && prevJudgeCount < 2) {
           qsTowardTitle = Math.min(record.qs, 4 - prevQs);
         }
-        
+
         titleQs = prevQs + qsTowardTitle;
         break;
       }
@@ -431,13 +431,13 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
       totalQs,
       uniqueJudges,
       hasTitle,
-      records: sortedRecords.reverse() // ✅ Show ALL records, newest first
+      records: sortedRecords.reverse(), // ✅ Show ALL records, newest first
     };
 
     if (hasTitle) {
       titleInfo.titleDate = titleDate;
       titleInfo.aceQs = aceQs;
-      
+
       if (aceQs >= 10) {
         titleInfo.qsToNextMilestone = 10 - (aceQs % 10);
       } else {
@@ -446,7 +446,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
     } else {
       titleInfo.qsToTitle = Math.max(0, 4 - totalQs);
       titleInfo.judgesNeeded = Math.max(0, 2 - uniqueJudges);
-      
+
       // Add games requirement for Games levels
       if (isGamesLevel) {
         titleInfo.gamesNeeded = Math.max(0, 2 - uniqueGames.size);
@@ -457,38 +457,63 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
   });
 
   // Define the proper C-WAGS level order
-const levelOrder = [
-  // Scent levels
-  'Patrol 1', 'Detective 2', 'Investigator 3', 'Super Sleuth 4', 'Private Inv', 'Det Diversions',
-  // Ranger levels
-  'Ranger 1', 'Ranger 2', 'Ranger 3', 'Ranger 4', 'Ranger 5',
-  // Dasher levels
-  'Dasher 3', 'Dasher 4', 'Dasher 5', 'Dasher 6',
-  // Obedience levels
-  'Obedience 1', 'Obedience 2', 'Obedience 3', 'Obedience 4', 'Obedience 5',
-  // Rally levels
-  'Starter', 'Advanced', 'Pro', 'ARF', 'Zoom 1', 'Zoom 1.5', 'Zoom 2',
-  // Games levels
-  'Games 1', 'Games 2', 'Games 3', 'Games 4'
-];
+  const levelOrder = [
+    // Scent levels
+    'Patrol 1',
+    'Detective 2',
+    'Investigator 3',
+    'Super Sleuth 4',
+    'Private Inv',
+    'Det Diversions',
+    // Ranger levels
+    'Ranger 1',
+    'Ranger 2',
+    'Ranger 3',
+    'Ranger 4',
+    'Ranger 5',
+    // Dasher levels
+    'Dasher 3',
+    'Dasher 4',
+    'Dasher 5',
+    'Dasher 6',
+    // Obedience levels
+    'Obedience 1',
+    'Obedience 2',
+    'Obedience 3',
+    'Obedience 4',
+    'Obedience 5',
+    // Rally levels
+    'Starter',
+    'Advanced',
+    'Pro',
+    'ARF',
+    'Zoom 1',
+    'Zoom 1.5',
+    'Zoom 2',
+    // Games levels
+    'Games 1',
+    'Games 2',
+    'Games 3',
+    'Games 4',
+  ];
 
-// Sort by predefined level order
-return progress.sort((a, b) => {
-  const indexA = levelOrder.indexOf(a.level);
-  const indexB = levelOrder.indexOf(b.level);
-  
-  // If both levels are in the order list, sort by their position
-  if (indexA !== -1 && indexB !== -1) {
-    return indexA - indexB;
-  }
-  
-  // If only one is in the list, prioritize it
-  if (indexA !== -1) return -1;
-  if (indexB !== -1) return 1;
-  
-  // If neither is in the list, sort alphabetically
-  return a.level.localeCompare(b.level);
-});
+  // Sort by predefined level order
+  return progress.sort((a, b) => {
+    const indexA = levelOrder.indexOf(a.level);
+    const indexB = levelOrder.indexOf(b.level);
+
+    // If both levels are in the order list, sort by their position
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+
+    // If only one is in the list, prioritize it
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    // If neither is in the list, sort alphabetically
+    return a.level.localeCompare(b.level);
+  });
 }
 
 /**
@@ -500,7 +525,7 @@ export async function getDogProfile(regNumber: string) {
 
   const [ownersDogs, trialHistory] = await Promise.all([
     getOwnersDogs(regNumber),
-    getDogTrialHistory(regNumber)
+    getDogTrialHistory(regNumber),
   ]);
 
   const titleProgress = calculateTitleProgress(trialHistory);
@@ -511,7 +536,7 @@ export async function getDogProfile(regNumber: string) {
     titleProgress,
     allTrialRecords: trialHistory,
     // Keep litterMates for backward compatibility
-    litterMates: ownersDogs
+    litterMates: ownersDogs,
   };
 }
 

@@ -2,24 +2,31 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 import JudgeStatistics from '@/components/JudgeStatistics';
-import { Plus, Search, Edit, Trash2, X, Filter, UserCheck, UserX, ArrowLeft, Calendar, AlertTriangle } from 'lucide-react';
-import { 
-  getAllJudges, 
-  createJudge, 
-  updateJudge, 
-  deleteJudge 
-} from '@/lib/judges';
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  X,
+  Filter,
+  UserCheck,
+  UserX,
+  ArrowLeft,
+  Calendar,
+  AlertTriangle,
+} from 'lucide-react';
+import { getAllJudges, createJudge, updateJudge, deleteJudge } from '@/lib/judges';
 import { getJudgeLastDate, preloadJudgeLastDates } from '@/lib/judgeLastDate';
 import type { Judge, JudgeFormData } from '../../../types/judge';
-import { 
-  OBEDIENCE_LEVELS, 
-  RALLY_LEVELS, 
-  SCENT_LEVELS, 
+import {
+  OBEDIENCE_LEVELS,
+  RALLY_LEVELS,
+  SCENT_LEVELS,
   GAMES_LEVELS,
   emptyJudgeForm,
-  sortCertificationLevels 
+  sortCertificationLevels,
 } from '../../../types/judge';
 
 interface JudgeWithDate extends Judge {
@@ -90,12 +97,17 @@ export default function JudgesPage() {
     }
 
     const lastDate = await getJudgeLastDate(judgeName);
-    setJudgeLastDates(prev => new Map(prev).set(judgeName, lastDate));
+    setJudgeLastDates((prev) => new Map(prev).set(judgeName, lastDate));
     return lastDate;
   };
 
   const calculateMonthsSince = (dateStr: string): number | null => {
-    if (!dateStr || dateStr === 'No record found' || dateStr === 'Error loading' || dateStr === 'Loading...') {
+    if (
+      !dateStr ||
+      dateStr === 'No record found' ||
+      dateStr === 'Error loading' ||
+      dateStr === 'Loading...'
+    ) {
       return null;
     }
 
@@ -115,7 +127,7 @@ export default function JudgesPage() {
       judges.map(async (judge) => {
         const dateStr = await getLastDateForJudge(judge.name);
         const monthsSince = calculateMonthsSince(dateStr);
-        
+
         let lastDate: Date | null = null;
         if (dateStr && dateStr !== 'No record found' && dateStr !== 'Error loading') {
           try {
@@ -128,7 +140,7 @@ export default function JudgesPage() {
         return {
           ...judge,
           lastJudgingDate: lastDate,
-          monthsSinceLastJudging: monthsSince
+          monthsSinceLastJudging: monthsSince,
         };
       })
     );
@@ -141,17 +153,17 @@ export default function JudgesPage() {
 
     // Active/Inactive filter
     if (showActiveOnly) {
-      filtered = filtered.filter(j => j.is_active);
+      filtered = filtered.filter((j) => j.is_active);
     }
 
     // Inactivity filter
     if (inactivityFilter === '11months') {
-      filtered = filtered.filter(j => 
-        j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 11
+      filtered = filtered.filter(
+        (j) => j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 11
       );
     } else if (inactivityFilter === '1year') {
-      filtered = filtered.filter(j => 
-        j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 12
+      filtered = filtered.filter(
+        (j) => j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 12
       );
     }
 
@@ -159,7 +171,7 @@ export default function JudgesPage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        j =>
+        (j) =>
           j.name.toLowerCase().includes(term) ||
           j.email?.toLowerCase().includes(term) ||
           j.city?.toLowerCase().includes(term) ||
@@ -171,7 +183,7 @@ export default function JudgesPage() {
   };
 
   const handleSelectJudge = (judgeId: string) => {
-    setSelectedJudges(prev => {
+    setSelectedJudges((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(judgeId)) {
         newSet.delete(judgeId);
@@ -199,7 +211,7 @@ export default function JudgesPage() {
 
       // Update each selected judge
       for (const judgeId of selectedJudges) {
-        const judge = judges.find(j => j.id === judgeId);
+        const judge = judges.find((j) => j.id === judgeId);
         if (judge) {
           // Properly convert Judge to JudgeFormData
           const judgeFormData: JudgeFormData = {
@@ -213,9 +225,9 @@ export default function JudgesPage() {
             rally_levels: judge.rally_levels || [],
             games_levels: judge.games_levels || [],
             scent_levels: judge.scent_levels || [],
-            is_active: false
+            is_active: false,
           };
-          
+
           await updateJudge(judgeId, judgeFormData);
         }
       }
@@ -250,7 +262,7 @@ export default function JudgesPage() {
       rally_levels: judge.rally_levels || [],
       games_levels: judge.games_levels || [],
       scent_levels: judge.scent_levels || [],
-      is_active: judge.is_active
+      is_active: judge.is_active,
     });
     setShowModal(true);
   };
@@ -287,22 +299,29 @@ export default function JudgesPage() {
     }
   };
 
-  const toggleLevel = (discipline: 'obedience_levels' | 'rally_levels' | 'games_levels' | 'scent_levels', level: string) => {
+  const toggleLevel = (
+    discipline: 'obedience_levels' | 'rally_levels' | 'games_levels' | 'scent_levels',
+    level: string
+  ) => {
     const current = formData[discipline];
     const updated = current.includes(level)
-      ? current.filter(l => l !== level)
+      ? current.filter((l) => l !== level)
       : [...current, level];
-    
+
     setFormData({ ...formData, [discipline]: updated });
   };
 
   // Count judges by inactivity
-  const elevenMonthsCount = judgesWithDates.filter(j => 
-    j.is_active && j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 11 && j.monthsSinceLastJudging < 12
+  const elevenMonthsCount = judgesWithDates.filter(
+    (j) =>
+      j.is_active &&
+      j.monthsSinceLastJudging !== null &&
+      j.monthsSinceLastJudging >= 11 &&
+      j.monthsSinceLastJudging < 12
   ).length;
 
-  const oneYearCount = judgesWithDates.filter(j => 
-    j.is_active && j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 12
+  const oneYearCount = judgesWithDates.filter(
+    (j) => j.is_active && j.monthsSinceLastJudging !== null && j.monthsSinceLastJudging >= 12
   ).length;
 
   if (loading) {
@@ -354,7 +373,7 @@ export default function JudgesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold">{judges.filter(j => j.is_active).length}</p>
+                <p className="text-2xl font-bold">{judges.filter((j) => j.is_active).length}</p>
               </div>
               <UserCheck className="h-8 w-8 text-green-600" />
             </div>
@@ -363,13 +382,15 @@ export default function JudgesPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Inactive</p>
-                <p className="text-2xl font-bold">{judges.filter(j => !j.is_active).length}</p>
+                <p className="text-2xl font-bold">{judges.filter((j) => !j.is_active).length}</p>
               </div>
               <UserX className="h-8 w-8 text-gray-400" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
-               onClick={() => setInactivityFilter('11months')}>
+          <div
+            className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setInactivityFilter('11months')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">11+ Months</p>
@@ -378,8 +399,10 @@ export default function JudgesPage() {
               <AlertTriangle className="h-8 w-8 text-yellow-600" />
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
-               onClick={() => setInactivityFilter('1year')}>
+          <div
+            className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setInactivityFilter('1year')}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">1+ Year</p>
@@ -503,21 +526,22 @@ export default function JudgesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredJudges.map((judge) => (
-  <div key={judge.id} className="space-y-4">  {/* ← Wrap in div with space-y-4 */}
-    <JudgeCard 
-      judge={judge}
-      isSelected={selectedJudges.has(judge.id)}
-      onSelect={handleSelectJudge}
-      onEdit={handleEdit}
-      onDelete={handleDelete}
-      getLastDate={getLastDateForJudge}
-      loadingDates={loadingDates}
-    />
-    
-    {/* ✅ ADD THIS: Statistics card below each judge */}
-    <JudgeStatistics judgeName={judge.name} />
-  </div>
-))}
+              <div key={judge.id} className="space-y-4">
+                {' '}
+                {/* ← Wrap in div with space-y-4 */}
+                <JudgeCard
+                  judge={judge}
+                  isSelected={selectedJudges.has(judge.id)}
+                  onSelect={handleSelectJudge}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  getLastDate={getLastDateForJudge}
+                  loadingDates={loadingDates}
+                />
+                {/* ✅ ADD THIS: Statistics card below each judge */}
+                <JudgeStatistics judgeName={judge.name} />
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -527,9 +551,7 @@ export default function JudgesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold">
-                {editingJudge ? 'Edit Judge' : 'Add New Judge'}
-              </h2>
+              <h2 className="text-xl font-bold">{editingJudge ? 'Edit Judge' : 'Add New Judge'}</h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -580,7 +602,9 @@ export default function JudgesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Province/State</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Province/State
+                  </label>
                   <input
                     type="text"
                     value={formData.province_state}
@@ -602,12 +626,12 @@ export default function JudgesPage() {
               {/* Certifications */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Certifications</h3>
-                
+
                 {/* Scent */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Scent</label>
                   <div className="flex flex-wrap gap-2">
-                    {SCENT_LEVELS.map(level => (
+                    {SCENT_LEVELS.map((level) => (
                       <button
                         key={level}
                         type="button"
@@ -628,7 +652,7 @@ export default function JudgesPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Obedience</label>
                   <div className="flex flex-wrap gap-2">
-                    {OBEDIENCE_LEVELS.map(level => (
+                    {OBEDIENCE_LEVELS.map((level) => (
                       <button
                         key={level}
                         type="button"
@@ -649,7 +673,7 @@ export default function JudgesPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Rally</label>
                   <div className="flex flex-wrap gap-2">
-                    {RALLY_LEVELS.map(level => (
+                    {RALLY_LEVELS.map((level) => (
                       <button
                         key={level}
                         type="button"
@@ -670,7 +694,7 @@ export default function JudgesPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Games</label>
                   <div className="flex flex-wrap gap-2">
-                    {GAMES_LEVELS.map(level => (
+                    {GAMES_LEVELS.map((level) => (
                       <button
                         key={level}
                         type="button"
@@ -728,15 +752,15 @@ export default function JudgesPage() {
 }
 
 // Separate component for judge card to handle async date loading
-function JudgeCard({ 
-  judge, 
+function JudgeCard({
+  judge,
   isSelected,
   onSelect,
-  onEdit, 
+  onEdit,
   onDelete,
   getLastDate,
-  loadingDates
-}: { 
+  loadingDates,
+}: {
   judge: JudgeWithDate;
   isSelected: boolean;
   onSelect: (id: string) => void;
@@ -764,12 +788,17 @@ function JudgeCard({
   const warningLevel = getWarningLevel();
 
   return (
-    <div className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 ${
-      isSelected ? 'ring-2 ring-blue-500' : ''
-    } ${
-      warningLevel === 'severe' ? 'border-2 border-red-300' : 
-      warningLevel === 'warning' ? 'border-2 border-yellow-300' : ''
-    }`}>
+    <div
+      className={`bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6 ${
+        isSelected ? 'ring-2 ring-blue-500' : ''
+      } ${
+        warningLevel === 'severe'
+          ? 'border-2 border-red-300'
+          : warningLevel === 'warning'
+            ? 'border-2 border-yellow-300'
+            : ''
+      }`}
+    >
       {/* Selection Checkbox */}
       <div className="flex items-start gap-3 mb-4">
         <input
@@ -785,12 +814,16 @@ function JudgeCard({
             <div className="flex-1">
               <h3 className="text-lg font-bold text-gray-900">{judge.name}</h3>
               {judge.city && judge.province_state && (
-                <p className="text-sm text-gray-600">{judge.city}, {judge.province_state}</p>
+                <p className="text-sm text-gray-600">
+                  {judge.city}, {judge.province_state}
+                </p>
               )}
             </div>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-              judge.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-            }`}>
+            <span
+              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                judge.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+              }`}
+            >
               {judge.is_active ? 'Active' : 'Inactive'}
             </span>
           </div>
@@ -800,14 +833,14 @@ function JudgeCard({
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 text-gray-600" />
               <span className="font-medium text-gray-600">Last judging date:</span>
-              <span className={loadingDates ? 'text-gray-400' : 'text-gray-900'}>
-                {lastDate}
-              </span>
+              <span className={loadingDates ? 'text-gray-400' : 'text-gray-900'}>{lastDate}</span>
             </div>
             {warningLevel !== 'none' && judge.monthsSinceLastJudging !== null && (
-              <div className={`mt-2 flex items-center gap-2 text-xs font-medium ${
-                warningLevel === 'severe' ? 'text-red-700' : 'text-yellow-700'
-              }`}>
+              <div
+                className={`mt-2 flex items-center gap-2 text-xs font-medium ${
+                  warningLevel === 'severe' ? 'text-red-700' : 'text-yellow-700'
+                }`}
+              >
                 <AlertTriangle className="h-3 w-3" />
                 <span>{judge.monthsSinceLastJudging} months since last judging</span>
               </div>
@@ -827,11 +860,16 @@ function JudgeCard({
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1">Scent</p>
                 <div className="flex flex-wrap gap-1">
-                  {sortCertificationLevels(judge.scent_levels, SCENT_LEVELS).map((level: string) => (
-                    <span key={level} className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800">
-                      {level}
-                    </span>
-                  ))}
+                  {sortCertificationLevels(judge.scent_levels, SCENT_LEVELS).map(
+                    (level: string) => (
+                      <span
+                        key={level}
+                        className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-800"
+                      >
+                        {level}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -841,11 +879,16 @@ function JudgeCard({
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1">Obedience</p>
                 <div className="flex flex-wrap gap-1">
-                  {sortCertificationLevels(judge.obedience_levels, OBEDIENCE_LEVELS).map((level: string) => (
-                    <span key={level} className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800">
-                      {level.replace('Obedience ', '')}
-                    </span>
-                  ))}
+                  {sortCertificationLevels(judge.obedience_levels, OBEDIENCE_LEVELS).map(
+                    (level: string) => (
+                      <span
+                        key={level}
+                        className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-800"
+                      >
+                        {level.replace('Obedience ', '')}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -855,11 +898,16 @@ function JudgeCard({
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1">Rally</p>
                 <div className="flex flex-wrap gap-1">
-                  {sortCertificationLevels(judge.rally_levels, RALLY_LEVELS).map((level: string) => (
-                    <span key={level} className="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800">
-                      {level}
-                    </span>
-                  ))}
+                  {sortCertificationLevels(judge.rally_levels, RALLY_LEVELS).map(
+                    (level: string) => (
+                      <span
+                        key={level}
+                        className="px-2 py-0.5 text-xs font-medium rounded bg-green-100 text-green-800"
+                      >
+                        {level}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )}
@@ -869,11 +917,16 @@ function JudgeCard({
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1">Games</p>
                 <div className="flex flex-wrap gap-1">
-                  {sortCertificationLevels(judge.games_levels, GAMES_LEVELS).map((level: string) => (
-                    <span key={level} className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800">
-                      {level}
-                    </span>
-                  ))}
+                  {sortCertificationLevels(judge.games_levels, GAMES_LEVELS).map(
+                    (level: string) => (
+                      <span
+                        key={level}
+                        className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-100 text-yellow-800"
+                      >
+                        {level}
+                      </span>
+                    )
+                  )}
                 </div>
               </div>
             )}

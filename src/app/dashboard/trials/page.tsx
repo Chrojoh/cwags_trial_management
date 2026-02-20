@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdownMenu';
-import { 
+import {
   Calendar,
   Plus,
   Search,
@@ -34,7 +34,7 @@ import {
   FileText,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
@@ -79,7 +79,7 @@ export default function TrialsPage() {
     draft: 0,
     published: 0,
     active: 0,
-    completed: 0
+    completed: 0,
   });
 
   useEffect(() => {
@@ -92,7 +92,7 @@ export default function TrialsPage() {
       setError(null);
 
       const result = await simpleTrialOperations.getAllTrials();
-      
+
       if (!result.success) {
         throw new Error(result.error?.toString() || 'Failed to load trials');
       }
@@ -108,9 +108,8 @@ export default function TrialsPage() {
         active: trialsData.filter((t: Trial) => t.trial_status === 'active').length,
         completed: trialsData.filter((t: Trial) => t.trial_status === 'completed').length,
       };
-      
-      setStats(stats);
 
+      setStats(stats);
     } catch (err) {
       console.error('Error loading trials:', err);
       setError(err instanceof Error ? err.message : 'Failed to load trials');
@@ -121,7 +120,11 @@ export default function TrialsPage() {
 
   const handleDeleteTrial = async (trialId: string, trialName: string) => {
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete "${trialName}"? This action cannot be undone and will delete all associated data (days, classes, rounds, etc.).`)) {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${trialName}"? This action cannot be undone and will delete all associated data (days, classes, rounds, etc.).`
+      )
+    ) {
       return;
     }
 
@@ -132,20 +135,16 @@ export default function TrialsPage() {
       console.log('Deleting trial:', trialId);
 
       // Delete the trial - database CASCADE will handle related records
-      const { error: deleteError } = await supabase
-        .from('trials')
-        .delete()
-        .eq('id', trialId);
+      const { error: deleteError } = await supabase.from('trials').delete().eq('id', trialId);
 
       if (deleteError) {
         throw new Error(deleteError.message || 'Failed to delete trial');
       }
 
       console.log('Trial deleted successfully');
-      
+
       // Reload the trials list
       await loadTrials();
-
     } catch (err) {
       console.error('Error deleting trial:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete trial');
@@ -189,30 +188,32 @@ export default function TrialsPage() {
   };
 
   const formatDate = (dateString: string) => {
-  const parts = dateString.split('-');
-  const date = new Date(
-    parseInt(parts[0]),
-    parseInt(parts[1]) - 1,
-    parseInt(parts[2]),
-    12, 0, 0  // Set to noon to avoid timezone issues
-  );
-  
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12,
+      0,
+      0 // Set to noon to avoid timezone issues
+    );
 
-  const filteredTrials = trials.filter(trial => {
-    const matchesSearch = 
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const filteredTrials = trials.filter((trial) => {
+    const matchesSearch =
       trial.trial_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       trial.club_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       trial.location.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || trial.trial_status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -245,7 +246,6 @@ export default function TrialsPage() {
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -258,7 +258,6 @@ export default function TrialsPage() {
           </Card>
 
           <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -271,7 +270,6 @@ export default function TrialsPage() {
           </Card>
 
           <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -284,7 +282,6 @@ export default function TrialsPage() {
           </Card>
 
           <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -297,7 +294,6 @@ export default function TrialsPage() {
           </Card>
 
           <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -330,12 +326,15 @@ export default function TrialsPage() {
                 className="pl-10"
               />
             </div>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex items-center space-x-2">
                   <Filter className="h-4 w-4" />
-                  <span>Status: {statusFilter === 'all' ? 'All' : getStatusLabel(statusFilter as TrialStatus)}</span>
+                  <span>
+                    Status:{' '}
+                    {statusFilter === 'all' ? 'All' : getStatusLabel(statusFilter as TrialStatus)}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -344,9 +343,7 @@ export default function TrialsPage() {
                 <DropdownMenuItem onClick={() => setStatusFilter('all')}>
                   All Trials
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter('draft')}>
-                  Draft
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter('draft')}>Draft</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter('published')}>
                   Published
                 </DropdownMenuItem>
@@ -372,15 +369,13 @@ export default function TrialsPage() {
         <div className="grid gap-6">
           {filteredTrials.length === 0 ? (
             <Card className="bg-gradient-to-br from-orange-100 to-orange-200">
-
               <CardContent className="p-12 text-center">
                 <Calendar className="h-12 w-12 text-white-400 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Trials Found</h3>
                 <p className="text-white-600 mb-4">
-                  {searchTerm || statusFilter !== 'all' 
+                  {searchTerm || statusFilter !== 'all'
                     ? 'Try adjusting your search or filter criteria.'
-                    : 'Get started by creating your first trial.'
-                  }
+                    : 'Get started by creating your first trial.'}
                 </p>
                 {!searchTerm && statusFilter === 'all' && (
                   <Link href="/dashboard/trials/create">
@@ -394,10 +389,10 @@ export default function TrialsPage() {
             </Card>
           ) : (
             filteredTrials.map((trial) => (
-              <Card 
-  key={trial.id}
-  className={`bg-gradient-to-br from-orange-200 to-orange-400 ${deleting === trial.id ? 'opacity-50' : ''}`} 
->
+              <Card
+                key={trial.id}
+                className={`bg-gradient-to-br from-orange-200 to-orange-400 ${deleting === trial.id ? 'opacity-50' : ''}`}
+              >
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -413,12 +408,14 @@ export default function TrialsPage() {
                         </span>
                       </CardDescription>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
-                      <Badge className={`${getStatusColor(trial.trial_status as TrialStatus)} border`}>
+                      <Badge
+                        className={`${getStatusColor(trial.trial_status as TrialStatus)} border`}
+                      >
                         {getStatusLabel(trial.trial_status as TrialStatus)}
                       </Badge>
-                      
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm" disabled={deleting === trial.id}>
@@ -426,71 +423,81 @@ export default function TrialsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-white border shadow-lg">
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/trials/${trial.id}`)}>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/dashboard/trials/${trial.id}`)}
+                          >
                             <Eye className="mr-2 h-4 w-4" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => router.push(`/dashboard/trials/${trial.id}`)}>
+                          <DropdownMenuItem
+                            onClick={() => router.push(`/dashboard/trials/${trial.id}`)}
+                          >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Trial
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-<DropdownMenuLabel>Change Status</DropdownMenuLabel>
-{trial.trial_status === 'draft' && (
-  <DropdownMenuItem 
-    onClick={async () => {
-      const result = await simpleTrialOperations.publishTrial(trial.id);
-      if (result.success) {
-        alert('Trial published!');
-        loadTrials();
-      } else {
-        alert('Error publishing trial');
-      }
-    }}
-  >
-    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-    Publish Trial
-  </DropdownMenuItem>
-)}
-{trial.trial_status === 'published' && (
-  <DropdownMenuItem 
-    onClick={async () => {
-      if (confirm(`Mark "${trial.trial_name}" as Active?`)) {
-        const result = await simpleTrialOperations.updateTrialStatus(trial.id, 'active');
-        if (result.success) {
-          await loadTrials();  // ← Make sure this line is here
-          alert('Trial marked as Active!');
-        } else {
-          alert('Error updating status');
-        }
-      }
-    }}
-  >
-    <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
-    Mark as Active
-  </DropdownMenuItem>
-)}
-{trial.trial_status === 'active' && (
-  <DropdownMenuItem 
-    onClick={async () => {
-      if (confirm(`Mark "${trial.trial_name}" as Completed?`)) {
-        const result = await simpleTrialOperations.updateTrialStatus(trial.id, 'completed');
-        if (result.success) {
-          alert('Trial marked as Completed!');
-          loadTrials();
-        } else {
-          alert('Error updating status');
-        }
-      }
-    }}
-  >
-    <CheckCircle className="h-4 w-4 mr-2 text-purple-600" />
-    Mark as Completed
-  </DropdownMenuItem>
-)}
+                          <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                          {trial.trial_status === 'draft' && (
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                const result = await simpleTrialOperations.publishTrial(trial.id);
+                                if (result.success) {
+                                  alert('Trial published!');
+                                  loadTrials();
+                                } else {
+                                  alert('Error publishing trial');
+                                }
+                              }}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                              Publish Trial
+                            </DropdownMenuItem>
+                          )}
+                          {trial.trial_status === 'published' && (
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                if (confirm(`Mark "${trial.trial_name}" as Active?`)) {
+                                  const result = await simpleTrialOperations.updateTrialStatus(
+                                    trial.id,
+                                    'active'
+                                  );
+                                  if (result.success) {
+                                    await loadTrials(); // ← Make sure this line is here
+                                    alert('Trial marked as Active!');
+                                  } else {
+                                    alert('Error updating status');
+                                  }
+                                }
+                              }}
+                            >
+                              <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
+                              Mark as Active
+                            </DropdownMenuItem>
+                          )}
+                          {trial.trial_status === 'active' && (
+                            <DropdownMenuItem
+                              onClick={async () => {
+                                if (confirm(`Mark "${trial.trial_name}" as Completed?`)) {
+                                  const result = await simpleTrialOperations.updateTrialStatus(
+                                    trial.id,
+                                    'completed'
+                                  );
+                                  if (result.success) {
+                                    alert('Trial marked as Completed!');
+                                    loadTrials();
+                                  } else {
+                                    alert('Error updating status');
+                                  }
+                                }
+                              }}
+                            >
+                              <CheckCircle className="h-4 w-4 mr-2 text-purple-600" />
+                              Mark as Completed
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           {trial.trial_status === 'draft' && (
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-red-600 focus:text-red-600 focus:bg-red-50"
                               onClick={() => handleDeleteTrial(trial.id, trial.trial_name)}
                             >
@@ -503,7 +510,7 @@ export default function TrialsPage() {
                     </div>
                   </div>
                 </CardHeader>
-                
+
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
@@ -513,19 +520,17 @@ export default function TrialsPage() {
                         {trial.start_date !== trial.end_date && ` - ${formatDate(trial.end_date)}`}
                       </p>
                     </div>
-                    
+
                     <div>
                       <p className="text-white-600 mb-1">Max Entries</p>
-                      <p className="font-medium">
-                        {trial.max_entries_per_day} per day
-                      </p>
+                      <p className="font-medium">{trial.max_entries_per_day} per day</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-white-600 mb-1">Secretary</p>
                       <p className="font-medium">{trial.trial_secretary}</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-white-600 mb-1">Entry Status</p>
                       <Badge variant={trial.entries_open ? 'default' : 'secondary'}>
@@ -535,65 +540,63 @@ export default function TrialsPage() {
                   </div>
 
                   <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-sm text-white-600">
-                      Created {formatDate(trial.created_at)}
-                    </p>
-                    
-                    <div className="flex space-x-2">
+                    <p className="text-sm text-white-600">Created {formatDate(trial.created_at)}</p>
 
-                     <Link href={`/dashboard/trials/${trial.id}/journal`}>
-      <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <FileText className="h-4 w-4 mr-1" />
-     Activity Journal
-     </Button>
-   </Link> 
-  <Button 
-    variant="outline" 
-    size="sm"
-    onClick={() => router.push(`/dashboard/trials/${trial.id}/entries`)}
-    disabled={deleting === trial.id}>
-    <Users className="h-4 w-4 mr-1" />
-    Entries
-  </Button>
-  
-   <Link href={`/dashboard/trials/${trial.id}/close-to-titles`}>
-    <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <Clock className="h-4 w-4 mr-1" />
-      Close to Titles/Aces
-    </Button>
-  </Link>
-   
-   <Link href={`/dashboard/trials/${trial.id}/time-calculator`}>
-    <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <Clock className="h-4 w-4 mr-1" />
-      Time Calc
-    </Button>
-  </Link>
-  
-  <Link href={`/dashboard/trials/${trial.id}/live-event`}>
-    <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <FileText className="h-4 w-4 mr-1" />
-      Running Order
-    </Button>
-  </Link>
-  <Link href={`/dashboard/trials/${trial.id}/summary`}>
-    <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <FileText className="h-4 w-4 mr-1" />
-      Summary
-    </Button>
-  </Link>
-     <Link href={`/dashboard/trials/${trial.id}/financials`}>
-     <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-      <FileText className="h-4 w-4 mr-1" />
-    Financial Summary
-    </Button>
-    </Link>
-    <Link href={`/dashboard/trials/${trial.id}`}>
-    <Button size="sm" disabled={deleting === trial.id}>
-      Manage
-    </Button>
-  </Link>
-</div>
+                    <div className="flex space-x-2">
+                      <Link href={`/dashboard/trials/${trial.id}/journal`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Activity Journal
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/trials/${trial.id}/entries`)}
+                        disabled={deleting === trial.id}
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Entries
+                      </Button>
+
+                      <Link href={`/dashboard/trials/${trial.id}/close-to-titles`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <Clock className="h-4 w-4 mr-1" />
+                          Close to Titles/Aces
+                        </Button>
+                      </Link>
+
+                      <Link href={`/dashboard/trials/${trial.id}/time-calculator`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <Clock className="h-4 w-4 mr-1" />
+                          Time Calc
+                        </Button>
+                      </Link>
+
+                      <Link href={`/dashboard/trials/${trial.id}/live-event`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Running Order
+                        </Button>
+                      </Link>
+                      <Link href={`/dashboard/trials/${trial.id}/summary`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Summary
+                        </Button>
+                      </Link>
+                      <Link href={`/dashboard/trials/${trial.id}/financials`}>
+                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
+                          <FileText className="h-4 w-4 mr-1" />
+                          Financial Summary
+                        </Button>
+                      </Link>
+                      <Link href={`/dashboard/trials/${trial.id}`}>
+                        <Button size="sm" disabled={deleting === trial.id}>
+                          Manage
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

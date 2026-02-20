@@ -2,11 +2,7 @@
 // PURPOSE: Custom hook for trial-specific timezone operations
 import { useState, useEffect, useMemo } from 'react';
 import { useTimezoneContext } from '@/contexts/timezoneContext';
-import { 
-  formatTrialSchedule, 
-  getEntryWindowStatus, 
-  calculateLateFee 
-} from '@/lib/cwagsBusiness';
+import { formatTrialSchedule, getEntryWindowStatus, calculateLateFee } from '@/lib/cwagsBusiness';
 
 interface UseTrialTimezoneProps {
   trialDate: string;
@@ -16,33 +12,33 @@ interface UseTrialTimezoneProps {
 export const useTrialTimezone = ({ trialDate, trialTimezone }: UseTrialTimezoneProps) => {
   const { userTimezone } = useTimezoneContext();
   const [currentTime, setCurrentTime] = useState(new Date());
-  
+
   // Update current time every minute for real-time countdown
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000); // Update every minute
-    
+
     return () => clearInterval(interval);
   }, []);
-  
-  const schedule = useMemo(() => 
-    formatTrialSchedule(trialDate, trialTimezone, userTimezone),
+
+  const schedule = useMemo(
+    () => formatTrialSchedule(trialDate, trialTimezone, userTimezone),
     [trialDate, trialTimezone, userTimezone]
   );
-  
-  const entryStatus = useMemo(() => 
-    getEntryWindowStatus(trialDate, trialTimezone, currentTime),
+
+  const entryStatus = useMemo(
+    () => getEntryWindowStatus(trialDate, trialTimezone, currentTime),
     [trialDate, trialTimezone, currentTime]
   );
-  
-  const lateFee = useMemo(() => 
-    calculateLateFee(trialDate, trialTimezone, currentTime),
+
+  const lateFee = useMemo(
+    () => calculateLateFee(trialDate, trialTimezone, currentTime),
     [trialDate, trialTimezone, currentTime]
   );
-  
+
   const isInDifferentTimezone = userTimezone !== trialTimezone;
-  
+
   return {
     schedule,
     entryStatus,

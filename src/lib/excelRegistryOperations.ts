@@ -54,9 +54,11 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
 
   try {
     console.log('Loading DogInfo.xlsx (cwags_registry)...');
-    const response = await fetch('https://raw.githubusercontent.com/cwagtracker/Tracker/main/DogInfo.xlsx');
+    const response = await fetch(
+      'https://raw.githubusercontent.com/cwagtracker/Tracker/main/DogInfo.xlsx'
+    );
     if (!response.ok) throw new Error('Failed to fetch DogInfo.xlsx');
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -67,7 +69,11 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
     }
 
     // First row is headers
-    registryHeaders = data[0].map(h => String(h || '').toLowerCase().trim());
+    registryHeaders = data[0].map((h) =>
+      String(h || '')
+        .toLowerCase()
+        .trim()
+    );
     console.log('Registry column headers:', registryHeaders);
 
     const dogMap = new Map<string, RegistryDog>();
@@ -75,8 +81,8 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
     // Helper to find column index by header name (case-insensitive, partial match)
     const findColumn = (...names: string[]): number => {
       for (const name of names) {
-        const idx = registryHeaders.findIndex(h => 
-          h.includes(name.toLowerCase()) || name.toLowerCase().includes(h)
+        const idx = registryHeaders.findIndex(
+          (h) => h.includes(name.toLowerCase()) || name.toLowerCase().includes(h)
         );
         if (idx !== -1) return idx;
       }
@@ -103,7 +109,7 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
       phone: colPhone,
       emergency: colEmergency,
       breed: colBreed,
-      sex: colSex
+      sex: colSex,
     });
 
     if (colRegNum === -1) {
@@ -124,7 +130,7 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
         handler_name: colHandler !== -1 ? String(row[colHandler] || '').trim() : '',
         is_junior_handler: false,
         is_active: true,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
       // Add optional fields if columns exist
@@ -149,10 +155,18 @@ async function loadDogInfo(): Promise<Map<string, RegistryDog>> {
 
       // Store all additional columns with their header names
       registryHeaders.forEach((header, idx) => {
-        if (idx !== colRegNum && idx !== colCallName && idx !== colRegName && 
-            idx !== colHandler && idx !== colEmail && idx !== colPhone && 
-            idx !== colEmergency && idx !== colBreed && idx !== colSex && 
-            row[idx]) {
+        if (
+          idx !== colRegNum &&
+          idx !== colCallName &&
+          idx !== colRegName &&
+          idx !== colHandler &&
+          idx !== colEmail &&
+          idx !== colPhone &&
+          idx !== colEmergency &&
+          idx !== colBreed &&
+          idx !== colSex &&
+          row[idx]
+        ) {
           dog[header] = row[idx];
         }
       });
@@ -177,9 +191,11 @@ async function loadTrialingData(): Promise<any[]> {
 
   try {
     console.log('Loading Data for Tracker web.xlsx...');
-    const response = await fetch('https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx');
+    const response = await fetch(
+      'https://raw.githubusercontent.com/cwagtracker/Tracker/main/Data%20for%20Tracker%20web.xlsx'
+    );
     if (!response.ok) throw new Error('Failed to fetch Data for Tracker web.xlsx');
-    
+
     const arrayBuffer = await response.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -193,7 +209,7 @@ async function loadTrialingData(): Promise<any[]> {
 
     // Process data rows (skip header if exists)
     const startRow = data[0][0] && String(data[0][0]).toLowerCase().includes('reg') ? 1 : 0;
-    
+
     for (let i = startRow; i < data.length; i++) {
       const row = data[i];
       if (!row || !row[0]) continue;
@@ -214,7 +230,7 @@ async function loadTrialingData(): Promise<any[]> {
         judge: String(row[4] || '').trim(),
         Qs: parseInt(row[5]) || 0,
         trialName: String(row[6] || '').trim(),
-        game: String(row[7] || '').trim()
+        game: String(row[7] || '').trim(),
       });
     }
 
@@ -270,14 +286,13 @@ export async function getLitterMates(regNumber: string): Promise<RegistryDog[]> 
   try {
     const match = regNumber.match(/\d{2}-(\d{4})-\d{2}/);
     if (!match) return [];
-    
+
     const middleDigits = match[1];
     const dogMap = await loadDogInfo();
     const results: RegistryDog[] = [];
 
     dogMap.forEach((dog) => {
-      if (dog.cwags_number !== regNumber && 
-          dog.cwags_number.includes(`-${middleDigits}-`)) {
+      if (dog.cwags_number !== regNumber && dog.cwags_number.includes(`-${middleDigits}-`)) {
         results.push(applyOverrides(dog));
       }
     });
@@ -292,7 +307,10 @@ export async function getLitterMates(regNumber: string): Promise<RegistryDog[]> 
 /**
  * Update registry information (saves to localStorage)
  */
-export async function updateRegistry(regNumber: string, updates: Partial<RegistryDog>): Promise<boolean> {
+export async function updateRegistry(
+  regNumber: string,
+  updates: Partial<RegistryDog>
+): Promise<boolean> {
   try {
     // Get current data
     const dogMap = await loadDogInfo();
@@ -338,39 +356,42 @@ function applyOverrides(dog: RegistryDog): RegistryDog {
 export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord[]> {
   try {
     const trialingData = await loadTrialingData();
-    const dogRecords = trialingData.filter(r => r.regNumber === regNumber && r.Qs > 0);
+    const dogRecords = trialingData.filter((r) => r.regNumber === regNumber && r.Qs > 0);
 
-    return dogRecords.map(record => {
-      // Parse date
-      let dateStr = 'Unknown';
-      if (record.trialDate) {
-        try {
-          const date = record.trialDate instanceof Date ? record.trialDate : new Date(record.trialDate);
-          if (!isNaN(date.getTime())) {
-            dateStr = date.toLocaleDateString();
+    return dogRecords
+      .map((record) => {
+        // Parse date
+        let dateStr = 'Unknown';
+        if (record.trialDate) {
+          try {
+            const date =
+              record.trialDate instanceof Date ? record.trialDate : new Date(record.trialDate);
+            if (!isNaN(date.getTime())) {
+              dateStr = date.toLocaleDateString();
+            }
+          } catch (e) {
+            dateStr = String(record.trialDate);
           }
-        } catch (e) {
-          dateStr = String(record.trialDate);
         }
-      }
 
-      return {
-        date: dateStr,
-        trial: record.trialName || 'Unknown Trial',
-        judge: record.judge || 'Unknown',
-        qs: record.Qs || 1,
-        class: record.level || 'Unknown'
-      };
-    }).sort((a, b) => {
-      // Sort by date descending (newest first)
-      try {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return dateB - dateA;
-      } catch {
-        return 0;
-      }
-    });
+        return {
+          date: dateStr,
+          trial: record.trialName || 'Unknown Trial',
+          judge: record.judge || 'Unknown',
+          qs: record.Qs || 1,
+          class: record.level || 'Unknown',
+        };
+      })
+      .sort((a, b) => {
+        // Sort by date descending (newest first)
+        try {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA;
+        } catch {
+          return 0;
+        }
+      });
   } catch (error) {
     console.error('Error getting trial history:', error);
     return [];
@@ -383,8 +404,8 @@ export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord
 export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] {
   // Group records by level/class
   const levelGroups = new Map<string, TrialRecord[]>();
-  
-  records.forEach(record => {
+
+  records.forEach((record) => {
     const level = record.class;
     if (!levelGroups.has(level)) {
       levelGroups.set(level, []);
@@ -407,18 +428,18 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
       }
     });
 
-    const uniqueJudges = new Set(sortedRecords.map(r => r.judge)).size;
+    const uniqueJudges = new Set(sortedRecords.map((r) => r.judge)).size;
     const totalQs = sortedRecords.reduce((sum, r) => sum + r.qs, 0);
 
     // Calculate title status
     const hasTitle = totalQs >= 4 && uniqueJudges >= 2;
-    
+
     let titleInfo: Partial<TitleProgress> = {
       level,
       totalQs,
       uniqueJudges,
       hasTitle,
-      records: sortedRecords.slice(-5).reverse() // Show 5 most recent
+      records: sortedRecords.slice(-5).reverse(), // Show 5 most recent
     };
 
     if (hasTitle) {
@@ -431,7 +452,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
       for (const record of sortedRecords) {
         const prevQs = cumulativeQs;
         const prevJudges = judges.size;
-        
+
         cumulativeQs += record.qs;
         judges.add(record.judge);
 
@@ -440,7 +461,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
           if (prevQs < 4 || prevJudges < 2) {
             // Title just earned with this record
             titleDate = record.date;
-            
+
             // Calculate exactly how many Qs went to title
             let qsForTitle = record.qs;
             if (prevQs >= 4 && prevJudges < 2) {
@@ -453,7 +474,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
               // Needed both
               qsForTitle = Math.min(record.qs, 4 - prevQs);
             }
-            
+
             titleQs = prevQs + qsForTitle;
             break;
           }
@@ -463,7 +484,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
       const aceQs = Math.max(0, totalQs - titleQs);
       titleInfo.titleDate = titleDate;
       titleInfo.aceQs = aceQs;
-      
+
       if (aceQs >= 10) {
         // Already has at least one Ace
         titleInfo.qsToNextMilestone = 10 - (aceQs % 10);
@@ -492,7 +513,7 @@ export async function getDogProfile(regNumber: string) {
 
   const [litterMates, trialHistory] = await Promise.all([
     getLitterMates(regNumber),
-    getDogTrialHistory(regNumber)
+    getDogTrialHistory(regNumber),
   ]);
 
   const titleProgress = calculateTitleProgress(trialHistory);
@@ -501,7 +522,7 @@ export async function getDogProfile(regNumber: string) {
     dog,
     litterMates,
     titleProgress,
-    allTrialRecords: trialHistory
+    allTrialRecords: trialHistory,
   };
 }
 
@@ -520,10 +541,7 @@ export function clearCache() {
  */
 export async function preloadData() {
   console.log('Preloading Excel data...');
-  await Promise.all([
-    loadDogInfo(),
-    loadTrialingData()
-  ]);
+  await Promise.all([loadDogInfo(), loadTrialingData()]);
   console.log('✅ Data preloaded successfully');
 }
 

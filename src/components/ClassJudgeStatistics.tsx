@@ -4,7 +4,13 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { BarChart3, Loader2, Users } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
@@ -22,7 +28,10 @@ interface ClassJudgeStatisticsProps {
   preSelectedClass?: string; // If provided, auto-select this class and hide dropdown
 }
 
-export default function ClassJudgeStatistics({ clubName, preSelectedClass }: ClassJudgeStatisticsProps) {
+export default function ClassJudgeStatistics({
+  clubName,
+  preSelectedClass,
+}: ClassJudgeStatisticsProps) {
   const [selectedClass, setSelectedClass] = useState<string>(preSelectedClass || '');
   const [judgeStats, setJudgeStats] = useState<JudgeClassStats[]>([]);
   const [loading, setLoading] = useState(false);
@@ -44,7 +53,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
   const loadAvailableClasses = async () => {
     try {
       const supabase = getSupabaseBrowser();
-      
+
       // STEP 1: Get all trial_class_ids that have scores
       const { data: scoresData, error: scoresError } = await supabase
         .from('scores')
@@ -53,9 +62,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
       if (scoresError) throw scoresError;
 
       // Get unique trial_round_ids
-      const roundIdsWithScores = new Set(
-        scoresData?.map(s => s.trial_round_id) || []
-      );
+      const roundIdsWithScores = new Set(scoresData?.map((s) => s.trial_round_id) || []);
 
       console.log(`Found ${roundIdsWithScores.size} rounds with scores`);
 
@@ -67,7 +74,8 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
       // STEP 2: Get class info for those rounds
       let query = supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           trial_classes!inner(
             class_name,
@@ -77,7 +85,8 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
               )
             )
           )
-        `)
+        `
+        )
         .in('id', Array.from(roundIdsWithScores));
 
       if (clubName) {
@@ -92,24 +101,24 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
 
       // Get unique class names
       const classNames = new Set<string>();
-      data?.forEach(round => {
+      data?.forEach((round) => {
         const trialClasses = round.trial_classes as any;
         const className = trialClasses?.class_name;
-        
+
         if (className) {
-  classNames.add(className);
-}
+          classNames.add(className);
+        }
       });
 
       console.log('Classes with scores:', Array.from(classNames));
 
       // Sort by C-WAGS order using helper function
-      const sortedClasses = Array.from(classNames).sort((a, b) => 
-        getClassOrder(a) - getClassOrder(b)
+      const sortedClasses = Array.from(classNames).sort(
+        (a, b) => getClassOrder(a) - getClassOrder(b)
       );
 
       setAvailableClasses(sortedClasses);
-      
+
       // Auto-select first class only if no preSelectedClass is provided
       if (!preSelectedClass && sortedClasses.length > 0 && !selectedClass) {
         setSelectedClass(sortedClasses[0]);
@@ -132,12 +141,11 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
 
       console.log('Loading judge statistics for class:', selectedClass);
 
-     
-
       // STEP 1: Get all rounds for this class (query with both normalized and original names)
       let roundsQuery = supabase
         .from('trial_rounds')
-        .select(`
+        .select(
+          `
           id,
           judge_name,
           trial_classes!inner(
@@ -149,7 +157,8 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
               )
             )
           )
-        `)
+        `
+        )
         .eq('trial_classes.class_name', selectedClass);
 
       if (clubName) {
@@ -170,18 +179,20 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
       console.log(`Found ${rounds.length} rounds for ${selectedClass}`);
 
       // STEP 2: Get all scores for these rounds
-      const roundIds = rounds.map(r => r.id);
-      
+      const roundIds = rounds.map((r) => r.id);
+
       const { data: scores, error: scoresError } = await supabase
         .from('scores')
-        .select(`
+        .select(
+          `
           pass_fail,
           entry_status,
           trial_round_id,
           entry_selections!inner(
             entry_type
           )
-        `)
+        `
+        )
         .in('trial_round_id', roundIds);
 
       if (scoresError) throw scoresError;
@@ -198,11 +209,14 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
       });
 
       // STEP 3: Calculate stats per judge
-      const judgeStatsMap = new Map<string, {
-        runs: number;
-        passes: number;
-        rounds: Set<string>;
-      }>();
+      const judgeStatsMap = new Map<
+        string,
+        {
+          runs: number;
+          passes: number;
+          rounds: Set<string>;
+        }
+      >();
 
       rounds.forEach((round: any) => {
         const judgeName = round.judge_name;
@@ -213,7 +227,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
           judgeStatsMap.set(judgeName, {
             runs: 0,
             passes: 0,
-            rounds: new Set()
+            rounds: new Set(),
           });
         }
 
@@ -222,11 +236,11 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
 
         // Process scores for this round
         const roundScores = scoresMap.get(round.id) || [];
-        
+
         roundScores.forEach((score: any) => {
           // Only count regular runs
           if (score.entry_selections?.entry_type !== 'regular') return;
-          
+
           // Skip if ABS
           if (score.entry_status === 'ABS') return;
 
@@ -247,15 +261,14 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
           runs: data.runs,
           passes: data.passes,
           pass_rate: data.runs > 0 ? (data.passes / data.runs) * 100 : 0,
-          rounds_judged: data.rounds.size
+          rounds_judged: data.rounds.size,
         }))
-        .filter(j => j.runs > 0)  // Only include judges with scored runs
+        .filter((j) => j.runs > 0) // Only include judges with scored runs
         .sort((a, b) => a.judge_name.localeCompare(b.judge_name));
 
       setJudgeStats(judgeStatsArray);
 
       console.log(`${judgeStatsArray.length} judges with statistics for ${selectedClass}`);
-
     } catch (err) {
       console.error('Error loading class judge statistics:', err);
       setError(err instanceof Error ? err.message : 'Failed to load statistics');
@@ -300,7 +313,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
             <span>Class Judge Statistics</span>
           )}
         </CardTitle>
-        
+
         {!preSelectedClass && (
           <div className="mt-4">
             <label className="text-sm font-medium mb-2 block">Select Class</label>
@@ -363,13 +376,11 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
                     <div>
                       <h3 className="font-semibold text-gray-900">{judge.judge_name}</h3>
                       <p className="text-sm text-gray-600">
-                        {judge.runs} run{judge.runs !== 1 ? 's' : ''} in {judge.rounds_judged} round{judge.rounds_judged !== 1 ? 's' : ''}
+                        {judge.runs} run{judge.runs !== 1 ? 's' : ''} in {judge.rounds_judged} round
+                        {judge.rounds_judged !== 1 ? 's' : ''}
                       </p>
                     </div>
-                    <Badge 
-                      variant="outline" 
-                      className={getPassRateColor(judge.pass_rate)}
-                    >
+                    <Badge variant="outline" className={getPassRateColor(judge.pass_rate)}>
                       {judge.pass_rate.toFixed(1)}% pass
                     </Badge>
                   </div>
@@ -381,7 +392,7 @@ export default function ClassJudgeStatistics({ clubName, preSelectedClass }: Cla
                       style={{ width: `${judge.pass_rate}%` }}
                     />
                   </div>
-                  
+
                   <div className="flex justify-between mt-2 text-xs text-gray-500">
                     <span>{judge.passes} passes</span>
                     <span>{judge.runs - judge.passes} fails</span>

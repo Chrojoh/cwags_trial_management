@@ -10,10 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Upload, 
-  FileSpreadsheet, 
-  CheckCircle, 
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle,
   AlertCircle,
   Loader2,
   Calendar,
@@ -21,7 +21,7 @@ import {
   Trophy,
   Target,
   Download,
-  Eye
+  Eye,
 } from 'lucide-react';
 
 interface ImportSummary {
@@ -53,7 +53,7 @@ export default function ImportTrialPage() {
   const router = useRouter();
   const { user } = useAuth();
   const supabase = getSupabaseBrowser();
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -96,7 +96,9 @@ export default function ImportTrialPage() {
 
     try {
       // Get auth session for API request
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('Not authenticated');
       }
@@ -107,7 +109,7 @@ export default function ImportTrialPage() {
       const response = await fetch('/api/admin/import-trial/preview', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: formData,
       });
@@ -135,7 +137,9 @@ export default function ImportTrialPage() {
 
     try {
       // Get auth session for API request
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('Not authenticated');
       }
@@ -147,7 +151,7 @@ export default function ImportTrialPage() {
       const response = await fetch('/api/admin/import-trial/import', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: formData,
       });
@@ -181,7 +185,8 @@ export default function ImportTrialPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Import Trial from Excel</h1>
           <p className="text-gray-600 mt-2">
-            Upload a completed trial spreadsheet to automatically create the trial, entries, and scores
+            Upload a completed trial spreadsheet to automatically create the trial, entries, and
+            scores
           </p>
         </div>
 
@@ -198,16 +203,27 @@ export default function ImportTrialPage() {
               <div>
                 <p className="font-semibold mb-2">Page 1 (any tab):</p>
                 <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li><strong>A1:</strong> Trial name / Date range (e.g., "June 6 -- July 26, 2024")</li>
-                  <li><strong>A2:</strong> Club name (optional)</li>
+                  <li>
+                    <strong>A1:</strong> Trial name / Date range (e.g., "June 6 -- July 26, 2024")
+                  </li>
+                  <li>
+                    <strong>A2:</strong> Club name (optional)
+                  </li>
                 </ul>
               </div>
               <div>
                 <p className="font-semibold mb-2">Each tab (class):</p>
                 <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li><strong>Row 5:</strong> Judge names</li>
-                  <li><strong>Row 6:</strong> Dates</li>
-                  <li><strong>Row 7+:</strong> Col A: CWAGS#, Col B: Dog, Col C: Handler, Col D+: Scores</li>
+                  <li>
+                    <strong>Row 5:</strong> Judge names
+                  </li>
+                  <li>
+                    <strong>Row 6:</strong> Dates
+                  </li>
+                  <li>
+                    <strong>Row 7+:</strong> Col A: CWAGS#, Col B: Dog, Col C: Handler, Col D+:
+                    Scores
+                  </li>
                 </ul>
               </div>
             </div>
@@ -219,9 +235,7 @@ export default function ImportTrialPage() {
           <Card>
             <CardHeader>
               <CardTitle>Step 1: Select Excel File</CardTitle>
-              <CardDescription>
-                Choose the completed trial spreadsheet to import
-              </CardDescription>
+              <CardDescription>Choose the completed trial spreadsheet to import</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -237,9 +251,7 @@ export default function ImportTrialPage() {
                   <p className="text-lg font-medium text-gray-700 mb-2">
                     {file ? file.name : 'Click to select Excel file'}
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Supports .xlsx and .xls files
-                  </p>
+                  <p className="text-sm text-gray-500">Supports .xlsx and .xls files</p>
                 </label>
               </div>
 
@@ -249,9 +261,7 @@ export default function ImportTrialPage() {
                     <FileSpreadsheet className="h-8 w-8 text-green-600" />
                     <div>
                       <p className="font-medium">{file.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {(file.size / 1024).toFixed(2)} KB
-                      </p>
+                      <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -272,11 +282,7 @@ export default function ImportTrialPage() {
                         </>
                       )}
                     </Button>
-                    <Button
-                      onClick={handleReset}
-                      variant="outline"
-                      disabled={uploading}
-                    >
+                    <Button onClick={handleReset} variant="outline" disabled={uploading}>
                       Cancel
                     </Button>
                   </div>
@@ -311,36 +317,44 @@ export default function ImportTrialPage() {
               <CardContent className="space-y-4">
                 <div>
                   <h3 className="font-semibold text-lg text-green-900">{summary.trialName}</h3>
-                  {summary.clubName && (
-                    <p className="text-green-700">{summary.clubName}</p>
-                  )}
+                  {summary.clubName && <p className="text-green-700">{summary.clubName}</p>}
                   <p className="text-sm text-green-600">{summary.dateRange}</p>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="bg-white rounded-lg p-4 text-center">
                     <Calendar className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{summary.stats.totalDays}</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {summary.stats.totalDays}
+                    </div>
                     <div className="text-xs text-gray-600">Days</div>
                   </div>
                   <div className="bg-white rounded-lg p-4 text-center">
                     <Trophy className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{summary.stats.totalClasses}</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {summary.stats.totalClasses}
+                    </div>
                     <div className="text-xs text-gray-600">Classes</div>
                   </div>
                   <div className="bg-white rounded-lg p-4 text-center">
                     <Target className="h-6 w-6 text-orange-600 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{summary.stats.totalRounds}</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {summary.stats.totalRounds}
+                    </div>
                     <div className="text-xs text-gray-600">Rounds</div>
                   </div>
                   <div className="bg-white rounded-lg p-4 text-center">
                     <Users className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{summary.stats.totalEntries}</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {summary.stats.totalEntries}
+                    </div>
                     <div className="text-xs text-gray-600">Entries</div>
                   </div>
                   <div className="bg-white rounded-lg p-4 text-center">
                     <CheckCircle className="h-6 w-6 text-teal-600 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-gray-900">{summary.stats.totalScores}</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {summary.stats.totalScores}
+                    </div>
                     <div className="text-xs text-gray-600">Scores</div>
                   </div>
                 </div>
@@ -381,9 +395,7 @@ export default function ImportTrialPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Detailed Breakdown</CardTitle>
-                <CardDescription>
-                  Classes and entries organized by day
-                </CardDescription>
+                <CardDescription>Classes and entries organized by day</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -412,11 +424,7 @@ export default function ImportTrialPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center justify-between">
-              <Button
-                onClick={handleReset}
-                variant="outline"
-                disabled={processing}
-              >
+              <Button onClick={handleReset} variant="outline" disabled={processing}>
                 Cancel
               </Button>
               <Button

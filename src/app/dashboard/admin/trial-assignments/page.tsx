@@ -24,16 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { 
-  Users, 
-  Calendar,
-  Trash2,
-  Plus,
-  AlertCircle,
-  Loader2,
-  X,
-  UserPlus
-} from 'lucide-react';
+import { Users, Calendar, Trash2, Plus, AlertCircle, Loader2, X, UserPlus } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 interface Trial {
@@ -66,14 +57,14 @@ interface Assignment {
 export default function TrialAssignmentsPage() {
   const { user } = useAuth();
   const supabase = getSupabaseBrowser();
-  
+
   const [trials, setTrials] = useState<Trial[]>([]);
   const [secretaries, setSecretaries] = useState<User[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Form state
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedTrialId, setSelectedTrialId] = useState('');
@@ -88,65 +79,66 @@ export default function TrialAssignmentsPage() {
   }, [user]);
 
   const loadData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Load trials
-    console.log('Loading trials...');
-    const { data: trialsData, error: trialsError } = await supabase
-      .from('trials')
-      .select('*')
-      .order('start_date', { ascending: false });
+      // Load trials
+      console.log('Loading trials...');
+      const { data: trialsData, error: trialsError } = await supabase
+        .from('trials')
+        .select('*')
+        .order('start_date', { ascending: false });
 
-    if (trialsError) {
-      console.error('Trials error:', trialsError);
-      throw new Error(`Trials: ${trialsError.message}`);
-    }
-    console.log('Trials loaded:', trialsData?.length);
+      if (trialsError) {
+        console.error('Trials error:', trialsError);
+        throw new Error(`Trials: ${trialsError.message}`);
+      }
+      console.log('Trials loaded:', trialsData?.length);
 
-    // Load secretaries (trial_secretary role users)
-    console.log('Loading secretaries...');
-    const { data: usersData, error: usersError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('role', 'trial_secretary')
-      .order('first_name');
+      // Load secretaries (trial_secretary role users)
+      console.log('Loading secretaries...');
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'trial_secretary')
+        .order('first_name');
 
-    if (usersError) {
-      console.error('Users error:', usersError);
-      throw new Error(`Users: ${usersError.message}`);
-    }
-    console.log('Secretaries loaded:', usersData?.length);
+      if (usersError) {
+        console.error('Users error:', usersError);
+        throw new Error(`Users: ${usersError.message}`);
+      }
+      console.log('Secretaries loaded:', usersData?.length);
 
-    // Load assignments
-console.log('Loading assignments...');
-const { data: assignmentsData, error: assignmentsError } = await supabase
-  .from('trial_assignments')  // ✅ FIXED
-  .select(`
+      // Load assignments
+      console.log('Loading assignments...');
+      const { data: assignmentsData, error: assignmentsError } = await supabase
+        .from('trial_assignments') // ✅ FIXED
+        .select(
+          `
     *,
     trials(id, trial_name, start_date, end_date, location, trial_status),
     users!user_id(id, first_name, last_name, email, role)
-  `)
-  .order('assigned_at', { ascending: false });
+  `
+        )
+        .order('assigned_at', { ascending: false });
 
-    if (assignmentsError) {
-      console.error('Assignments error:', assignmentsError);
-      throw new Error(`Assignments: ${assignmentsError.message}`);
+      if (assignmentsError) {
+        console.error('Assignments error:', assignmentsError);
+        throw new Error(`Assignments: ${assignmentsError.message}`);
+      }
+      console.log('Assignments loaded:', assignmentsData?.length);
+
+      setTrials(trialsData || []);
+      setSecretaries(usersData || []);
+      setAssignments(assignmentsData || []);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
     }
-    console.log('Assignments loaded:', assignmentsData?.length);
-
-    setTrials(trialsData || []);
-    setSecretaries(usersData || []);
-    setAssignments(assignmentsData || []);
-
-  } catch (err) {
-    console.error('Error loading data:', err);
-    setError(err instanceof Error ? err.message : 'Failed to load data');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const addAssignment = async () => {
     if (!selectedTrialId || !selectedUserId) {
@@ -158,15 +150,15 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
       setSaving(true);
       setError(null);
 
-     const { error: insertError } = await supabase
-  .from('trial_assignments')  // ✅ FIXED
-  .insert({
-    trial_id: selectedTrialId,
-    user_id: selectedUserId,
-    assigned_by: user?.id,
-    assigned_role: 'trial_secretary',  // ✅ ADD THIS - it's required!
-    notes: notes || null
-  });
+      const { error: insertError } = await supabase
+        .from('trial_assignments') // ✅ FIXED
+        .insert({
+          trial_id: selectedTrialId,
+          user_id: selectedUserId,
+          assigned_by: user?.id,
+          assigned_role: 'trial_secretary', // ✅ ADD THIS - it's required!
+          notes: notes || null,
+        });
 
       if (insertError) {
         if (insertError.code === '23505') {
@@ -185,7 +177,6 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
 
       // Reload data
       await loadData();
-
     } catch (err) {
       console.error('Error adding assignment:', err);
       setError(err instanceof Error ? err.message : 'Failed to add assignment');
@@ -203,15 +194,14 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
       setSaving(true);
       setError(null);
 
-     const { error: deleteError } = await supabase
-  .from('trial_assignments')  // ✅ FIXED
-  .delete()
-  .eq('id', assignmentId);
+      const { error: deleteError } = await supabase
+        .from('trial_assignments') // ✅ FIXED
+        .delete()
+        .eq('id', assignmentId);
 
       if (deleteError) throw deleteError;
 
       await loadData();
-
     } catch (err) {
       console.error('Error removing assignment:', err);
       setError(err instanceof Error ? err.message : 'Failed to remove assignment');
@@ -221,32 +211,36 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
   };
 
   // Filter assignments by search
-  const filteredAssignments = assignments.filter(a =>
-    a.trials.trial_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${a.users.first_name} ${a.users.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    a.trials.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredAssignments = assignments.filter(
+    (a) =>
+      a.trials.trial_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${a.users.first_name} ${a.users.last_name}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      a.trials.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Group assignments by trial
-  const assignmentsByTrial = filteredAssignments.reduce((acc, assignment) => {
-    if (!acc[assignment.trial_id]) {
-      acc[assignment.trial_id] = {
-        trial: assignment.trials,
-        assignments: []
-      };
-    }
-    acc[assignment.trial_id].assignments.push(assignment);
-    return acc;
-  }, {} as Record<string, { trial: Trial; assignments: Assignment[] }>);
+  const assignmentsByTrial = filteredAssignments.reduce(
+    (acc, assignment) => {
+      if (!acc[assignment.trial_id]) {
+        acc[assignment.trial_id] = {
+          trial: assignment.trials,
+          assignments: [],
+        };
+      }
+      acc[assignment.trial_id].assignments.push(assignment);
+      return acc;
+    },
+    {} as Record<string, { trial: Trial; assignments: Assignment[] }>
+  );
 
   if (user?.role !== 'administrator') {
     return (
       <MainLayout title="Trial Assignments">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Only administrators can access this page.
-          </AlertDescription>
+          <AlertDescription>Only administrators can access this page.</AlertDescription>
         </Alert>
       </MainLayout>
     );
@@ -298,7 +292,9 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
           </Card>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Active Secretaries</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">
+                Active Secretaries
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{secretaries.length}</div>
@@ -339,10 +335,14 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
                       <span>{trial.trial_name}</span>
                     </CardTitle>
                     <CardDescription className="mt-1">
-                      {trial.location} • {new Date(trial.start_date).toLocaleDateString()} - {new Date(trial.end_date).toLocaleDateString()}
+                      {trial.location} • {new Date(trial.start_date).toLocaleDateString()} -{' '}
+                      {new Date(trial.end_date).toLocaleDateString()}
                     </CardDescription>
                   </div>
-                  <Badge>{trialAssignments.length} {trialAssignments.length === 1 ? 'Secretary' : 'Secretaries'}</Badge>
+                  <Badge>
+                    {trialAssignments.length}{' '}
+                    {trialAssignments.length === 1 ? 'Secretary' : 'Secretaries'}
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -373,11 +373,13 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => removeAssignment(
-                              assignment.id,
-                              trial.trial_name,
-                              `${assignment.users.first_name} ${assignment.users.last_name}`
-                            )}
+                            onClick={() =>
+                              removeAssignment(
+                                assignment.id,
+                                trial.trial_name,
+                                `${assignment.users.first_name} ${assignment.users.last_name}`
+                              )
+                            }
                             disabled={saving}
                           >
                             <Trash2 className="h-4 w-4 text-red-600" />
@@ -396,7 +398,9 @@ const { data: assignmentsData, error: assignmentsError } = await supabase
               <CardContent className="text-center py-12">
                 <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">
-                  {searchTerm ? 'No assignments match your search' : 'No trial secretary assignments yet'}
+                  {searchTerm
+                    ? 'No assignments match your search'
+                    : 'No trial secretary assignments yet'}
                 </p>
               </CardContent>
             </Card>

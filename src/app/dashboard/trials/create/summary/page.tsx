@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
+import {
   Calendar,
   ArrowLeft,
   Save,
@@ -23,7 +23,7 @@ import {
   UserCheck,
   Edit,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
@@ -50,7 +50,8 @@ function TrialSummaryPageContent() {
 
   // Get trial ID from URL params or localStorage
   const trialIdFromParams = searchParams.get('trialId');
-  const trialIdFromStorage = typeof window !== 'undefined' ? localStorage.getItem('currentTrialId') : null;
+  const trialIdFromStorage =
+    typeof window !== 'undefined' ? localStorage.getItem('currentTrialId') : null;
   const trialId = trialIdFromParams || trialIdFromStorage;
 
   useEffect(() => {
@@ -107,14 +108,14 @@ function TrialSummaryPageContent() {
 
     try {
       console.log('Saving trial as draft:', trialId);
-      
+
       const updateData = {
         trial_status: 'draft',
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       const result = await simpleTrialOperations.updateTrial(trialId, updateData);
-      
+
       if (result.success) {
         console.log('Trial saved as draft successfully');
         // Show success message or toast
@@ -132,9 +133,9 @@ function TrialSummaryPageContent() {
     setIsSubmitting(true);
     try {
       console.log('Publishing trial:', trialId);
-      
+
       const result = await simpleTrialOperations.publishTrial(trialId);
-      
+
       if (result.success) {
         console.log('Trial published successfully');
         // Redirect to trial management page
@@ -151,53 +152,55 @@ function TrialSummaryPageContent() {
     }
   };
 
- const formatDate = (dateString: string) => {
-  const parts = dateString.split('-');
-  const date = new Date(
-    parseInt(parts[0]),
-    parseInt(parts[1]) - 1,
-    parseInt(parts[2]),
-    12, 0, 0  // Set to noon to avoid timezone issues
-  );
-  
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
+  const formatDate = (dateString: string) => {
+    const parts = dateString.split('-');
+    const date = new Date(
+      parseInt(parts[0]),
+      parseInt(parts[1]) - 1,
+      parseInt(parts[2]),
+      12,
+      0,
+      0 // Set to noon to avoid timezone issues
+    );
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
 
   const formatTime = (timeString: string) => {
     if (!timeString) return 'TBD';
     return new Date(`2024-01-01T${timeString}`).toLocaleTimeString('en-CA', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
   const formatLocation = (trial: any) => {
     if (!trial) return 'Location not specified';
-    
+
     const parts = [];
     if (trial.venue_name) parts.push(trial.venue_name);
     if (trial.city) parts.push(trial.city);
     if (trial.province) parts.push(trial.province);
     if (trial.country) parts.push(trial.country);
-    
+
     return parts.length > 0 ? parts.join(', ') : trial.location || 'Location not specified';
   };
 
   // Loading state
   if (isLoading) {
     return (
-      <MainLayout 
+      <MainLayout
         title="Trial Summary & Confirmation"
         breadcrumbItems={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Trials', href: '/dashboard/trials' },
           { label: 'Create Trial', href: '/dashboard/trials/create' },
-          { label: 'Summary' }
+          { label: 'Summary' },
         ]}
       >
         <div className="max-w-6xl mx-auto">
@@ -215,13 +218,13 @@ function TrialSummaryPageContent() {
   // Error state
   if (error || !trialData) {
     return (
-      <MainLayout 
+      <MainLayout
         title="Trial Summary & Confirmation"
         breadcrumbItems={[
           { label: 'Dashboard', href: '/dashboard' },
           { label: 'Trials', href: '/dashboard/trials' },
           { label: 'Create Trial', href: '/dashboard/trials/create' },
-          { label: 'Summary' }
+          { label: 'Summary' },
         ]}
       >
         <div className="max-w-6xl mx-auto">
@@ -249,23 +252,32 @@ function TrialSummaryPageContent() {
   const days = trialData?.days || [];
   const classes = trialData?.classes || [];
   const rounds = trialData?.rounds || [];
-  const stats = trialData?.stats || { totalDays: 0, totalClasses: 0, totalRounds: 0, uniqueJudges: 0 };
+  const stats = trialData?.stats || {
+    totalDays: 0,
+    totalClasses: 0,
+    totalRounds: 0,
+    uniqueJudges: 0,
+  };
 
   // Calculate revenue and statistics with safety checks
   const totalEstimatedRevenue = classes.reduce((sum: number, cls: any) => {
     const entryFee = cls.entry_fee || 0;
     const maxEntries = cls.max_entries || 0;
-    return sum + (entryFee * maxEntries);
+    return sum + entryFee * maxEntries;
   }, 0);
-  
-  const totalMaxEntries = classes.reduce((sum: number, cls: any) => sum + (cls.max_entries || 0), 0);
-  const averageEntryFee = totalMaxEntries > 0 ? Math.round(totalEstimatedRevenue / totalMaxEntries) : 0;
+
+  const totalMaxEntries = classes.reduce(
+    (sum: number, cls: any) => sum + (cls.max_entries || 0),
+    0
+  );
+  const averageEntryFee =
+    totalMaxEntries > 0 ? Math.round(totalEstimatedRevenue / totalMaxEntries) : 0;
 
   // Group rounds by day for display
   const roundsByDay = rounds.reduce((acc: any, round: any) => {
     const dayDate = round.trial_classes?.trial_days?.trial_date;
     if (!dayDate) return acc;
-    
+
     if (!acc[dayDate]) {
       acc[dayDate] = [];
     }
@@ -276,7 +288,7 @@ function TrialSummaryPageContent() {
       duration: round.estimated_duration ? Math.round(round.estimated_duration / 60000) : 60, // Convert to minutes
       judgeName: round.judge_name,
       hasReset: round.has_reset,
-      resetJudge: round.reset_judge_name
+      resetJudge: round.reset_judge_name,
     });
     return acc;
   }, {});
@@ -285,7 +297,7 @@ function TrialSummaryPageContent() {
     { label: 'Dashboard', href: '/dashboard' },
     { label: 'Trials', href: '/dashboard/trials' },
     { label: 'Create Trial', href: '/dashboard/trials/create' },
-    { label: 'Summary' }
+    { label: 'Summary' },
   ];
 
   const stepTitles = [
@@ -294,14 +306,11 @@ function TrialSummaryPageContent() {
     'Select Days',
     'Choose Levels',
     'Create Rounds',
-    'Summary'
+    'Summary',
   ];
 
   return (
-    <MainLayout 
-      title="Trial Summary & Confirmation"
-      breadcrumbItems={breadcrumbItems}
-    >
+    <MainLayout title="Trial Summary & Confirmation" breadcrumbItems={breadcrumbItems}>
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Progress Steps */}
         <div className="flex items-center justify-center space-x-4 mb-8 overflow-x-auto">
@@ -309,27 +318,33 @@ function TrialSummaryPageContent() {
             const stepNumber = index + 1;
             const isActive = stepNumber === 6; // Current step
             const isCompleted = stepNumber < 6; // Previous steps
-            
+
             return (
               <div key={stepNumber} className="flex items-center flex-shrink-0">
-                <div className={`flex items-center space-x-2 ${
-                  isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
-                }`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    isActive 
-                      ? 'bg-orange-600 text-white' 
-                      : isCompleted 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-gray-200 text-gray-600'
-                  }`}>
+                <div
+                  className={`flex items-center space-x-2 ${
+                    isActive ? 'text-orange-600' : isCompleted ? 'text-green-600' : 'text-gray-400'
+                  }`}
+                >
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                      isActive
+                        ? 'bg-orange-600 text-white'
+                        : isCompleted
+                          ? 'bg-green-600 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
                     {isCompleted ? <CheckCircle className="h-4 w-4" /> : stepNumber}
                   </div>
                   <span className="text-sm font-medium hidden sm:block">{title}</span>
                 </div>
                 {index < stepTitles.length - 1 && (
-                  <div className={`ml-4 w-8 sm:w-16 h-0.5 ${
-                    stepNumber < 6 ? 'bg-green-600' : 'bg-gray-200'
-                  }`} />
+                  <div
+                    className={`ml-4 w-8 sm:w-16 h-0.5 ${
+                      stepNumber < 6 ? 'bg-green-600' : 'bg-gray-200'
+                    }`}
+                  />
                 )}
               </div>
             );
@@ -340,7 +355,8 @@ function TrialSummaryPageContent() {
         <Alert className="border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
-            <strong>Trial setup complete!</strong> Review all details below and publish your trial to start accepting entries.
+            <strong>Trial setup complete!</strong> Review all details below and publish your trial
+            to start accepting entries.
           </AlertDescription>
         </Alert>
 
@@ -363,13 +379,19 @@ function TrialSummaryPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Rounds</p>
-                  <p className="text-2xl font-bold text-purple
+                  <p
+                    className="text-2xl font-bold text-purple
 
--600">{stats.totalRounds}</p>
+-600"
+                  >
+                    {stats.totalRounds}
+                  </p>
                 </div>
-                <Clock className="h-8 w-8 text-purple
+                <Clock
+                  className="h-8 w-8 text-purple
 
--600" />
+-600"
+                />
               </div>
             </CardContent>
           </Card>
@@ -391,7 +413,9 @@ function TrialSummaryPageContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Est. Revenue</p>
-                  <p className="text-2xl font-bold text-emerald-600">${totalEstimatedRevenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    ${totalEstimatedRevenue.toLocaleString()}
+                  </p>
                 </div>
                 <DollarSign className="h-8 w-8 text-emerald-600" />
               </div>
@@ -407,7 +431,11 @@ function TrialSummaryPageContent() {
                 <Info className="h-5 w-5 text-orange-600" />
                 <span>Trial Information</span>
               </div>
-              <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/trials/create?trialId=${trialId}`)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/trials/create?trialId=${trialId}`)}
+              >
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
               </Button>
@@ -432,7 +460,7 @@ function TrialSummaryPageContent() {
                   </p>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2">Trial Secretary</h4>
@@ -451,7 +479,7 @@ function TrialSummaryPageContent() {
                 </div>
               </div>
             </div>
-            
+
             {trial.notes && (
               <div className="mt-4 p-3 bg-gray-50 rounded">
                 <p className="text-sm text-gray-700">
@@ -473,7 +501,13 @@ function TrialSummaryPageContent() {
                     <span>{formatDate(dayDate)}</span>
                     <Badge variant="outline">{dayRounds.length} rounds</Badge>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/trials/create/rounds?trialId=${trialId}`)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      router.push(`/dashboard/trials/create/rounds?trialId=${trialId}`)
+                    }
+                  >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit Schedule
                   </Button>
@@ -484,29 +518,34 @@ function TrialSummaryPageContent() {
                   {dayRounds
                     .sort((a: any, b: any) => (a.startTime || '').localeCompare(b.startTime || ''))
                     .map((round: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatTime(round.startTime)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-900">{round.levelName}</div>
-                          <div className="text-sm text-gray-600">
-                            Judge: {round.judgeName} • {round.duration} min
-                            {round.hasReset && ` • Reset: ${round.resetJudge}`}
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {formatTime(round.startTime)}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-900">{round.levelName}</div>
+                            <div className="text-sm text-gray-600">
+                              Judge: {round.judgeName} • {round.duration} min
+                              {round.hasReset && ` • Reset: ${round.resetJudge}`}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex space-x-2">
+                          {round.hasReset && (
+                            <Badge variant="secondary" className="text-xs">
+                              Reset
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {round.max_entries} entries
+                          </Badge>
+                        </div>
                       </div>
-                      <div className="flex space-x-2">
-                        {round.hasReset && (
-                          <Badge variant="secondary" className="text-xs">Reset</Badge>
-                        )}
-                        <Badge variant="outline" className="text-xs">
-                          {round.max_entries} entries
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </CardContent>
             </Card>
@@ -528,8 +567,12 @@ function TrialSummaryPageContent() {
                 <div className="space-y-2">
                   {classes.map((cls: any, index: number) => (
                     <div key={index} className="flex justify-between text-sm">
-                      <span>{cls.class_name} ({formatDate(cls.trial_days?.trial_date).split(',')[0]})</span>
-                      <span className="font-medium">${(cls.entry_fee * cls.max_entries).toLocaleString()}</span>
+                      <span>
+                        {cls.class_name} ({formatDate(cls.trial_days?.trial_date).split(',')[0]})
+                      </span>
+                      <span className="font-medium">
+                        ${(cls.entry_fee * cls.max_entries).toLocaleString()}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -547,7 +590,9 @@ function TrialSummaryPageContent() {
                   </div>
                   <div className="border-t pt-2 flex justify-between font-semibold">
                     <span>Total Estimated Revenue</span>
-                    <span className="text-emerald-600">${totalEstimatedRevenue.toLocaleString()}</span>
+                    <span className="text-emerald-600">
+                      ${totalEstimatedRevenue.toLocaleString()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -569,11 +614,7 @@ function TrialSummaryPageContent() {
           </div>
 
           <div className="flex space-x-3">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              className="flex items-center space-x-2"
-            >
+            <Button variant="outline" onClick={handleBack} className="flex items-center space-x-2">
               <ArrowLeft className="h-4 w-4" />
               <span>Previous</span>
             </Button>
@@ -603,15 +644,17 @@ function TrialSummaryPageContent() {
 
 export default function TrialSummaryPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <TrialSummaryPageContent />
     </Suspense>
-  )
+  );
 }
