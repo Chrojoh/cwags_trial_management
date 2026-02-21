@@ -760,7 +760,7 @@ export default function ClassSummaryPage() {
 
         sheetData[0] = [summaryData.trial.trial_name];
         sheetData[1] = [summaryData.trial.club_name];
-        sheetData[2] = ['', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
+        sheetData[2] = ['Rounds that end in .5 are reset rounds for the previous column', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
 
         const row4Headers = ['', '', ''];
         roundsWithEntries.forEach((round) => {
@@ -849,6 +849,7 @@ export default function ClassSummaryPage() {
         // ✅ CHANGE 3: Merge cells A1:E1 for trial name (removed duplicate merge)
         worksheet['!merges'] = [
           { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }, // A1:E1
+          { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } }, // A3:D3 (note text)
         ];
 
         // Apply cell formatting to class sheet
@@ -867,12 +868,19 @@ export default function ClassSummaryPage() {
                 alignment: { horizontal: 'left', vertical: 'center' },
               };
             }
-            // Row 3 (index 2): Left aligned, font size 18, bold
+            // Row 3 (index 2): note text in col A (small italic), class name elsewhere (sz:18 bold)
             else if (R === 2) {
-              cell.s = {
-                font: { sz: 18, bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'left', vertical: 'center' },
-              };
+              if (C === 0) {
+                cell.s = {
+                  font: { sz: 11, italic: true, name: 'Calibri' },
+                  alignment: { horizontal: 'left', vertical: 'center' },
+                };
+              } else {
+                cell.s = {
+                  font: { sz: 18, bold: true, name: 'Calibri' },
+                  alignment: { horizontal: 'left', vertical: 'center' },
+                };
+              }
             }
             // Row 4 (index 3): Center aligned, bold
             else if (R === 3) {
@@ -902,8 +910,28 @@ export default function ClassSummaryPage() {
               // Col C (index 2 = Handler Name) stays at 13; all other data columns use 18
               const dataFontSize = C === 2 ? 13 : 18;
 
+              // Result columns (D onwards, index 3+): colour by exact cell value
+              let fontColor: string | undefined;
+              let fontBold = false;
+              if (C >= 3) {
+                const val = cell.v;
+                if (val === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(val)) {
+                  fontColor = '000000'; // black
+                } else if (val === 'F' || val === 'NQ') {
+                  fontColor = '7030A0'; // purple
+                  fontBold = true;
+                } else if (val === 'Abs') {
+                  fontColor = 'ED7D31'; // orange
+                }
+              }
+
               cell.s = {
-                font: { sz: dataFontSize, name: 'Calibri' },
+                font: {
+                  sz: dataFontSize,
+                  name: 'Calibri',
+                  ...(fontColor ? { color: { rgb: fontColor } } : {}),
+                  ...(fontBold ? { bold: true } : {}),
+                },
                 alignment: { horizontal: 'center', vertical: 'center' },
                 border: {
                   bottom: { style: 'thin', color: { rgb: '000000' } },
