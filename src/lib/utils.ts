@@ -26,6 +26,26 @@ export const isValidCwagsNumber = (number: string): boolean => {
   return VALIDATION_PATTERNS.CWAGS_NUMBER.test(number);
 };
 
+// Format a C-WAGS number to YY-HHHH-DD with leading zeros preserved
+// Handles input with or without dashes. If dashes present, pads each segment correctly.
+export const formatCwagsNumber = (input: string): string => {
+  const trimmed = input.trim().toUpperCase();
+  const parts = trimmed.split('-');
+
+  if (parts.length === 3) {
+    // Has dashes — pad each segment with leading zeros
+    const year = parts[0].padStart(2, '0').slice(-2);
+    const handler = parts[1].padStart(4, '0').slice(-4);
+    const dog = parts[2].padStart(2, '0').slice(-2);
+    return `${year}-${handler}-${dog}`;
+  }
+
+  // No dashes — split positionally from raw digits
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length < 8) return trimmed;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 8).padStart(2, '0')}`;
+};
+
 export const isValidEmail = (email: string): boolean => {
   return VALIDATION_PATTERNS.EMAIL.test(email);
 };

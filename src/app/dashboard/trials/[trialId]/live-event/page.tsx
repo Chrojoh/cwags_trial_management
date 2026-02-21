@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDivisionColor } from '@/lib/divisionUtils';
+import { formatCwagsNumber } from '@/lib/utils';
 import { logSubstitution } from '@/lib/journalLogger';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
@@ -925,19 +926,22 @@ export default function LiveEventManagementPage() {
   const substituteDog = async (entrySelectionId: string, newCwags: string) => {
     if (!newCwags) return;
 
+    // Format the CWAGS number before any processing
+    const formattedNewCwags = formatCwagsNumber(newCwags);
+
     // Validate handler numbers match before any network calls
     // C-WAGS format: YY-HHHH-DD — middle segment (index 1) is the handler number
     const originalForValidation = classEntries.find((e) => e.id === entrySelectionId);
     if (originalForValidation) {
       const originalCwags = originalForValidation.entries.cwags_number || '';
       const origHandlerNum = originalCwags.split('-')[1];
-      const newHandlerNum = newCwags.trim().split('-')[1];
+      const newHandlerNum = formattedNewCwags.split('-')[1];
 
       if (origHandlerNum && newHandlerNum && origHandlerNum !== newHandlerNum) {
         alert(
           `Cannot substitute: handler numbers do not match.\n\n` +
             `Original entry: ${originalCwags} (handler #${origHandlerNum})\n` +
-            `Substitute entry: ${newCwags.trim()} (handler #${newHandlerNum})\n\n` +
+            `Substitute entry: ${formattedNewCwags} (handler #${newHandlerNum})\n\n` +
             `Substitution is only permitted between dogs registered to the same handler.`
         );
         return;
@@ -948,13 +952,13 @@ export default function LiveEventManagementPage() {
       setSaving(true);
       console.log('🔄 Starting dog substitution...');
       console.log('Original entry_selection_id:', entrySelectionId);
-      console.log('Substitute C-WAGS#:', newCwags);
+      console.log('Substitute C-WAGS#:', formattedNewCwags);
 
       // STEP 1: Look up the substitute dog in registry
-      const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(newCwags);
+      const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(formattedNewCwags);
 
       let substituteDogInfo = {
-        cwags_number: newCwags,
+        cwags_number: formattedNewCwags,
         dog_call_name: '',
         handler_name: '',
         handler_email: '',
@@ -1038,7 +1042,7 @@ export default function LiveEventManagementPage() {
         .from('entries')
         .select('id, total_fee')
         .eq('trial_id', trialId)
-        .eq('cwags_number', newCwags);
+        .eq('cwags_number', formattedNewCwags);
 
       if (entriesError) {
         throw new Error('Failed to check for existing entries: ' + entriesError.message);

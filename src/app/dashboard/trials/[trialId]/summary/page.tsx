@@ -1238,6 +1238,15 @@ export default function ClassSummaryPage() {
                           Rounds
                         </th>
                         <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
+                          Pass
+                        </th>
+                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
+                          F
+                        </th>
+                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
+                          Abs
+                        </th>
+                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
                           Completion Rate
                         </th>
                         <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
@@ -1271,6 +1280,15 @@ export default function ClassSummaryPage() {
                             <td className="border border-gray-300 px-4 py-3 text-center font-mono">
                               {cls.total_rounds || 1}
                             </td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-mono text-green-700">
+                              {cls.pass_count}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-mono text-red-600">
+                              {cls.fail_count}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-3 text-center font-mono text-gray-500">
+                              {cls.participant_count - cls.completed_runs}
+                            </td>
                             <td className="border border-gray-300 px-4 py-3 text-center">
                               <span className="text-green-600 font-medium">
                                 {cls.participant_count > 0
@@ -1297,7 +1315,7 @@ export default function ClassSummaryPage() {
             </Card>
 
             {/* Overall Statistics */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
               <Card>
                 <CardContent className="text-center p-4">
                   <div className="text-2xl font-bold text-orange-600">
@@ -1328,6 +1346,22 @@ export default function ClassSummaryPage() {
                     {summaryData.statistics.total_passes}
                   </div>
                   <div className="text-sm text-gray-600">Total Passes</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="text-center p-4">
+                  <div className="text-2xl font-bold text-red-600">
+                    {summaryData.statistics.total_fails}
+                  </div>
+                  <div className="text-sm text-gray-600">Total F</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="text-center p-4">
+                  <div className="text-2xl font-bold text-gray-500">
+                    {summaryData.statistics.total_participants - summaryData.statistics.total_completed}
+                  </div>
+                  <div className="text-sm text-gray-600">Total Abs</div>
                 </CardContent>
               </Card>
               <Card>

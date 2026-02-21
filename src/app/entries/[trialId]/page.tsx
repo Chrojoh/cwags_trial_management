@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { logEntrySubmittedOrModified } from '@/lib/journalLogger';
+import { formatCwagsNumber } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
@@ -122,22 +123,8 @@ const requiresDivision = (className: string | undefined): boolean => {
 };
 
 const cleanCwagsNumber = (input: string): string => {
-  const digits = input.replace(/\D/g, '');
-  if (!digits) throw new Error('Please enter a C-WAGS registration number');
-
-  // Part 1: first 2 digits
-  const part1 = digits.slice(0, 2).padEnd(2, '0');
-
-  // Part 2: next 4 digits
-  const part2 = digits.slice(2, 6).padEnd(4, '0');
-
-  // Part 3: everything after digit 6
-  let part3 = digits.slice(6);
-
-  // Pad END block on the LEFT to 2 digits
-  part3 = part3.padStart(2, '0').slice(-2);
-
-  return `${part1}-${part2}-${part3}`;
+  if (!input.trim()) throw new Error('Please enter a C-WAGS registration number');
+  return formatCwagsNumber(input);
 };
 
 const formatDayDate = (dateString: string) => {
@@ -1804,6 +1791,10 @@ export default function PublicEntryForm() {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, cwags_number: e.target.value.toUpperCase() }))
                   }
+                  onBlur={(e) => {
+                    if (e.target.value.trim())
+                      setFormData((prev) => ({ ...prev, cwags_number: formatCwagsNumber(e.target.value) }));
+                  }}
                   required
                 />
               </div>

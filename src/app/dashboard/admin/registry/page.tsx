@@ -30,6 +30,7 @@ import {
   type TitleProgress,
 } from '@/lib/registryOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { formatCwagsNumber } from '@/lib/utils';
 
 const supabase = getSupabaseBrowser();
 
@@ -138,20 +139,8 @@ export default function AdminRegistryPage() {
     }
   };
   const cleanCwagsNumber = (input: string): string => {
-    const digits = input.replace(/\D/g, '');
-    if (!digits) return input;
-
-    // Part 1: first 2 digits
-    const part1 = digits.slice(0, 2).padEnd(2, '0');
-
-    // Part 2: next 4 digits
-    const part2 = digits.slice(2, 6).padEnd(4, '0');
-
-    // Part 3: everything after digit 6, padded left to 2 digits
-    let part3 = digits.slice(6);
-    part3 = part3.padStart(2, '0').slice(-2);
-
-    return `${part1}-${part2}-${part3}`;
+    if (!input.trim()) return input;
+    return formatCwagsNumber(input);
   };
   const handleSearch = async () => {
     if (!searchTerm.trim()) {
