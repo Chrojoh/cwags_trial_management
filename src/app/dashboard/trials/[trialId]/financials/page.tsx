@@ -736,20 +736,30 @@ export default function TrialFinancialsPage() {
     const exportDate = new Date().toLocaleDateString();
     const numFmt = '"$"#,##0.00';
 
+    // Columns: A Handler | B Dogs | C Regular | D FEO |
+    //          E Opening Balance | F Payments Received | G Refunds Issued |
+    //          H Fees Waived | I Balance Owing (=E-F+G-H) | J Notes
+    const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+    const moneyCols = ['E', 'F', 'G', 'H', 'I'];
+    const numCols = ['C', 'D'];
+
     // ── Build row data ──────────────────────────────────────────────
     const rows: any[][] = [
       [`${trialName} — Financial Summary`], // Row 1
-      [`Exported: ${exportDate}`], // Row 2
-      [], // Row 3 blank
-      ['Handler', 'Dog(s)', 'Regular', 'FEO', 'Opening Balance', 'Payments Received', 'Fees Waived', 'Balance Owing', 'Notes'], // Row 4 headers
+      [`Exported: ${exportDate}`],           // Row 2
+      [],                                    // Row 3 blank
+      // Row 4 headers
+      ['Handler', 'Dog(s)', 'Regular', 'FEO',
+       'Opening Balance', 'Payments Received', 'Refunds Issued',
+       'Fees Waived', 'Balance Owing', 'Notes'],
     ];
 
     const dataStartRow = 5; // 1-indexed Excel row where data begins
 
-    // Per-competitor values (also used later for styling)
     type CompRow = {
       openingBalance: number;
-      payments: number;
+      grossPayments: number;
+      refunds: number;
       waivedNet: number;
       balance: number;
       isWaived: boolean;
@@ -757,19 +767,30 @@ export default function TrialFinancialsPage() {
     const compRows: CompRow[] = [];
 
     competitors.forEach((comp, idx) => {
+      // Split payment history into gross payments and refunds
+      const history = comp.payment_history || [];
+      const grossPayments = history.reduce(
+        (sum: number, p: any) => (p.amount > 0 ? sum + p.amount : sum), 0
+      );
+      const refunds = history.reduce(
+        (sum: number, p: any) => (p.amount < 0 ? sum + Math.abs(p.amount) : sum), 0
+      );
+      // comp.amount_paid = grossPayments - refunds (net)
+
       const grossWaivedValue =
         (comp.waived_regular_runs || 0) * (breakEvenData.regular_entry_fee || 0) +
         (comp.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
       const paymentTowardWaived = Math.max(0, comp.amount_paid - comp.amount_owed);
       const waivedNet = Math.max(0, grossWaivedValue - paymentTowardWaived);
       const openingBalance = comp.amount_owed + waivedNet;
-      const balance = openingBalance - comp.amount_paid - waivedNet; // = comp.amount_owed - comp.amount_paid (for non-waived)
+      // balance = opening - payments + refunds - waived = comp.amount_owed - comp.amount_paid
+      const balance = openingBalance - grossPayments + refunds - waivedNet;
 
       const excelRow = dataStartRow + idx;
       const dogs =
         (comp.dogs || []).map((d: any) => d.dog_call_name).join(', ') || comp.dog_call_name;
 
-      compRows.push({ openingBalance, payments: comp.amount_paid, waivedNet, balance, isWaived: comp.fees_waived });
+      compRows.push({ openingBalance, grossPayments, refunds, waivedNet, balance, isWaived: comp.fees_waived });
 
       rows.push([
         comp.handler_name,
@@ -777,9 +798,10 @@ export default function TrialFinancialsPage() {
         (comp.regular_runs || 0) + (comp.waived_regular_runs || 0),
         (comp.feo_runs || 0) + (comp.waived_feo_runs || 0),
         openingBalance,
-        comp.amount_paid,
+        grossPayments,
+        refunds,
         waivedNet,
-        { f: `E${excelRow}-F${excelRow}-G${excelRow}` }, // Self-checking formula
+        { f: `E${excelRow}-F${excelRow}+G${excelRow}-H${excelRow}` }, // self-checking
         comp.fees_waived ? `Waived: ${comp.waiver_reason || 'No reason given'}` : '',
       ]);
     });
@@ -794,6 +816,7 @@ export default function TrialFinancialsPage() {
       { f: `SUM(F${dataStartRow}:F${lastDataRow})` },
       { f: `SUM(G${dataStartRow}:G${lastDataRow})` },
       { f: `SUM(H${dataStartRow}:H${lastDataRow})` },
+      { f: `SUM(I${dataStartRow}:I${lastDataRow})` },
       '',
     ]);
 
@@ -807,15 +830,16 @@ export default function TrialFinancialsPage() {
       { wch: 10 }, // D FEO
       { wch: 16 }, // E Opening Balance
       { wch: 18 }, // F Payments Received
-      { wch: 14 }, // G Fees Waived
-      { wch: 14 }, // H Balance Owing
-      { wch: 26 }, // I Notes
+      { wch: 15 }, // G Refunds Issued
+      { wch: 14 }, // H Fees Waived
+      { wch: 14 }, // I Balance Owing
+      { wch: 26 }, // J Notes
     ];
 
     // ── Merges ────────────────────────────────────────────────────
     worksheet['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // A1:I1 title
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }, // A2:I2 date
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }, // A1:J1 title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }, // A2:J2 date
     ];
 
     // ── Row heights ───────────────────────────────────────────────
@@ -832,28 +856,25 @@ export default function TrialFinancialsPage() {
       return worksheet[addr];
     };
 
-    // ── Title row styling ─────────────────────────────────────────
-    const titleCell = getCell('A1');
-    titleCell.s = {
+    // ── Title / date styling ──────────────────────────────────────
+    getCell('A1').s = {
       font: { sz: 18, bold: true, name: 'Calibri', color: { rgb: '1F2937' } },
       alignment: { horizontal: 'left', vertical: 'center' },
     };
-
-    const dateCell = getCell('A2');
-    dateCell.s = {
+    getCell('A2').s = {
       font: { sz: 10, italic: true, name: 'Calibri', color: { rgb: '6B7280' } },
       alignment: { horizontal: 'left', vertical: 'center' },
     };
 
     // ── Header row styling (row 4, index 3) ───────────────────────
-    const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
     const headerColors: Record<string, string> = {
       A: '374151', B: '374151', C: '374151', D: '374151',
       E: '1E3A5F', // Opening Balance — navy
-      F: '14532D', // Payments — dark green
-      G: '4A1D96', // Fees Waived — dark purple
-      H: '7F1D1D', // Balance Owing — dark red
-      I: '374151',
+      F: '14532D', // Payments Received — dark green
+      G: '7C2D12', // Refunds Issued — dark orange/red
+      H: '4A1D96', // Fees Waived — dark purple
+      I: '7F1D1D', // Balance Owing — dark red
+      J: '374151',
     };
     headerCols.forEach((col) => {
       const cell = getCell(`${col}4`);
@@ -869,81 +890,72 @@ export default function TrialFinancialsPage() {
     compRows.forEach((cr, idx) => {
       const excelRow = dataStartRow + idx;
       const isEven = idx % 2 === 0;
-      const baseBg = cr.isWaived ? 'F5F3FF' : isEven ? 'FFF7ED' : 'FFFFFF'; // purple-50 / orange-50 / white
+      const baseBg = cr.isWaived ? 'F5F3FF' : isEven ? 'FFF7ED' : 'FFFFFF';
 
       headerCols.forEach((col) => {
         const addr = `${col}${excelRow}`;
         const cell = getCell(addr);
-        const isMoneyCol = ['E', 'F', 'G', 'H'].includes(col);
-        const isNumCol = ['C', 'D'].includes(col);
-
         cell.s = {
           font: { name: 'Calibri', sz: 10 },
           fill: { fgColor: { rgb: baseBg } },
           alignment: {
-            horizontal: isMoneyCol || isNumCol ? 'right' : 'left',
+            horizontal: moneyCols.includes(col) || numCols.includes(col) ? 'right' : 'left',
             vertical: 'center',
           },
           border: { bottom: { style: 'hair', color: { rgb: 'E5E7EB' } } },
         };
-
-        if (isMoneyCol) cell.z = numFmt;
+        if (moneyCols.includes(col)) cell.z = numFmt;
       });
 
-      // Balance Owing: color based on value
-      const balAddr = `H${excelRow}`;
-      const balCell = getCell(balAddr);
-      const fontColor = cr.balance > 0.005 ? 'DC2626' : cr.balance < -0.005 ? 'EA580C' : '16A34A';
-      balCell.s = {
-        ...balCell.s,
-        font: { name: 'Calibri', sz: 10, bold: cr.balance > 0.005, color: { rgb: fontColor } },
-      };
+      // Payments Received: green text
+      if (cr.grossPayments > 0) {
+        const cell = getCell(`F${excelRow}`);
+        cell.s = { ...cell.s, font: { name: 'Calibri', sz: 10, color: { rgb: '15803D' } } };
+      }
+
+      // Refunds Issued: orange/red text
+      if (cr.refunds > 0) {
+        const cell = getCell(`G${excelRow}`);
+        cell.s = { ...cell.s, font: { name: 'Calibri', sz: 10, color: { rgb: 'EA580C' } } };
+      }
 
       // Fees Waived: purple text
-      const waivedAddr = `G${excelRow}`;
-      const waivedCell = getCell(waivedAddr);
       if (cr.waivedNet > 0) {
-        waivedCell.s = {
-          ...waivedCell.s,
-          font: { name: 'Calibri', sz: 10, color: { rgb: '7C3AED' } },
-        };
+        const cell = getCell(`H${excelRow}`);
+        cell.s = { ...cell.s, font: { name: 'Calibri', sz: 10, color: { rgb: '7C3AED' } } };
       }
 
-      // Payments: green text
-      const payAddr = `F${excelRow}`;
-      const payCell = getCell(payAddr);
-      if (cr.payments > 0) {
-        payCell.s = {
-          ...payCell.s,
-          font: { name: 'Calibri', sz: 10, color: { rgb: '15803D' } },
-        };
-      }
+      // Balance Owing: red if owed, orange if credit, green if zero
+      const balColor = cr.balance > 0.005 ? 'DC2626' : cr.balance < -0.005 ? 'EA580C' : '16A34A';
+      const balCell = getCell(`I${excelRow}`);
+      balCell.s = {
+        ...balCell.s,
+        font: { name: 'Calibri', sz: 10, bold: cr.balance > 0.005, color: { rgb: balColor } },
+      };
     });
 
     // ── Totals row styling ────────────────────────────────────────
     headerCols.forEach((col) => {
       const addr = `${col}${totalsRowNum}`;
       const cell = getCell(addr);
-      const isMoneyCol = ['E', 'F', 'G', 'H'].includes(col);
       cell.s = {
         font: { bold: true, sz: 11, name: 'Calibri', color: { rgb: 'FFFFFF' } },
         fill: { fgColor: { rgb: '374151' } },
-        alignment: { horizontal: isMoneyCol ? 'right' : 'left', vertical: 'center' },
+        alignment: { horizontal: moneyCols.includes(col) ? 'right' : 'left', vertical: 'center' },
         border: { top: { style: 'medium', color: { rgb: 'FFFFFF' } } },
       };
-      if (isMoneyCol) cell.z = numFmt;
+      if (moneyCols.includes(col)) cell.z = numFmt;
     });
 
-    // ── Note row about fees waived requiring entry fee config ────
+    // ── Footer note ───────────────────────────────────────────────
     const noteRow = totalsRowNum + 2;
     rows.push([]); // blank
     rows.push([
       breakEvenData.regular_entry_fee > 0
-        ? `* Fees Waived calculated from run counts × entry fee ($${breakEvenData.regular_entry_fee.toFixed(2)} regular / $${(breakEvenData.feo_entry_fee || 0).toFixed(2)} FEO)`
-        : '* Fees Waived requires entry fees to be configured in the Break-Even tab',
+        ? `* Fees Waived calculated from run counts × entry fee ($${breakEvenData.regular_entry_fee.toFixed(2)} regular / $${(breakEvenData.feo_entry_fee || 0).toFixed(2)} FEO). Balance Owing formula: Opening − Payments + Refunds − Waived`
+        : '* Fees Waived requires entry fees configured in the Break-Even tab. Balance Owing formula: Opening − Payments + Refunds − Waived',
     ]);
-    const noteCell = getCell(`A${noteRow}`);
-    noteCell.s = {
+    getCell(`A${noteRow}`).s = {
       font: { italic: true, sz: 9, name: 'Calibri', color: { rgb: '6B7280' } },
     };
 
