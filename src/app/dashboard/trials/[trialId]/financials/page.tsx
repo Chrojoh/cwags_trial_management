@@ -729,6 +729,230 @@ export default function TrialFinancialsPage() {
     }
   };
 
+  const exportFinancialsToExcel = async () => {
+    const XLSX = await import('xlsx-js-style');
+    const workbook = XLSX.utils.book_new();
+    const trialName = trial?.trial_name || 'Trial';
+    const exportDate = new Date().toLocaleDateString();
+    const numFmt = '"$"#,##0.00';
+
+    // ── Build row data ──────────────────────────────────────────────
+    const rows: any[][] = [
+      [`${trialName} — Financial Summary`], // Row 1
+      [`Exported: ${exportDate}`], // Row 2
+      [], // Row 3 blank
+      ['Handler', 'Dog(s)', 'Regular', 'FEO', 'Opening Balance', 'Payments Received', 'Fees Waived', 'Balance Owing', 'Notes'], // Row 4 headers
+    ];
+
+    const dataStartRow = 5; // 1-indexed Excel row where data begins
+
+    // Per-competitor values (also used later for styling)
+    type CompRow = {
+      openingBalance: number;
+      payments: number;
+      waivedNet: number;
+      balance: number;
+      isWaived: boolean;
+    };
+    const compRows: CompRow[] = [];
+
+    competitors.forEach((comp, idx) => {
+      const grossWaivedValue =
+        (comp.waived_regular_runs || 0) * (breakEvenData.regular_entry_fee || 0) +
+        (comp.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
+      const paymentTowardWaived = Math.max(0, comp.amount_paid - comp.amount_owed);
+      const waivedNet = Math.max(0, grossWaivedValue - paymentTowardWaived);
+      const openingBalance = comp.amount_owed + waivedNet;
+      const balance = openingBalance - comp.amount_paid - waivedNet; // = comp.amount_owed - comp.amount_paid (for non-waived)
+
+      const excelRow = dataStartRow + idx;
+      const dogs =
+        (comp.dogs || []).map((d: any) => d.dog_call_name).join(', ') || comp.dog_call_name;
+
+      compRows.push({ openingBalance, payments: comp.amount_paid, waivedNet, balance, isWaived: comp.fees_waived });
+
+      rows.push([
+        comp.handler_name,
+        dogs,
+        (comp.regular_runs || 0) + (comp.waived_regular_runs || 0),
+        (comp.feo_runs || 0) + (comp.waived_feo_runs || 0),
+        openingBalance,
+        comp.amount_paid,
+        waivedNet,
+        { f: `E${excelRow}-F${excelRow}-G${excelRow}` }, // Self-checking formula
+        comp.fees_waived ? `Waived: ${comp.waiver_reason || 'No reason given'}` : '',
+      ]);
+    });
+
+    // Blank row then totals
+    rows.push([]);
+    const lastDataRow = dataStartRow + competitors.length - 1;
+    const totalsRowNum = dataStartRow + competitors.length + 1; // +1 for blank
+    rows.push([
+      'TOTALS', '', '', '',
+      { f: `SUM(E${dataStartRow}:E${lastDataRow})` },
+      { f: `SUM(F${dataStartRow}:F${lastDataRow})` },
+      { f: `SUM(G${dataStartRow}:G${lastDataRow})` },
+      { f: `SUM(H${dataStartRow}:H${lastDataRow})` },
+      '',
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+    // ── Column widths ──────────────────────────────────────────────
+    worksheet['!cols'] = [
+      { wch: 24 }, // A Handler
+      { wch: 20 }, // B Dogs
+      { wch: 10 }, // C Regular
+      { wch: 10 }, // D FEO
+      { wch: 16 }, // E Opening Balance
+      { wch: 18 }, // F Payments Received
+      { wch: 14 }, // G Fees Waived
+      { wch: 14 }, // H Balance Owing
+      { wch: 26 }, // I Notes
+    ];
+
+    // ── Merges ────────────────────────────────────────────────────
+    worksheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // A1:I1 title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } }, // A2:I2 date
+    ];
+
+    // ── Row heights ───────────────────────────────────────────────
+    worksheet['!rows'] = [
+      { hpt: 30 }, // Row 1 title
+      { hpt: 16 }, // Row 2 date
+      { hpt: 6 },  // Row 3 blank
+      { hpt: 28 }, // Row 4 headers
+    ];
+
+    // Helper to safely get/create a cell
+    const getCell = (addr: string) => {
+      if (!worksheet[addr]) worksheet[addr] = { v: '', t: 's' };
+      return worksheet[addr];
+    };
+
+    // ── Title row styling ─────────────────────────────────────────
+    const titleCell = getCell('A1');
+    titleCell.s = {
+      font: { sz: 18, bold: true, name: 'Calibri', color: { rgb: '1F2937' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+
+    const dateCell = getCell('A2');
+    dateCell.s = {
+      font: { sz: 10, italic: true, name: 'Calibri', color: { rgb: '6B7280' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+
+    // ── Header row styling (row 4, index 3) ───────────────────────
+    const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+    const headerColors: Record<string, string> = {
+      A: '374151', B: '374151', C: '374151', D: '374151',
+      E: '1E3A5F', // Opening Balance — navy
+      F: '14532D', // Payments — dark green
+      G: '4A1D96', // Fees Waived — dark purple
+      H: '7F1D1D', // Balance Owing — dark red
+      I: '374151',
+    };
+    headerCols.forEach((col) => {
+      const cell = getCell(`${col}4`);
+      cell.s = {
+        font: { bold: true, sz: 11, name: 'Calibri', color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: headerColors[col] } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: { bottom: { style: 'medium', color: { rgb: 'FFFFFF' } } },
+      };
+    });
+
+    // ── Data row styling ──────────────────────────────────────────
+    compRows.forEach((cr, idx) => {
+      const excelRow = dataStartRow + idx;
+      const isEven = idx % 2 === 0;
+      const baseBg = cr.isWaived ? 'F5F3FF' : isEven ? 'FFF7ED' : 'FFFFFF'; // purple-50 / orange-50 / white
+
+      headerCols.forEach((col) => {
+        const addr = `${col}${excelRow}`;
+        const cell = getCell(addr);
+        const isMoneyCol = ['E', 'F', 'G', 'H'].includes(col);
+        const isNumCol = ['C', 'D'].includes(col);
+
+        cell.s = {
+          font: { name: 'Calibri', sz: 10 },
+          fill: { fgColor: { rgb: baseBg } },
+          alignment: {
+            horizontal: isMoneyCol || isNumCol ? 'right' : 'left',
+            vertical: 'center',
+          },
+          border: { bottom: { style: 'hair', color: { rgb: 'E5E7EB' } } },
+        };
+
+        if (isMoneyCol) cell.z = numFmt;
+      });
+
+      // Balance Owing: color based on value
+      const balAddr = `H${excelRow}`;
+      const balCell = getCell(balAddr);
+      const fontColor = cr.balance > 0.005 ? 'DC2626' : cr.balance < -0.005 ? 'EA580C' : '16A34A';
+      balCell.s = {
+        ...balCell.s,
+        font: { name: 'Calibri', sz: 10, bold: cr.balance > 0.005, color: { rgb: fontColor } },
+      };
+
+      // Fees Waived: purple text
+      const waivedAddr = `G${excelRow}`;
+      const waivedCell = getCell(waivedAddr);
+      if (cr.waivedNet > 0) {
+        waivedCell.s = {
+          ...waivedCell.s,
+          font: { name: 'Calibri', sz: 10, color: { rgb: '7C3AED' } },
+        };
+      }
+
+      // Payments: green text
+      const payAddr = `F${excelRow}`;
+      const payCell = getCell(payAddr);
+      if (cr.payments > 0) {
+        payCell.s = {
+          ...payCell.s,
+          font: { name: 'Calibri', sz: 10, color: { rgb: '15803D' } },
+        };
+      }
+    });
+
+    // ── Totals row styling ────────────────────────────────────────
+    headerCols.forEach((col) => {
+      const addr = `${col}${totalsRowNum}`;
+      const cell = getCell(addr);
+      const isMoneyCol = ['E', 'F', 'G', 'H'].includes(col);
+      cell.s = {
+        font: { bold: true, sz: 11, name: 'Calibri', color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '374151' } },
+        alignment: { horizontal: isMoneyCol ? 'right' : 'left', vertical: 'center' },
+        border: { top: { style: 'medium', color: { rgb: 'FFFFFF' } } },
+      };
+      if (isMoneyCol) cell.z = numFmt;
+    });
+
+    // ── Note row about fees waived requiring entry fee config ────
+    const noteRow = totalsRowNum + 2;
+    rows.push([]); // blank
+    rows.push([
+      breakEvenData.regular_entry_fee > 0
+        ? `* Fees Waived calculated from run counts × entry fee ($${breakEvenData.regular_entry_fee.toFixed(2)} regular / $${(breakEvenData.feo_entry_fee || 0).toFixed(2)} FEO)`
+        : '* Fees Waived requires entry fees to be configured in the Break-Even tab',
+    ]);
+    const noteCell = getCell(`A${noteRow}`);
+    noteCell.s = {
+      font: { italic: true, sz: 9, name: 'Calibri', color: { rgb: '6B7280' } },
+    };
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial Summary');
+
+    const filename = `${trialName.replace(/[^a-z0-9]/gi, '-')}-financials-${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  };
+
   const exportBreakEvenAnalysis = () => {
     // Calculate totals
     const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
@@ -848,6 +1072,17 @@ End of Report
     totalOutstanding: competitors.reduce((sum, c) => {
       const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
       return sum + balance; // ✅ CORRECT - includes negative balances (refunds)
+    }, 0),
+    totalFeesWaived: competitors.reduce((sum, c) => {
+      if (!c.fees_waived) return sum;
+      // Gross retail value of all runs that were on waived entries
+      const grossWaivedValue =
+        (c.waived_regular_runs || 0) * (breakEvenData.regular_entry_fee || 0) +
+        (c.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
+      // How much of their payments went toward the waived entries
+      // (payments first cover non-waived amount_owed, excess goes to waived portion)
+      const paymentTowardWaived = Math.max(0, c.amount_paid - c.amount_owed);
+      return sum + Math.max(0, grossWaivedValue - paymentTowardWaived);
     }, 0),
     netIncome: 0, // calculated below
   };
@@ -1220,8 +1455,21 @@ End of Report
             {/* Competitor Payments */}
             <Card>
               <CardHeader>
-                <CardTitle>Entry Payments</CardTitle>
-                <CardDescription>Track payments from competitors</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Entry Payments</CardTitle>
+                    <CardDescription>Track payments from competitors</CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportFinancialsToExcel}
+                    className="border-green-600 text-green-700 hover:bg-green-50"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export to Excel
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -1344,7 +1592,7 @@ End of Report
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => unwaiveFees(comp.entry_id)}
+                                      onClick={() => unwaiveFees(comp.entry_ids || comp.entry_id)}
                                       className="w-full"
                                     >
                                       <CheckCircle className="h-3 w-3 mr-1" />
@@ -1439,28 +1687,79 @@ End of Report
                       })}
                     </tbody>
                     <tfoot>
-                      <tr className="bg-gray-200 font-bold border-t-2">
-                        <td className="p-3" colSpan={7}>
+                      {/* Column label header row */}
+                      <tr className="bg-gray-700 text-white font-bold border-t-4 border-gray-500">
+                        <td className="p-3 text-sm uppercase tracking-wide" colSpan={8}>
                           Grand Totals
                         </td>
-                        <td className="p-3 text-right">${totals.totalOwed.toFixed(2)}</td>
-                        <td className="p-3 text-right text-lg">
-                          ${totals.totalOutstanding.toFixed(2)}
+                        <td className="p-3 text-right text-xs uppercase tracking-wide text-gray-300">
+                          Payments
                         </td>
-                        <td></td>
-                        <td></td>
+                        <td className="p-3 text-right text-xs uppercase tracking-wide text-gray-300">
+                          Balance
+                        </td>
+                        <td colSpan={2} className="p-3"></td>
                       </tr>
-                      <tr className="bg-gray-100 font-semibold">
-                        <td className="p-2" colSpan={7}>
-                          Total Collected
+                      {/* Payments Received */}
+                      <tr className="bg-green-50 font-semibold border-b border-green-200">
+                        <td className="p-3 pl-6 text-green-800" colSpan={8}>
+                          Payments Received
                         </td>
-                        <td className="p-2 text-right text-green-600">
+                        <td className="p-3 text-right font-mono text-green-700">
                           ${totals.totalPaid.toFixed(2)}
                         </td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
+                        <td className="p-3"></td>
+                        <td colSpan={2} className="p-3"></td>
                       </tr>
+                      {/* Outstanding Balance */}
+                      <tr
+                        className={`font-semibold border-b ${
+                          totals.totalOutstanding > 0
+                            ? 'bg-red-50 border-red-200'
+                            : totals.totalOutstanding < 0
+                              ? 'bg-orange-50 border-orange-200'
+                              : 'bg-green-50 border-green-200'
+                        }`}
+                      >
+                        <td
+                          className={`p-3 pl-6 ${
+                            totals.totalOutstanding > 0
+                              ? 'text-red-800'
+                              : totals.totalOutstanding < 0
+                                ? 'text-orange-800'
+                                : 'text-green-800'
+                          }`}
+                          colSpan={8}
+                        >
+                          Outstanding Balance
+                        </td>
+                        <td className="p-3"></td>
+                        <td
+                          className={`p-3 text-right font-mono text-lg font-bold ${
+                            totals.totalOutstanding > 0
+                              ? 'text-red-600'
+                              : totals.totalOutstanding < 0
+                                ? 'text-orange-600'
+                                : 'text-green-600'
+                          }`}
+                        >
+                          ${totals.totalOutstanding.toFixed(2)}
+                        </td>
+                        <td colSpan={2} className="p-3"></td>
+                      </tr>
+                      {/* Fees Waived */}
+                      {totals.totalFeesWaived > 0 && (
+                        <tr className="bg-purple-50 font-semibold border-b border-purple-200">
+                          <td className="p-3 pl-6 text-purple-800" colSpan={8}>
+                            Fees Waived
+                          </td>
+                          <td className="p-3 text-right font-mono text-purple-700">
+                            ${totals.totalFeesWaived.toFixed(2)}
+                          </td>
+                          <td className="p-3"></td>
+                          <td colSpan={2} className="p-3"></td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 </div>
