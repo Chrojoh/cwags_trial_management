@@ -782,8 +782,10 @@ export default function TrialFinancialsPage() {
         (comp.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
       const paymentTowardWaived = Math.max(0, comp.amount_paid - comp.amount_owed);
       const waivedNet = Math.max(0, grossWaivedValue - paymentTowardWaived);
-      const openingBalance = comp.amount_owed + waivedNet;
-      // balance = opening - payments + refunds - waived = comp.amount_owed - comp.amount_paid
+      // Opening must use full grossWaivedValue (not waivedNet) so the formula
+      // opening - payments + refunds - waivedNet correctly zeroes out when
+      // there is a partial payment before waiving (e.g. paid $50, waived $50 → 100-50-50=0)
+      const openingBalance = comp.amount_owed + grossWaivedValue;
       const balance = openingBalance - grossPayments + refunds - waivedNet;
 
       const excelRow = dataStartRow + idx;
@@ -1079,7 +1081,9 @@ End of Report
         }
         return sum + (e.amount || 0);
       }, 0) + cwagsFeeTotal,
-    totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? 0 : c.amount_owed), 0),
+    // For waived entries, amount_owed was zeroed out in the data layer; use amount_paid
+    // instead so the partial payment portion is reflected in the Total Entry Fees card.
+    totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? c.amount_paid : c.amount_owed), 0),
     totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
     totalOutstanding: competitors.reduce((sum, c) => {
       const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
