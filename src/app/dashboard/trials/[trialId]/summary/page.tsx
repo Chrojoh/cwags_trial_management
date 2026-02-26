@@ -864,7 +864,7 @@ export default function ClassSummaryPage() {
             // Row 1 (index 0): Left aligned, font size 18, merged A-E
             if (R === 0) {
               cell.s = {
-                font: { sz: 18, name: 'Calibri' },
+                font: { sz: 16, name: 'Calibri' },
                 alignment: { horizontal: 'left', vertical: 'center' },
               };
             }
@@ -877,7 +877,7 @@ export default function ClassSummaryPage() {
                 };
               } else {
                 cell.s = {
-                  font: { sz: 18, bold: true, name: 'Calibri' },
+                  font: { sz: 16, bold: true, name: 'Calibri' },
                   alignment: { horizontal: 'left', vertical: 'center' },
                 };
               }
@@ -907,8 +907,8 @@ export default function ClassSummaryPage() {
             else if (R >= 6) {
               // Alternating rows: even index rows (6, 8, 10...) get light blue shading
               const isEvenDataRow = R % 2 === 0;
-              // Col C (index 2 = Handler Name) stays at 13; all other data columns use 18
-              const dataFontSize = C === 2 ? 13 : 18;
+              // Col C (index 2 = Handler Name) stays at 13; all other data columns use 16
+              const dataFontSize = C === 2 ? 13 : 16;
 
               // Result columns (D onwards, index 3+): colour by exact cell value
               let fontColor: string | undefined;
@@ -958,33 +958,41 @@ export default function ClassSummaryPage() {
       const fileName = `${summaryData.trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
 
       // xlsx-js-style silently drops !pageSetup during its write phase, so we
-      // post-process the ZIP to inject <pageSetup> directly into each worksheet XML.
-      // fitToWidth/fitToHeight requires a printer-settings r:id relationship to work in
-      // Excel, so we use the proven `scale` approach instead — but compute it dynamically
-      // from each sheet's actual column widths so each sheet fits as large as possible.
+      // post-process the ZIP to inject <pageSetup> and print-title defined names directly.
+      // Rows 1–6 (the header block) are set to repeat on every printed page via
+      // _xlnm.Print_Titles defined names in workbook.xml instead of scaling down.
       const { unzipSync, zipSync, strToU8, strFromU8 } = await import('fflate');
       const xlsxRaw = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
       const xlsxBytes = xlsxRaw instanceof Uint8Array ? xlsxRaw : new Uint8Array(xlsxRaw);
       const zipEntries = unzipSync(xlsxBytes);
       // Margins: left/right 0.5", top/bottom 0.25", header/footer 0.3"
-      // Landscape Letter printable width = 11" − 0.5" − 0.5" = 10.0"
-      // xlsx col width units: each unit ≈ 7.5 pts at default font, 72 pts per inch
-      const landscapePrintableInches = 10.0;
       const pageMarginsXml =
         '<pageMargins left="0.5" right="0.5" top="0.25" bottom="0.25" header="0.3" footer="0.3"/>';
       const lateElements = ['<ignoredErrors', '<drawing', '<legacyDrawing', '<tableParts', '<extLst'];
+
+      // Extract sheet names from workbook.xml to build print-title defined names
+      const workbookXml = strFromU8(zipEntries['xl/workbook.xml']);
+      const sheetNameMatches = [...workbookXml.matchAll(/<sheet[^>]+name="([^"]+)"/g)];
+      const sheetNames = sheetNameMatches.map((m) => m[1]);
+      // Repeat header rows 1–6 on every printed page for each sheet
+      const printTitleEntries = sheetNames
+        .map((name, i) => `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${name}'!$1:$6</definedName>`)
+        .join('');
+      const updatedWorkbookXml = workbookXml.replace(
+        '</workbook>',
+        `<definedNames>${printTitleEntries}</definedNames></workbook>`
+      );
+      zipEntries['xl/workbook.xml'] = strToU8(updatedWorkbookXml);
+
       for (const filePath of Object.keys(zipEntries)) {
         if (/^xl\/worksheets\/sheet\d+\.xml$/.test(filePath)) {
-          const xml = strFromU8(zipEntries[filePath]);
-          // Parse column widths from the generated XML to compute the best-fit scale
-          const colMatches = [...xml.matchAll(/<col[^>]+width="([0-9.]+)"/g)];
-          const totalWidthInches =
-            colMatches.reduce((sum, m) => sum + parseFloat(m[1]) * 7.5 / 72, 0) || 10.0;
-          // Clamp: never exceed 100% (don't upscale), never go below 50% (still readable)
-          const scale = Math.max(50, Math.min(100, Math.floor(landscapePrintableInches / totalWidthInches * 100)));
+          let xml = strFromU8(zipEntries[filePath]);
+          // Inject sheetPr with fitToPage=1 immediately after <worksheet ...> opening tag
+          xml = xml.replace(/<worksheet([^>]*)>/, '<worksheet$1><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+          // fitToWidth=1 fitToHeight=0: all columns on one page wide, unlimited rows tall
           // pageMargins (pos 21) must come before pageSetup (pos 22) per OOXML spec
           const injectXml =
-            `${pageMarginsXml}<pageSetup scale="${scale}" orientation="landscape" paperSize="1"/>`;
+            `${pageMarginsXml}<pageSetup fitToWidth="1" fitToHeight="0" orientation="landscape" paperSize="1"/>`;
           const marker = lateElements.find((el) => xml.includes(el)) ?? '</worksheet>';
           zipEntries[filePath] = strToU8(xml.replace(marker, `${injectXml}${marker}`));
         }
