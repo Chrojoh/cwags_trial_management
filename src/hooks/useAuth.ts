@@ -37,6 +37,16 @@ export function useAuth() {
         // Handle auth errors
         if (authError) {
           console.error('Auth error:', authError);
+          // Stale/invalid refresh token — clear storage and send to login
+          if (
+            authError.message?.includes('Refresh Token Not Found') ||
+            authError.message?.includes('Invalid Refresh Token') ||
+            authError.status === 400
+          ) {
+            await supabase.auth.signOut();
+            window.location.href = '/login';
+            return;
+          }
           if (isMounted) {
             setError(authError.message);
             setUser(null);

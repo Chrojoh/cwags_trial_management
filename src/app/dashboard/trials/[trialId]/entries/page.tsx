@@ -482,7 +482,7 @@ export default function TrialEntriesPage() {
     }).format(amount);
   };
 
-  const exportToCSV = async () => {
+  const exportToExcel = async () => {
     try {
       // Get financial data grouped by owner (this has correct balance calculation)
       const financialsResult = await financialOperations.getCompetitorFinancials(trialId);
@@ -498,7 +498,6 @@ export default function TrialEntriesPage() {
       const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
 
       entries.forEach((entry) => {
-        // Extract owner ID from C-WAGS number (middle 4 digits)
         const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
         const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
 
@@ -510,7 +509,6 @@ export default function TrialEntriesPage() {
         }
       });
 
-      // Create CSV header
       const headers = [
         'Handler Name',
         'Email',
@@ -520,14 +518,11 @@ export default function TrialEntriesPage() {
         'Amount Owing',
       ];
 
-      // Create CSV rows from competitor financials
       const rows = competitors.map((comp) => {
-        // Get contact info
         const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
         const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
         const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
 
-        // Format dogs with run counts: "Roxy (2) Fluffy (8) Rosey (4)"
         const dogsWithRuns = (comp.dogs || [])
           .map((dog: any) => {
             const totalRuns = dog.regular_runs + dog.feo_runs;
@@ -535,11 +530,9 @@ export default function TrialEntriesPage() {
           })
           .join(' ');
 
-        // Calculate total runs
         const totalRuns =
           comp.regular_runs + comp.feo_runs + comp.waived_regular_runs + comp.waived_feo_runs;
 
-        // Calculate balance using the SAME formula as financials page
         const balance = calculateBalance(comp.amount_owed, comp.amount_paid);
 
         return [
@@ -547,35 +540,52 @@ export default function TrialEntriesPage() {
           contact.email,
           contact.phone,
           dogsWithRuns,
-          totalRuns.toString(),
-          balance.toFixed(2),
+          totalRuns,
+          balance,
         ];
       });
 
-      // Combine headers and rows
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-      ].join('\n');
+      const XLSX = await import('xlsx-js-style');
 
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
-      link.setAttribute('href', url);
-      link.setAttribute(
-        'download',
-        `${trial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`
-      );
-      link.style.visibility = 'hidden';
+      // Auto column widths — scale header length for 14pt vs default 11pt font
+      const HEADER_FONT_SCALE = 14 / 11;
+      worksheet['!cols'] = headers.map((header, colIdx) => {
+        const dataMaxLen = Math.max(...rows.map((row) => String(row[colIdx] ?? '').length));
+        const headerLen = Math.ceil(header.length * HEADER_FONT_SCALE);
+        return { wch: Math.max(headerLen + 2, dataMaxLen + 2, 10) };
+      });
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Header row: bold, size 14, centered, shrink-to-fit
+      worksheet['!rows'] = [{ hpt: 42 }];
+      const headerStyle = {
+        font: { bold: true, sz: 14, name: 'Calibri' },
+        alignment: { horizontal: 'center', vertical: 'center', shrinkToFit: true },
+      };
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((col) => {
+        const addr = `${col}1`;
+        if (!worksheet[addr]) worksheet[addr] = { v: '', t: 's' };
+        worksheet[addr].s = headerStyle;
+      });
+
+      // Col C: text format (phone numbers), Col F: currency 2dp
+      rows.forEach((_, idx) => {
+        const rowNum = idx + 2;
+        const phoneCell = worksheet[`C${rowNum}`];
+        if (phoneCell) phoneCell.z = '@';
+        const currCell = worksheet[`F${rowNum}`];
+        if (currCell) currCell.z = '"$"#,##0.00';
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Entries');
+
+      const filename = `${trial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, filename);
     } catch (error) {
-      console.error('Error exporting to CSV:', error);
-      alert('Failed to export CSV');
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export Excel');
     }
   };
 
@@ -705,9 +715,9 @@ export default function TrialEntriesPage() {
           </div>
 
           <div className="flex space-x-2">
-            <Button onClick={exportToCSV}>
+            <Button onClick={exportToExcel}>
               <Download className="h-4 w-4 mr-2" />
-              Export to CSV
+              Export to Excel
             </Button>
             <Button
               onClick={() => {

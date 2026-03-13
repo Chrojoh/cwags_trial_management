@@ -28,7 +28,6 @@ import {
   generateCloseToTitlesReport,
   CloseToTitlesReport as ReportData,
   DogCloseToTitle,
-  MasterScentProgress,
   formatTitleName,
 } from '@/lib/closeToTitlesAnalyzer';
 import { getClassOrder } from '@/lib/cwagsClassNames';
@@ -43,7 +42,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
   const [report, setReport] = useState<ReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['titles', 'aces', 'master'])
+    new Set(['titles', 'aces'])
   );
   const [exporting, setExporting] = useState(false);
 
@@ -105,24 +104,10 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
       acesByNumber.set(dog.aceNumber, count + 1);
     });
 
-    // Count Master Scent achievements by type
-    const masterScentCounts = {
-      ms4: 0,
-      ms5: 0,
-      gms: 0,
-    };
-    report.masterScentProgress.forEach((master) => {
-      if (master.masterId === 'master_scent_level_4') masterScentCounts.ms4++;
-      else if (master.masterId === 'master_scent_level_5') masterScentCounts.ms5++;
-      else if (master.masterId === 'grand_master_scent') masterScentCounts.gms++;
-    });
-
     return {
       totalTitles: report.closeToTitles.length,
       acesByNumber,
-      masterScent: masterScentCounts,
-      totalAchievements:
-        report.closeToTitles.length + report.closeToAces.length + report.masterScentProgress.length,
+      totalAchievements: report.closeToTitles.length + report.closeToAces.length,
     };
   };
 
@@ -143,7 +128,6 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
         ['Summary Statistics:'],
         ['Dogs Close to Titles:', String(report.closeToTitles.length)],
         ['Dogs Close to Aces:', String(report.closeToAces.length)],
-        ['Dogs Close to Master Scent:', String(report.masterScentProgress.length)],
         [],
         ['Note: Assumes 100% pass rate for all entered runs'],
       ];
@@ -257,34 +241,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
         XLSX.utils.book_append_sheet(wb, wsAces, 'Close to Aces');
       }
 
-      // Sheet 4: Master Scent
-      if (report.masterScentProgress.length > 0) {
-        const masterData = [
-          ['Master Scent Achievements'],
-          [],
-          ['Dog Name', 'Handler', 'C-WAGS #', 'Master Title', 'Requirements Met'],
-        ];
-
-        report.masterScentProgress.forEach((master) => {
-          const reqsMet = master.requiredAces
-            .map((req) => `${req.isMet ? '✓' : '✗'} ${req.description}`)
-            .join('; ');
-
-          masterData.push([
-            master.dogName,
-            master.handlerName,
-            master.cwagsNumber,
-            `${master.masterName} (${master.abbreviation})`,
-            reqsMet,
-          ]);
-        });
-
-        const wsMaster = XLSX.utils.aoa_to_sheet(masterData);
-        wsMaster['!cols'] = [{ wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 60 }];
-        XLSX.utils.book_append_sheet(wb, wsMaster, 'Master Scent');
-      }
-
-      // Sheet 5: Summary Totals
+      // Sheet 4: Summary Totals
       const summaryTotals = calculateSummaryTotals();
       if (summaryTotals) {
         const totalsData = [
@@ -304,19 +261,6 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
           if (count > 0) {
             totalsData.push([`Ace #${i}`, String(count)]);
           }
-        }
-
-        totalsData.push([]);
-        totalsData.push(['MASTER SCENT ACHIEVEMENTS:']);
-
-        if (summaryTotals.masterScent.ms4 > 0) {
-          totalsData.push(['Master Scent Level 4', String(summaryTotals.masterScent.ms4)]);
-        }
-        if (summaryTotals.masterScent.ms5 > 0) {
-          totalsData.push(['Master Scent Level 5', String(summaryTotals.masterScent.ms5)]);
-        }
-        if (summaryTotals.masterScent.gms > 0) {
-          totalsData.push(['Grand Master Scent', String(summaryTotals.masterScent.gms)]);
         }
 
         totalsData.push([]);
@@ -343,7 +287,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
   // Export to PDF (using browser print)
   const exportToPDF = () => {
     // Expand all sections before printing
-    setExpandedSections(new Set(['titles', 'aces', 'master']));
+    setExpandedSections(new Set(['titles', 'aces']));
 
     // Wait for sections to expand, then print
     setTimeout(() => {
@@ -376,10 +320,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
   const titlesByClass = groupByClass(report.closeToTitles);
   const acesByClass = groupByClass(report.closeToAces);
 
-  const hasResults =
-    report.closeToTitles.length > 0 ||
-    report.closeToAces.length > 0 ||
-    report.masterScentProgress.length > 0;
+  const hasResults = report.closeToTitles.length > 0 || report.closeToAces.length > 0;
 
   return (
     <div className="space-y-6 print-report-only">
@@ -427,7 +368,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
           </Alert>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="grid grid-cols-2 gap-4 mt-6">
             <div className="bg-purple-50 rounded-lg p-4 border-2 border-purple-200">
               <div className="flex items-center gap-3">
                 <Trophy className="h-6 w-6 text-purple-600" />
@@ -446,18 +387,6 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
                 <div>
                   <p className="text-sm text-gray-600">Close to Aces</p>
                   <p className="text-3xl font-bold text-yellow-700">{report.closeToAces.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-300">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">👑</span>
-                <div>
-                  <p className="text-sm text-gray-600">Master Scent</p>
-                  <p className="text-3xl font-bold text-amber-700">
-                    {report.masterScentProgress.length}
-                  </p>
                 </div>
               </div>
             </div>
@@ -645,107 +574,6 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
         </Card>
       )}
 
-      {/* Master Scent Achievements */}
-      {report.masterScentProgress.length > 0 && (
-        <Card>
-          <CardHeader
-            className="cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => toggleSection('master')}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-3xl">👑</span>
-                <div>
-                  <h3 className="text-xl font-bold">Master Scent Achievements</h3>
-                  <p className="text-sm text-gray-600">
-                    {report.masterScentProgress.length} dog
-                    {report.masterScentProgress.length !== 1 ? 's' : ''} close to earning Master
-                    Scent titles
-                  </p>
-                </div>
-              </div>
-              {expandedSections.has('master') ? (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronRight className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-          </CardHeader>
-
-          {expandedSections.has('master') && (
-            <CardContent className="p-6 space-y-6">
-              {report.masterScentProgress.map((master, idx) => (
-                <div
-                  key={idx}
-                  className="border-l-4 border-amber-400 pl-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-4 break-inside-avoid"
-                >
-                  {/* Dog Info Header */}
-                  <div className="mb-4 pb-3 border-b border-amber-200">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h4 className="font-bold text-2xl text-gray-900">{master.dogName}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{master.handlerName}</p>
-                        <p className="text-xs text-gray-500 font-mono mt-1">{master.cwagsNumber}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="bg-amber-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                          👑 {master.abbreviation}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Master Title Info */}
-                  <div className="mb-4">
-                    <h5 className="font-bold text-xl text-amber-800">
-                      Will Earn: {master.masterName}
-                    </h5>
-                    <p className="text-sm text-amber-700 mt-1">{master.abbreviation}</p>
-                  </div>
-
-                  <div className="space-y-3 mt-4">
-                    <p className="font-semibold text-gray-700">Requirements:</p>
-                    {master.requiredAces.map((req, reqIdx) => (
-                      <div
-                        key={reqIdx}
-                        className={`p-3 rounded-lg ${
-                          req.isMet
-                            ? 'bg-green-100 border-2 border-green-400'
-                            : 'bg-white border-2 border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="text-2xl">{req.isMet ? '✅' : '⏳'}</div>
-                          <div className="flex-1">
-                            <p className="font-semibold text-gray-800">{req.description}</p>
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                              <div>
-                                <p className="text-gray-600">Currently have:</p>
-                                <p className="font-mono text-xs">
-                                  {req.currentAces.length > 0 ? req.currentAces.join(', ') : 'None'}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-gray-600">Will have after trial:</p>
-                                <p className="font-mono text-xs font-semibold text-green-700">
-                                  {req.projectedAces.length > 0
-                                    ? req.projectedAces.join(', ')
-                                    : 'None'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          )}
-        </Card>
-      )}
-
       {/* Summary Totals */}
       {hasResults &&
         (() => {
@@ -805,52 +633,8 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
                     </div>
                   </div>
 
-                  {/* Master Scent & Grand Total Column */}
+                  {/* Grand Total Column */}
                   <div className="space-y-4">
-                    {/* Master Scent */}
-                    {(totals.masterScent.ms4 > 0 ||
-                      totals.masterScent.ms5 > 0 ||
-                      totals.masterScent.gms > 0) && (
-                      <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border-2 border-amber-300">
-                        <p className="text-sm text-gray-600 font-semibold mb-3 flex items-center gap-2">
-                          <span className="text-xl">👑</span>
-                          Master Scent Achievements
-                        </p>
-                        <div className="space-y-2">
-                          {totals.masterScent.ms4 > 0 && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-700">
-                                Master Scent Level 4
-                              </span>
-                              <span className="text-lg font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded">
-                                {totals.masterScent.ms4}
-                              </span>
-                            </div>
-                          )}
-                          {totals.masterScent.ms5 > 0 && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-700">
-                                Master Scent Level 5
-                              </span>
-                              <span className="text-lg font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded">
-                                {totals.masterScent.ms5}
-                              </span>
-                            </div>
-                          )}
-                          {totals.masterScent.gms > 0 && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-700">
-                                Grand Master Scent
-                              </span>
-                              <span className="text-lg font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded">
-                                {totals.masterScent.gms}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Grand Total */}
                     <div className="bg-gradient-to-r from-emerald-600 to-emerald-800 text-white rounded-lg p-6 border-2 border-emerald-700">
                       <p className="text-sm font-semibold mb-2 opacity-90">GRAND TOTAL</p>

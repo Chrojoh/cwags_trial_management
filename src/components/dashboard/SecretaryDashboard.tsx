@@ -630,7 +630,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
 
   const selectedTrial = userTrials.find((t) => t.id === selectedTrialId);
 
-  const exportToCSV = async () => {
+  const exportToExcel = async () => {
     if (!selectedTrialId) return;
 
     try {
@@ -664,7 +664,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         }
       });
 
-      // Create CSV header
       const headers = [
         'Handler Name',
         'Email',
@@ -674,13 +673,11 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         'Amount Owing',
       ];
 
-      // Create CSV rows
       const rows = competitors.map((comp) => {
         const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
         const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
         const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
 
-        // Format dogs with run counts
         const dogsWithRuns = (comp.dogs || [])
           .map((dog: any) => {
             const totalRuns = dog.regular_runs + dog.feo_runs;
@@ -688,11 +685,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           })
           .join(' ');
 
-        // Calculate total runs
         const totalRuns =
           comp.regular_runs + comp.feo_runs + comp.waived_regular_runs + comp.waived_feo_runs;
 
-        // Calculate balance
         const balance = comp.fees_waived ? 0 : comp.amount_owed - comp.amount_paid;
 
         return [
@@ -700,35 +695,52 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           contact.email,
           contact.phone,
           dogsWithRuns,
-          totalRuns.toString(),
-          balance.toFixed(2),
+          totalRuns,
+          balance,
         ];
       });
 
-      // Combine headers and rows
-      const csvContent = [
-        headers.join(','),
-        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-      ].join('\n');
+      const XLSX = await import('xlsx-js-style');
 
-      // Create blob and download
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
+      const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
 
-      link.setAttribute('href', url);
-      link.setAttribute(
-        'download',
-        `${selectedTrial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.csv`
-      );
-      link.style.visibility = 'hidden';
+      // Auto column widths — scale header length for 14pt vs default 11pt font
+      const HEADER_FONT_SCALE = 14 / 11;
+      worksheet['!cols'] = headers.map((header, colIdx) => {
+        const dataMaxLen = Math.max(...rows.map((row) => String(row[colIdx] ?? '').length));
+        const headerLen = Math.ceil(header.length * HEADER_FONT_SCALE);
+        return { wch: Math.max(headerLen + 2, dataMaxLen + 2, 10) };
+      });
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Header row: bold, size 14, centered, shrink-to-fit
+      worksheet['!rows'] = [{ hpt: 42 }];
+      const headerStyle = {
+        font: { bold: true, sz: 14, name: 'Calibri' },
+        alignment: { horizontal: 'center', vertical: 'center', shrinkToFit: true },
+      };
+      ['A', 'B', 'C', 'D', 'E', 'F'].forEach((col) => {
+        const addr = `${col}1`;
+        if (!worksheet[addr]) worksheet[addr] = { v: '', t: 's' };
+        worksheet[addr].s = headerStyle;
+      });
+
+      // Col C: text format (phone numbers), Col F: currency 2dp
+      rows.forEach((_, idx) => {
+        const rowNum = idx + 2;
+        const phoneCell = worksheet[`C${rowNum}`];
+        if (phoneCell) phoneCell.z = '@';
+        const currCell = worksheet[`F${rowNum}`];
+        if (currCell) currCell.z = '"$"#,##0.00';
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Entries');
+
+      const filename = `${selectedTrial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, filename);
     } catch (error) {
-      console.error('Error exporting to CSV:', error);
-      alert('Failed to export CSV');
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export Excel');
     }
   };
 
@@ -1072,12 +1084,12 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={exportToCSV}
+                      onClick={exportToExcel}
                       disabled={!selectedTrialId}
                       className="bg-white hover:bg-gray-50"
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      Export CSV
+                      Export Excel
                     </Button>
 
                     <Button
@@ -1359,11 +1371,11 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={exportToCSV}
+                  onClick={exportToExcel}
                   disabled={!selectedTrialId}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  Export Entries CSV
+                  Export Entries Excel
                 </Button>
 
                 <Button

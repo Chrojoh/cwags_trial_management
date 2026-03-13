@@ -63,8 +63,9 @@ interface Trial {
   location: string;
   start_date: string;
   end_date: string;
-  default_entry_fee?: number; // ✅ NEW: Default regular fee
-  default_feo_price?: number; // ✅ NEW: Default FEO price
+  default_entry_fee?: number;
+  default_feo_price?: number;
+  fee_configuration?: { feo_for_all?: boolean } | null;
 }
 
 const getGameName = (subclass: string): string => {
@@ -150,6 +151,7 @@ function TrialLevelsPageContent() {
     // ✅ Get default fees from trial data, with fallbacks
     const defaultEntryFee = trialData.default_entry_fee ?? 25;
     const defaultFeoPrice = trialData.default_feo_price ?? 15;
+    const defaultFeoAvailable = trialData.fee_configuration?.feo_for_all ?? false;
 
     console.log('Using default fees:', { defaultEntryFee, defaultFeoPrice });
 
@@ -226,7 +228,7 @@ function TrialLevelsPageContent() {
                   selected: false,
                   entryFee: defaultEntryFee,
                   maxEntries: 20,
-                  feoAvailable: false,
+                  feoAvailable: defaultFeoAvailable,
                   feoPrice: defaultFeoPrice,
                   gamesSubclasses: [],
                   notes: '',
@@ -242,7 +244,7 @@ function TrialLevelsPageContent() {
               selected: false,
               entryFee: defaultEntryFee,
               maxEntries: 20,
-              feoAvailable: false,
+              feoAvailable: defaultFeoAvailable,
               feoPrice: defaultFeoPrice,
               gamesSubclasses: [],
               notes: '',
@@ -258,7 +260,7 @@ function TrialLevelsPageContent() {
             selected: false,
             entryFee: defaultEntryFee,
             maxEntries: 20,
-            feoAvailable: false,
+            feoAvailable: defaultFeoAvailable,
             feoPrice: defaultFeoPrice,
             gamesSubclasses: [],
             notes: '',
@@ -958,7 +960,7 @@ function TrialLevelsPageContent() {
                                       htmlFor={`feo-${day.id}-${actualIndex}`}
                                       className="text-sm font-semibold text-orange-900 cursor-pointer"
                                     >
-                                      ✓ FEO Available for this class
+                                     Check this box if FEO Available for this class
                                     </Label>
                                   </div>
 

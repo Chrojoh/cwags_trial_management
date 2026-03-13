@@ -578,12 +578,6 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
       }
     }
 
-    // -------------------------------------------------------
-    // Step 5: Check Master Scent progress
-    // -------------------------------------------------------
-    console.log('🏆 Checking Master Scent progress...');
-    report.masterScentProgress = await checkMasterScentProgress(trialId, dogClassMap);
-
     // Sort results by dog name
     report.closeToTitles.sort((a, b) => a.dogName.localeCompare(b.dogName));
     report.closeToAces.sort((a, b) => a.dogName.localeCompare(b.dogName));

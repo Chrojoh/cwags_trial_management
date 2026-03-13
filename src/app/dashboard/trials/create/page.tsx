@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Calendar, MapPin, FileText, ArrowRight, ArrowLeft, Save, DollarSign } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
@@ -145,6 +146,7 @@ interface TrialFormData {
   max_entries_per_day: number;
   default_entry_fee: number;
   default_feo_price: number;
+  feo_for_all: boolean;
   waiver_text: string;
   notes: string;
 }
@@ -171,6 +173,7 @@ export default function CreateTrialPage() {
     max_entries_per_day: 50,
     default_entry_fee: 25,
     default_feo_price: 15,
+    feo_for_all: false,
     waiver_text: DEFAULT_WAIVER,
     notes: '',
   });
@@ -223,7 +226,7 @@ export default function CreateTrialPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleInputChange = (field: keyof TrialFormData, value: string | number) => {
+  const handleInputChange = (field: keyof TrialFormData, value: string | number | boolean) => {
     setTrialData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -278,7 +281,7 @@ export default function CreateTrialPage() {
         secretary_email: trialData.secretary_email,
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
-        fee_configuration: {},
+        fee_configuration: { feo_for_all: trialData.feo_for_all },
         notes: trialData.notes || null,
       };
 
@@ -337,7 +340,7 @@ export default function CreateTrialPage() {
         secretary_email: trialData.secretary_email,
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
-        fee_configuration: {},
+        fee_configuration: { feo_for_all: trialData.feo_for_all },
         notes: trialData.notes || null,
       };
 
@@ -424,7 +427,7 @@ export default function CreateTrialPage() {
         secretary_email: trialData.secretary_email,
         secretary_phone: trialData.secretary_phone || null,
         waiver_text: trialData.waiver_text,
-        fee_configuration: {},
+        fee_configuration: { feo_for_all: trialData.feo_for_all },
         notes: trialData.notes || null,
       };
 
@@ -777,6 +780,26 @@ export default function CreateTrialPage() {
                     }
                     className="py-3 sm:py-2 text-base sm:text-sm"
                   />
+                </div>
+
+                {/* FEO for All Classes */}
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center space-x-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-lg">
+                    <Checkbox
+                      id="feo_for_all"
+                      checked={trialData.feo_for_all}
+                      onCheckedChange={(checked) => handleInputChange('feo_for_all', !!checked)}
+                      className="w-6 h-6 border-2 data-[state=checked]:bg-orange-600 data-[state=checked]:border-orange-600"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="feo_for_all" className="text-base font-semibold text-orange-900 cursor-pointer">
+                        FEO Available for All Classes
+                      </Label>
+                      <p className="text-sm text-orange-700 mt-0.5">
+                        When checked, every selected class will have FEO enabled by default. You can still turn it off for individual classes on the Levels page.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Default Entry Fees Section */}
