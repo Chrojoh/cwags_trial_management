@@ -125,9 +125,20 @@ function extractGameTypes(records: any[]): Set<string> {
 // ============================================================
 // Helper: Calculate current title/ace status from tracker history
 // ============================================================
+// Maps full DB class names → short tracker names used in the Excel history file
+const TRACKER_CLASS_NAME_MAP: Record<string, string> = {
+  'Detective Diversions': 'Det Diversions',
+  'Private Investigator': 'Private Inv',
+};
+
+function normalizeForTracker(name: string): string {
+  return TRACKER_CLASS_NAME_MAP[name] ?? name;
+}
+
 function analyzeTrackerHistory(history: any[], className: string) {
+  const trackerClassName = normalizeForTracker(className.trim());
   const levelRecords = history.filter(
-    (r) => r.class?.trim() === className.trim() && (r.qs || 0) > 0
+    (r) => r.class?.trim() === trackerClassName && (r.qs || 0) > 0
   );
 
   const totalQs = levelRecords.reduce((sum, r) => sum + r.qs, 0);
