@@ -1335,8 +1335,13 @@ export default function ClassSummaryPage() {
                             </td>
                             <td className="border border-gray-300 px-4 py-3 text-center">
                               <span className="font-medium">
-                                {cls.completed_runs > 0
-                                  ? Math.round((cls.pass_count / cls.completed_runs) * 100)
+                                {(cls.pass_count + cls.fail_count + (cls.participant_count - cls.completed_runs)) > 0
+                                  ? Math.round(
+                                    (cls.pass_count /
+                                      (cls.pass_count +
+                                       cls.fail_count +
+                                       (cls.participant_count - cls.completed_runs))) * 100
+                                    )
                                   : 0}
                                 %
                               </span>
@@ -1403,7 +1408,14 @@ export default function ClassSummaryPage() {
               <Card>
                 <CardContent className="text-center p-4">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.round(summaryData.statistics.overall_pass_rate)}%
+                    {summaryData.statistics.total_passes + summaryData.statistics.total_fails + (summaryData.statistics.total_participants - summaryData.statistics.total_completed) > 0
+                    ?  Math.round(
+                        (summaryData.statistics.total_passes /
+                          (summaryData.statistics.total_passes +
+                            summaryData.statistics.total_fails +
+                            (summaryData.statistics.total_participants - summaryData.statistics.total_completed))) * 100
+                      )
+                  : 0}%
                   </div>
                   <div className="text-sm text-gray-600">Pass Rate</div>
                 </CardContent>
