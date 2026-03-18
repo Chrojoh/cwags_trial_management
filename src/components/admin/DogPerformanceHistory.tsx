@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { formatCwagsNumber } from '@/lib/utils';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
 
@@ -92,7 +93,7 @@ export default function DogPerformanceHistory() {
               trial_date
             )
           ),
-          entry_selections!inner(
+          entry_selections!entry_selections_entry_id_fkey!inner(
             id,
             entry_type,
             entry_status,
@@ -495,7 +496,7 @@ export default function DogPerformanceHistory() {
               type="text"
               placeholder="Enter C-WAGS Registration Number (e.g., 12-3456-78)"
               value={cwagsNumber}
-              onChange={(e) => setCwagsNumber(e.target.value)}
+              onChange={(e) => setCwagsNumber(formatCwagsNumber(e.target.value))}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   searchDogHistory();
