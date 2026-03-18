@@ -42,8 +42,8 @@ export const formatCwagsNumber = (input: string): string => {
 
   // No dashes — split positionally from raw digits
   const digits = trimmed.replace(/\D/g, '');
-  if (digits.length < 8) return trimmed;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 8).padStart(2, '0')}`;
+  if (digits.length < 7) return trimmed;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6).padStart(2, '0')}`;
 };
 
 export const isValidEmail = (email: string): boolean => {
