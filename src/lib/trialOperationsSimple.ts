@@ -1486,7 +1486,7 @@ export const simpleTrialOperations = {
         .select(
           `
     *,
-    entry_selections (
+    entry_selections!entry_selections_entry_id_fkey (
       *,
       scores (*),
       trial_rounds (
@@ -2541,7 +2541,7 @@ export const simpleTrialOperations = {
               running_position,
               entry_type,
               entry_status,
-              entries (
+              entries!entry_selections_entry_id_fkey (
                 handler_name,
                 dog_call_name,
                 cwags_number

@@ -147,7 +147,7 @@ export const financialOperations = {
         amount_paid,
         fees_waived,
         waiver_reason,
-        entry_selections (
+        entry_selections!entry_selections_entry_id_fkey (
           id,
           entry_type,
           fee,
@@ -377,7 +377,7 @@ export const financialOperations = {
       for (const entryId of ids) {
         const { data: entry } = await supabase
           .from('entries')
-          .select(`entry_selections (fee, entry_status)`)
+          .select(`entry_selections!entry_selections_entry_id_fkey (fee, entry_status)`)
           .eq('id', entryId)
           .single();
 

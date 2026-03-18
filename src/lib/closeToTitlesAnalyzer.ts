@@ -414,7 +414,7 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
         cwags_number,
         dog_call_name,
         handler_name,
-        entry_selections!inner(
+        entry_selections!entry_selections_entry_id_fkey!inner(
           entry_type,
           entry_status,
           trial_rounds!inner(

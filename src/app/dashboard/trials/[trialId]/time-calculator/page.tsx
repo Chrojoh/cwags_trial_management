@@ -122,7 +122,7 @@ export default function TrialTimeCalculatorPage() {
               `
     id,
     handler_name,
-    entry_selections (
+    entry_selections!entry_selections_entry_id_fkey (
       id,
       trial_round_id,
       entry_status,

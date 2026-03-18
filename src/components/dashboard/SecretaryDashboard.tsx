@@ -165,7 +165,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           amount_owed,
           amount_paid,
           fees_waived,
-          entry_selections (
+          entry_selections!entry_selections_entry_id_fkey (
             id,
             entry_type,
             entry_status

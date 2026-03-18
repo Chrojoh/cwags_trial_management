@@ -607,7 +607,7 @@ export default function TrialFinancialsPage() {
       .select(
         `
         id,
-        entry_selections (
+        entry_selections!entry_selections_entry_id_fkey (
           id,
           entry_type,
           fee
