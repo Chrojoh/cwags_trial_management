@@ -1577,7 +1577,7 @@ export const simpleTrialOperations = {
         .select(
           `
           *,
-          entries!inner(
+          entries!entry_selections_entry_id_fkey!inner(
             handler_name,
             dog_call_name,
             cwags_number

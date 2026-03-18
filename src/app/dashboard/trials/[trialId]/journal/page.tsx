@@ -404,7 +404,7 @@ export default function TrialJournalPage() {
           .select(
             `
             *,
-            entry_selections (
+            entry_selections!entry_selections_entry_id_fkey (
               *,
               trial_rounds (
                 round_number,
