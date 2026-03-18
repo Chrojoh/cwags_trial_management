@@ -1161,7 +1161,7 @@ export default function LiveEventManagementPage() {
         entry_status: 'entered',
         division: originalDivision,
         jump_height: originalJumpHeight,
-        substitute_cwags_number: originalCwagsNumber || null, // Marks this as a substitution; stores original CWAGS
+        substitute_cwags_number: formattedNewCwags || null, // Marks this as a substitution; stores original CWAGS
       });
 
       if (insertError) {
