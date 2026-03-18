@@ -74,7 +74,11 @@ export default function DogPerformanceHistory() {
       setError(null);
       setPerformanceData(null);
 
-      console.log(`🔍 Searching for dog history: ${cwagsNumber}`);
+      // Format and update the input display before searching
+      const formatted = formatCwagsNumber(cwagsNumber);
+      setCwagsNumber(formatted);
+
+      console.log(`🔍 Searching for dog history: ${formatted}`);
 
       // Step 1: Get all entries for this dog
       const { data: entries, error: entriesError } = await supabase
@@ -111,7 +115,7 @@ export default function DogPerformanceHistory() {
           )
         `
         )
-        .eq('cwags_number', cwagsNumber.trim())
+        .eq('cwags_number', formatted)
         .neq('entry_status', 'withdrawn');
 
       if (entriesError) {
@@ -496,7 +500,7 @@ export default function DogPerformanceHistory() {
               type="text"
               placeholder="Enter C-WAGS Registration Number (e.g., 12-3456-78)"
               value={cwagsNumber}
-              onChange={(e) => setCwagsNumber(formatCwagsNumber(e.target.value))}
+              onChange={(e) => setCwagsNumber(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   searchDogHistory();
