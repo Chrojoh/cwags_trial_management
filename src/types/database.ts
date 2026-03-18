@@ -317,7 +317,7 @@ export interface Database {
           games_subclass: string | null;
           substitute_dog_name: string | null;
           substitute_handler_name: string | null;
-          substitute_cwags_number: string | null;
+          original_entry_id: string | null;
           jump_height: string | null;
           created_at: string;
         };
@@ -333,7 +333,7 @@ export interface Database {
           games_subclass?: string | null;
           substitute_dog_name?: string | null;
           substitute_handler_name?: string | null;
-          substitute_cwags_number?: string | null;
+          original_entry_id?: string | null;
           jump_height?: string | null;
           created_at?: string;
         };
@@ -349,7 +349,7 @@ export interface Database {
           games_subclass?: string | null;
           substitute_dog_name?: string | null;
           substitute_handler_name?: string | null;
-          substitute_cwags_number?: string | null;
+          original_entry_id?: string | null;
           jump_height?: string | null;
           created_at?: string;
         };

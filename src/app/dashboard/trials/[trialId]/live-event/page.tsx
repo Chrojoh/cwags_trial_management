@@ -127,7 +127,7 @@ interface ClassEntry {
   jump_height?: string | null;
   fee: number;
   is_substitute?: boolean;
-  original_cwags?: string | null;
+  original_entry_id?: string | null;
   entries: {
     handler_name: string;
     dog_call_name: string;
@@ -785,8 +785,8 @@ export default function LiveEventManagementPage() {
                 division: selection.division || null,
                 jump_height: selection.jump_height || null,
                 fee: selection.fee || 0,
-                is_substitute: !!selection.substitute_cwags_number,
-                original_cwags: selection.substitute_cwags_number || null,
+                is_substitute: !!selection.original_entry_id,
+                original_entry_id: selection.original_entry_id || null,
                 entries: {
                   handler_name: selection.substitute_handler_name || entry.handler_name,
                   dog_call_name: selection.substitute_dog_name || entry.dog_call_name,
@@ -1161,7 +1161,7 @@ export default function LiveEventManagementPage() {
         entry_status: 'entered',
         division: originalDivision,
         jump_height: originalJumpHeight,
-        substitute_cwags_number: formattedNewCwags || null, // Marks this as a substitution; stores original CWAGS
+        original_entry_id: originalEntryId, // Marks this as a substitution; references the original entry
       });
 
       if (insertError) {
@@ -3802,7 +3802,7 @@ export default function LiveEventManagementPage() {
                                                       <Badge
                                                         variant="outline"
                                                         className="text-xs bg-yellow-100 text-yellow-800 border-yellow-400"
-                                                        title={`Substitute dog — original entry: ${entry.original_cwags}`}
+                                                        title={`Substitute dog — original entry ID: ${entry.original_entry_id}`}
                                                       >
                                                         SUB
                                                       </Badge>

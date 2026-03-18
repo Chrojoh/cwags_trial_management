@@ -140,7 +140,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             }
 
             // ✅ USE SUBSTITUTE DOG INFO IF EXISTS
-            const cwagsNumber = selection.substitute_cwags_number || entry.cwags_number || '';
+            const cwagsNumber = entry.cwags_number || '';
             const dogName = selection.substitute_dog_name || entry.dog_call_name || '';
             const handlerName = selection.substitute_handler_name || entry.handler_name || '';
 
