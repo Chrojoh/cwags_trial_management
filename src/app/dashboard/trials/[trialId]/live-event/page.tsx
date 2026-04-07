@@ -909,6 +909,30 @@ export default function LiveEventManagementPage() {
         if (updates.fee !== undefined) {
           console.log('✅ Fee updated to:', updates.fee);
         }
+
+        // When marking absent/no_show, also save Abs to the score record
+        if (field === 'entry_status' && value === 'no_show' && selectedClass) {
+          await simpleTrialOperations.upsertScore({
+            entry_selection_id: entryId,
+            trial_round_id: selectedClass.id,
+            pass_fail: 'Abs',
+          });
+          // Update local score state so the running order badge reflects immediately
+          setClassEntries((prev) =>
+            prev.map((e) =>
+              e.id === entryId
+                ? {
+                    ...e,
+                    scores: Array.isArray(e.scores)
+                      ? e.scores.length > 0
+                        ? [{ ...e.scores[0], pass_fail: 'Abs' }]
+                        : [{ pass_fail: 'Abs' }]
+                      : [{ pass_fail: 'Abs' }],
+                  }
+                : e
+            )
+          );
+        }
       }
 
       // If the status was changed to withdrawn, reload to remove from list

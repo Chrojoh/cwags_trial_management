@@ -28,7 +28,8 @@ interface EntryScore {
   dogName: string;
   handlerName: string;
   division?: string | null;
-  entry_type: 'regular' | 'feo'; // ✅ ADDED
+  entry_type: 'regular' | 'feo';
+  entry_status: string;
   // Scent fields
   scent1: string;
   scent2: string;
@@ -133,10 +134,15 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
             const score = scoresArray[0] || {};
 
-            // ✅ AUTO-FILL FEO ENTRIES
+            const entryStatus = selection.entry_status || '';
+            const isAbsent = entryStatus === 'no_show' || entryStatus === 'absent';
+
+            // Auto-fill pass_fail for FEO and absent entries
             let passFail = score.pass_fail ?? '';
             if (selection.entry_type === 'feo' && !passFail) {
               passFail = 'FEO';
+            } else if (isAbsent && !passFail) {
+              passFail = 'Abs';
             }
 
             // ✅ USE SUBSTITUTE DOG INFO IF EXISTS
@@ -151,7 +157,8 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
               dogName,
               handlerName,
               division: selection.division || null,
-              entry_type: selection.entry_type || 'regular', // ✅ ADDED
+              entry_type: selection.entry_type || 'regular',
+              entry_status: entryStatus,
               scent1: score.scent1 ?? '',
               scent2: score.scent2 ?? '',
               scent3: score.scent3 ?? '',
@@ -166,7 +173,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 score.numerical_score !== null && score.numerical_score !== undefined
                   ? String(score.numerical_score)
                   : '',
-              pass_fail: passFail, // ✅ AUTO-FILLED FOR FEO
+              pass_fail: passFail,
             });
           }
         });
@@ -340,105 +347,120 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => (
-                    <tr
-                      key={entry.id}
-                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
-                        entry.entry_type === 'feo' ? 'opacity-75' : ''
-                      }`}
-                    >
-                      <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                      <td className="border p-2 text-sm">
-                        <div className="flex items-center gap-2">
-                          <div>
-                            <div className="font-semibold flex items-center gap-2">
-                              {entry.dogName}
-                              {entry.division && (
-                                <span
-                                  className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                    entry.division === 'A'
-                                      ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                      : entry.division === 'B'
-                                        ? 'bg-green-100 text-green-700 border border-green-300'
-                                        : entry.division === 'TO'
-                                          ? 'bg-purple-100 text-purple-700 border border-purple-300'
-                                          : entry.division === 'JR'
-                                            ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                                            : 'bg-gray-100 text-gray-700'
-                                  }`}
-                                >
-                                  {entry.division}
-                                </span>
-                              )}
-                              {/* ✅ FEO BADGE */}
-                              {entry.entry_type === 'feo' && (
-                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
-                                  FEO
-                                </span>
-                              )}
+                  {entries.map((entry, idx) => {
+                    const isAbsent =
+                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                    const isDisabled = entry.entry_type === 'feo' || isAbsent;
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                          entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
+                        }`}
+                      >
+                        <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
+                        <td className="border p-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="font-semibold flex items-center gap-2">
+                                {entry.dogName}
+                                {entry.division && (
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                      entry.division === 'A'
+                                        ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                        : entry.division === 'B'
+                                          ? 'bg-green-100 text-green-700 border border-green-300'
+                                          : entry.division === 'TO'
+                                            ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                            : entry.division === 'JR'
+                                              ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                              : 'bg-gray-100 text-gray-700'
+                                    }`}
+                                  >
+                                    {entry.division}
+                                  </span>
+                                )}
+                                {entry.entry_type === 'feo' && (
+                                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                    FEO
+                                  </span>
+                                )}
+                                {isAbsent && (
+                                  <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+                                    Absent
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-gray-600">{entry.handlerName}</div>
                             </div>
-                            <div className="text-gray-600">{entry.handlerName}</div>
                           </div>
-                        </div>
-                      </td>
-                      {(['scent1', 'scent2', 'scent3', 'scent4'] as const).map((field) => (
-                        <td className="border p-1 w-20" key={field}>
-                          <Select
-                            value={entry[field] || '-'}
-                            onValueChange={(value) =>
-                              updateEntry(idx, field, value === '-' ? '' : value)
-                            }
-                            disabled={entry.entry_type === 'feo'}
-                          >
-                            <SelectTrigger className="h-8 bg-white">
-                              <SelectValue placeholder="-" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white">
-                              <SelectItem value="-">–</SelectItem>
-                              <SelectItem value="✓">✓</SelectItem>
-                              <SelectItem value="✗">✗</SelectItem>
-                            </SelectContent>
-                          </Select>
                         </td>
-                      ))}
-                      {(['fault1', 'fault2'] as const).map((field) => (
-                        <td className="border p-1 w-40" key={field}>
+                        {(['scent1', 'scent2', 'scent3', 'scent4'] as const).map((field) => (
+                          <td className="border p-1 w-20" key={field}>
+                            <Select
+                              value={entry[field] || '-'}
+                              onValueChange={(value) =>
+                                updateEntry(idx, field, value === '-' ? '' : value)
+                              }
+                              disabled={isDisabled}
+                            >
+                              <SelectTrigger className="h-8 bg-white">
+                                <SelectValue placeholder="-" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                <SelectItem value="-">–</SelectItem>
+                                <SelectItem value="✓">✓</SelectItem>
+                                <SelectItem value="✗">✗</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        ))}
+                        {(['fault1', 'fault2'] as const).map((field) => (
+                          <td className="border p-1 w-40" key={field}>
+                            <Input
+                              value={entry[field]}
+                              onChange={(e) => updateEntry(idx, field, e.target.value)}
+                              className="w-full h-8 text-center text-sm"
+                              disabled={isDisabled}
+                            />
+                          </td>
+                        ))}
+                        <td className="border p-1 w-24">
                           <Input
-                            value={entry[field]}
-                            onChange={(e) => updateEntry(idx, field, e.target.value)}
+                            value={entry.time_seconds}
+                            onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
+                            type="number"
+                            step="0.01"
                             className="w-full h-8 text-center text-sm"
-                            disabled={entry.entry_type === 'feo'}
+                            placeholder="0.00"
+                            disabled={isDisabled}
                           />
                         </td>
-                      ))}
-                      <td className="border p-1 w-24">
-                        <Input
-                          value={entry.time_seconds}
-                          onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
-                          type="number"
-                          step="0.01"
-                          className="w-full h-8 text-center text-sm"
-                          placeholder="0.00"
-                          disabled={entry.entry_type === 'feo'}
-                        />
-                      </td>
-                      <td className="border p-1 w-24">
-                        <Select
-                          value={entry.pass_fail || ''}
-                          onValueChange={(value) => updateEntry(idx, 'pass_fail', value)}
-                          disabled={entry.entry_type === 'feo'}
-                        >
-                          <SelectTrigger className="h-8 bg-white">
-                            <SelectValue placeholder="-" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="Pass">Pass</SelectItem>
-                            <SelectItem value="Fail">Fail</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="border p-1 w-24">
+                          {isAbsent ? (
+                            <div className="h-8 flex items-center justify-center font-semibold text-gray-500">
+                              Abs
+                            </div>
+                          ) : (
+                            <Select
+                              value={entry.pass_fail || ''}
+                              onValueChange={(value) => updateEntry(idx, 'pass_fail', value)}
+                              disabled={entry.entry_type === 'feo'}
+                            >
+                              <SelectTrigger className="h-8 bg-white">
+                                <SelectValue placeholder="-" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                <SelectItem value="Pass">Pass</SelectItem>
+                                <SelectItem value="Fail">Fail</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -454,74 +476,82 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => (
-                    <tr
-                      key={entry.id}
-                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
-                        entry.entry_type === 'feo' ? 'opacity-75' : ''
-                      }`}
-                    >
-                      <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                      <td className="border p-2 text-sm">
-                        <div className="font-semibold flex items-center gap-2">
-                          {entry.dogName}
-                          {entry.division && (
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                entry.division === 'A'
-                                  ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                  : entry.division === 'B'
-                                    ? 'bg-green-100 text-green-700 border border-green-300'
-                                    : entry.division === 'TO'
-                                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
-                                      : entry.division === 'JR'
-                                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                                        : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {entry.division}
-                            </span>
-                          )}
-                          {/* ✅ FEO BADGE */}
-                          {entry.entry_type === 'feo' && (
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
-                              FEO
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-gray-600">{entry.handlerName}</div>
-                      </td>
-                      <td className="border p-1 w-32">
-                        <Input
-                          value={entry.numerical_score}
-                          onChange={(e) => updateEntry(idx, 'numerical_score', e.target.value)}
-                          type="number"
-                          min={
-                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
-                              ? 120
-                              : 70
-                          }
-                          max={
-                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
-                              ? 150
-                              : 100
-                          }
-                          className="w-full h-8 text-center text-sm"
-                          placeholder={
-                            selectedClass.class_name?.toLowerCase().includes('obedience 5')
-                              ? '120-150'
-                              : '70-100'
-                          }
-                          disabled={entry.entry_type === 'feo'}
-                        />
-                      </td>
-                      <td className="border p-1 w-24">
-                        <div className="h-8 flex items-center justify-center font-semibold">
-                          {entry.pass_fail || '-'}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  {entries.map((entry, idx) => {
+                    const isAbsent =
+                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                          entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
+                        }`}
+                      >
+                        <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
+                        <td className="border p-2 text-sm">
+                          <div className="font-semibold flex items-center gap-2">
+                            {entry.dogName}
+                            {entry.division && (
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  entry.division === 'A'
+                                    ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                    : entry.division === 'B'
+                                      ? 'bg-green-100 text-green-700 border border-green-300'
+                                      : entry.division === 'TO'
+                                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                        : entry.division === 'JR'
+                                          ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                          : 'bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                {entry.division}
+                              </span>
+                            )}
+                            {entry.entry_type === 'feo' && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                FEO
+                              </span>
+                            )}
+                            {isAbsent && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+                                Absent
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-gray-600">{entry.handlerName}</div>
+                        </td>
+                        <td className="border p-1 w-32">
+                          <Input
+                            value={entry.numerical_score}
+                            onChange={(e) => updateEntry(idx, 'numerical_score', e.target.value)}
+                            type="number"
+                            min={
+                              selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                                ? 120
+                                : 70
+                            }
+                            max={
+                              selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                                ? 150
+                                : 100
+                            }
+                            className="w-full h-8 text-center text-sm"
+                            placeholder={
+                              selectedClass.class_name?.toLowerCase().includes('obedience 5')
+                                ? '120-150'
+                                : '70-100'
+                            }
+                            disabled={entry.entry_type === 'feo' || isAbsent}
+                          />
+                        </td>
+                        <td className="border p-1 w-24">
+                          <div className="h-8 flex items-center justify-center font-semibold">
+                            {entry.pass_fail || '-'}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -536,68 +566,81 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => (
-                    <tr
-                      key={entry.id}
-                      className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
-                        entry.entry_type === 'feo' ? 'opacity-75' : ''
-                      }`}
-                    >
-                      <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
-                      <td className="border p-2 text-sm">
-                        <div className="font-semibold flex items-center gap-2">
-                          {entry.dogName}
-                          {entry.division && (
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                entry.division === 'A'
-                                  ? 'bg-orange-100 text-orange-700 border border-orange-300'
-                                  : entry.division === 'B'
-                                    ? 'bg-green-100 text-green-700 border border-green-300'
-                                    : entry.division === 'TO'
-                                      ? 'bg-purple-100 text-purple-700 border border-purple-300'
-                                      : entry.division === 'JR'
-                                        ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                                        : 'bg-gray-100 text-gray-700'
-                              }`}
+                  {entries.map((entry, idx) => {
+                    const isAbsent =
+                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                    return (
+                      <tr
+                        key={entry.id}
+                        className={`${idx % 2 === 0 ? 'bg-orange-100' : 'bg-orange-50'} ${
+                          entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
+                        }`}
+                      >
+                        <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
+                        <td className="border p-2 text-sm">
+                          <div className="font-semibold flex items-center gap-2">
+                            {entry.dogName}
+                            {entry.division && (
+                              <span
+                                className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  entry.division === 'A'
+                                    ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                    : entry.division === 'B'
+                                      ? 'bg-green-100 text-green-700 border border-green-300'
+                                      : entry.division === 'TO'
+                                        ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                        : entry.division === 'JR'
+                                          ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                                          : 'bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                {entry.division}
+                              </span>
+                            )}
+                            {entry.entry_type === 'feo' && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
+                                FEO
+                              </span>
+                            )}
+                            {isAbsent && (
+                              <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300">
+                                Absent
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-gray-600">{entry.handlerName}</div>
+                        </td>
+                        <td className="border p-1 w-32">
+                          {isAbsent ? (
+                            <div className="h-8 flex items-center justify-center font-semibold text-gray-500">
+                              Abs
+                            </div>
+                          ) : (
+                            <Select
+                              value={entry.pass_fail || 'none'}
+                              onValueChange={(value) =>
+                                updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)
+                              }
+                              disabled={entry.entry_type === 'feo'}
                             >
-                              {entry.division}
-                            </span>
+                              <SelectTrigger className="h-8 bg-white">
+                                <SelectValue placeholder="-" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white">
+                                <SelectItem value="none">-</SelectItem>
+                                <SelectItem value="GB">GB</SelectItem>
+                                <SelectItem value="BJ">BJ</SelectItem>
+                                <SelectItem value="T">T</SelectItem>
+                                <SelectItem value="P">P</SelectItem>
+                                <SelectItem value="C">C</SelectItem>
+                                <SelectItem value="Fail">Fail</SelectItem>
+                              </SelectContent>
+                            </Select>
                           )}
-                          {/* ✅ FEO BADGE */}
-                          {entry.entry_type === 'feo' && (
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-300">
-                              FEO
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-gray-600">{entry.handlerName}</div>
-                      </td>
-                      <td className="border p-1 w-32">
-                        <Select
-                          value={entry.pass_fail || 'none'}
-                          onValueChange={(value) =>
-                            updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)
-                          }
-                          disabled={entry.entry_type === 'feo'}
-                        >
-                          <SelectTrigger className="h-8 bg-white">
-                            <SelectValue placeholder="-" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-white">
-                            <SelectItem value="none">-</SelectItem>
-                            <SelectItem value="GB">GB</SelectItem>
-                            <SelectItem value="BJ">BJ</SelectItem>
-                            <SelectItem value="T">T</SelectItem>
-                            <SelectItem value="P">P</SelectItem>
-                            <SelectItem value="C">C</SelectItem>
-                            <SelectItem value="Fail">Fail</SelectItem>
-                            <SelectItem value="ABS">Abs</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
