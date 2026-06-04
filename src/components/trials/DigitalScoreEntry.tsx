@@ -44,6 +44,27 @@ interface EntryScore {
   pass_fail: string;
 }
 
+// Converts seconds (83.45) to display string "1:23.45"
+function secondsToDisplay(seconds: string): string {
+  const num = parseFloat(seconds);
+  if (isNaN(num)) return seconds; // pass through if already a string like "1:23"
+  const mins = Math.floor(num / 60);
+  const secs = (num % 60).toFixed(2);
+  const secsFormatted = parseFloat(secs) < 10 ? `0${secs}` : secs;
+  return mins > 0 ? `${mins}:${secsFormatted}` : `${secsFormatted}`;
+}
+
+// Converts display string "1:23.45" back to seconds (83.45)
+function displayToSeconds(display: string): string {
+  if (!display) return '';
+  // If it already looks like a plain number, return as-is
+  if (!display.includes(':')) return display;
+  const parts = display.split(':');
+  const mins = parseFloat(parts[0]) || 0;
+  const secs = parseFloat(parts[1]) || 0;
+  return String((mins * 60) + secs);
+}
+
 export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPageProps) {
   const [entries, setEntries] = useState<EntryScore[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,7 +188,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
               fault2: score.fault2 ?? '',
               time_seconds:
                 score.time_seconds !== null && score.time_seconds !== undefined
-                  ? String(score.time_seconds)
+                  ? secondsToDisplay(String(score.time_seconds))
                   : '',
               numerical_score:
                 score.numerical_score !== null && score.numerical_score !== undefined
@@ -238,10 +259,10 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             scent4: entry.scent4 || null,
             fault1: entry.fault1 || null,
             fault2: entry.fault2 || null,
-            time_seconds:
-              entry.time_seconds && !isNaN(parseFloat(entry.time_seconds))
-                ? parseFloat(entry.time_seconds)
-                : null,
+            time_seconds: (() => {
+              const raw = displayToSeconds(entry.time_seconds);
+              return raw && !isNaN(parseFloat(raw)) ? parseFloat(raw) : null;
+            })(),
             pass_fail: entry.pass_fail || null,
           };
         } else if (scoreSheetType === 'rally_obedience') {
@@ -430,10 +451,9 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           <Input
                             value={entry.time_seconds}
                             onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
-                            type="number"
-                            step="0.01"
+                            type="text"
                             className="w-full h-8 text-center text-sm"
-                            placeholder="0.00"
+                            placeholder="m:ss.cc"
                             disabled={isDisabled}
                           />
                         </td>

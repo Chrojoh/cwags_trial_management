@@ -1687,15 +1687,15 @@ export const simpleTrialOperations = {
         entry_selection_id: scoreData.entry_selection_id,
         trial_round_id: baseRoundId,
         is_reset_round: scoreData.is_reset_round || false,
-        scent1: scoreData.scent1 || null,
-        scent2: scoreData.scent2 || null,
-        scent3: scoreData.scent3 || null,
-        scent4: scoreData.scent4 || null,
-        fault1: scoreData.fault1 || null,
-        fault2: scoreData.fault2 || null,
-        time_seconds: scoreData.time_seconds || null,
-        numerical_score: scoreData.numerical_score || null,
-        pass_fail: scoreData.pass_fail || null,
+        scent1: scoreData.scent1 ?? null,
+        scent2: scoreData.scent2 ?? null,
+        scent3: scoreData.scent3 ?? null,
+        scent4: scoreData.scent4 ?? null,
+        fault1: scoreData.fault1 ?? null,
+        fault2: scoreData.fault2 ?? null,
+        time_seconds: scoreData.time_seconds ?? null,
+        numerical_score: scoreData.numerical_score ?? null,
+        pass_fail: scoreData.pass_fail ?? null,
         entry_status: scoreData.entry_status || 'present',
         judge_notes: scoreData.judge_notes || null,
         scored_by: scoreData.scored_by || null,
@@ -1715,12 +1715,11 @@ export const simpleTrialOperations = {
         .single();
 
       if (error) {
-        console.error('🔴 Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+        console.error('🔴 Supabase error code:', error.code);
+console.error('🔴 Supabase error message:', error.message);
+console.error('🔴 Supabase error details:', error.details);
+console.error('🔴 Supabase error hint:', error.hint);
+console.error('🔴 Full error stringify:', JSON.stringify(error));
         return {
           success: false,
           error: error.message || error.details || JSON.stringify(error),
