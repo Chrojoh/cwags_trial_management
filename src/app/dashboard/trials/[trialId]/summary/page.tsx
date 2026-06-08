@@ -955,26 +955,29 @@ export default function ClassSummaryPage() {
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
       });
 
+      // ── Trial_Recap sheet from template ──────────────────────────────
+      const templateResponse = await fetch('/Book1.xlsx');
+      const templateBuffer = await templateResponse.arrayBuffer();
+      const templateWb = XLSX.read(new Uint8Array(templateBuffer), { type: 'array', cellStyles: true });
+      const recapSheet = templateWb.Sheets[templateWb.SheetNames[0]];
+
+      const classSheetCount = workbook.SheetNames.length;
+
+      XLSX.utils.book_append_sheet(workbook, recapSheet, 'Trial_Recap');
+
       const fileName = `${summaryData.trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
 
-      // xlsx-js-style silently drops !pageSetup during its write phase, so we
-      // post-process the ZIP to inject <pageSetup> and print-title defined names directly.
-      // Rows 1–6 (the header block) are set to repeat on every printed page via
-      // _xlnm.Print_Titles defined names in workbook.xml instead of scaling down.
       const { unzipSync, zipSync, strToU8, strFromU8 } = await import('fflate');
       const xlsxRaw = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
       const xlsxBytes = xlsxRaw instanceof Uint8Array ? xlsxRaw : new Uint8Array(xlsxRaw);
       const zipEntries = unzipSync(xlsxBytes);
-      // Margins: left/right 0.5", top/bottom 0.25", header/footer 0.3"
       const pageMarginsXml =
         '<pageMargins left="0.5" right="0.5" top="0.25" bottom="0.25" header="0.3" footer="0.3"/>';
       const lateElements = ['<ignoredErrors', '<drawing', '<legacyDrawing', '<tableParts', '<extLst'];
 
-      // Extract sheet names from workbook.xml to build print-title defined names
       const workbookXml = strFromU8(zipEntries['xl/workbook.xml']);
       const sheetNameMatches = [...workbookXml.matchAll(/<sheet[^>]+name="([^"]+)"/g)];
       const sheetNames = sheetNameMatches.map((m) => m[1]);
-      // Repeat header rows 1–6 on every printed page for each sheet
       const printTitleEntries = sheetNames
         .map((name, i) => `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${name}'!$1:$6</definedName>`)
         .join('');
@@ -986,11 +989,11 @@ export default function ClassSummaryPage() {
 
       for (const filePath of Object.keys(zipEntries)) {
         if (/^xl\/worksheets\/sheet\d+\.xml$/.test(filePath)) {
+          const sheetNum = parseInt(filePath.match(/sheet(\d+)\.xml/)![1], 10);
+          if (sheetNum > classSheetCount) continue;
+
           let xml = strFromU8(zipEntries[filePath]);
-          // Inject sheetPr with fitToPage=1 immediately after <worksheet ...> opening tag
           xml = xml.replace(/<worksheet([^>]*)>/, '<worksheet$1><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
-          // fitToWidth=1 fitToHeight=0: all columns on one page wide, unlimited rows tall
-          // pageMargins (pos 21) must come before pageSetup (pos 22) per OOXML spec
           const injectXml =
             `${pageMarginsXml}<pageSetup fitToWidth="1" fitToHeight="0" orientation="landscape" paperSize="1"/>`;
           const marker = lateElements.find((el) => xml.includes(el)) ?? '</worksheet>';
