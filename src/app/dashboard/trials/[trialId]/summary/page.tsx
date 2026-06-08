@@ -55,6 +55,7 @@ interface TrialClass {
   participant_count: number;
   pass_count: number;
   fail_count: number;
+  abs_count: number;
   completed_runs: number;
   entries: ClassEntry[];
 }
@@ -1326,7 +1327,7 @@ export default function ClassSummaryPage() {
                               {cls.fail_count}
                             </td>
                             <td className="border border-gray-300 px-4 py-3 text-center font-mono text-gray-500">
-                              {cls.participant_count - cls.completed_runs}
+                              {cls.abs_count}
                             </td>
                             <td className="border border-gray-300 px-4 py-3 text-center">
                               <span className="text-green-600 font-medium">
@@ -1338,13 +1339,8 @@ export default function ClassSummaryPage() {
                             </td>
                             <td className="border border-gray-300 px-4 py-3 text-center">
                               <span className="font-medium">
-                                {(cls.pass_count + cls.fail_count + (cls.participant_count - cls.completed_runs)) > 0
-                                  ? Math.round(
-                                    (cls.pass_count /
-                                      (cls.pass_count +
-                                       cls.fail_count +
-                                       (cls.participant_count - cls.completed_runs))) * 100
-                                    )
+                                {cls.completed_runs > 0
+                                  ? Math.round((cls.pass_count / cls.completed_runs) * 100)
                                   : 0}
                                 %
                               </span>
@@ -1403,7 +1399,7 @@ export default function ClassSummaryPage() {
               <Card>
                 <CardContent className="text-center p-4">
                   <div className="text-2xl font-bold text-gray-500">
-                    {summaryData.statistics.total_participants - summaryData.statistics.total_completed}
+                    {summaryData.statistics.total_abs}
                   </div>
                   <div className="text-sm text-gray-600">Total Abs</div>
                 </CardContent>
@@ -1411,14 +1407,9 @@ export default function ClassSummaryPage() {
               <Card>
                 <CardContent className="text-center p-4">
                   <div className="text-2xl font-bold text-purple-600">
-                    {summaryData.statistics.total_passes + summaryData.statistics.total_fails + (summaryData.statistics.total_participants - summaryData.statistics.total_completed) > 0
-                    ?  Math.round(
-                        (summaryData.statistics.total_passes /
-                          (summaryData.statistics.total_passes +
-                            summaryData.statistics.total_fails +
-                            (summaryData.statistics.total_participants - summaryData.statistics.total_completed))) * 100
-                      )
-                  : 0}%
+                    {summaryData.statistics.total_completed > 0
+                      ? Math.round((summaryData.statistics.total_passes / summaryData.statistics.total_completed) * 100)
+                      : 0}%
                   </div>
                   <div className="text-sm text-gray-600">Pass Rate</div>
                 </CardContent>

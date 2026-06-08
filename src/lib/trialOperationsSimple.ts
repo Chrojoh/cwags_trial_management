@@ -2395,9 +2395,12 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
               getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
             ).length;
 
-            const completedRuns = classEntries.filter(
-              (entry: any) => entry.entry_status?.toLowerCase() !== 'no_show'
-            ).length;
+            const absCount = classEntries.filter((entry: any) => {
+              const status = entry.entry_status?.toLowerCase();
+              return status === 'no_show' || status === 'absent';
+            }).length;
+
+            const completedRuns = passCount + failCount + absCount;
 
             // ✅ KEEP EVERYTHING BELOW THIS THE SAME (the return statement, etc.)
             return {
@@ -2411,6 +2414,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
               participant_count: classEntries.length,
               pass_count: passCount,
               fail_count: failCount,
+              abs_count: absCount,
               completed_runs: completedRuns,
               entries: classEntries,
               total_rounds:
@@ -2442,6 +2446,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
       );
       const totalPasses = classesWithEntries.reduce((sum, cls) => sum + cls.pass_count, 0);
       const totalFails = classesWithEntries.reduce((sum, cls) => sum + cls.fail_count, 0);
+      const totalAbs = classesWithEntries.reduce((sum, cls) => sum + cls.abs_count, 0);
       const totalCompleted = classesWithEntries.reduce((sum, cls) => sum + cls.completed_runs, 0);
 
       const consolidatedClasses = new Map();
@@ -2467,6 +2472,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
             participant_count: 0,
             pass_count: 0,
             fail_count: 0,
+            abs_count: 0,
             completed_runs: 0,
             total_rounds: roundsForThisClass.length,
             entries: [],
@@ -2477,6 +2483,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
         consolidated.participant_count += cls.participant_count;
         consolidated.pass_count += cls.pass_count;
         consolidated.fail_count += cls.fail_count;
+        consolidated.abs_count += cls.abs_count;
         consolidated.completed_runs += cls.completed_runs;
         consolidated.entries = consolidated.entries.concat(cls.entries);
       });
@@ -2491,6 +2498,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
           total_participants: totalParticipants, // Excludes FEO
           total_passes: totalPasses, // Excludes FEO
           total_fails: totalFails, // Excludes FEO
+          total_abs: totalAbs, // Excludes FEO
           total_completed: totalCompleted, // Excludes FEO
           overall_pass_rate: totalCompleted > 0 ? (totalPasses / totalCompleted) * 100 : 0,
           completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0,
