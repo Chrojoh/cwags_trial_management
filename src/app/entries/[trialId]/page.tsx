@@ -388,12 +388,15 @@ export default function PublicEntryForm() {
 
             // ✅ FIXED: Clear ALL selections since this is a new entry for this trial
             setFormData((prev) => ({
-              ...prev,
-              handler_name: registryResult.data.handler_name || '',
-              dog_call_name: registryResult.data.dog_call_name || '',
-              handler_email: registryResult.data.handler_email || '',
-              handler_phone: registryResult.data.handler_phone || '',
-              cwags_number: cwagsNumber,
+          ...prev,
+          handler_name: registryResult.data.handler_name || '',
+          dog_call_name: registryResult.data.dog_call_name || '',
+          handler_email: registryResult.data.handler_email || '',
+          handler_phone: registryResult.data.handler_phone || '',
+          emergency_contact: registryResult.data.emergency_contact || '',
+          dog_breed: registryResult.data.breed || '',
+          dog_sex: registryResult.data.dog_sex || '',
+          cwags_number: cwagsNumber,
               // Clear all round selections
               selected_rounds: [],
               feo_selections: [],

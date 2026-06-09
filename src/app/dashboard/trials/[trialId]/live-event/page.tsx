@@ -1850,6 +1850,11 @@ export default function LiveEventManagementPage() {
           cwags_number: formattedNumber,
           handler_name: result.data.handler_name,
           dog_call_name: result.data.dog_call_name,
+          handler_email: result.data.handler_email || '',
+          handler_phone: result.data.handler_phone || '',
+          emergency_contact: result.data.emergency_contact || '',
+          breed: result.data.breed || '',
+          dog_sex: result.data.dog_sex || '',
         }));
         return result.data;
       } else {
