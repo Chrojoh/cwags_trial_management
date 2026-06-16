@@ -2028,7 +2028,7 @@ export default function PublicEntryForm() {
                                         </h4>
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
-                                            Judge: {round.judge_name}
+                                            Judge: {round.judge_name || 'TBA'}
                                           </div>
                                           <div className="text-sm text-gray-600">
                                             Round {round.round_number}

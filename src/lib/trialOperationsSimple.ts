@@ -738,9 +738,9 @@ export const simpleTrialOperations = {
       // Prepare new rounds data with validation
       const newRounds = rounds.map((round, index) => {
         // Reset rounds (.5) only require a judge if one was assigned
-        if (!round.judge_name?.trim() && !(round as any).is_reset) {
-          throw new Error(`Round ${index + 1}: Judge name is required`);
-        }
+      if (!round.judge_name?.trim() && !((round as any).is_reset)) {
+        throw new Error(`Round ${index + 1}: Judge name is required`);
+      }
 
         return {
           round_number: round.round_number || index + 1,

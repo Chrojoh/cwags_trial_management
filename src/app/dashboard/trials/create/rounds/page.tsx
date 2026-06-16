@@ -286,7 +286,7 @@ function CreateRoundsPageContent() {
           roundsData[cls.id] = [
             {
               round_number: 1,
-              judge_name: '',
+              judge_name: 'TBA',
               judge_email: '',
               start_time: '',
               estimated_duration: '',
@@ -325,6 +325,20 @@ function CreateRoundsPageContent() {
   }, [selectedDayId, trialClasses]);
 
   const handleJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
+    // Handle TBA selection
+    if (judgeId === 'TBA') {
+      setRounds((prev) => ({
+        ...prev,
+        [classId]:
+          prev[classId]?.map((round, idx) =>
+            idx === roundIndex
+              ? { ...round, judge_name: 'TBA', judge_email: '' }
+              : round
+          ) || [],
+      }));
+      return;
+    }
+
     const classQualifiedJudges = qualifiedJudges[classId] || [];
     const judge = classQualifiedJudges.find((j) => j.id === judgeId);
     if (!judge) return;
@@ -334,7 +348,7 @@ function CreateRoundsPageContent() {
       [classId]:
         prev[classId]?.map((round, idx) =>
           idx === roundIndex
-            ? { ...round, judge_name: judge.name || '', judge_email: judge.email || '' }
+            ? { ...round, judge_name: judgeId === 'TBA' ? 'TBA' : judge?.name || '', judge_email: judgeId === 'TBA' ? '' : judge?.email || '' }
             : round
         ) || [],
     }));
@@ -444,7 +458,7 @@ function CreateRoundsPageContent() {
     const classRounds = rounds[classId] || [];
     const newRound: RoundData = {
       round_number: classRounds.filter((r) => !r.is_reset).length + 1,
-      judge_name: '',
+      judge_name: 'TBA',
       judge_email: '',
       start_time: '',
       estimated_duration: '',
@@ -509,7 +523,7 @@ function CreateRoundsPageContent() {
 
     Object.entries(rounds).forEach(([classId, classRounds]) => {
       classRounds.forEach((round, idx) => {
-        if (!round.judge_name || !round.judge_email) {
+        if (!round.judge_name) {
           newErrors[`${classId}-${idx}-judge`] = 'Judge is required';
           isValid = false;
         }
@@ -534,7 +548,7 @@ function CreateRoundsPageContent() {
 
       for (const [classId, classRounds] of Object.entries(rounds)) {
         // Only save rounds that have at least a judge assigned
-        const completeRounds = classRounds.filter((round) => round.judge_name && round.judge_email);
+        const completeRounds = classRounds.filter((round) => round.judge_name);
 
         if (completeRounds.length === 0) {
           console.log(`Skipping class ${classId} - no judges assigned yet`);
@@ -899,10 +913,12 @@ function CreateRoundsPageContent() {
                           <Label className="text-base font-semibold">Judge *</Label>
                           <Select
                             value={
-                              qualifiedJudges[selectedClassId]?.find(
-                                (j) => j.name === round.judge_name
-                              )?.id || ''
-                            }
+                              round.judge_name === 'TBA'
+                                ? 'TBA'
+                                : qualifiedJudges[selectedClassId]?.find(
+                                  (j) => j.name === round.judge_name
+                                )?.id || ''
+                              }
                             onValueChange={(judgeId) =>
                               handleJudgeSelect(selectedClassId, roundIndex, judgeId)
                             }
@@ -917,9 +933,12 @@ function CreateRoundsPageContent() {
                               <SelectValue placeholder="👤 Select a judge..." />
                             </SelectTrigger>
                             <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
+                              <SelectItem value="TBA" className="text-base py-3 hover:bg-orange-100 focus:bg-orange-100 cursor-pointer">
+                                <div className="font-semibold text-gray-500 italic">📋 TBA - To Be Announced</div>
+                              </SelectItem>
                               {qualifiedJudges[selectedClassId] &&
                               qualifiedJudges[selectedClassId].length > 0 ? (
-                                qualifiedJudges[selectedClassId].map((judge) => (
+                              qualifiedJudges[selectedClassId].map((judge) => (
                                   <SelectItem
                                     key={judge.id}
                                     value={judge.id}
@@ -1033,12 +1052,13 @@ function CreateRoundsPageContent() {
                                 <SelectValue placeholder="Select reset judge..." />
                               </SelectTrigger>
                               <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
-                                {qualifiedJudges[selectedClassId]?.map((judge) => (
-                                  <SelectItem key={judge.id} value={judge.id}>
-                                    {judge.name} - {judge.city}, {judge.province_state}
+                                <SelectItem value="TBA">TBA - To Be Announced</SelectItem>
+                                  {(qualifiedJudges[selectedClassId] || []).map((judge) => (
+                                    <SelectItem key={judge.id} value={judge.id}>
+                                    {judge.name}
                                   </SelectItem>
                                 ))}
-                              </SelectContent>
+                            </SelectContent>
                             </Select>
                             {errors[`${selectedClassId}-${roundIndex}-reset-judge`] && (
                               <p className="text-sm text-red-600 mt-1">
