@@ -306,6 +306,7 @@ export default function LiveEventManagementPage() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
+  const [liveVerifyDialog, setLiveVerifyDialog] = useState<{ handler_name: string; dog_call_name: string; pendingData: any } | null>(null);
   const [showDaySelector, setShowDaySelector] = useState(false);
   const [activeTab, setActiveTab] = useState<'running-order' | 'score-entry'>('running-order');
   const [scoreEntry, setScoreEntry] = useState<{
@@ -4316,9 +4317,19 @@ export default function LiveEventManagementPage() {
                           formattedNumber.trim()
                         );
                         if (result.success && result.data) {
-                          alert(
-                            `Found: ${result.data.handler_name} with ${result.data.dog_call_name}`
-                          );
+                          setLiveVerifyDialog({
+                            handler_name: result.data.handler_name || '',
+                            dog_call_name: result.data.dog_call_name || '',
+                            pendingData: {
+                              handler_name: result.data.handler_name || '',
+                              dog_call_name: result.data.dog_call_name || '',
+                              handler_email: result.data.handler_email || '',
+                              handler_phone: result.data.handler_phone || '',
+                              emergency_contact: result.data.emergency_contact || '',
+                              breed: result.data.breed || '',
+                              dog_sex: result.data.dog_sex || '',
+                            },
+                          });
                         } else {
                           alert('C-WAGS number not found in registry');
                         }
@@ -4409,6 +4420,42 @@ export default function LiveEventManagementPage() {
               <Button variant="outline" onClick={() => setShowDaySelector(false)}>
                 Cancel
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Event C-WAGS Verification Dialog */}
+      {liveVerifyDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-bold mb-2">Verify Dog & Handler</h3>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="font-semibold text-gray-900">Handler: {liveVerifyDialog.handler_name}</p>
+              <p className="font-semibold text-gray-900">Dog: {liveVerifyDialog.dog_call_name}</p>
+            </div>
+            <p className="text-sm text-gray-700 mb-6">
+              Please verify this is the dog/handler team you are wishing to use.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-100 font-medium"
+                onClick={() => {
+                  setLiveVerifyDialog(null);
+                  setNewCwagsNumber('');
+                }}
+              >
+                No — Re-enter Number
+              </button>
+              <button
+                className="px-4 py-2 rounded bg-orange-600 text-white hover:bg-orange-700 font-medium"
+                onClick={() => {
+                  setNewEntryData((prev) => ({ ...prev, ...liveVerifyDialog.pendingData }));
+                  setLiveVerifyDialog(null);
+                }}
+              >
+                Yes — Continue
+              </button>
             </div>
           </div>
         </div>

@@ -157,6 +157,7 @@ export default function PublicEntryForm() {
   const [dayAcceptingStatus, setDayAcceptingStatus] = useState<Record<number, boolean>>({}); // ✅ ADD THIS LINE
   const [loading, setLoading] = useState(true);
   const [volunteerOpen, setVolunteerOpen] = useState(false);
+  const [verifyDialog, setVerifyDialog] = useState<{ handler_name: string; dog_call_name: string; pendingData: any } | null>(null);
   const supabase = getSupabaseBrowser();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -388,21 +389,23 @@ export default function PublicEntryForm() {
             console.log('🧹 Clearing all selections for new entry');
 
             // ✅ FIXED: Clear ALL selections since this is a new entry for this trial
-            setFormData((prev) => ({
-          ...prev,
-          handler_name: registryResult.data.handler_name || '',
-          dog_call_name: registryResult.data.dog_call_name || '',
-          handler_email: registryResult.data.handler_email || '',
-          handler_phone: registryResult.data.handler_phone || '',
-          emergency_contact: registryResult.data.emergency_contact || '',
-          dog_breed: registryResult.data.breed || '',
-          dog_sex: registryResult.data.dog_sex || '',
-          cwags_number: cwagsNumber,
-              // Clear all round selections
-              selected_rounds: [],
-              feo_selections: [],
-              division_selections: {},
-            }));
+            setVerifyDialog({
+              handler_name: registryResult.data.handler_name || '',
+              dog_call_name: registryResult.data.dog_call_name || '',
+              pendingData: {
+                handler_name: registryResult.data.handler_name || '',
+                dog_call_name: registryResult.data.dog_call_name || '',
+                handler_email: registryResult.data.handler_email || '',
+                handler_phone: registryResult.data.handler_phone || '',
+                emergency_contact: registryResult.data.emergency_contact || '',
+                dog_breed: registryResult.data.breed || '',
+                dog_sex: registryResult.data.dog_sex || '',
+                cwags_number: cwagsNumber,
+                selected_rounds: [],
+                feo_selections: [],
+                division_selections: {},
+              },
+            });
 
             // Also clear the original form data
             setOriginalFormData(null);
@@ -2234,6 +2237,42 @@ export default function PublicEntryForm() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* C-WAGS Verification Dialog */}
+        {verifyDialog && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+              <h3 className="text-lg font-bold mb-2">Verify Dog & Handler</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="font-semibold text-gray-900">Handler: {verifyDialog.handler_name}</p>
+                <p className="font-semibold text-gray-900">Dog: {verifyDialog.dog_call_name}</p>
+              </div>
+              <p className="text-sm text-gray-700 mb-6">
+                Please verify this is the dog/handler team you are wishing to use.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-100 font-medium"
+                  onClick={() => {
+                    setVerifyDialog(null);
+                    setCwagsInputValue('');
+                  }}
+                >
+                  No — Re-enter Number
+                </button>
+                <button
+                  className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
+                  onClick={() => {
+                    setFormData((prev) => ({ ...prev, ...verifyDialog.pendingData }));
+                    setVerifyDialog(null);
+                  }}
+                >
+                  Yes — Continue
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
