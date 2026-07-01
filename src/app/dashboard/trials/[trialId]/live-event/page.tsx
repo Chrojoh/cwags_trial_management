@@ -1846,17 +1846,20 @@ export default function LiveEventManagementPage() {
       const result = await simpleTrialOperations.getCwagsRegistryByNumber(formattedNumber.trim());
 
       if (result.success && result.data) {
-        setNewEntryData((prev) => ({
-          ...prev,
-          cwags_number: formattedNumber,
-          handler_name: result.data.handler_name,
-          dog_call_name: result.data.dog_call_name,
-          handler_email: result.data.handler_email || '',
-          handler_phone: result.data.handler_phone || '',
-          emergency_contact: result.data.emergency_contact || '',
-          breed: result.data.breed || '',
-          dog_sex: result.data.dog_sex || '',
-        }));
+        setLiveVerifyDialog({
+          handler_name: result.data.handler_name || '',
+          dog_call_name: result.data.dog_call_name || '',
+          pendingData: {
+            cwags_number: formattedNumber,
+            handler_name: result.data.handler_name || '',
+            dog_call_name: result.data.dog_call_name || '',
+            handler_email: result.data.handler_email || '',
+            handler_phone: result.data.handler_phone || '',
+            emergency_contact: result.data.emergency_contact || '',
+            breed: result.data.breed || '',
+            dog_sex: result.data.dog_sex || '',
+          },
+        });
         return result.data;
       } else {
         setNewEntryData((prev) => ({ ...prev, cwags_number: formattedNumber }));
