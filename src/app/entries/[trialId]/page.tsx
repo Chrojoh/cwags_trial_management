@@ -156,6 +156,7 @@ export default function PublicEntryForm() {
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
   const [dayAcceptingStatus, setDayAcceptingStatus] = useState<Record<number, boolean>>({}); // ✅ ADD THIS LINE
   const [loading, setLoading] = useState(true);
+  const [volunteerOpen, setVolunteerOpen] = useState(false);
   const supabase = getSupabaseBrowser();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1572,18 +1573,31 @@ export default function PublicEntryForm() {
           </CardContent>
         </Card>
 
-        {/* ========== NEW SECTION 2: VOLUNTEER POSITIONS ========== */}
+       {/* ========== NEW SECTION 2: VOLUNTEER POSITIONS ========== */}
         <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Volunteer Positions
-            </CardTitle>
-            <CardDescription>
-              Please help us achieve 100/100 where 100% of the work is being done by 100% of the
-              people! 🎯
-            </CardDescription>
+          <CardHeader
+            className="cursor-pointer select-none"
+            onClick={() => setVolunteerOpen((prev) => !prev)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Volunteer Positions
+                  </CardTitle>
+                  {!volunteerOpen && (
+                    <p className="text-sm text-blue-700 mt-1">
+                      🙋 Shows depend on volunteers — click to indicate what you're available for!
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="text-gray-400 text-lg">{volunteerOpen ? '▲' : '▼'}</div>
+            </div>
           </CardHeader>
+
+          {volunteerOpen && (
           <CardContent className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-900">
@@ -1667,6 +1681,7 @@ export default function PublicEntryForm() {
               })}
             </div>
           </CardContent>
+          )}
         </Card>
 
         {/* C-WAGS Lookup */}
