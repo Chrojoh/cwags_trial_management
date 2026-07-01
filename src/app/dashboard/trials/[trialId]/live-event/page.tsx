@@ -4427,7 +4427,7 @@ export default function LiveEventManagementPage() {
 
       {/* Live Event C-WAGS Verification Dialog */}
       {liveVerifyDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-bold mb-2">Verify Dog & Handler</h3>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
