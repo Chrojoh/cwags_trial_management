@@ -1932,11 +1932,15 @@ export default function LiveEventManagementPage() {
       let isNewEntry = false;
 
       if (existingEntriesResult.success && existingEntriesResult.data) {
+        const normalizedCwags = formatCwagsNumber(
+        newEntryData.cwags_number
+      ).trim().toUpperCase();
+
         const existingEntry = existingEntriesResult.data.find(
           (e: any) =>
-            e.cwags_number === newEntryData.cwags_number &&
-            e.handler_name === newEntryData.handler_name &&
-            e.dog_call_name === newEntryData.dog_call_name
+            formatCwagsNumber(e.cwags_number || '')
+              .trim()
+              .toUpperCase() === normalizedCwags
         );
 
         if (existingEntry) {
