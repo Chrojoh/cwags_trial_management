@@ -13,7 +13,26 @@ type RegistryImportRow = {
   handler_name: string;
 };
 
+type ExistingRegistryRow = RegistryImportRow & {
+  id: string;
+  is_active: boolean | null;
+};
+
 const readCell = (value: unknown): string => String(value ?? '').trim();
+const normalizeText = (value: string): string =>
+  value.toLocaleLowerCase().replace(/[^a-z0-9]/g, '');
+const nameKey = (dogName: string, handlerName: string): string =>
+  `${normalizeText(dogName)}|${normalizeText(handlerName)}`;
+
+const headerAliases = {
+  number: new Set(['cwagsnumber', 'cwagsregistrationnumber', 'registrationnumber', 'regnumber']),
+  dog: new Set(['dogcallname', 'callname', 'dogname']),
+  handler: new Set(['handlername', 'ownername', 'handler', 'owner']),
+};
+
+function findColumn(row: unknown[], aliases: Set<string>): number {
+  return row.findIndex((cell) => aliases.has(normalizeText(readCell(cell))));
+}
 
 export async function POST(req: Request) {
   try {
@@ -42,15 +61,26 @@ export async function POST(req: Request) {
       raw: false,
       defval: '',
     });
+    const firstRow = rows[0] ?? [];
+    const detectedColumns = {
+      number: findColumn(firstRow, headerAliases.number),
+      dog: findColumn(firstRow, headerAliases.dog),
+      handler: findColumn(firstRow, headerAliases.handler),
+    };
+    const hasHeader = Object.values(detectedColumns).every((column) => column >= 0);
+    const columns = hasHeader ? detectedColumns : { number: 0, dog: 1, handler: 3 };
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const firstExcelRow = hasHeader ? 2 : 1;
+
     const errors: string[] = [];
     const entriesByNumber = new Map<string, RegistryImportRow>();
     let skipped = 0;
 
-    rows.slice(1).forEach((row, index) => {
-      const excelRow = index + 2;
-      const rawNumber = readCell(row[0]);
-      const dogName = readCell(row[1]);
-      const handlerName = readCell(row[3]);
+    dataRows.forEach((row, index) => {
+      const excelRow = index + firstExcelRow;
+      const rawNumber = readCell(row[columns.number]);
+      const dogName = readCell(row[columns.dog]);
+      const handlerName = readCell(row[columns.handler]);
 
       if (!rawNumber && !dogName && !handlerName) return;
       if (!rawNumber || !dogName || !handlerName) {
@@ -87,38 +117,78 @@ export async function POST(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
-    const chunkSize = 1000;
+    const chunkSize = 500;
     let processed = 0;
     let added = 0;
     let updated = 0;
 
-    for (let index = 0; index < parsedEntries.length; index += chunkSize) {
-      const chunk = parsedEntries.slice(index, index + chunkSize);
-      const numbers = chunk.map((entry) => entry.cwags_number);
-      const { data: existingRows, error: lookupError } = await supabase
+    const existingRows: ExistingRegistryRow[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error: lookupError } = await supabase
         .from('cwags_registry')
-        .select('cwags_number,is_active')
-        .in('cwags_number', numbers);
+        .select('id,cwags_number,dog_call_name,handler_name,is_active')
+        .order('id')
+        .range(from, from + 999);
       if (lookupError) throw lookupError;
+      existingRows.push(...((data ?? []) as ExistingRegistryRow[]));
+      if (!data || data.length < 1000) break;
+    }
 
-      const existingByNumber = new Map(
-        (existingRows ?? []).map((row) => [row.cwags_number, row.is_active] as const)
-      );
-      const records = chunk.map((entry) => ({
-        ...entry,
-        is_active: existingByNumber.get(entry.cwags_number) ?? true,
-      }));
+    const existingByNumber = new Map(
+      existingRows.map((row) => [formatCwagsNumber(row.cwags_number), row] as const)
+    );
+    const rowsByName = new Map<string, ExistingRegistryRow[]>();
+    existingRows.forEach((row) => {
+      const key = nameKey(row.dog_call_name, row.handler_name);
+      rowsByName.set(key, [...(rowsByName.get(key) ?? []), row]);
+    });
 
+    const updates: Array<ExistingRegistryRow> = [];
+    const inserts: Array<RegistryImportRow & { is_active: boolean }> = [];
+
+    parsedEntries.forEach((entry) => {
+      const numberMatch = existingByNumber.get(entry.cwags_number);
+      const nameMatches = rowsByName.get(nameKey(entry.dog_call_name, entry.handler_name)) ?? [];
+      const existing = numberMatch ?? (nameMatches.length === 1 ? nameMatches[0] : undefined);
+
+      if (!existing) {
+        inserts.push({ ...entry, is_active: true });
+        return;
+      }
+
+      const changed =
+        formatCwagsNumber(existing.cwags_number) !== entry.cwags_number ||
+        existing.dog_call_name.trim() !== entry.dog_call_name ||
+        existing.handler_name.trim() !== entry.handler_name;
+      if (!changed) {
+        skipped += 1;
+        return;
+      }
+
+      updates.push({ ...existing, ...entry, is_active: existing.is_active ?? true });
+    });
+
+    for (let index = 0; index < updates.length; index += chunkSize) {
+      const records = updates.slice(index, index + chunkSize);
+      const { error: upsertError } = await supabase.from('cwags_registry').upsert(records, {
+        onConflict: 'id',
+        ignoreDuplicates: false,
+      });
+      if (upsertError) throw upsertError;
+      updated += records.length;
+    }
+
+    for (let index = 0; index < inserts.length; index += chunkSize) {
+      const records = inserts.slice(index, index + chunkSize);
       const { error: upsertError } = await supabase.from('cwags_registry').upsert(records, {
         onConflict: 'cwags_number',
         ignoreDuplicates: false,
       });
       if (upsertError) throw upsertError;
-
-      processed += chunk.length;
-      updated += chunk.filter((entry) => existingByNumber.has(entry.cwags_number)).length;
-      added += chunk.length - chunk.filter((entry) => existingByNumber.has(entry.cwags_number)).length;
+      added += records.length;
     }
+
+    processed = parsedEntries.length;
 
     return NextResponse.json({
       success: true,

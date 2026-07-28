@@ -159,10 +159,11 @@ export default function RegistryImportPage() {
           <li>Column A: CWAGS Number</li>
           <li>Column B: Dog Call Name</li>
           <li>Column D: Handler Name</li>
-          <li>First row should be headers (will be skipped)</li>
-          <li>Existing CWAGS numbers will be overwritten with the corrected dog and handler names</li>
+          <li>Header rows are detected automatically; files without headers are also supported</li>
+          <li>Existing CWAGS numbers will be overwritten with corrected dog and handler names</li>
+          <li>Corrected CWAGS numbers are matched by a unique dog and handler name</li>
           <li>New CWAGS numbers will be added</li>
-          <li>Blank or incomplete rows will be skipped and reported</li>
+          <li>Unchanged, duplicate, or incomplete rows will be skipped and reported</li>
         </ul>
       </div>
     </div>
