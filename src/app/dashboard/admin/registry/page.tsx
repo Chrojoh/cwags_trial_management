@@ -14,7 +14,6 @@ import {
   User,
   ArrowLeft,
   RefreshCw,
-  Plus,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -26,6 +25,7 @@ import {
   clearCache,
   parseRegistrationNumber,
   type RegistryDog,
+  type TrialRecord,
   type TitleProgress,
 } from '@/lib/registryOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
@@ -41,12 +41,12 @@ export default function AdminRegistryPage() {
   const [selectedDog, setSelectedDog] = useState<RegistryDog | null>(null);
   const [ownersDogs, setOwnersDogs] = useState<RegistryDog[]>([]);
   const [titleProgress, setTitleProgress] = useState<TitleProgress[]>([]);
-  const [allRecords, setAllRecords] = useState<any[]>([]);
+  const [allRecords, setAllRecords] = useState<TrialRecord[]>([]);
   const [expandedLevels, setExpandedLevels] = useState<Set<number>>(new Set());
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<RegistryDog | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
 
@@ -108,7 +108,7 @@ export default function AdminRegistryPage() {
 
     setSaving(true);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('cwags_registry')
         .insert([newDogForm])
         .select()
@@ -822,7 +822,7 @@ export default function AdminRegistryPage() {
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                   <Users className="h-5 w-5 text-blue-600" />
-                  Owner's Other Dogs
+                  Owner&apos;s Other Dogs
                   {selectedDog &&
                     (() => {
                       const parts = getRegistrationParts(selectedDog.cwags_number);
@@ -870,7 +870,7 @@ export default function AdminRegistryPage() {
           <div className="mt-6 bg-white rounded-lg shadow-sm p-6">
             <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
               <Award className="h-6 w-6 text-yellow-600" />
-              Title Progress & Q's Summary
+              Title Progress &amp; Q&apos;s Summary
             </h3>
 
             <div className="space-y-4">
@@ -882,7 +882,7 @@ export default function AdminRegistryPage() {
                         <h4 className="text-lg font-bold text-slate-900">{level.level}</h4>
                         <div className="flex items-center gap-4 mt-2 text-sm">
                           <span className="text-slate-600">
-                            Total Q's:{' '}
+                            Total Q&apos;s:{' '}
                             <span className="font-semibold text-slate-900">{level.totalQs}</span>
                           </span>
                           <span className="text-slate-600">
@@ -912,7 +912,7 @@ export default function AdminRegistryPage() {
                                         Ace x{Math.floor(level.aceQs / 10)}
                                       </p>
                                       <p className="text-xs text-slate-600">
-                                        {level.qsToNextMilestone} Q's to next Ace
+                                        {level.qsToNextMilestone} Q&apos;s to next Ace
                                       </p>
                                     </>
                                   ) : (
@@ -921,7 +921,7 @@ export default function AdminRegistryPage() {
                                         Working toward Ace: {level.aceQs}/10
                                       </p>
                                       <p className="text-xs text-slate-600">
-                                        {level.qsToNextMilestone} Q's needed
+                                        {level.qsToNextMilestone} Q&apos;s needed
                                       </p>
                                     </>
                                   )}
@@ -935,7 +935,7 @@ export default function AdminRegistryPage() {
                               </div>
                               <div className="text-sm text-slate-600 mt-2 space-y-1">
                                 {level.qsToTitle !== undefined && level.qsToTitle > 0 && (
-                                  <p>Need {level.qsToTitle} more Q's</p>
+                                  <p>Need {level.qsToTitle} more Q&apos;s</p>
                                 )}
                                 {level.judgesNeeded !== undefined && level.judgesNeeded > 0 && (
                                   <p>
@@ -1007,7 +1007,7 @@ export default function AdminRegistryPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                <span>Owner's other dogs</span>
+                <span>Owner&apos;s other dogs</span>
               </div>
               <div className="flex items-center gap-2">
                 <Award className="h-4 w-4" />
