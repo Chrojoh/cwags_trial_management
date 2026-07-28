@@ -1,5 +1,5 @@
 'use client';
-import { use, useEffect, useMemo, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRingsideState } from '@/lib/ringside/useRingsideState';
 import { entriesForHandler, entryRingProgress, statusDistanceLabel } from '@/lib/ringside/progress';
 export default function Competitor({ params }: { params: Promise<{ showNumber: string }> }) {
@@ -7,6 +7,12 @@ export default function Competitor({ params }: { params: Promise<{ showNumber: s
   const { state, error, connected } = useRingsideState(showNumber);
   const [regs, setRegs] = useState<string[]>([]);
   const [input, setInput] = useState('');
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const alertsEnabledRef = useRef(false);
+  const initialProgressRef = useRef(true);
+  const lastAlertLevelRef = useRef(new Map<string, number>());
   useEffect(() => {
     try {
       setRegs(JSON.parse(localStorage.getItem(`ringside:${showNumber}:regs`) || '[]'));
@@ -18,6 +24,78 @@ export default function Competitor({ params }: { params: Promise<{ showNumber: s
     localStorage.setItem(`ringside:${showNumber}:regs`, JSON.stringify(clean));
   };
   const matches = useMemo(() => (state ? entriesForHandler(state, regs) : []), [state, regs]);
+
+  const beep = useCallback((frequency = 720, seconds = 0.18) => {
+    const audioContext = audioContextRef.current;
+    if (!alertsEnabledRef.current || !audioContext) return;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.frequency.value = frequency;
+    gain.gain.value = 0.05;
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + seconds);
+  }, []);
+
+  const enableAlerts = async () => {
+    try {
+      const audioContext = audioContextRef.current ?? new AudioContext();
+      audioContextRef.current = audioContext;
+      await audioContext.resume();
+      alertsEnabledRef.current = true;
+      setAlertsEnabled(true);
+      setAlertMessage('Sound and vibration alerts are enabled. Keep this page open.');
+      navigator.vibrate?.(120);
+      beep(660, 0.12);
+    } catch {
+      setAlertMessage('This browser did not allow sound alerts. Visual alerts will still appear.');
+    }
+  };
+
+  useEffect(() => {
+    if (!state) return;
+
+    for (const entry of matches) {
+      const progress = entryRingProgress(state, entry);
+      let level = 0;
+      if (entry.status === 'in_ring') level = 4;
+      else if (entry.status === 'conflict_hold') level = 3;
+      else if (progress.dogsAway !== null && progress.dogsAway <= 1) level = 3;
+      else if (progress.dogsAway !== null && progress.dogsAway <= 5) level = 2;
+      else if (progress.dogsAway !== null) level = 1;
+
+      const previous = lastAlertLevelRef.current.get(entry.id) ?? 0;
+      lastAlertLevelRef.current.set(entry.id, level);
+      if (
+        initialProgressRef.current ||
+        !alertsEnabledRef.current ||
+        level <= previous ||
+        level < 2
+      )
+        continue;
+
+      if (level >= 3) {
+        beep(880, 0.25);
+        window.setTimeout(() => beep(880, 0.25), 330);
+        navigator.vibrate?.([250, 120, 250]);
+        setAlertMessage(`${entry.dog_name} is On Deck or requires attention.`);
+      } else {
+        beep(650, 0.16);
+        navigator.vibrate?.(180);
+        setAlertMessage(`${entry.dog_name} is approaching the ring.`);
+      }
+    }
+
+    initialProgressRef.current = false;
+  }, [beep, matches, state]);
+
+  useEffect(
+    () => () => {
+      void audioContextRef.current?.close();
+    },
+    []
+  );
   if (error)
     return (
       <main className="min-h-screen bg-slate-950 p-8 text-white">
@@ -65,6 +143,29 @@ export default function Competitor({ params }: { params: Promise<{ showNumber: s
               Add dogs
             </button>
           </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="rounded bg-green-700 px-4 py-3 font-bold text-white disabled:bg-green-200 disabled:text-green-900"
+              disabled={alertsEnabled}
+              onClick={enableAlerts}
+            >
+              {alertsEnabled ? 'Alerts enabled' : 'Enable sound and vibration'}
+            </button>
+            <p className="text-sm text-slate-600">
+              Your browser requires you to enable alarms on this device. Keep this page open.
+            </p>
+          </div>
+          {alertMessage && (
+            <div
+              role="status"
+              className={`mt-3 rounded p-3 font-semibold ${
+                alertsEnabled ? 'bg-green-100 text-green-900' : 'bg-amber-100 text-amber-900'
+              }`}
+            >
+              {alertMessage}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap gap-2">
             {regs.map((r) => (
               <button
