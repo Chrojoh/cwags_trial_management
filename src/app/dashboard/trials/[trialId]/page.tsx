@@ -931,6 +931,14 @@ export default function TrialDetailPage() {
                         <BarChart3 className="h-4 w-4 mr-2" />
                         Class Summary Sheet and Excel Export
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start border-blue-600 text-blue-700 hover:bg-blue-50"
+                        onClick={() => router.push(`/dashboard/trials/${trialId}/trial-application`)}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Generate Trial Application
+                      </Button>
                     </div>
                   </div>
 

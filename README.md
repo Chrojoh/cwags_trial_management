@@ -270,9 +270,8 @@ NEXT_PUBLIC_SITE_URL=https://your-production-domain.com
 | `npm run build` | Production build |
 | `npm start` | Start production server |
 | `npm run lint` | Run ESLint |
-| `npm run populate:judges` | Seed judge records into the database |
-| `npm run populate:registry` | Import dog registry from `./DogInfo.xlsx` |
 | `npm run test:supabase` | Verify Supabase connection |
+| `npm run test:judge-insert` | Test judge insertion and clean up the test records |
 
 ---
 

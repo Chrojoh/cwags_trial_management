@@ -7,13 +7,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "populate:judges": "tsx src/scripts/populate-judges.ts",
-    "test:judge-insert": "tsx src/scripts/test-judge-insert.ts",
-    "populate:judges-fresh": "tsx src/scripts/populate-judges-fresh.ts",
-    "populate:all-judges": "tsx src/scripts/populate-all-judges.ts",
-    "populate:registry": "tsx src/scripts/migrate-registry.ts ./DogInfo.xlsx",
-    "test:supabase": "tsx src/scripts/test-supabase.ts"
+    "lint": "eslint .",
+    "test:judge-selector": "tsx --test src/lib/judgeSelector.test.ts",
+    "test:trial-application": "tsx --test src/lib/trialApplication/trialApplication.test.ts",
+    "test:trial-permissions": "tsx --test src/lib/trialPermissions.test.ts",
+    "test:ringside": "tsx --test src/lib/ringside/*.test.ts",
+    "test:judge-insert": "tsx src/scripts/testJudgeInsert.ts",
+    "test:supabase": "tsx src/scripts/testSupabase.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",
@@ -36,6 +36,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.1",
+    "fflate": "^0.3.11",
     "lucide-react": "^0.539.0",
     "next": "^16.0.10",
     "next-auth": "^4.24.13",

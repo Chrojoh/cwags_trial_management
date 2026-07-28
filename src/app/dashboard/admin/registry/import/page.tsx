@@ -9,6 +9,8 @@ export default function RegistryImportPage() {
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
+    totalRows?: number;
+    processed?: number;
     added?: number;
     skipped?: number;
     errors?: string[];
@@ -45,8 +47,8 @@ export default function RegistryImportPage() {
       const data = await response.json();
       console.log('📊 Response data:', data);
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Import failed');
+      if (!response.ok || data.success !== true) {
+        throw new Error(data.message || data.error || 'Import failed');
       }
 
       setResult(data);
@@ -121,6 +123,23 @@ export default function RegistryImportPage() {
               {result.success ? 'Import Complete' : 'Import Failed'}
             </h3>
             <p className={result.success ? 'text-green-700' : 'text-red-700'}>{result.message}</p>
+
+            {result.success && (
+              <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+                <div>
+                  <dt className="text-gray-500">Valid rows</dt>
+                  <dd className="font-semibold text-gray-900">{result.totalRows ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Added</dt>
+                  <dd className="font-semibold text-green-800">{result.added ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Skipped</dt>
+                  <dd className="font-semibold text-gray-900">{result.skipped ?? 0}</dd>
+                </div>
+              </dl>
+            )}
 
             {result.errors && result.errors.length > 0 && (
               <div className="mt-3">

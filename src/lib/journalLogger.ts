@@ -22,6 +22,7 @@ export async function logEntrySubmitted(
     class_name?: string;
     round?: number;
     fee?: number;
+    entry_status?: string;
     division?: string;
     entry_type?: string;
     day_number?: number;
@@ -31,7 +32,6 @@ export async function logEntrySubmitted(
 ) {
   try {
     const supabase = getSupabaseBrowser();
-
     // Create comprehensive snapshot of what was submitted
     const snapshot = {
       handler_name: entryData.handler_name,
@@ -45,6 +45,7 @@ export async function logEntrySubmitted(
         name: c.class_name || 'Unknown Class',
         round: c.round || 1,
         fee: c.fee || 0,
+        entry_status: c.entry_status || 'entered',
         division: c.division || null,
         entry_type: c.entry_type || 'regular',
         day_number: c.day_number || null,
@@ -154,6 +155,12 @@ export async function logSubstitution(
 ): Promise<void> {
   try {
     const supabase = getSupabaseBrowser();
+    const { data: authData } = await supabase.auth.getUser();
+    const actor = authData.user;
+    const actorName =
+      [actor?.user_metadata?.first_name, actor?.user_metadata?.last_name]
+        .filter(Boolean)
+        .join(' ') || actor?.email || 'Authenticated user';
 
     // Log substitution to trial_activity_log
     const { error } = await supabase.from('trial_activity_log').insert({
@@ -180,9 +187,23 @@ export async function logSubstitution(
           day_number: substitutionData.day_number,
           trial_date: substitutionData.trial_date,
         },
+        before: {
+          dog_call_name: substitutionData.original_dog_name,
+          handler_name: substitutionData.original_handler_name,
+          cwags_number: substitutionData.original_cwags,
+          entry_id: substitutionData.original_entry_id,
+        },
+        after: {
+          dog_call_name: substitutionData.substitute_dog_name,
+          handler_name: substitutionData.substitute_handler_name,
+          cwags_number: substitutionData.substitute_cwags,
+          entry_id: substitutionData.substitute_entry_id,
+        },
+        reason: null,
         timestamp: new Date().toISOString(),
       },
-      user_name: substitutionData.original_handler_name,
+      user_id: actor?.id || null,
+      user_name: actorName,
     });
 
     if (error) {
@@ -388,6 +409,7 @@ export async function logEntrySubmittedOrModified(
     class_name?: string;
     round?: number;
     fee?: number;
+    entry_status?: string;
     division?: string;
     entry_type?: string;
     day_number?: number; // ← ADD THIS
@@ -411,6 +433,7 @@ export async function logEntrySubmittedOrModified(
         name: c.class_name || 'Unknown Class',
         round: c.round || 1,
         fee: c.fee || 0,
+        entry_status: c.entry_status || 'entered',
         division: c.division || null,
         entry_type: c.entry_type || 'regular',
         day_number: c.day_number || null, // ← ADD THIS
@@ -607,5 +630,71 @@ export async function logFeesWaived(
     }
   } catch (error) {
     console.error('Error logging fee waiver:', error);
+  }
+}
+
+
+/**
+ * Log an entry or class selection added from the Live Event page.
+ * This is intentionally separate from public entry submission so the journal
+ * clearly identifies an on-site/manual action performed by an authenticated user.
+ */
+export async function logLiveEventEntryAdded(
+  trialId: string,
+  entryId: string,
+  data: {
+    handler_name: string;
+    dog_call_name: string;
+    cwags_number: string;
+    class_name: string;
+    round_number: number;
+    trial_round_id: string;
+    entry_type: string;
+    fee: number;
+    running_position: number | null;
+    entry_status: string;
+    games_subclass?: string | null;
+    jump_height?: string | null;
+    created_new_entry: boolean;
+  }
+): Promise<void> {
+  const supabase = getSupabaseBrowser();
+
+  const { data: authData } = await supabase.auth.getUser();
+  const actor = authData.user;
+  const actorName =
+    [actor?.user_metadata?.first_name, actor?.user_metadata?.last_name]
+      .filter(Boolean)
+      .join(' ') || actor?.email || 'Authenticated user';
+
+  const { error } = await supabase.from('trial_activity_log').insert({
+    trial_id: trialId,
+    activity_type: data.created_new_entry
+      ? 'live_event_entry_added'
+      : 'live_event_selection_added',
+    entry_id: entryId,
+    user_id: actor?.id || null,
+    user_name: actorName,
+    snapshot_data: {
+      handler_name: data.handler_name,
+      dog_call_name: data.dog_call_name,
+      cwags_number: data.cwags_number,
+      class_name: data.class_name,
+      round_number: data.round_number,
+      trial_round_id: data.trial_round_id,
+      entry_type: data.entry_type,
+      fee: data.fee,
+      running_position: data.running_position,
+      entry_status: data.entry_status,
+      games_subclass: data.games_subclass || null,
+      jump_height: data.jump_height || null,
+      created_new_entry: data.created_new_entry,
+      source: 'live_event',
+      changed_at: new Date().toISOString(),
+    },
+  });
+
+  if (error) {
+    throw new Error(`Entry was saved, but activity logging failed: ${error.message}`);
   }
 }

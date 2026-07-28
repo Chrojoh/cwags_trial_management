@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { isActiveSelection } from '@/lib/selectionStatus';
 
 interface ClassAggregate {
   class_name: string;
@@ -214,7 +215,7 @@ export default function AllTrialsSummaryPage() {
         (cls.trial_rounds || []).forEach((round: any) => {
           (round.entry_selections || []).forEach((selection: any) => {
             // Skip withdrawn entries
-            if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
+            if (!isActiveSelection(selection.entry_status)) return;
 
             classGroups[className].runs.push({
               selection_id: selection.id,

@@ -16,6 +16,7 @@ import {
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { formatCwagsNumber } from '@/lib/utils';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import { isScorableSelection } from '@/lib/selectionStatus';
 import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
 
 interface RunDetail {
@@ -115,8 +116,7 @@ export default function DogPerformanceHistory() {
           )
         `
         )
-        .eq('cwags_number', formatted)
-        .neq('entry_status', 'withdrawn');
+        .eq('cwags_number', formatted);
 
       if (entriesError) {
         console.error('Error fetching entries:', entriesError);
@@ -141,13 +141,19 @@ export default function DogPerformanceHistory() {
         const trialRound = Array.isArray(firstSelection.trial_rounds)
           ? firstSelection.trial_rounds[0]
           : firstSelection.trial_rounds;
+        const trialClass = Array.isArray(trialRound?.trial_classes)
+          ? trialRound.trial_classes[0]
+          : trialRound?.trial_classes;
+        const trialDay = Array.isArray(trialClass?.trial_days)
+          ? trialClass.trial_days[0]
+          : trialClass?.trial_days;
         console.log('📋 Sample entry structure:', {
           has_trial_rounds: !!trialRound,
           judge_name: trialRound?.judge_name,
-          has_trial_classes: !!trialRound?.trial_classes,
-          class_name: trialRound?.trial_classes?.class_name,
-          has_trial_days: !!trialRound?.trial_classes?.trial_days,
-          trial_date: trialRound?.trial_classes?.trial_days?.trial_date,
+          has_trial_classes: !!trialClass,
+          class_name: trialClass?.class_name,
+          has_trial_days: !!trialDay,
+          trial_date: trialDay?.trial_date,
         });
       }
 
@@ -158,7 +164,7 @@ export default function DogPerformanceHistory() {
           // Only count regular runs (not FEO)
           if (
             selection.entry_type?.toLowerCase() === 'regular' &&
-            selection.entry_status?.toLowerCase() !== 'withdrawn'
+            isScorableSelection(selection.entry_status)
           ) {
             selectionIds.push(selection.id);
           }
@@ -232,7 +238,7 @@ export default function DogPerformanceHistory() {
           // Only count regular runs (not FEO) and not withdrawn
           if (
             selection.entry_type?.toLowerCase() !== 'regular' ||
-            selection.entry_status?.toLowerCase() === 'withdrawn'
+            !isScorableSelection(selection.entry_status)
           ) {
             return;
           }

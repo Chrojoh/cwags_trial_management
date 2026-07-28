@@ -1,7 +1,7 @@
 // src/app/dashboard/admin/judge-compensation/[trialId]/page.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import MainLayout from '@/components/layout/mainLayout';
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -21,6 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Calculator, AlertCircle, Loader2, ArrowLeft, CheckCircle, DollarSign } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { isActiveSelection } from '@/lib/selectionStatus';
 
 interface PricingInputs {
   standardEntryFee: string;
@@ -31,10 +31,107 @@ interface PricingInputs {
 
 interface HandlerEntry {
   handler_name: string;
+  handler_email: string;
   cwags_number: string;
   total_runs: number;
-  isJudge: boolean;
 }
+
+interface JudgeReference {
+  name: string;
+  email: string;
+}
+
+interface SelectionSummary {
+  entry_type: string | null;
+  entry_status: string | null;
+}
+
+interface TrialHandlerRow {
+  handler_name: string;
+  handler_email: string | null;
+  cwags_number: string;
+  entry_selections: SelectionSummary[];
+}
+
+interface JudgedRoundRow {
+  judge_name: string | null;
+  entry_selections: SelectionSummary[];
+}
+
+const normalizePersonName = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\b(judge|mr|mrs|ms|dr)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const editDistance = (left: string, right: string): number => {
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let leftIndex = 1; leftIndex <= left.length; leftIndex++) {
+    let diagonal = previous[0];
+    previous[0] = leftIndex;
+    for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
+      const above = previous[rightIndex];
+      previous[rightIndex] = Math.min(
+        previous[rightIndex] + 1,
+        previous[rightIndex - 1] + 1,
+        diagonal + (left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1)
+      );
+      diagonal = above;
+    }
+  }
+  return previous[right.length];
+};
+
+const nameSimilarity = (leftValue: string, rightValue: string): number => {
+  const left = normalizePersonName(leftValue);
+  const right = normalizePersonName(rightValue);
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if ((left.length >= 5 && right.includes(left)) || (right.length >= 5 && left.includes(right))) {
+    return 0.96;
+  }
+
+  const leftTokens = left.split(' ');
+  const rightTokens = right.split(' ');
+  const leftLast = leftTokens[leftTokens.length - 1];
+  const rightLast = rightTokens[rightTokens.length - 1];
+  const sameLastName = leftLast === rightLast;
+  const compatibleFirstName =
+    leftTokens[0] === rightTokens[0] || leftTokens[0][0] === rightTokens[0][0];
+  if (sameLastName && compatibleFirstName) return 0.94;
+
+  const wholeNameScore = 1 - editDistance(left, right) / Math.max(left.length, right.length);
+  const shorterTokens = leftTokens.length <= rightTokens.length ? leftTokens : rightTokens;
+  const longerTokens = leftTokens.length <= rightTokens.length ? rightTokens : leftTokens;
+  let bestWindowScore = wholeNameScore;
+  for (let index = 0; index <= longerTokens.length - shorterTokens.length; index++) {
+    const windowName = longerTokens.slice(index, index + shorterTokens.length).join(' ');
+    const shorterName = shorterTokens.join(' ');
+    bestWindowScore = Math.max(
+      bestWindowScore,
+      1 - editDistance(shorterName, windowName) / Math.max(shorterName.length, windowName.length)
+    );
+  }
+  return bestWindowScore;
+};
+
+const bestNameMatch = <T extends { name: string }>(
+  sourceName: string,
+  candidates: T[]
+): T | null => {
+  const ranked = candidates
+    .map((candidate) => ({ candidate, score: nameSimilarity(sourceName, candidate.name) }))
+    .sort((a, b) => b.score - a.score);
+  if (!ranked[0] || ranked[0].score < 0.78) return null;
+  if (ranked[1] && ranked[0].score - ranked[1].score < 0.08 && ranked[0].score < 0.94) {
+    return null;
+  }
+  return ranked[0].candidate;
+};
 
 interface JudgeData {
   judgeName: string;
@@ -50,7 +147,7 @@ export default function JudgeCompensationPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
-  const supabase = getSupabaseBrowser();
+  const supabase = useMemo(() => getSupabaseBrowser(), []);
   const trialId = params.trialId as string;
 
   const [step, setStep] = useState(1); // 1: Pricing, 2: Select Judges, 3: Match, 4: Results
@@ -68,30 +165,10 @@ export default function JudgeCompensationPage() {
   const [handlers, setHandlers] = useState<HandlerEntry[]>([]);
   const [judgeNames, setJudgeNames] = useState<string[]>([]);
   const [judgeMatches, setJudgeMatches] = useState<Map<string, string | null>>(new Map());
+  const [competingJudgeNames, setCompetingJudgeNames] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<JudgeData[]>([]);
 
-  // Load data - always call this hook
-  useEffect(() => {
-    if (user?.role === 'administrator') {
-      loadTrialData();
-    } else {
-      setLoading(false);
-    }
-  }, [trialId, user]);
-
-  // Admin-only access check - AFTER all hooks
-  if (user?.role !== 'administrator') {
-    return (
-      <MainLayout title="Access Denied">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Only administrators can access this feature.</AlertDescription>
-        </Alert>
-      </MainLayout>
-    );
-  }
-
-  const loadTrialData = async () => {
+  const loadTrialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -123,20 +200,15 @@ export default function JudgeCompensationPage() {
 
       if (roundsError) throw roundsError;
 
-      const uniqueJudges = [
-        ...new Set(rounds.map((r) => r.judge_name).filter((name) => name && name.trim() !== '')),
-      ].sort();
-
-      setJudgeNames(uniqueJudges);
-
       // Get all handlers and their run counts
       const { data: entries, error: entriesError } = await supabase
         .from('entries')
         .select(
           `
           handler_name,
+          handler_email,
           cwags_number,
-          entry_selections!inner(
+          entry_selections!entry_selections_entry_id_fkey!inner(
             entry_type,
             entry_status
           )
@@ -146,40 +218,109 @@ export default function JudgeCompensationPage() {
 
       if (entriesError) throw entriesError;
 
+      const { data: judgeReferences, error: judgesError } = await supabase
+        .from('judges')
+        .select('name,email')
+        .eq('is_active', true);
+      if (judgesError) {
+        console.warn('Judge reference table could not be loaded; matching by round names only.');
+      }
+      const activeJudges = (judgeReferences || []) as JudgeReference[];
+
       // Aggregate runs per handler (sum across ALL their dogs)
       const handlerMap = new Map<string, HandlerEntry>();
 
-      entries.forEach((entry: any) => {
+      (entries as TrialHandlerRow[]).forEach((entry) => {
         const handlerName = entry.handler_name;
         if (!handlerMap.has(handlerName)) {
           handlerMap.set(handlerName, {
             handler_name: entry.handler_name,
+            handler_email: entry.handler_email || '',
             cwags_number: entry.cwags_number, // Store one for display
             total_runs: 0,
-            isJudge: false,
           });
         }
 
         // Count valid runs (not FEO, not withdrawn)
         const validRuns = entry.entry_selections.filter(
-          (sel: any) =>
+          (sel) =>
             sel.entry_type?.toLowerCase() !== 'feo' &&
-            sel.entry_status?.toLowerCase() !== 'withdrawn'
+            isActiveSelection(sel.entry_status)
         ).length;
 
         handlerMap.get(handlerName)!.total_runs += validRuns;
       });
 
-      setHandlers(
-        Array.from(handlerMap.values()).sort((a, b) => a.handler_name.localeCompare(b.handler_name))
+      const loadedHandlers = Array.from(handlerMap.values()).sort((a, b) =>
+        a.handler_name.localeCompare(b.handler_name)
       );
+      const roundJudgeNames = [
+        ...new Set(rounds.map((round) => round.judge_name).filter((name) => name?.trim())),
+      ];
+      const canonicalJudgeNames = [
+        ...new Set(
+          roundJudgeNames.map(
+            (roundJudgeName) => bestNameMatch(roundJudgeName, activeJudges)?.name || roundJudgeName
+          )
+        ),
+      ].sort();
+      const automaticMatches = new Map<string, string | null>();
+
+      canonicalJudgeNames.forEach((judgeName) => {
+        const judgeReference =
+          activeJudges.find(
+            (judge) => normalizePersonName(judge.name) === normalizePersonName(judgeName)
+          ) || bestNameMatch(judgeName, activeJudges);
+        const matchingEmail = judgeReference?.email?.trim().toLowerCase();
+        const emailHandler = matchingEmail
+          ? loadedHandlers.find(
+              (handler) => handler.handler_email.trim().toLowerCase() === matchingEmail
+            )
+          : undefined;
+        const nameHandler = bestNameMatch(
+          judgeReference?.name || judgeName,
+          loadedHandlers.map((handler) => ({ ...handler, name: handler.handler_name }))
+        );
+        const matchedHandler = emailHandler || nameHandler;
+        automaticMatches.set(judgeName, matchedHandler?.handler_name || null);
+      });
+
+      setJudgeNames(canonicalJudgeNames);
+      setJudgeMatches(automaticMatches);
+      setCompetingJudgeNames(
+        new Set(
+          Array.from(automaticMatches.entries())
+            .filter(([, handlerName]) => handlerName !== null)
+            .map(([judgeName]) => judgeName)
+        )
+      );
+      setHandlers(loadedHandlers);
     } catch (err) {
       console.error('Error loading trial data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load trial data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase, trialId]);
+
+  useEffect(() => {
+    if (user?.role === 'administrator') {
+      void loadTrialData();
+    } else {
+      setLoading(false);
+    }
+  }, [loadTrialData, user?.role]);
+
+  if (user?.role !== 'administrator') {
+    return (
+      <MainLayout title="Access Denied">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>Only administrators can access this feature.</AlertDescription>
+        </Alert>
+      </MainLayout>
+    );
+  }
 
   const handlePricingSubmit = () => {
     // Validate all pricing inputs
@@ -204,39 +345,46 @@ export default function JudgeCompensationPage() {
     setStep(2);
   };
 
-  const toggleJudgeSelection = (handler_name: string) => {
-    setHandlers((prev) =>
-      prev.map((h) => (h.handler_name === handler_name ? { ...h, isJudge: !h.isJudge } : h))
-    );
+  const toggleJudgeSelection = (judgeName: string) => {
+    setCompetingJudgeNames((previous) => {
+      const next = new Set(previous);
+      if (next.has(judgeName)) {
+        next.delete(judgeName);
+        setJudgeMatches((matches) => new Map(matches).set(judgeName, null));
+      } else {
+        next.add(judgeName);
+        const suggestedHandler = bestNameMatch(
+          judgeName,
+          handlers.map((handler) => ({ ...handler, name: handler.handler_name }))
+        );
+        if (suggestedHandler) {
+          setJudgeMatches((matches) =>
+            new Map(matches).set(judgeName, suggestedHandler.handler_name)
+          );
+        }
+      }
+      return next;
+    });
   };
 
   const handleJudgeSelectionSubmit = () => {
-    const selectedJudges = handlers.filter((h) => h.isJudge);
-    if (selectedJudges.length === 0) {
-      setError('Please select at least one judge');
-      return;
-    }
     setError(null);
     setStep(3);
   };
 
   const getSuggestedMatches = (judgeName: string): string[] => {
-    const lowerJudge = judgeName.toLowerCase();
-
-    return handlers
-      .filter((h) => h.isJudge)
-      .filter((h) => {
-        const lowerHandler = h.handler_name.toLowerCase();
-        // Exact match
-        if (lowerHandler === lowerJudge) return true;
-        // Judge name appears in handler name (e.g., "Lane Michie" in "Nina and Lane Michie")
-        if (lowerHandler.includes(lowerJudge)) return true;
-        // Handler name appears in judge name
-        if (lowerJudge.includes(lowerHandler)) return true;
-        return false;
-      })
-      .map((h) => h.handler_name)
-      .slice(0, 3); // Top 3 suggestions
+    const currentMatch = judgeMatches.get(judgeName);
+    const suggestions = handlers
+      .map((handler) => ({
+        name: handler.handler_name,
+        score: nameSimilarity(judgeName, handler.handler_name),
+      }))
+      .filter((candidate) => candidate.score >= 0.65 || candidate.name === currentMatch)
+      .sort((a, b) => b.score - a.score)
+      .map((candidate) => candidate.name)
+      .slice(0, 3);
+    if (currentMatch && !suggestions.includes(currentMatch)) suggestions.unshift(currentMatch);
+    return suggestions.slice(0, 3);
   };
 
   const selectMatch = (judgeName: string, handlerName: string | null) => {
@@ -244,6 +392,13 @@ export default function JudgeCompensationPage() {
   };
 
   const handleMatchingSubmit = async () => {
+    const unmatchedCompetingJudges = Array.from(competingJudgeNames).filter(
+      (judgeName) => !judgeMatches.get(judgeName)
+    );
+    if (unmatchedCompetingJudges.length > 0) {
+      setError(`Choose a handler match for: ${unmatchedCompetingJudges.join(', ')}`);
+      return;
+    }
     setLoading(true);
     try {
       // Calculate runs judging for each judge
@@ -271,14 +426,19 @@ export default function JudgeCompensationPage() {
       // Count valid entries per judge
       const judgeRunCounts = new Map<string, number>();
 
-      rounds.forEach((round: any) => {
-        const judgeName = round.judge_name;
-        if (!judgeName) return;
+      (rounds as JudgedRoundRow[]).forEach((round) => {
+        const rawJudgeName = round.judge_name;
+        if (!rawJudgeName) return;
+        const judgeName =
+          bestNameMatch(
+            rawJudgeName,
+            judgeNames.map((name) => ({ name }))
+          )?.name || rawJudgeName;
 
         const validEntries = round.entry_selections.filter(
-          (sel: any) =>
+          (sel) =>
             sel.entry_type?.toLowerCase() !== 'feo' &&
-            sel.entry_status?.toLowerCase() !== 'withdrawn'
+            isActiveSelection(sel.entry_status)
         ).length;
 
         judgeRunCounts.set(judgeName, (judgeRunCounts.get(judgeName) || 0) + validEntries);
@@ -495,8 +655,8 @@ export default function JudgeCompensationPage() {
               Step 2: Select Which Handlers are Judges
             </CardTitle>
             <CardDescription>
-              Check all handlers who are judging at this trial (
-              {handlers.filter((h) => h.isJudge).length} selected)
+              Check the judges who are also entered as handlers. Matches found by email or name are
+              checked automatically ({competingJudgeNames.size} competing)
               <br />
               <span className="text-xs text-gray-500">
                 Note: If a handler has multiple dogs, all their runs are summed together
@@ -506,31 +666,39 @@ export default function JudgeCompensationPage() {
           <CardContent>
             <div className="max-h-96 overflow-y-auto border rounded-lg">
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">Judge</TableHead>
-                    <TableHead>Handler Name</TableHead>
-                    <TableHead>C-WAGS Number</TableHead>
-                    <TableHead className="text-right">Runs Competing</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {handlers.map((handler) => (
-                    <TableRow key={handler.handler_name}>
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          checked={handler.isJudge}
-                          onChange={() => toggleJudgeSelection(handler.handler_name)}
-                          className="w-4 h-4 cursor-pointer"
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{handler.handler_name}</TableCell>
-                      <TableCell className="text-gray-600">{handler.cwags_number}</TableCell>
-                      <TableCell className="text-right">{handler.total_runs}</TableCell>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Competing</TableHead>
+                      <TableHead>Judge from Trial</TableHead>
+                      <TableHead>Matched Handler</TableHead>
+                      <TableHead className="text-right">Runs Competing</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
+                  </TableHeader>
+                  <TableBody>
+                    {judgeNames.map((judgeName) => {
+                      const handlerName = judgeMatches.get(judgeName);
+                      const handler = handlers.find(
+                        (candidate) => candidate.handler_name === handlerName
+                      );
+                      return (
+                        <TableRow key={judgeName}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={competingJudgeNames.has(judgeName)}
+                              onChange={() => toggleJudgeSelection(judgeName)}
+                              className="w-4 h-4 cursor-pointer"
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{judgeName}</TableCell>
+                          <TableCell className="text-gray-600">
+                            {handler?.handler_name || 'Not matched'}
+                          </TableCell>
+                          <TableCell className="text-right">{handler?.total_runs || 0}</TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
               </Table>
             </div>
 
@@ -557,11 +725,13 @@ export default function JudgeCompensationPage() {
               <CheckCircle className="h-5 w-5 text-orange-600" />
               Step 3: Match Judge Names to Handler Entries
             </CardTitle>
-            <CardDescription>Confirm which handler entry belongs to each judge</CardDescription>
+            <CardDescription>
+              Confirm the automatically matched handler entry for each judge
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {judgeNames.map((judgeName) => {
+              {judgeNames.filter((judgeName) => competingJudgeNames.has(judgeName)).map((judgeName) => {
                 const suggestions = getSuggestedMatches(judgeName);
                 const currentMatch = judgeMatches.get(judgeName);
 
@@ -595,7 +765,14 @@ export default function JudgeCompensationPage() {
                       <Button
                         variant={currentMatch === null ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => selectMatch(judgeName, null)}
+                        onClick={() => {
+                          selectMatch(judgeName, null);
+                          setCompetingJudgeNames((previous) => {
+                            const next = new Set(previous);
+                            next.delete(judgeName);
+                            return next;
+                          });
+                        }}
                         className={currentMatch === null ? 'bg-gray-600 hover:bg-gray-700' : ''}
                       >
                         Not Competing
@@ -654,7 +831,8 @@ export default function JudgeCompensationPage() {
                   <strong>Runs Judging:</strong> Total entries in all rounds this person is judging
                 </p>
                 <p>
-                  <strong>Waive Cost:</strong> Cost if judge doesn't pay (CWAGS fees only) = -(Runs
+                  <strong>Waive Cost:</strong> Cost if the judge does not pay (CWAGS fees only) =
+                  -(Runs
                   × ${pricing.cwagsPerRunFee})
                 </p>
                 <p>

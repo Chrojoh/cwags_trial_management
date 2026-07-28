@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table';
 import { Clock, Save, AlertCircle, CheckCircle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { isRunningOrderSelection } from '@/lib/selectionStatus';
 import { getDefaultTimeConfigurations, DEFAULT_DAILY_ALLOTMENT } from '@/lib/trialTimeDefaults';
 
 interface TimeConfig {
@@ -174,7 +175,7 @@ export default function TrialTimeCalculatorPage() {
                 if (
                   roundInfo &&
                   roundInfo.dayId === day.id &&
-                  selection.entry_status?.toLowerCase() !== 'withdrawn' &&
+                  isRunningOrderSelection(selection.entry_status) &&
                   selection.entry_type?.toLowerCase() !== 'feo'
                 ) {
                   const className = roundInfo.className;

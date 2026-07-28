@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Save, Check } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { isAbsentSelection, isScorableSelection } from '@/lib/selectionStatus';
 
 interface ScoreEntryPageProps {
   selectedClass: any;
@@ -146,7 +147,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             subclassMatches = selection.games_subclass === targetSubclass;
           }
 
-          if (roundMatches && subclassMatches && selection.entry_status !== 'withdrawn') {
+          if (roundMatches && subclassMatches && isScorableSelection(selection.entry_status)) {
             const scoresArray = Array.isArray(selection.scores)
               ? selection.scores
               : selection.scores
@@ -370,7 +371,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 <tbody>
                   {entries.map((entry, idx) => {
                     const isAbsent =
-                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                      isAbsentSelection(entry.entry_status);
                     const isDisabled = entry.entry_type === 'feo' || isAbsent;
                     return (
                       <tr
@@ -498,7 +499,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 <tbody>
                   {entries.map((entry, idx) => {
                     const isAbsent =
-                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                      isAbsentSelection(entry.entry_status);
                     return (
                       <tr
                         key={entry.id}
@@ -588,7 +589,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 <tbody>
                   {entries.map((entry, idx) => {
                     const isAbsent =
-                      entry.entry_status === 'no_show' || entry.entry_status === 'absent';
+                      isAbsentSelection(entry.entry_status);
                     return (
                       <tr
                         key={entry.id}

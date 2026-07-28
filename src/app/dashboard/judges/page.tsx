@@ -18,7 +18,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { getAllJudges, createJudge, updateJudge, deleteJudge } from '@/lib/judges';
-import { getJudgeLastDate, preloadJudgeLastDates } from '@/lib/judgeLastDate';
+import {
+  getJudgeLastDate,
+  JUDGE_HISTORY_UNAVAILABLE,
+  preloadJudgeLastDates,
+} from '@/lib/judgeLastDate';
 import type { Judge, JudgeFormData } from '../../../types/judge';
 import {
   OBEDIENCE_LEVELS,
@@ -106,6 +110,7 @@ export default function JudgesPage() {
       !dateStr ||
       dateStr === 'No record found' ||
       dateStr === 'Error loading' ||
+      dateStr === JUDGE_HISTORY_UNAVAILABLE ||
       dateStr === 'Loading...'
     ) {
       return null;
@@ -129,7 +134,12 @@ export default function JudgesPage() {
         const monthsSince = calculateMonthsSince(dateStr);
 
         let lastDate: Date | null = null;
-        if (dateStr && dateStr !== 'No record found' && dateStr !== 'Error loading') {
+        if (
+          dateStr &&
+          dateStr !== 'No record found' &&
+          dateStr !== 'Error loading' &&
+          dateStr !== JUDGE_HISTORY_UNAVAILABLE
+        ) {
           try {
             lastDate = new Date(dateStr);
           } catch (e) {

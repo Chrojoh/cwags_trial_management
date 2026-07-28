@@ -24,8 +24,6 @@ import {
   FileSpreadsheet,
   Users,
   Trophy,
-  CheckCircle,
-  XCircle,
   Loader2,
   BarChart3,
   ArrowLeft,
@@ -33,6 +31,12 @@ import {
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import { buildLeagueResultsWorkbook } from '@/lib/leagueResultsWorkbook';
+import {
+  isAbsentSelection,
+  isActiveSelection,
+  isScorableSelection,
+} from '@/lib/selectionStatus';
 
 interface Trial {
   id: string;
@@ -86,15 +90,6 @@ interface ClassEntry {
   }>;
 }
 
-const abbreviateClassNameForExcel = (className: string): string => {
-  const abbreviations: Record<string, string> = {
-    'Super Sleuth': 'Super Sleuth 4',
-    'Detective Diversions': 'Det Diversions',
-    'Private Investigator': 'Private Inv',
-  };
-
-  return abbreviations[className] || className;
-};
 export default function ClassSummaryPage() {
   const router = useRouter();
   const params = useParams();
@@ -216,19 +211,6 @@ export default function ClassSummaryPage() {
       const selectedClass = summaryData.classes.find((c) => c.id === classId);
       if (!selectedClass) return null;
 
-      // Normalize class name function
-      const normalizeClassName = (className: string): string => {
-        const corrections: Record<string, string> = {
-          Patrol: 'Patrol 1',
-          Detective: 'Detective 2',
-          Investigator: 'Investigator 3',
-          'Super Sleuth': 'Super Sleuth 4',
-          'Private Inv': 'Private Investigator',
-          'Det Diversions': 'Detective Diversions',
-        };
-        return corrections[className] || className;
-      };
-
       // ✅ REVERTED FIX: Filter by class NAME to show ALL DAYS (like Excel export)
       const normalizedSelectedClassName = selectedClass.class_name;
 
@@ -274,7 +256,7 @@ export default function ClassSummaryPage() {
       (entriesResult.data || []).forEach((entry: any) => {
         (entry.entry_selections || []).forEach((selection: any) => {
           if (selection.entry_type?.toLowerCase() === 'feo') return;
-          if (selection.entry_status?.toLowerCase() === 'withdrawn') return;
+          if (!isActiveSelection(selection.entry_status)) return;
 
           const roundId = selection.trial_round_id;
 
@@ -296,7 +278,10 @@ export default function ClassSummaryPage() {
           const score = scoresMap.get(selection.id);
           let result = '-';
 
-          if (selection.entry_status === 'no_show' || selection.entry_status === 'absent') {
+          if (
+            isAbsentSelection(selection.entry_status) ||
+            isAbsentSelection(score?.entry_status)
+          ) {
             result = 'Abs';
           } else if (score) {
             if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
@@ -330,6 +315,7 @@ export default function ClassSummaryPage() {
       alert('No data available to export');
       return;
     }
+    const exportSummaryData = summaryData;
 
     try {
       setExporting(true);
@@ -465,7 +451,10 @@ export default function ClassSummaryPage() {
           if (selection.entry_type?.toLowerCase() === 'feo') {
             return;
           }
-          if (selection.entry_status?.toLowerCase() === 'withdrawn') {
+          if (
+            !isScorableSelection(selection.entry_status) &&
+            !isAbsentSelection(selection.entry_status)
+          ) {
             return;
           }
 
@@ -499,15 +488,13 @@ export default function ClassSummaryPage() {
           let result = '-';
 
           if (
-            selection.entry_status === 'no_show' ||
-            selection.entry_status === 'absent' ||
-            score?.entry_status === 'no_show' ||
-            score?.entry_status === 'absent'
+            isAbsentSelection(selection.entry_status) ||
+            isAbsentSelection(score?.entry_status)
           ) {
             result = 'Abs';
             targetClassData.totalRuns++;
           } else if (
-            selection.entry_status === 'withdrawn' ||
+            !isScorableSelection(selection.entry_status) ||
             score?.entry_status === 'withdrawn'
           ) {
             result = 'Wth';
@@ -561,463 +548,55 @@ export default function ClassSummaryPage() {
         });
       });
 
-      // Create Excel workbook
-      const XLSX = await import('xlsx-js-style');
-      const workbook = XLSX.utils.book_new();
+      // Populate the official league results workbook without rebuilding it. This
+      // preserves its directions, logo, recap layout, styles, and print settings.
+      {
+        const exportClasses = Array.from(classesByName.values())
+          .sort((a, b) => a.classOrder - b.classOrder)
+          .filter((classData) =>
+            classData.allRounds.some((round) =>
+              Array.from(round.results.values()).some((result) => result !== '-')
+            )
+          )
+          .map((classData) => ({
+            className: classData.className,
+            participants: Array.from(classData.allParticipants.values()),
+            rounds: classData.allRounds,
+          }));
 
-      // Create summary overview sheet with NEW FORMATTING
-      const summarySheetData: any[][] = [
-        ['Trial Summary'], // Row 1
-        [], // Row 2
-        ['Class Name', 'Total Runs', 'Actually Ran', 'Passes', 'Fails', 'Billable Runs'], // Row 3
-        [], // Row 4 - BLANK ROW
-      ];
-
-      // Sort classes by orangeprint order for summary
-      const sortedClasses = Array.from(classesByName.values()).sort(
-        (a, b) => a.classOrder - b.classOrder
-      );
-
-      sortedClasses.forEach((classData) => {
-        let totalRuns = 0;
-        let actuallyRan = 0;
-        let passes = 0;
-        let fails = 0;
-        let billableRuns = 0;
-
-        classData.allRounds.forEach((round) => {
-          round.results.forEach((result, cwagsNumber) => {
-            totalRuns++;
-
-            if (result !== '-') {
-              actuallyRan++;
-            }
-
-            if (
-              result === 'Pass' ||
-              result === 'GB' ||
-              result === 'BJ' ||
-              result === 'C' ||
-              result === 'T' ||
-              result === 'P'
-            ) {
-              passes++;
-              billableRuns++;
-            } else if (!isNaN(Number(result))) {
-              const score = Number(result);
-              const passingScore = classData.className.toLowerCase().includes('obedience 5')
-                ? 120
-                : 70;
-              if (score >= passingScore) {
-                passes++;
-                billableRuns++;
-              }
-            } else if (result === 'F' || result === 'NQ') {
-              fails++;
-              billableRuns++;
-            } else if (result === 'Abs') {
-              billableRuns++;
-            }
-          });
-        });
-
-        summarySheetData.push([
-          abbreviateClassNameForExcel(classData.className), // ← ADD THIS
-          totalRuns,
-          actuallyRan,
-          passes,
-          fails,
-          billableRuns,
-        ]);
-      });
-
-      // Data starts at row 5 (array index 4), so adjust calculations
-      const firstDataRow = 5; // Row 5 in Excel
-      const lastDataRow = 5 + sortedClasses.length; // Last row with class data
-      const sumRow = lastDataRow + 1; // Row with SUM formula
-      const runFeeRow = sumRow + 1; // Row for manual Run Fee entry
-      const totalOwingRow = runFeeRow + 1; // Row with Total Owing formula
-
-      // Add blank row, then SUM formula row
-      summarySheetData.push([]); // Blank row after all classes
-
-      summarySheetData.push([
-        '',
-        '',
-        '',
-        '',
-        'Total Billable Runs:',
-        { f: `SUM(F${firstDataRow}:F${lastDataRow})` } as any,
-      ]);
-
-      // Blank row for Run Fee manual entry
-      summarySheetData.push(['', '', '', '', 'Run Fee:', '']);
-
-      // Total Owing formula
-      summarySheetData.push([
-        '',
-        '',
-        '',
-        '',
-        'Total Owing:',
-        { f: `F${sumRow}*F${runFeeRow}` } as any,
-      ]);
-
-      const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheetData);
-
-      // APPLY NEW FORMATTING
-      // Set column widths: A&B=20, C=27, D+=20
-      summaryWorksheet['!cols'] = [
-        { wch: 20 }, // A
-        { wch: 20 }, // B
-        { wch: 27 }, // C
-        { wch: 20 }, // D
-        { wch: 20 }, // E
-        { wch: 20 }, // F
-        { wch: 20 }, // G
-      ];
-
-      // Merge cells A1:C1 for "Trial Summary"
-      summaryWorksheet['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // A1:C1
-      ];
-
-      // Apply cell formatting
-      const range = XLSX.utils.decode_range(summaryWorksheet['!ref'] || 'A1');
-      for (let R = range.s.r; R <= range.e.r; ++R) {
-        for (let C = range.s.c; C <= range.e.c; ++C) {
-          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-          if (!summaryWorksheet[cellAddress]) continue;
-
-          const cell = summaryWorksheet[cellAddress];
-
-          // Row 1 (index 0): Left aligned, font size 20, merged A-C
-          if (R === 0) {
-            cell.s = {
-              font: { sz: 20, name: 'Calibri' },
-              alignment: { horizontal: 'left', vertical: 'center' },
-            };
-          }
-          // Row 3 (index 2): Center aligned, font size 20, bold
-          else if (R === 2) {
-            cell.s = {
-              font: { sz: 20, bold: true, name: 'Calibri' },
-              alignment: { horizontal: 'left', vertical: 'center' },
-            };
-          }
-          // Row 4 and greater (index 3+): Center aligned
-          else if (R >= 3) {
-            // Row 5 (index 4 - first data row after headers): Bold
-            if (R === 3) {
-              cell.s = {
-                font: { bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-            // Row 6 (index 5): Bold, size 14
-            else if (R === 4) {
-              cell.s = {
-                font: { sz: 14, bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-            // All other rows: Center aligned
-            else {
-              cell.s = {
-                font: { name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-          }
-        }
-      }
-
-      // XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
-      // Helper to sort registration numbers like 17-1734-01 numerically
-      const getRegSortValue = (reg: string | undefined | null): number => {
-        if (!reg) return Number.MAX_SAFE_INTEGER; // blanks go to bottom
-        const numeric = Number(reg.replace(/[^0-9]/g, '')); // strip dashes
-        return Number.isNaN(numeric) ? Number.MAX_SAFE_INTEGER : numeric;
-      };
-
-      // Create individual class matrix sheets in orangeprint order
-      sortedClasses.forEach((classData) => {
-        // ✅ CHANGE 1: Filter out rounds with no entries
-        const roundsWithEntries = classData.allRounds.filter((round) => {
-          const hasEntries = Array.from(round.results.values()).some((result) => result !== '-');
-          return hasEntries;
-        });
-
-        // Skip this class entirely if no rounds have entries
-        if (roundsWithEntries.length === 0) {
-          return;
+        const templateResponse = await fetch('/templates/league-results-template-v3.xlsx');
+        if (!templateResponse.ok) {
+          throw new Error('Could not load the league results workbook template.');
         }
 
-        const sheetData = [];
-
-        for (let i = 0; i < 6; i++) {
-          sheetData.push([]);
-        }
-
-        sheetData[0] = [summaryData.trial.trial_name];
-        sheetData[1] = [summaryData.trial.club_name];
-        sheetData[2] = ['Rounds that end in .5 are reset rounds for the previous column', '', '', '', '', abbreviateClassNameForExcel(classData.className)];
-
-        const row4Headers = ['', '', ''];
-        roundsWithEntries.forEach((round) => {
-          row4Headers.push(`Round ${round.roundNumber}`);
-        });
-        sheetData[3] = row4Headers;
-
-        const row5Headers = ['', '', ''];
-        roundsWithEntries.forEach((round) => {
-          row5Headers.push(round.judgeInfo);
-        });
-        sheetData[4] = row5Headers;
-
-        const row6Headers = ['C-WAGS Number', 'Dog Name', 'Handler Name'];
-        roundsWithEntries.forEach((round) => {
-          const formattedDate = safeDateFromISO(round.trialDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: '2-digit',
-            year: 'numeric',
-          });
-          row6Headers.push(formattedDate);
-        });
-        sheetData[5] = row6Headers;
-
-        const participantEntries = Array.from(classData.allParticipants.values());
-
-        participantEntries.forEach((participant) => {
-          const row = [participant.cwagsNumber, participant.dogName, participant.handlerName];
-
-          roundsWithEntries.forEach((round) => {
-            const result = round.results.get(participant.cwagsNumber) || '-';
-            row.push(result);
-          });
-
-          sheetData.push(row);
-        });
-
-        // 🔧 Sort rows A7:Z by column A (registration) numerically ascending
-        // Keep rows 1–6 (indexes 0–5) exactly as they are
-        const headerRows = sheetData.slice(0, 6);
-        const dataRows = sheetData.slice(6);
-
-        dataRows.sort((a, b) => {
-          const aVal = getRegSortValue(a[0] as string | undefined);
-          const bVal = getRegSortValue(b[0] as string | undefined);
-          return aVal - bVal;
-        });
-
-        const sortedSheetData = [...headerRows, ...dataRows];
-
-        const worksheet = XLSX.utils.aoa_to_sheet(sortedSheetData);
-
-        // AUTO-CALCULATE COLUMN WIDTHS based on content
-        const numCols = Math.max(3 + roundsWithEntries.length, 7);
-        const sheetRange = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-        const colWidths: number[] = Array(numCols).fill(10); // default minimum width
-
-        for (let C = 0; C < numCols; C++) {
-          for (let R = 0; R <= sheetRange.e.r; R++) {
-            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-            const cell = worksheet[cellAddress];
-            if (cell && cell.v != null) {
-              const cellLength = String(cell.v).length;
-              if (cellLength > colWidths[C]) {
-                colWidths[C] = cellLength;
-              }
-            }
-          }
-          // Cap max width and add padding
-          colWidths[C] = Math.min(colWidths[C] + 2, 40);
-        }
-
-        // ✅ CHANGE 2: Override column A to be exactly 20
-        colWidths[0] = 20;
-        worksheet['!cols'] = colWidths.map((w) => ({ wch: w }));
-
-        // Additional view settings for when opening in Excel
-        worksheet['!views'] = [
+        const workbookBytes = buildLeagueResultsWorkbook(
+          new Uint8Array(await templateResponse.arrayBuffer()),
           {
-            showGridLines: false,
-            showRowColHeaders: false,
-            zoomScale: 85, // Comfortable viewing zoom
+            trialName: exportSummaryData.trial.trial_name,
+            clubName: exportSummaryData.trial.club_name,
+            location: exportSummaryData.trial.location,
+            startDate: exportSummaryData.trial.start_date,
+            endDate: exportSummaryData.trial.end_date,
           },
-        ];
-
-        // ✅ CHANGE 3: Merge cells A1:E1 for trial name (removed duplicate merge)
-        worksheet['!merges'] = [
-          { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }, // A1:E1
-          { s: { r: 2, c: 0 }, e: { r: 2, c: 3 } }, // A3:D3 (note text)
-        ];
-
-        // Apply cell formatting to class sheet
-        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-        for (let R = range.s.r; R <= range.e.r; ++R) {
-          for (let C = range.s.c; C <= range.e.c; ++C) {
-            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-            if (!worksheet[cellAddress]) continue;
-
-            const cell = worksheet[cellAddress];
-
-            // Row 1 (index 0): Left aligned, font size 18, merged A-E
-            if (R === 0) {
-              cell.s = {
-                font: { sz: 16, name: 'Calibri' },
-                alignment: { horizontal: 'left', vertical: 'center' },
-              };
-            }
-            // Row 3 (index 2): note text in col A (small italic), class name elsewhere (sz:18 bold)
-            else if (R === 2) {
-              if (C === 0) {
-                cell.s = {
-                  font: { sz: 11, italic: true, name: 'Calibri' },
-                  alignment: { horizontal: 'left', vertical: 'center' },
-                };
-              } else {
-                cell.s = {
-                  font: { sz: 16, bold: true, name: 'Calibri' },
-                  alignment: { horizontal: 'left', vertical: 'center' },
-                };
-              }
-            }
-            // Row 4 (index 3): Center aligned, bold
-            else if (R === 3) {
-              cell.s = {
-                font: { bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-            // Row 5 (index 4): Center aligned, bold
-            else if (R === 4) {
-              cell.s = {
-                font: { bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-            // Row 6 (index 5): Center aligned, bold, size 12
-            else if (R === 5) {
-              cell.s = {
-                font: { sz: 12, bold: true, name: 'Calibri' },
-                alignment: { horizontal: 'center', vertical: 'center' },
-              };
-            }
-            // Row 7+ (index 6+): Center aligned WITH BOTTOM BORDER AND ALTERNATING SHADING
-            else if (R >= 6) {
-              // Alternating rows: even index rows (6, 8, 10...) get light blue shading
-              const isEvenDataRow = R % 2 === 0;
-              // Col C (index 2 = Handler Name) stays at 13; all other data columns use 16
-              const dataFontSize = C === 2 ? 13 : 16;
-
-              // Result columns (D onwards, index 3+): colour by exact cell value
-              let fontColor: string | undefined;
-              let fontBold = false;
-              if (C >= 3) {
-                const val = cell.v;
-                if (val === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(val)) {
-                  fontColor = '000000'; // black
-                } else if (val === 'F' || val === 'NQ') {
-                  fontColor = '7030A0'; // purple
-                  fontBold = true;
-                } else if (val === 'Abs') {
-                  fontColor = 'ED7D31'; // orange
-                }
-              }
-
-              cell.s = {
-                font: {
-                  sz: dataFontSize,
-                  name: 'Calibri',
-                  ...(fontColor ? { color: { rgb: fontColor } } : {}),
-                  ...(fontBold ? { bold: true } : {}),
-                },
-                alignment: { horizontal: 'center', vertical: 'center' },
-                border: {
-                  bottom: { style: 'thin', color: { rgb: '000000' } },
-                },
-                fill: isEvenDataRow
-                  ? { fgColor: { rgb: 'D9E1F2' } } // light blue for even rows
-                  : { fgColor: { rgb: 'FFFFFF' } }, // white for odd rows
-              };
-            }
-          }
-        }
-
-        let sheetName = abbreviateClassNameForExcel(classData.className).replace(
-          /[:\\/?*[\]]/g,
-          ''
+          exportClasses
         );
-        if (sheetName.length > 31) {
-          sheetName = sheetName.substring(0, 31);
-        }
-
-        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-      });
-
-      // ── Trial_Recap sheet from template ──────────────────────────────
-      const templateResponse = await fetch('/Book1.xlsx');
-      const templateBuffer = await templateResponse.arrayBuffer();
-      const templateWb = XLSX.read(new Uint8Array(templateBuffer), { type: 'array', cellStyles: true });
-      const recapSheet = templateWb.Sheets[templateWb.SheetNames[0]];
-
-      const classSheetCount = workbook.SheetNames.length;
-
-      XLSX.utils.book_append_sheet(workbook, recapSheet, 'Trial_Recap');
-
-      const fileName = `${summaryData.trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_ClassSummary.xlsx`;
-
-      const { unzipSync, zipSync, strToU8, strFromU8 } = await import('fflate');
-      const xlsxRaw = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
-      const xlsxBytes = xlsxRaw instanceof Uint8Array ? xlsxRaw : new Uint8Array(xlsxRaw);
-      const zipEntries = unzipSync(xlsxBytes);
-      const pageMarginsXml =
-        '<pageMargins left="0.5" right="0.5" top="0.25" bottom="0.25" header="0.3" footer="0.3"/>';
-      const lateElements = ['<ignoredErrors', '<drawing', '<legacyDrawing', '<tableParts', '<extLst'];
-
-      const workbookXml = strFromU8(zipEntries['xl/workbook.xml']);
-      const sheetNameMatches = [...workbookXml.matchAll(/<sheet[^>]+name="([^"]+)"/g)];
-      const sheetNames = sheetNameMatches.map((m) => m[1]);
-      const printTitleEntries = sheetNames
-        .map((name, i) => `<definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${name}'!$1:$6</definedName>`)
-        .join('');
-      const updatedWorkbookXml = workbookXml.replace(
-        '</workbook>',
-        `<definedNames>${printTitleEntries}</definedNames></workbook>`
-      );
-      zipEntries['xl/workbook.xml'] = strToU8(updatedWorkbookXml);
-
-      for (const filePath of Object.keys(zipEntries)) {
-        if (/^xl\/worksheets\/sheet\d+\.xml$/.test(filePath)) {
-          const sheetNum = parseInt(filePath.match(/sheet(\d+)\.xml/)![1], 10);
-          if (sheetNum > classSheetCount) continue;
-
-          let xml = strFromU8(zipEntries[filePath]);
-          xml = xml.replace(/<worksheet([^>]*)>/, '<worksheet$1><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
-          const injectXml =
-            `${pageMarginsXml}<pageSetup fitToWidth="1" fitToHeight="0" orientation="landscape" paperSize="1"/>`;
-          const marker = lateElements.find((el) => xml.includes(el)) ?? '</worksheet>';
-          zipEntries[filePath] = strToU8(xml.replace(marker, `${injectXml}${marker}`));
-        }
+        const workbookBuffer = workbookBytes.buffer.slice(
+          workbookBytes.byteOffset,
+          workbookBytes.byteOffset + workbookBytes.byteLength
+        ) as ArrayBuffer;
+        const blob = new Blob([workbookBuffer], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${exportSummaryData.trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}_League_Results.xlsx`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        console.log('League results workbook generated successfully');
+        return;
       }
 
-      const patched = zipSync(zipEntries);
-      const patchedBuffer = patched.buffer.slice(
-        patched.byteOffset,
-        patched.byteOffset + patched.byteLength
-      ) as ArrayBuffer;
-      const blob = new Blob([patchedBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-
-      console.log('Excel report generated successfully');
     } catch (error) {
       console.error('Error generating Excel report:', error);
       setError(
@@ -1035,64 +614,6 @@ export default function ClassSummaryPage() {
     }
     return cls.class_name;
   };
-
-  const getResultDisplay = (
-    entry: ClassEntry,
-    classInfo: TrialClass
-  ): { result: string; color: string } => {
-    const score = entry.scores?.[0];
-    if (!score || !score.pass_fail) {
-      return { result: '-', color: 'text-gray-500' };
-    }
-
-    // Check for Games subclass results FIRST
-    const gamesSubclasses = ['GB', 'BJ', 'T', 'P', 'C'];
-    if (gamesSubclasses.includes(score.pass_fail)) {
-      return { result: score.pass_fail, color: 'text-purple-600 font-semibold' };
-    }
-
-    // FEO entries
-    if (score.pass_fail === 'FEO') {
-      return { result: 'FEO', color: 'text-yellow-600 font-semibold' };
-    }
-
-    // Handle rally/obedience classes - show score or NQ
-    const isRallyOrObedience =
-      classInfo.class_name.toLowerCase().includes('starter') ||
-      classInfo.class_name.toLowerCase().includes('advanced') ||
-      classInfo.class_name.toLowerCase().includes('pro') ||
-      classInfo.class_name.toLowerCase().includes('arf') ||
-      classInfo.class_name.toLowerCase().includes('obedience') ||
-      classInfo.class_name.toLowerCase().includes('zoom') ||
-      classInfo.class_type === 'rally';
-
-    if (
-      isRallyOrObedience &&
-      score.numerical_score !== null &&
-      score.numerical_score !== undefined
-    ) {
-      const passingScore = classInfo.class_name.toLowerCase().includes('obedience 5') ? 120 : 70;
-      if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
-        return { result: score.numerical_score.toString(), color: 'text-green-600 font-semibold' };
-      } else {
-        return { result: 'NQ', color: 'text-red-600 font-semibold' };
-      }
-    }
-
-    // Handle other class types
-    if (score.pass_fail === 'Pass') {
-      return { result: 'P', color: 'text-green-600 font-semibold' };
-    } else if (score.pass_fail === 'Fail') {
-      return { result: 'F', color: 'text-red-600 font-semibold' };
-    }
-
-    return { result: '-', color: 'text-gray-500' };
-  };
-
-  const selectedClassData =
-    selectedClassId === 'all'
-      ? null
-      : summaryData?.classes.find((cls) => cls.id === selectedClassId);
 
   if (!user) {
     return (

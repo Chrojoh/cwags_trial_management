@@ -16,6 +16,7 @@ import {
   Clock,
   PlayCircle,
   FileText,
+  ClipboardCheck,
   DollarSign,
   Info,
   BookOpen,
@@ -134,9 +135,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Info,
     },
     {
+      label: 'Trial Application',
+      href: `/dashboard/trials/${trialId}/trial-application`,
+      icon: ClipboardCheck,
+    },
+    {
       label: 'Activity Journal',
       href: `/dashboard/trials/${trialId}/journal`,
       icon: BookOpen,
+    },
+    {
+      label: 'Trial Collaborators',
+      href: `/dashboard/trials/${trialId}/collaborators`,
+      icon: Link2,
     },
     {
       label: 'Entries',

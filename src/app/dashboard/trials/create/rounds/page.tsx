@@ -35,22 +35,9 @@ import {
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
-
-interface DatabaseJudge {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  city: string;
-  province_state: string;
-  country: string;
-  level?: string;
-  obedience_levels?: string[];
-  rally_levels?: string[];
-  games_levels?: string[];
-  scent_levels?: string[];
-  is_active: boolean;
-}
+import JudgeAutocomplete from '@/components/judges/JudgeAutocomplete';
+import type { Judge } from '@/types/judge';
+import { getJudgeAssignmentStatus, getQualifiedJudges } from '@/lib/judgeSelector';
 
 interface TrialClass {
   id: string;
@@ -109,48 +96,11 @@ function CreateRoundsPageContent() {
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [selectedDayId, setSelectedDayId] = useState<string>(''); // NEW: Track selected day
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
-  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: DatabaseJudge[] }>(
-    {}
-  );
+  const [allJudges, setAllJudges] = useState<Judge[]>([]);
+  const [qualifiedJudges, setQualifiedJudges] = useState<{ [classId: string]: Judge[] }>({});
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [rounds, setRounds] = useState<{ [classId: string]: RoundData[] }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-
-  const sortJudgesByProximity = (judges: DatabaseJudge[], trialData: Trial): DatabaseJudge[] => {
-    if (!trialData?.location)
-      return judges.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
-    const locationParts = trialData.location.split(',').map((part) => part.trim());
-    const trialProvinceState =
-      locationParts.length >= 2 ? locationParts[locationParts.length - 2] : '';
-
-    return judges.sort((a, b) => {
-      const aIsLocal = a.province_state === trialProvinceState;
-      const bIsLocal = b.province_state === trialProvinceState;
-
-      if (aIsLocal && !bIsLocal) return -1;
-      if (!aIsLocal && bIsLocal) return 1;
-
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  };
-
-  const filterJudgesByClassType = (judges: DatabaseJudge[], classType: string): DatabaseJudge[] => {
-    return judges.filter((judge) => {
-      switch (classType.toLowerCase()) {
-        case 'scent':
-          return judge.scent_levels && judge.scent_levels.length > 0;
-        case 'rally':
-          return judge.rally_levels && judge.rally_levels.length > 0;
-        case 'obedience':
-          return judge.obedience_levels && judge.obedience_levels.length > 0;
-        case 'games':
-          return judge.games_levels && judge.games_levels.length > 0;
-        default:
-          return true;
-      }
-    });
-  };
 
   const formatShortDate = (dateString: string) => {
     const parts = dateString.split('-');
@@ -236,15 +186,14 @@ function CreateRoundsPageContent() {
 
       setTrialClasses(sortedClasses);
 
-      const judgesResult = await simpleTrialOperations.getAllJudges();
+      const judgesResult = await simpleTrialOperations.getAllJudgesIncludingInactive();
       if (judgesResult.success) {
-        const allJudgesData = judgesResult.data || [];
+        const allJudgesData: Judge[] = judgesResult.data || [];
+        setAllJudges(allJudgesData);
 
-        const qualifiedMap: { [classId: string]: DatabaseJudge[] } = {};
+        const qualifiedMap: { [classId: string]: Judge[] } = {};
         for (const cls of allClasses) {
-          const certifiedJudges = filterJudgesByClassType(allJudgesData, cls.class_type);
-          const sortedJudges = sortJudgesByProximity(certifiedJudges, trialResult.data);
-          qualifiedMap[cls.id] = sortedJudges;
+          qualifiedMap[cls.id] = getQualifiedJudges(allJudgesData, cls.class_name);
         }
         setQualifiedJudges(qualifiedMap);
       }
@@ -355,6 +304,11 @@ function CreateRoundsPageContent() {
   };
 
   const handleResetJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
+    if (judgeId === 'TBA') {
+      handleRoundChange(classId, roundIndex, 'reset_judge_name', 'TBA');
+      handleRoundChange(classId, roundIndex, 'reset_judge_email', '');
+      return;
+    }
     const classQualifiedJudges = qualifiedJudges[classId] || [];
     const judge = classQualifiedJudges.find((j) => j.id === judgeId);
     if (!judge) return;
@@ -517,20 +471,92 @@ function CreateRoundsPageContent() {
     });
   };
 
+  const findAssignedJudge = (name: string, email: string): Judge | undefined => {
+    const normalizedName = name.trim().toLocaleLowerCase();
+    const normalizedEmail = email.trim().toLocaleLowerCase();
+    return allJudges.find(
+      (judge) =>
+        (normalizedEmail && judge.email?.toLocaleLowerCase() === normalizedEmail) ||
+        judge.name.trim().toLocaleLowerCase() === normalizedName
+    );
+  };
+
+  const isReadOnlyHistoricalTrial = (): boolean => {
+    if (!trial?.end_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(`${trial.end_date}T23:59:59`).getTime() < today.getTime();
+  };
+
+  const assignmentError = (status: ReturnType<typeof getJudgeAssignmentStatus>): string => {
+    if (status === 'inactive') return 'This judge is inactive';
+    if (status === 'not_certified') return 'This judge is no longer certified for this class';
+    return 'This judge record is no longer available';
+  };
+
+  const validateAssignedJudgesOnly = (): boolean => {
+    if (isReadOnlyHistoricalTrial()) return true;
+    const newErrors: { [key: string]: string } = {};
+
+    Object.entries(rounds).forEach(([classId, classRounds]) => {
+      const className = trialClasses.find((trialClass) => trialClass.id === classId)?.class_name || '';
+      classRounds.forEach((round, idx) => {
+        if (round.judge_name && round.judge_name !== 'TBA') {
+          const status = getJudgeAssignmentStatus(
+            findAssignedJudge(round.judge_name, round.judge_email),
+            className
+          );
+          if (status !== 'valid') newErrors[`${classId}-${idx}-judge`] = assignmentError(status);
+        }
+        if (round.has_reset && round.reset_judge_name && round.reset_judge_name !== 'TBA') {
+          const status = getJudgeAssignmentStatus(
+            findAssignedJudge(round.reset_judge_name, round.reset_judge_email),
+            className
+          );
+          if (status !== 'valid') {
+            newErrors[`${classId}-${idx}-reset-judge`] = assignmentError(status);
+          }
+        }
+      });
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const validateRounds = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     let isValid = true;
 
     Object.entries(rounds).forEach(([classId, classRounds]) => {
       classRounds.forEach((round, idx) => {
+        const className = trialClasses.find((trialClass) => trialClass.id === classId)?.class_name || '';
         if (!round.judge_name) {
           newErrors[`${classId}-${idx}-judge`] = 'Judge is required';
           isValid = false;
+        } else if (round.judge_name !== 'TBA') {
+          const assigned = findAssignedJudge(round.judge_name, round.judge_email);
+          const status = getJudgeAssignmentStatus(assigned, className);
+          if (status !== 'valid' && !isReadOnlyHistoricalTrial()) {
+            newErrors[`${classId}-${idx}-judge`] = assignmentError(status);
+            isValid = false;
+          }
         }
-        if (round.has_reset && (!round.reset_judge_name || !round.reset_judge_email)) {
+        if (
+          round.has_reset &&
+          (!round.reset_judge_name ||
+            (round.reset_judge_name !== 'TBA' && !round.reset_judge_email))
+        ) {
           newErrors[`${classId}-${idx}-reset-judge`] =
             'Reset judge is required when reset is enabled';
           isValid = false;
+        } else if (round.has_reset && round.reset_judge_name !== 'TBA') {
+          const resetJudge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
+          const status = getJudgeAssignmentStatus(resetJudge, className);
+          if (status !== 'valid' && !isReadOnlyHistoricalTrial()) {
+            newErrors[`${classId}-${idx}-reset-judge`] = assignmentError(status);
+            isValid = false;
+          }
         }
       });
     });
@@ -540,7 +566,10 @@ function CreateRoundsPageContent() {
   };
 
   const handleSaveProgress = async () => {
-    // No validation for Save Progress - allow partial saves!
+    if (!validateAssignedJudgesOnly()) {
+      alert('Choose a currently active, exactly certified judge before saving this future trial.');
+      return;
+    }
     setLoading(true);
     try {
       let savedCount = 0;
@@ -911,6 +940,31 @@ function CreateRoundsPageContent() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
                           <Label className="text-base font-semibold">Judge *</Label>
+                          <JudgeAutocomplete
+                            judges={qualifiedJudges[selectedClassId] || []}
+                            className={selectedClass.class_name}
+                            selectedJudge={(() => {
+                              const judge = findAssignedJudge(round.judge_name, round.judge_email);
+                              return judge && getJudgeAssignmentStatus(judge, selectedClass.class_name) === 'valid' ? judge : undefined;
+                            })()}
+                            historicalAssignment={(() => {
+                              if (!round.judge_name || round.judge_name === 'TBA') return undefined;
+                              const judge = findAssignedJudge(round.judge_name, round.judge_email);
+                              const status = getJudgeAssignmentStatus(judge, selectedClass.class_name);
+                              return status === 'valid' ? undefined : { name: round.judge_name, email: round.judge_email, status };
+                            })()}
+                            isTba={round.judge_name === 'TBA'}
+                            allowTba
+                            onSelect={(judge) => handleJudgeSelect(selectedClassId, roundIndex, judge.id)}
+                            onSelectTba={() => handleJudgeSelect(selectedClassId, roundIndex, 'TBA')}
+                            onClear={() => {
+                              handleRoundChange(selectedClassId, roundIndex, 'judge_name', '');
+                              handleRoundChange(selectedClassId, roundIndex, 'judge_email', '');
+                            }}
+                            error={Boolean(errors[`${selectedClassId}-${roundIndex}-judge`])}
+                            placeholder="Type a judge name, city, or province/state..."
+                          />
+                          {false && (
                           <Select
                             value={
                               round.judge_name === 'TBA'
@@ -961,6 +1015,7 @@ function CreateRoundsPageContent() {
                               )}
                             </SelectContent>
                           </Select>
+                          )}
                           {errors[`${selectedClassId}-${roundIndex}-judge`] && (
                             <p className="text-sm text-red-600 font-medium mt-1">
                               {errors[`${selectedClassId}-${roundIndex}-judge`]}
@@ -1032,6 +1087,31 @@ function CreateRoundsPageContent() {
                         {round.has_reset && (
                           <div className="col-span-2">
                             <Label>Reset Judge *</Label>
+                            <JudgeAutocomplete
+                              judges={qualifiedJudges[selectedClassId] || []}
+                              className={selectedClass.class_name}
+                              selectedJudge={(() => {
+                                const judge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
+                                return judge && getJudgeAssignmentStatus(judge, selectedClass.class_name) === 'valid' ? judge : undefined;
+                              })()}
+                              historicalAssignment={(() => {
+                                if (!round.reset_judge_name || round.reset_judge_name === 'TBA') return undefined;
+                                const judge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
+                                const status = getJudgeAssignmentStatus(judge, selectedClass.class_name);
+                                return status === 'valid' ? undefined : { name: round.reset_judge_name, email: round.reset_judge_email, status };
+                              })()}
+                              isTba={round.reset_judge_name === 'TBA'}
+                              allowTba
+                              onSelect={(judge) => handleResetJudgeSelect(selectedClassId, roundIndex, judge.id)}
+                              onSelectTba={() => handleResetJudgeSelect(selectedClassId, roundIndex, 'TBA')}
+                              onClear={() => {
+                                handleRoundChange(selectedClassId, roundIndex, 'reset_judge_name', '');
+                                handleRoundChange(selectedClassId, roundIndex, 'reset_judge_email', '');
+                              }}
+                              error={Boolean(errors[`${selectedClassId}-${roundIndex}-reset-judge`])}
+                              placeholder="Type to search reset judges..."
+                            />
+                            {false && (
                             <Select
                               value={
                                 qualifiedJudges[selectedClassId]?.find(
@@ -1060,6 +1140,7 @@ function CreateRoundsPageContent() {
                                 ))}
                             </SelectContent>
                             </Select>
+                            )}
                             {errors[`${selectedClassId}-${roundIndex}-reset-judge`] && (
                               <p className="text-sm text-red-600 mt-1">
                                 {errors[`${selectedClassId}-${roundIndex}-reset-judge`]}

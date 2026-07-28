@@ -1,6 +1,7 @@
 // src/lib/trial-operations-simple.ts
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import { isBillableSelection, isRunningOrderSelection } from '@/lib/selectionStatus';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
   id?: string;
@@ -95,6 +96,7 @@ export interface EntryData {
   close_to_titles?: string | null; // ← ADD THIS LINE
   volunteer_preferences?: any | null; // ← ADD THIS LINE
   total_fee: number;
+  amount_owed?: number;
   payment_status: string;
   submitted_at?: string;
   entry_status: string;
@@ -108,7 +110,7 @@ export interface EntrySelection {
   trial_round_id: string;
   entry_type: string;
   fee: number;
-  running_position: number;
+  running_position: number | null;
   entry_status: string;
   created_at?: string;
   division: string | null;
@@ -361,7 +363,19 @@ export const simpleTrialOperations = {
           .map((a: any) => a.trials)
           .filter((t: any) => t !== null);
 
-        const allTrials = [...(createdTrials || []), ...assignedTrials];
+        const { data: collaborations, error: collaborationError } = await supabase
+          .from('trial_collaborators')
+          .select('role,trials(*)')
+          .eq('user_id', user.id)
+          .eq('invitation_status', 'accepted')
+          .is('revoked_at', null);
+        if (collaborationError && collaborationError.code !== '42P01') {
+          console.error('Error fetching shared trials:', collaborationError);
+          return { success: false, error: collaborationError.message };
+        }
+        const sharedTrials = (collaborations || []).map((c: any) => c.trials ? ({ ...c.trials, shared_role: c.role }) : null).filter(Boolean);
+
+        const allTrials = [...(createdTrials || []).map((t: any) => ({ ...t, ownership: 'owned' })), ...assignedTrials.map((t: any) => ({ ...t, shared_role: 'secretary' })), ...sharedTrials];
 
         // Remove duplicates by ID
         const uniqueTrials = allTrials.filter(
@@ -738,9 +752,9 @@ export const simpleTrialOperations = {
       // Prepare new rounds data with validation
       const newRounds = rounds.map((round, index) => {
         // Reset rounds (.5) only require a judge if one was assigned
-      if (!round.judge_name?.trim() && !((round as any).is_reset)) {
-        throw new Error(`Round ${index + 1}: Judge name is required`);
-      }
+        if (!round.judge_name?.trim() && !(round as any).is_reset) {
+          throw new Error(`Round ${index + 1}: Judge name is required`);
+        }
 
         return {
           round_number: round.round_number || index + 1,
@@ -1019,6 +1033,7 @@ export const simpleTrialOperations = {
         close_to_titles: entryData.close_to_titles || null, // ← ADD THIS LINE
         volunteer_preferences: entryData.volunteer_preferences || null, // ← ADD THIS LINE
         total_fee: entryData.total_fee,
+        amount_owed: entryData.amount_owed ?? entryData.total_fee,
         payment_status: entryData.payment_status || 'pending',
         entry_status: entryData.entry_status || 'submitted',
         submitted_at: new Date().toISOString(),
@@ -1399,7 +1414,9 @@ export const simpleTrialOperations = {
         trial_round_id: selection.trial_round_id,
         entry_type: selection.entry_type || 'regular',
         fee: selection.fee || 0,
-        running_position: selection.running_position || index + 1,
+        running_position: isRunningOrderSelection(selection.entry_status)
+          ? (selection.running_position ?? index + 1)
+          : null,
         entry_status: selection.entry_status || 'entered',
         division: selection.division || null,
         games_subclass: selection.games_subclass || null,
@@ -1716,10 +1733,10 @@ export const simpleTrialOperations = {
 
       if (error) {
         console.error('🔴 Supabase error code:', error.code);
-console.error('🔴 Supabase error message:', error.message);
-console.error('🔴 Supabase error details:', error.details);
-console.error('🔴 Supabase error hint:', error.hint);
-console.error('🔴 Full error stringify:', JSON.stringify(error));
+        console.error('🔴 Supabase error message:', error.message);
+        console.error('🔴 Supabase error details:', error.details);
+        console.error('🔴 Supabase error hint:', error.hint);
+        console.error('🔴 Full error stringify:', JSON.stringify(error));
         return {
           success: false,
           error: error.message || error.details || JSON.stringify(error),
@@ -1964,6 +1981,16 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
       return { success: true, data: data || [] };
     } catch (error) {
       console.error('Error getting judges:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  },
+
+  async getAllJudgesIncludingInactive(): Promise<OperationResult> {
+    try {
+      const { data, error } = await supabase.from('judges').select('*').order('name');
+      if (error) return { success: false, error: error.message || error };
+      return { success: true, data: data || [] };
+    } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   },
@@ -2356,9 +2383,7 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
 
               classSelections.forEach((selection: any) => {
                 const isFeo = selection.entry_type?.toLowerCase() === 'feo';
-                const isWithdrawn = selection.entry_status?.toLowerCase() === 'withdrawn';
-
-                if (!isFeo && !isWithdrawn) {
+                if (!isFeo && isBillableSelection(selection.entry_status)) {
                   classEntries.push({
                     ...selection,
                     entry_id: entry.id,
@@ -2390,9 +2415,10 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
                 )
             ).length;
 
-            const failCount = classEntries.filter((entry: any) =>
-              entry.entry_status?.toLowerCase() !== 'no_show' &&
-              getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
+            const failCount = classEntries.filter(
+              (entry: any) =>
+                entry.entry_status?.toLowerCase() !== 'no_show' &&
+                getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
             ).length;
 
             const absCount = classEntries.filter((entry: any) => {
@@ -2580,7 +2606,11 @@ console.error('🔴 Full error stringify:', JSON.stringify(error));
             judge_name: round.judge_name,
             judge_email: round.judge_email,
             entries: (round.entry_selections || [])
-              .filter((selection: any) => selection.entries) // Only include entries with data
+              .filter(
+                (selection: any) =>
+                  selection.entries &&
+                  isRunningOrderSelection(selection.entry_status)
+              ) // Only active entries belong on running orders
               .map((selection: any) => ({
                 id: selection.id,
                 running_position: selection.running_position,

@@ -1,13 +1,9 @@
 // src/app/api/admin/merge-duplicates/route.ts
 
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
+import { AuthorizationError, getSupabaseAdmin, requireAdministrator } from '@/lib/server/authorization';
 
-// Use service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseAdmin = getSupabaseAdmin();
 
 interface DuplicateEntry {
   handler_name: string;
@@ -23,6 +19,8 @@ interface DuplicateEntry {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireAdministrator();
+
     const { trialId, duplicates } = await request.json();
 
     if (!trialId || !Array.isArray(duplicates)) {
@@ -39,6 +37,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+
     console.error('❌ Merge operation failed:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },

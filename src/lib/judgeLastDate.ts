@@ -10,6 +10,10 @@ interface JudgeLastDate {
 }
 
 let judgeLastDatesCache: Map<string, JudgeLastDate> | null = null;
+let judgeLastDatesPromise: Promise<Map<string, JudgeLastDate>> | null = null;
+let judgeHistoryAvailable = true;
+
+export const JUDGE_HISTORY_UNAVAILABLE = 'History unavailable';
 
 /**
  * Load the trialing data Excel file and extract judge last dates
@@ -18,6 +22,21 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
   if (judgeLastDatesCache) {
     return judgeLastDatesCache;
   }
+
+  if (judgeLastDatesPromise) {
+    return judgeLastDatesPromise;
+  }
+
+  judgeLastDatesPromise = loadJudgeLastDatesFromSource();
+
+  try {
+    return await judgeLastDatesPromise;
+  } finally {
+    judgeLastDatesPromise = null;
+  }
+}
+
+async function loadJudgeLastDatesFromSource(): Promise<Map<string, JudgeLastDate>> {
 
   try {
     console.log('Loading judge last dates from Excel...');
@@ -48,13 +67,8 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
 
     // Find column indices
     const findColumn = (...names: string[]): number => {
-      for (const name of names) {
-        const idx = headers.findIndex(
-          (h) => h.includes(name.toLowerCase()) || name.toLowerCase().includes(h)
-        );
-        if (idx !== -1) return idx;
-      }
-      return -1;
+      const acceptedNames = new Set(names.map((name) => name.toLowerCase().trim()));
+      return headers.findIndex((header) => header.length > 0 && acceptedNames.has(header));
     };
 
     const colJudge = findColumn('judge', 'judge name');
@@ -63,7 +77,12 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
     console.log(`Judge column: ${colJudge}, Date column: ${colDate}`);
 
     if (colJudge === -1 || colDate === -1) {
-      throw new Error('Could not find required columns in Excel file');
+      judgeHistoryAvailable = false;
+      judgeLastDatesCache = new Map();
+      console.warn(
+        'Judge history is unavailable: the trial-history workbook does not contain judge and date columns.'
+      );
+      return judgeLastDatesCache;
     }
 
     // Map to store the latest date for each judge
@@ -123,12 +142,15 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
     });
 
     judgeLastDatesCache = resultMap;
+    judgeHistoryAvailable = true;
     console.log(`Loaded last dates for ${resultMap.size} judges`);
 
     return resultMap;
   } catch (error) {
-    console.error('Error loading judge last dates:', error);
-    return new Map();
+    judgeHistoryAvailable = false;
+    judgeLastDatesCache = new Map();
+    console.warn('Judge history is unavailable:', error);
+    return judgeLastDatesCache;
   }
 }
 
@@ -138,6 +160,10 @@ async function loadJudgeLastDates(): Promise<Map<string, JudgeLastDate>> {
 export async function getJudgeLastDate(judgeName: string): Promise<string> {
   try {
     const judgeMap = await loadJudgeLastDates();
+
+    if (!judgeHistoryAvailable) {
+      return JUDGE_HISTORY_UNAVAILABLE;
+    }
 
     // Try exact match first
     let judgeData = judgeMap.get(judgeName);
@@ -179,4 +205,6 @@ export async function preloadJudgeLastDates(): Promise<void> {
  */
 export function clearJudgeLastDatesCache(): void {
   judgeLastDatesCache = null;
+  judgeLastDatesPromise = null;
+  judgeHistoryAvailable = true;
 }

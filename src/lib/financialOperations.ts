@@ -1,5 +1,7 @@
 // src/lib/financialOperations.ts
 import { getSupabaseBrowser } from './supabaseBrowser';
+import { calculateSelectionFees, getCwagsOwnerKey } from './financialRules';
+import { isBillableSelection } from './selectionStatus';
 
 const supabase = getSupabaseBrowser();
 
@@ -50,6 +52,9 @@ export interface CompetitorFinancial {
   amount_paid: number;
   payment_history?: PaymentTransaction[];
   fees_waived: boolean;
+  has_waived_entries?: boolean;
+  has_billable_entries?: boolean;
+  waived_amount?: number;
   waiver_reason?: string;
 }
 
@@ -180,14 +185,15 @@ export const financialOperations = {
 
       (entries || []).forEach((entry: any) => {
         const selections = entry.entry_selections || [];
-        const activeSelections = selections.filter((s: any) => s.entry_status !== 'withdrawn');
+        const activeSelections = selections.filter((s: any) =>
+          isBillableSelection(s.entry_status)
+        );
 
         // Skip if no active entries
         if (activeSelections.length === 0 && !paymentsByEntry[entry.id]) return;
 
-        // Extract owner ID from C-WAGS number (middle 4 digits)
-        const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
-        const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
+        // This remains a compatibility grouping key until an explicit owner/account ID exists.
+        const ownerId = getCwagsOwnerKey(entry.cwags_number, entry.handler_name);
 
         if (!ownerGroups[ownerId]) {
           ownerGroups[ownerId] = {
@@ -203,7 +209,10 @@ export const financialOperations = {
             amount_paid: 0,
             payment_history: [],
             fees_waived: false,
+            waived_entry_count: 0,
+            billable_entry_count: 0,
             waiver_reason: null,
+            waived_amount: 0,
           };
         }
 
@@ -215,9 +224,11 @@ export const financialOperations = {
         if (entry.fees_waived) {
           ownerGroups[ownerId].waived_regular_runs += regularRuns;
           ownerGroups[ownerId].waived_feo_runs += feoRuns;
+          ownerGroups[ownerId].waived_entry_count += 1;
         } else {
           ownerGroups[ownerId].regular_runs += regularRuns;
           ownerGroups[ownerId].feo_runs += feoRuns;
+          ownerGroups[ownerId].billable_entry_count += 1;
         }
 
         // Add dog to owner's list
@@ -231,13 +242,13 @@ export const financialOperations = {
         ownerGroups[ownerId].entry_ids.push(entry.id);
 
         // Sum up fees
-        const calculatedOwed = activeSelections.reduce(
-          (sum: number, s: any) => sum + (s.fee || 0),
-          0
-        );
+        const calculatedOwed = calculateSelectionFees(selections);
+        if (entry.fees_waived) {
+          ownerGroups[ownerId].waived_amount += calculatedOwed;
+        }
         ownerGroups[ownerId].amount_owed += entry.fees_waived
           ? 0
-          : entry.amount_owed || calculatedOwed;
+          : entry.amount_owed ?? calculatedOwed;
 
         // Collect payment history
         const entryPayments = paymentsByEntry[entry.id] || [];
@@ -245,7 +256,6 @@ export const financialOperations = {
 
         // Track if any fees are waived
         if (entry.fees_waived) {
-          ownerGroups[ownerId].fees_waived = true;
           ownerGroups[ownerId].waiver_reason = entry.waiver_reason;
         }
       });
@@ -270,7 +280,7 @@ export const financialOperations = {
             entry_ids: group.entry_ids,
             handler_name: group.handler_name,
             dog_call_name: `${group.dogs.length} dog${group.dogs.length > 1 ? 's' : ''}`,
-            cwags_number: `Owner ID: ${group.owner_id}`,
+            cwags_number: `Owner ID: ${String(group.owner_id).replace(/^(cwags:|handler:)/, '')}`,
             dogs: group.dogs,
             regular_runs: group.regular_runs,
             feo_runs: group.feo_runs,
@@ -279,7 +289,10 @@ export const financialOperations = {
             amount_owed: group.amount_owed,
             amount_paid: totalPaid,
             payment_history: group.payment_history,
-            fees_waived: group.fees_waived,
+            fees_waived: group.billable_entry_count === 0 && group.waived_entry_count > 0,
+            has_waived_entries: group.waived_entry_count > 0,
+            has_billable_entries: group.billable_entry_count > 0,
+            waived_amount: group.waived_amount,
             waiver_reason: group.waiver_reason,
           };
         }
@@ -295,113 +308,4 @@ export const financialOperations = {
     }
   },
 
-  // Add a payment transaction
-  async addPaymentTransaction(transaction: PaymentTransaction): Promise<OperationResult> {
-    try {
-      const { data, error } = await supabase
-        .from('entry_payment_transactions')
-        .insert(transaction)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Recalculate total paid
-      const { data: payments } = await supabase
-        .from('entry_payment_transactions')
-        .select('amount')
-        .eq('entry_id', transaction.entry_id);
-
-      const totalPaid = (payments || []).reduce((sum, p) => sum + p.amount, 0);
-
-      await supabase
-        .from('entries')
-        .update({ amount_paid: totalPaid })
-        .eq('id', transaction.entry_id);
-
-      return { success: true, data };
-    } catch (error) {
-      console.error('Error adding payment:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  },
-
-  // Waive fees for all of an owner's entries
-  async waiveFees(entryIds: string | string[], reason: string): Promise<OperationResult> {
-    try {
-      const ids = Array.isArray(entryIds) ? entryIds : [entryIds];
-
-      for (const entryId of ids) {
-        // Get current amounts
-        const { data: entry, error } = await supabase
-          .from('entries')
-          .select('amount_owed, amount_paid')
-          .eq('id', entryId)
-          .single();
-
-        if (error) throw error;
-
-        const amountOwed = entry?.amount_owed ?? 0;
-        const amountPaid = entry?.amount_paid ?? 0;
-
-        // Waive only the remaining balance
-        const remainingBalance = Math.max(amountOwed - amountPaid, 0);
-
-        await supabase
-          .from('entries')
-          .update({
-            fees_waived: true,
-            waiver_reason: reason,
-            // Make owed == paid so balance becomes 0
-            amount_owed: amountPaid,
-          })
-          .eq('id', entryId);
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error waiving fees:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  },
-
-  // Unwaive fees for all of an owner's entries
-  async unwaiveFees(entryIds: string | string[]): Promise<OperationResult> {
-    try {
-      const ids = Array.isArray(entryIds) ? entryIds : [entryIds];
-
-      // Recalculate owed amount for each entry
-      for (const entryId of ids) {
-        const { data: entry } = await supabase
-          .from('entries')
-          .select(`entry_selections!entry_selections_entry_id_fkey (fee, entry_status)`)
-          .eq('id', entryId)
-          .single();
-
-        const selections = entry?.entry_selections || [];
-        const activeSelections = selections.filter((s: any) => s.entry_status !== 'withdrawn');
-        const calculatedOwed = activeSelections.reduce(
-          (sum: number, s: any) => sum + (s.fee || 0),
-          0
-        );
-
-        await supabase
-          .from('entries')
-          .update({
-            fees_waived: false,
-            waiver_reason: null,
-            amount_owed: calculatedOwed,
-          })
-          .eq('id', entryId);
-      }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error unwaiving fees:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  },
 };

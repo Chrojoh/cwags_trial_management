@@ -49,7 +49,7 @@ function TrialSummaryPageContent() {
   const [error, setError] = useState<string | null>(null);
 
   // Get trial ID from URL params or localStorage
-  const trialIdFromParams = searchParams.get('trialId');
+  const trialIdFromParams = searchParams.get('trial');
   const trialIdFromStorage =
     typeof window !== 'undefined' ? localStorage.getItem('currentTrialId') : null;
   const trialId = trialIdFromParams || trialIdFromStorage;
@@ -97,7 +97,7 @@ function TrialSummaryPageContent() {
 
   const handleBack = () => {
     if (trialId) {
-      router.push(`/dashboard/trials/create/rounds?trialId=${trialId}`);
+      router.push(`/dashboard/trials/create/rounds?trial=${trialId}`);
     } else {
       router.push('/dashboard/trials/create/rounds');
     }
@@ -434,7 +434,7 @@ function TrialSummaryPageContent() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => router.push(`/dashboard/trials/create?trialId=${trialId}`)}
+                onClick={() => router.push(`/dashboard/trials/create?trial=${trialId}`)}
               >
                 <Edit className="h-4 w-4 mr-1" />
                 Edit
@@ -504,9 +504,7 @@ function TrialSummaryPageContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() =>
-                      router.push(`/dashboard/trials/create/rounds?trialId=${trialId}`)
-                    }
+                    onClick={() => router.push(`/dashboard/trials/create/rounds?trial=${trialId}`)}
                   >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit Schedule

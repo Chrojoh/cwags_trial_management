@@ -27,7 +27,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
 }
 
 console.log('\n2. Creating Supabase Client...');
-const supabase = getSupabaseBrowser(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 console.log('✅ Client created');
 
 async function testConnection() {
@@ -49,9 +49,9 @@ async function testConnection() {
 
     // Test 2: Check if judges table exists
     console.log('   Checking if judges table exists...');
-    const { data: tableData, error: tableError } = await supabase
+    const { count, error: tableError } = await supabase
       .from('judges')
-      .select('count(*)', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true });
 
     if (tableError) {
       console.error('   ❌ Judges table access failed:', tableError.message);
@@ -68,7 +68,7 @@ async function testConnection() {
       }
     } else {
       console.log('   ✅ Judges table accessible');
-      console.log(`   Current record count: ${tableData?.[0]?.count || 0}`);
+      console.log(`   Current record count: ${count || 0}`);
     }
 
     console.log('\n5. Testing Insert Permissions...');

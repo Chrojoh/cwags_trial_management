@@ -50,14 +50,16 @@ import {
 } from '@/lib/financialOperations';
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import {
-  logPaymentReceived,
-  logPaymentEdited,
-  logRefundProcessed,
-  logFeesWaived,
-} from '@/lib/journalLogger';
+import { isBillableSelection } from '@/lib/selectionStatus';
 
 const supabase = getSupabaseBrowser();
+
+async function getFinancialApiHeaders() {
+  const { data, error } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) throw new Error('Your administrator session has expired');
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
 
 const EXPENSE_CATEGORIES = [
   'Hall Rental',
@@ -199,7 +201,7 @@ export default function TrialFinancialsPage() {
           if (!name || name.trim() === '') return;
           const validRuns = (round.entry_selections || []).filter(
             (s: any) =>
-              s.entry_type?.toLowerCase() !== 'feo' && s.entry_status?.toLowerCase() !== 'withdrawn'
+              s.entry_type?.toLowerCase() !== 'feo' && isBillableSelection(s.entry_status)
           ).length;
           judgeRunMap.set(name, (judgeRunMap.get(name) || 0) + validRuns);
         });
@@ -360,36 +362,20 @@ export default function TrialFinancialsPage() {
       // ✅ Convert date to noon timestamp to avoid timezone issues
       const paymentDateTime = `${paymentDate}T12:00:00Z`;
 
-      const result = await financialOperations.addPaymentTransaction({
-        entry_id: selectedCompetitor.entry_id,
-        amount: parseFloat(paymentAmount),
-        payment_method: paymentMethod,
-        payment_received_by: paymentReceivedBy,
-        payment_date: paymentDateTime, // ✅ CORRECT - sends "2025-01-13T12:00:00Z"
-        notes: paymentNotes,
-      });
-
-      if (!result.success) throw new Error('Failed to record payment');
-
-      // ✅ LOG TO JOURNAL WITH SNAPSHOT
-      await logPaymentReceived(
-        trialId,
-        selectedCompetitor.entry_id,
-        {
+      const response = await fetch(`/api/trials/${trialId}/financials/payments`, {
+        method: 'POST',
+        headers: await getFinancialApiHeaders(),
+        body: JSON.stringify({
+          entryId: selectedCompetitor.entry_id,
           amount: parseFloat(paymentAmount),
-          payment_method: paymentMethod,
-          payment_received_by: paymentReceivedBy,
-          payment_date: paymentDateTime,
+          paymentMethod,
+          paymentReceivedBy,
+          paymentDate: paymentDateTime,
           notes: paymentNotes,
-        },
-        {
-          handler_name: selectedCompetitor.handler_name,
-          dog_call_name: selectedCompetitor.dog_call_name,
-          amount_owed: selectedCompetitor.amount_owed,
-          amount_paid_before: selectedCompetitor.amount_paid,
-          amount_paid_after: selectedCompetitor.amount_paid + parseFloat(paymentAmount),
-        }
-      );
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to record payment');
 
       alert('Payment recorded successfully!');
       setShowPaymentModal(false);
@@ -414,8 +400,8 @@ export default function TrialFinancialsPage() {
   };
 
   const updatePayment = async () => {
-    if (!editingPayment || !editPaymentAmount || parseFloat(editPaymentAmount) <= 0) {
-      alert('Please enter a valid payment amount');
+    if (!editingPayment || !editPaymentAmount || parseFloat(editPaymentAmount) === 0) {
+      alert('Please enter a non-zero payment amount');
       return;
     }
 
@@ -425,51 +411,22 @@ export default function TrialFinancialsPage() {
       // ✅ Convert date to noon timestamp
       const paymentDateTime = `${editPaymentDate}T12:00:00Z`;
 
-      const { error: updateError } = await supabase
-        .from('entry_payment_transactions')
-        .update({
-          amount: parseFloat(editPaymentAmount),
-          payment_method: editPaymentMethod,
-          payment_received_by: editPaymentReceivedBy,
-          payment_date: paymentDateTime, // ✅ CORRECT
-          notes: editPaymentNotes,
-        })
-        .eq('id', editingPayment.id);
-
-      if (updateError) throw updateError;
-
-      // Recalculate total paid for the entry
-      const { data: payments } = await supabase
-        .from('entry_payment_transactions')
-        .select('amount')
-        .eq('entry_id', editingPayment.entry_id);
-
-      const totalPaid = (payments || []).reduce((sum: any, p: any) => sum + p.amount, 0);
-
-      await supabase
-        .from('entries')
-        .update({ amount_paid: totalPaid })
-        .eq('id', editingPayment.entry_id);
-
-      // ✅ LOG TO JOURNAL WITH SNAPSHOT
-      await logPaymentEdited(
-        trialId,
-        editingPayment.entry_id,
+      const response = await fetch(
+        `/api/trials/${trialId}/financials/payments/${editingPayment.id}`,
         {
-          amount: editingPayment.amount,
-          payment_method: editingPayment.payment_method,
-          payment_date: editingPayment.payment_date,
-        },
-        {
-          amount: parseFloat(editPaymentAmount),
-          payment_method: editPaymentMethod,
-          payment_date: paymentDateTime,
-        },
-        {
-          handler_name: selectedCompetitor?.handler_name || 'Unknown',
-          dog_call_name: selectedCompetitor?.dog_call_name || 'Unknown',
+          method: 'PATCH',
+          headers: await getFinancialApiHeaders(),
+          body: JSON.stringify({
+            amount: parseFloat(editPaymentAmount),
+            paymentMethod: editPaymentMethod,
+            paymentReceivedBy: editPaymentReceivedBy,
+            paymentDate: paymentDateTime,
+            notes: editPaymentNotes,
+          }),
         }
       );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update payment');
 
       alert('Payment updated successfully!');
       setShowEditPaymentModal(false);
@@ -515,36 +472,20 @@ export default function TrialFinancialsPage() {
       // ✅ Convert date to noon timestamp
       const refundDateTime = `${refundDate}T12:00:00Z`;
 
-      const result = await financialOperations.addPaymentTransaction({
-        entry_id: selectedCompetitor.entry_id,
-        amount: -parseFloat(refundAmount),
-        payment_method: refundMethod,
-        payment_received_by: refundIssuedBy,
-        payment_date: refundDateTime, // ✅ CORRECT
-        notes: `REFUND: ${refundNotes || 'Overpayment refund'}`,
+      const response = await fetch(`/api/trials/${trialId}/financials/payments`, {
+        method: 'POST',
+        headers: await getFinancialApiHeaders(),
+        body: JSON.stringify({
+          entryId: selectedCompetitor.entry_id,
+          amount: -parseFloat(refundAmount),
+          paymentMethod: refundMethod,
+          paymentReceivedBy: refundIssuedBy,
+          paymentDate: refundDateTime,
+          notes: `REFUND: ${refundNotes || 'Overpayment refund'}`,
+        }),
       });
-
-      if (!result.success) throw new Error('Failed to process refund');
-
-      // ✅ LOG TO JOURNAL WITH SNAPSHOT
-      await logRefundProcessed(
-        trialId,
-        selectedCompetitor.entry_id,
-        {
-          amount: parseFloat(refundAmount),
-          refund_method: refundMethod,
-          refund_issued_by: refundIssuedBy,
-          refund_date: refundDateTime,
-          notes: refundNotes,
-        },
-        {
-          handler_name: selectedCompetitor.handler_name,
-          dog_call_name: selectedCompetitor.dog_call_name,
-          amount_owed: selectedCompetitor.amount_owed,
-          amount_paid_before: selectedCompetitor.amount_paid,
-          amount_paid_after: selectedCompetitor.amount_paid - parseFloat(refundAmount),
-        }
-      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to process refund');
 
       alert('Refund processed successfully!');
       setShowRefundModal(false);
@@ -569,13 +510,25 @@ export default function TrialFinancialsPage() {
 
     try {
       setSaving(true);
-
-      // Update database
       const entryIds = competitor.entry_ids || [competitor.entry_id];
-
-      for (const entryId of entryIds) {
-        await supabase.from('entries').update({ is_judge_volunteer: newStatus }).eq('id', entryId);
-      }
+      const regularRate = newStatus
+        ? (breakEvenData.judge_volunteer_rate ?? breakEvenData.regular_entry_fee)
+        : breakEvenData.regular_entry_fee;
+      const feoRate = newStatus
+        ? (breakEvenData.feo_volunteer_rate ?? breakEvenData.feo_entry_fee)
+        : breakEvenData.feo_entry_fee;
+      const response = await fetch(`/api/trials/${trialId}/financials/judge-volunteer`, {
+        method: 'POST',
+        headers: await getFinancialApiHeaders(),
+        body: JSON.stringify({
+          entryIds,
+          isJudgeVolunteer: newStatus,
+          regularRate,
+          feoRate,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to update pricing');
 
       // Update local state
       setJudgeVolunteerStatus((prev) => ({
@@ -583,78 +536,12 @@ export default function TrialFinancialsPage() {
         [competitor.entry_id]: newStatus,
       }));
 
-      // Recalculate fees if enabling J/V
-      if (newStatus && !competitor.fees_waived) {
-        await recalculateFeesForJV(competitor, newStatus);
-      } else if (!newStatus) {
-        // Restore original fees
-        await recalculateFeesForJV(competitor, newStatus);
-      }
-
       await loadData();
     } catch (err) {
       console.error('Error toggling J/V status:', err);
       alert('Failed to update J/V status');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const recalculateFeesForJV = async (competitor: CompetitorFinancial, isJV: boolean) => {
-    // Get entry selections to recalculate fees
-    const { data: entries } = await supabase
-      .from('entries')
-      .select(
-        `
-        id,
-        entry_selections!entry_selections_entry_id_fkey (
-          id,
-          entry_type,
-          fee
-        )
-      `
-      )
-      .in('id', competitor.entry_ids || [competitor.entry_id]);
-
-    if (!entries) return;
-
-    // Calculate new fees based on J/V status
-    for (const entry of entries) {
-      let newTotalFee = 0;
-
-      for (const selection of entry.entry_selections) {
-        let newFee = selection.fee;
-
-        if (isJV) {
-          // Apply J/V rates
-          if (selection.entry_type === 'feo') {
-            newFee = breakEvenData.feo_volunteer_rate || selection.fee;
-          } else {
-            newFee = breakEvenData.judge_volunteer_rate || selection.fee;
-          }
-        } else {
-          // Restore original rates
-          if (selection.entry_type === 'feo') {
-            newFee = breakEvenData.feo_entry_fee || selection.fee;
-          } else {
-            newFee = breakEvenData.regular_entry_fee || selection.fee;
-          }
-        }
-
-        // Update selection fee
-        await supabase.from('entry_selections').update({ fee: newFee }).eq('id', selection.id);
-
-        newTotalFee += newFee;
-      }
-
-      // Update total fee on entry
-      await supabase
-        .from('entries')
-        .update({
-          amount_owed: newTotalFee,
-          total_fee: newTotalFee,
-        })
-        .eq('id', entry.id);
     }
   };
 
@@ -666,21 +553,14 @@ export default function TrialFinancialsPage() {
 
     try {
       setSaving(true);
-      // Use entry_ids (plural) to waive ALL entries for this owner
       const entryIds = selectedCompetitor.entry_ids || [selectedCompetitor.entry_id];
-      const result = await financialOperations.waiveFees(entryIds, waiveReason);
-
-      if (!result.success) throw new Error('Failed to waive fees');
-
-      // Use the entryIds that was already declared on line 587
-      for (const entryId of entryIds) {
-        await logFeesWaived(trialId, entryId, {
-          handler_name: selectedCompetitor.handler_name,
-          dog_call_name: selectedCompetitor.dog_call_name,
-          amount_owed: selectedCompetitor.amount_owed,
-          reason: waiveReason,
-        });
-      }
+      const response = await fetch(`/api/trials/${trialId}/financials/waivers`, {
+        method: 'POST',
+        headers: await getFinancialApiHeaders(),
+        body: JSON.stringify({ entryIds, waived: true, reason: waiveReason }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to waive fees');
 
       alert('Fees waived successfully!');
       setShowWaiveModal(false);
@@ -693,14 +573,19 @@ export default function TrialFinancialsPage() {
     }
   };
 
-  const unwaiveFees = async (entryId: string) => {
+  const unwaiveFees = async (entryIds: string | string[]) => {
     if (!confirm('Remove fee waiver and restore original fees?')) return;
 
     try {
       setSaving(true);
-      const result = await financialOperations.unwaiveFees(entryId);
-
-      if (!result.success) throw new Error('Failed to unwaive fees');
+      const ids = Array.isArray(entryIds) ? entryIds : [entryIds];
+      const response = await fetch(`/api/trials/${trialId}/financials/waivers`, {
+        method: 'POST',
+        headers: await getFinancialApiHeaders(),
+        body: JSON.stringify({ entryIds: ids, waived: false }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to unwaive fees');
 
       alert('Fee waiver removed successfully!');
       await loadData();
@@ -746,12 +631,21 @@ export default function TrialFinancialsPage() {
     // ── Build row data ──────────────────────────────────────────────
     const rows: any[][] = [
       [`${trialName} — Financial Summary`], // Row 1
-      [`Exported: ${exportDate}`],           // Row 2
-      [],                                    // Row 3 blank
+      [`Exported: ${exportDate}`], // Row 2
+      [], // Row 3 blank
       // Row 4 headers
-      ['Handler', 'Dog(s)', 'Regular', 'FEO',
-       'Opening Balance', 'Payments Received', 'Refunds Issued',
-       'Fees Waived', 'Balance Owing', 'Notes'],
+      [
+        'Handler',
+        'Dog(s)',
+        'Regular',
+        'FEO',
+        'Opening Balance',
+        'Payments Received',
+        'Refunds Issued',
+        'Fees Waived',
+        'Balance Owing',
+        'Notes',
+      ],
     ];
 
     const dataStartRow = 5; // 1-indexed Excel row where data begins
@@ -770,16 +664,16 @@ export default function TrialFinancialsPage() {
       // Split payment history into gross payments and refunds
       const history = comp.payment_history || [];
       const grossPayments = history.reduce(
-        (sum: number, p: any) => (p.amount > 0 ? sum + p.amount : sum), 0
+        (sum: number, p: any) => (p.amount > 0 ? sum + p.amount : sum),
+        0
       );
       const refunds = history.reduce(
-        (sum: number, p: any) => (p.amount < 0 ? sum + Math.abs(p.amount) : sum), 0
+        (sum: number, p: any) => (p.amount < 0 ? sum + Math.abs(p.amount) : sum),
+        0
       );
       // comp.amount_paid = grossPayments - refunds (net)
 
-      const grossWaivedValue =
-        (comp.waived_regular_runs || 0) * (breakEvenData.regular_entry_fee || 0) +
-        (comp.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
+      const grossWaivedValue = comp.waived_amount || 0;
       const paymentTowardWaived = Math.max(0, comp.amount_paid - comp.amount_owed);
       const waivedNet = Math.max(0, grossWaivedValue - paymentTowardWaived);
       // Opening must use full grossWaivedValue (not waivedNet) so the formula
@@ -792,7 +686,14 @@ export default function TrialFinancialsPage() {
       const dogs =
         (comp.dogs || []).map((d: any) => d.dog_call_name).join(', ') || comp.dog_call_name;
 
-      compRows.push({ openingBalance, grossPayments, refunds, waivedNet, balance, isWaived: comp.fees_waived });
+      compRows.push({
+        openingBalance,
+        grossPayments,
+        refunds,
+        waivedNet,
+        balance,
+        isWaived: comp.fees_waived,
+      });
 
       rows.push([
         comp.handler_name,
@@ -813,7 +714,10 @@ export default function TrialFinancialsPage() {
     const lastDataRow = dataStartRow + competitors.length - 1;
     const totalsRowNum = dataStartRow + competitors.length + 1; // +1 for blank
     rows.push([
-      'TOTALS', '', '', '',
+      'TOTALS',
+      '',
+      '',
+      '',
       { f: `SUM(E${dataStartRow}:E${lastDataRow})` },
       { f: `SUM(F${dataStartRow}:F${lastDataRow})` },
       { f: `SUM(G${dataStartRow}:G${lastDataRow})` },
@@ -848,7 +752,7 @@ export default function TrialFinancialsPage() {
     worksheet['!rows'] = [
       { hpt: 30 }, // Row 1 title
       { hpt: 16 }, // Row 2 date
-      { hpt: 6 },  // Row 3 blank
+      { hpt: 6 }, // Row 3 blank
       { hpt: 28 }, // Row 4 headers
     ];
 
@@ -870,7 +774,10 @@ export default function TrialFinancialsPage() {
 
     // ── Header row styling (row 4, index 3) ───────────────────────
     const headerColors: Record<string, string> = {
-      A: '374151', B: '374151', C: '374151', D: '374151',
+      A: '374151',
+      B: '374151',
+      C: '374151',
+      D: '374151',
       E: '1E3A5F', // Opening Balance — navy
       F: '14532D', // Payments Received — dark green
       G: '7C2D12', // Refunds Issued — dark orange/red
@@ -1083,7 +990,10 @@ End of Report
       }, 0) + cwagsFeeTotal,
     // For waived entries, amount_owed was zeroed out in the data layer; use amount_paid
     // instead so the partial payment portion is reflected in the Total Entry Fees card.
-    totalOwed: competitors.reduce((sum, c) => sum + (c.fees_waived ? c.amount_paid : c.amount_owed), 0),
+    totalOwed: competitors.reduce(
+      (sum, c) => sum + (c.fees_waived ? c.amount_paid : c.amount_owed),
+      0
+    ),
     totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
     totalOutstanding: competitors.reduce((sum, c) => {
       const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
@@ -1092,9 +1002,7 @@ End of Report
     totalFeesWaived: competitors.reduce((sum, c) => {
       if (!c.fees_waived) return sum;
       // Gross retail value of all runs that were on waived entries
-      const grossWaivedValue =
-        (c.waived_regular_runs || 0) * (breakEvenData.regular_entry_fee || 0) +
-        (c.waived_feo_runs || 0) * (breakEvenData.feo_entry_fee || 0);
+      const grossWaivedValue = c.waived_amount || 0;
       // How much of their payments went toward the waived entries
       // (payments first cover non-waived amount_owed, excess goes to waived portion)
       const paymentTowardWaived = Math.max(0, c.amount_paid - c.amount_owed);

@@ -1,26 +1,32 @@
 // Complete replacement for src/app/entries/[trialId]/page.tsx
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { logEntrySubmittedOrModified } from '@/lib/journalLogger';
-import { formatCwagsNumber } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { getClassOrder } from '@/lib/cwagsClassNames';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { logEntrySubmittedOrModified } from "@/lib/journalLogger";
+import { formatCwagsNumber } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { getClassOrder } from "@/lib/cwagsClassNames";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Dog,
   User,
@@ -36,10 +42,14 @@ import {
   Shield,
   FileText,
   Edit,
-} from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
-import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
-import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { simpleTrialOperations } from "@/lib/trialOperationsSimple";
+import { getSupabaseBrowser } from "@/lib/supabaseBrowser";
+import {
+  isBillableSelection,
+  NON_ACTIVE_SELECTION_STATUSES_FILTER,
+} from "@/lib/selectionStatus";
 
 // ============================================
 // INTERFACES
@@ -51,7 +61,7 @@ interface Trial {
   location: string;
   start_date: string;
   end_date: string;
-  entry_status?: 'draft' | 'open' | 'closed';
+  entry_status?: "draft" | "open" | "closed";
   trial_secretary: string;
   secretary_email: string;
   waiver_text: string;
@@ -64,6 +74,7 @@ interface TrialRound {
   judge_name: string;
   trial_class_id: string;
   feo_available: boolean;
+  max_entries?: number | null;
   trial_classes?: {
     class_name: string;
     class_level: string;
@@ -107,6 +118,13 @@ interface VolunteerDayPreferences {
   Shoe_runner: boolean;
 }
 
+interface RegistryLookupVerification {
+  cwags_number: string;
+  status: "existing" | "new";
+  handler_name?: string;
+  dog_call_name?: string;
+}
+
 // ============================================
 // HELPER FUNCTIONS (outside component)
 // ============================================
@@ -115,30 +133,38 @@ const requiresDivision = (className: string | undefined): boolean => {
   const lowerName = className.toLowerCase();
 
   // Check if it's Obedience
-  if (lowerName.includes('obedience')) return true;
+  if (lowerName.includes("obedience")) return true;
 
   // Check if it's Rally
-  const rallyClasses = ['starter', 'advanced', 'pro', 'arf', 'zoom'];
+  const rallyClasses = ["starter", "advanced", "pro", "arf", "zoom"];
   return rallyClasses.some((rally) => lowerName.includes(rally));
 };
 
 const cleanCwagsNumber = (input: string): string => {
-  if (!input.trim()) throw new Error('Please enter a C-WAGS registration number');
+  if (!input.trim())
+    throw new Error("Please enter a C-WAGS registration number");
   return formatCwagsNumber(input);
 };
 
+const normalizeIdentityValue = (value: string | null | undefined): string =>
+  (value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+
 const formatDayDate = (dateString: string) => {
-  const parts = dateString.split('-');
+  const parts = dateString.split("-");
   const date = new Date(
     parseInt(parts[0]),
     parseInt(parts[1]) - 1,
     parseInt(parts[2]),
     12,
     0,
-    0 // Set to noon to avoid timezone issues
+    0, // Set to noon to avoid timezone issues
   );
 
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 // ============================================
@@ -151,48 +177,60 @@ export default function PublicEntryForm() {
   const [trialDays, setTrialDays] = useState<
     Array<{ id: string; day_number: number; trial_date: string }>
   >([]);
-  const [selectedDayTab, setSelectedDayTab] = useState<string>('1');
+  const [selectedDayTab, setSelectedDayTab] = useState<string>("1");
   const [trial, setTrial] = useState<Trial | null>(null);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
-  const [dayAcceptingStatus, setDayAcceptingStatus] = useState<Record<number, boolean>>({}); // ✅ ADD THIS LINE
+  const [dayAcceptingStatus, setDayAcceptingStatus] = useState<
+    Record<number, boolean>
+  >({}); // ✅ ADD THIS LINE
   const [loading, setLoading] = useState(true);
   const [volunteerOpen, setVolunteerOpen] = useState(false);
-  const [verifyDialog, setVerifyDialog] = useState<{ handler_name: string; dog_call_name: string; pendingData: any } | null>(null);
+  const [verifyDialog, setVerifyDialog] = useState<{
+    handler_name: string;
+    dog_call_name: string;
+    pendingData: any;
+  } | null>(null);
   const supabase = getSupabaseBrowser();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [waitlistNotice, setWaitlistNotice] = useState<string | null>(null);
+  const [acceptedNotice, setAcceptedNotice] = useState<string | null>(null);
+  const [waitlistedRoundIds, setWaitlistedRoundIds] = useState<Set<string>>(new Set());
 
   const [formData, setFormData] = useState<EntryFormData>({
-    handler_name: '',
-    handler_email: '',
-    handler_phone: '',
-    emergency_contact: '',
-    cwags_number: '',
-    dog_call_name: '',
-    dog_breed: '',
-    dog_sex: '',
-    dog_dob: '',
+    handler_name: "",
+    handler_email: "",
+    handler_phone: "",
+    emergency_contact: "",
+    cwags_number: "",
+    dog_call_name: "",
+    dog_breed: "",
+    dog_sex: "",
+    dog_dob: "",
     is_junior_handler: false,
     selected_rounds: [],
     feo_selections: [],
     division_selections: {},
     waiver_accepted: false,
     jump_height_selections: {},
-    close_to_titles: '', // ← ADD THIS
+    close_to_titles: "", // ← ADD THIS
     volunteer_preferences: {}, // ← ADD THIS
   });
 
   const [registryLoading, setRegistryLoading] = useState(false);
   const [existingEntry, setExistingEntry] = useState<any>(null);
-  const [cwagsInputValue, setCwagsInputValue] = useState('');
+  const [cwagsInputValue, setCwagsInputValue] = useState("");
   const [editModeLoading, setEditModeLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
     originalSelections: number;
     currentSelections: number;
   } | null>(null);
-  const [originalFormData, setOriginalFormData] = useState<EntryFormData | null>(null);
+  const [originalFormData, setOriginalFormData] =
+    useState<EntryFormData | null>(null);
+  const [registryVerification, setRegistryVerification] =
+    useState<RegistryLookupVerification | null>(null);
 
   // ============================================
   // LOAD TRIAL DATA
@@ -204,20 +242,24 @@ export default function PublicEntryForm() {
 
       const trialResult = await simpleTrialOperations.getTrial(trialId);
       if (!trialResult.success) {
-        throw new Error('Failed to load trial information');
+        throw new Error("Failed to load trial information");
       }
 
       setTrial(trialResult.data);
 
-      const roundsResult = await simpleTrialOperations.getAllTrialRounds(trialId);
+      const roundsResult =
+        await simpleTrialOperations.getAllTrialRounds(trialId);
       if (!roundsResult.success) {
-        throw new Error('Failed to load trial classes');
+        throw new Error("Failed to load trial classes");
       }
 
       setTrialRounds(roundsResult.data || []);
 
       // Extract unique trial days from rounds
-      const uniqueDays = new Map<number, { id: string; day_number: number; trial_date: string }>();
+      const uniqueDays = new Map<
+        number,
+        { id: string; day_number: number; trial_date: string }
+      >();
       (roundsResult.data || []).forEach((round: any) => {
         const dayData = round.trial_classes?.trial_days;
         if (dayData && dayData.day_number) {
@@ -228,22 +270,29 @@ export default function PublicEntryForm() {
           });
         }
       });
-      setTrialDays(Array.from(uniqueDays.values()).sort((a, b) => a.day_number - b.day_number));
+      setTrialDays(
+        Array.from(uniqueDays.values()).sort(
+          (a, b) => a.day_number - b.day_number,
+        ),
+      );
 
       // ✅ ADD THIS BLOCK: Build day accepting status
       const dayStatus: Record<number, boolean> = {};
       (roundsResult.data || []).forEach((round: any) => {
         const dayNum = round.trial_classes?.trial_days?.day_number;
-        const accepting = round.trial_classes?.trial_days?.is_accepting_entries ?? true;
+        const accepting =
+          round.trial_classes?.trial_days?.is_accepting_entries ?? true;
         if (dayNum) {
           dayStatus[dayNum] = accepting;
         }
       });
       setDayAcceptingStatus(dayStatus);
-      console.log('Day accepting status:', dayStatus);
+      console.log("Day accepting status:", dayStatus);
     } catch (err) {
-      console.error('Error loading trial data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load trial information');
+      console.error("Error loading trial data:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to load trial information",
+      );
     } finally {
       setLoading(false);
     }
@@ -254,7 +303,7 @@ export default function PublicEntryForm() {
   // ============================================
   const handleCwagsSubmit = async () => {
     if (!cwagsInputValue.trim()) {
-      setError('Please enter a C-WAGS registration number');
+      setError("Please enter a C-WAGS registration number");
       return;
     }
 
@@ -271,7 +320,9 @@ export default function PublicEntryForm() {
       // Perform the lookup
       await handleCwagsLookup(cleanedNumber);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid C-WAGS number format');
+      setError(
+        err instanceof Error ? err.message : "Invalid C-WAGS number format",
+      );
     }
   };
 
@@ -280,39 +331,72 @@ export default function PublicEntryForm() {
 
     setRegistryLoading(true);
     setEditModeLoading(true);
+    setRegistryVerification(null);
+    setError(null);
 
     try {
-      console.log('Starting C-WAGS lookup for:', cwagsNumber);
+      console.log("Starting C-WAGS lookup for:", cwagsNumber);
 
       const { data: existingEntries, error: entryError } = await supabase
-        .from('entries')
-        .select('*')
-        .eq('trial_id', trialId)
-        .eq('cwags_number', cwagsNumber)
-        .order('submitted_at', { ascending: false });
+        .from("entries")
+        .select("*")
+        .eq("trial_id", trialId)
+        .eq("cwags_number", cwagsNumber)
+        .order("submitted_at", { ascending: false });
 
-      console.log('Direct entry query result:', existingEntries, entryError);
+      console.log("Direct entry query result:", existingEntries, entryError);
+
+      if (entryError) {
+        throw new Error(
+          `Failed to check existing entries: ${entryError.message}`,
+        );
+      }
 
       if (existingEntries && existingEntries.length > 0) {
         if (existingEntries.length > 1) {
           console.warn(
-            `⚠️ Found ${existingEntries.length} entries for C-WAGS ${cwagsNumber}. This indicates duplicate entries.`
+            `⚠️ Found ${existingEntries.length} entries for C-WAGS ${cwagsNumber}. This indicates duplicate entries.`,
           );
         }
 
         const existingEntry = existingEntries[0];
-        console.log('Found existing entry:', existingEntry);
+        console.log("Found existing entry:", existingEntry);
         setExistingEntry(existingEntry);
 
+        const registryResult =
+          await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
+        const authoritativeHandlerName =
+          registryResult.success && registryResult.data?.handler_name
+            ? registryResult.data.handler_name
+            : existingEntry.handler_name || "";
+        const authoritativeDogCallName =
+          registryResult.success && registryResult.data?.dog_call_name
+            ? registryResult.data.dog_call_name
+            : existingEntry.dog_call_name || "";
+
+        setRegistryVerification({
+          cwags_number: cwagsNumber,
+          status: "existing",
+          handler_name: authoritativeHandlerName,
+          dog_call_name: authoritativeDogCallName,
+        });
+
         const entryIds = existingEntries.map((entry) => entry.id);
-        console.log('Loading entry selections for all entry IDs:', entryIds);
+        console.log("Loading entry selections for all entry IDs:", entryIds);
 
-        const { data: allEntrySelections, error: selectionsError } = await supabase
-          .from('entry_selections')
-          .select('trial_round_id, entry_type, division, entry_id, jump_height')
-          .in('entry_id', entryIds);
+        const { data: allEntrySelections, error: selectionsError } =
+          await supabase
+            .from("entry_selections")
+            .select(
+              "trial_round_id, entry_type, division, entry_id, jump_height",
+            )
+            .in("entry_id", entryIds);
 
-        console.log('Entry selections query result:', allEntrySelections, selectionsError);
+        console.log(
+          "Entry selections query result:",
+          allEntrySelections,
+          selectionsError,
+        );
 
         let selectedRoundIds: string[] = [];
         let feoRoundIds: string[] = [];
@@ -320,7 +404,7 @@ export default function PublicEntryForm() {
         let jumpHeightMap: Record<string, string> = {}; // ✅ ADD THIS LINE
 
         if (allEntrySelections && allEntrySelections.length > 0) {
-          console.log('Processing entry selections:', allEntrySelections);
+          console.log("Processing entry selections:", allEntrySelections);
 
           const uniqueSelections = new Map();
           allEntrySelections.forEach((selection: any) => {
@@ -334,7 +418,7 @@ export default function PublicEntryForm() {
 
           selectedRoundIds = Array.from(uniqueSelections.keys());
           feoRoundIds = Array.from(uniqueSelections.entries())
-            .filter(([, data]) => data.type === 'feo')
+            .filter(([, data]) => data.type === "feo")
             .map(([roundId]) => roundId);
 
           uniqueSelections.forEach((data, roundId) => {
@@ -348,58 +432,63 @@ export default function PublicEntryForm() {
           });
         }
 
-        console.log('Final selected round IDs:', selectedRoundIds);
-        console.log('Final FEO round IDs:', feoRoundIds);
-        console.log('Final division map:', divisionMap);
-        console.log('Final jump height map:', jumpHeightMap); // ✅ ADD THIS LINE
+        console.log("Final selected round IDs:", selectedRoundIds);
+        console.log("Final FEO round IDs:", feoRoundIds);
+        console.log("Final division map:", divisionMap);
+        console.log("Final jump height map:", jumpHeightMap); // ✅ ADD THIS LINE
 
         const originalData: EntryFormData = {
-          handler_name: existingEntry.handler_name || '',
-          handler_email: existingEntry.handler_email || '',
-          handler_phone: existingEntry.handler_phone || '',
-          emergency_contact: existingEntry.emergency_contact || '',
+          handler_name: authoritativeHandlerName,
+          handler_email: existingEntry.handler_email || "",
+          handler_phone: existingEntry.handler_phone || "",
+          emergency_contact: existingEntry.emergency_contact || "",
           cwags_number: cwagsNumber,
-          dog_call_name: existingEntry.dog_call_name || '',
-          dog_breed: existingEntry.dog_breed || '',
-          dog_sex: existingEntry.dog_sex || '',
-          dog_dob: existingEntry.dog_dob || '',
+          dog_call_name: authoritativeDogCallName,
+          dog_breed: existingEntry.dog_breed || "",
+          dog_sex: existingEntry.dog_sex || "",
+          dog_dob: existingEntry.dog_dob || "",
           is_junior_handler: existingEntry.is_junior_handler || false,
           selected_rounds: selectedRoundIds,
           feo_selections: feoRoundIds,
           division_selections: divisionMap,
           waiver_accepted: true,
           jump_height_selections: jumpHeightMap,
-          close_to_titles: existingEntry.close_to_titles || '',
+          close_to_titles: existingEntry.close_to_titles || "",
           volunteer_preferences: existingEntry.volunteer_preferences || {},
         };
 
-        console.log('Setting form data with existing entry and class selections');
+        console.log(
+          "Setting form data with existing entry and class selections",
+        );
         setOriginalFormData(originalData);
         setFormData(originalData);
 
-        console.log('Form populated with existing entry data and class selections');
+        console.log(
+          "Form populated with existing entry data and class selections",
+        );
       } else {
-        console.log('No existing entry found, checking C-WAGS registry...');
+        console.log("No existing entry found, checking C-WAGS registry...");
         setExistingEntry(null);
 
         try {
-          const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
+          const registryResult =
+            await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
           if (registryResult.success && registryResult.data) {
-            console.log('Found C-WAGS registry data:', registryResult.data);
-            console.log('🧹 Clearing all selections for new entry');
+            console.log("Found C-WAGS registry data:", registryResult.data);
+            console.log("🧹 Clearing all selections for new entry");
 
             // ✅ FIXED: Clear ALL selections since this is a new entry for this trial
             setVerifyDialog({
-              handler_name: registryResult.data.handler_name || '',
-              dog_call_name: registryResult.data.dog_call_name || '',
+              handler_name: registryResult.data.handler_name || "",
+              dog_call_name: registryResult.data.dog_call_name || "",
               pendingData: {
-                handler_name: registryResult.data.handler_name || '',
-                dog_call_name: registryResult.data.dog_call_name || '',
-                handler_email: registryResult.data.handler_email || '',
-                handler_phone: registryResult.data.handler_phone || '',
-                emergency_contact: registryResult.data.emergency_contact || '',
-                dog_breed: registryResult.data.breed || '',
-                dog_sex: registryResult.data.dog_sex || '',
+                handler_name: registryResult.data.handler_name || "",
+                dog_call_name: registryResult.data.dog_call_name || "",
+                handler_email: registryResult.data.handler_email || "",
+                handler_phone: registryResult.data.handler_phone || "",
+                emergency_contact: registryResult.data.emergency_contact || "",
+                dog_breed: registryResult.data.breed || "",
+                dog_sex: registryResult.data.dog_sex || "",
                 cwags_number: cwagsNumber,
                 selected_rounds: [],
                 feo_selections: [],
@@ -410,15 +499,20 @@ export default function PublicEntryForm() {
             // Also clear the original form data
             setOriginalFormData(null);
           } else {
-            console.log('No C-WAGS registry data found');
-            console.log('🧹 Clearing all selections for completely new dog');
+            console.log("No C-WAGS registry data found");
+            console.log("🧹 Clearing all selections for completely new dog");
+
+            setRegistryVerification({
+              cwags_number: cwagsNumber,
+              status: "new",
+            });
 
             // ✅ FIXED: Also clear selections if dog not in registry
             setFormData((prev) => ({
               ...prev,
               cwags_number: cwagsNumber,
-              handler_name: '',
-              dog_call_name: '',
+              handler_name: "",
+              dog_call_name: "",
               // Clear all round selections
               selected_rounds: [],
               feo_selections: [],
@@ -429,8 +523,12 @@ export default function PublicEntryForm() {
             setOriginalFormData(null);
           }
         } catch (registryError) {
-          console.error('Error checking C-WAGS registry:', registryError);
-          console.log('🧹 Clearing all selections due to error');
+          console.error("Error checking C-WAGS registry:", registryError);
+          console.log("🧹 Clearing all selections due to error");
+          setRegistryVerification(null);
+          setError(
+            "The C-WAGS registry lookup failed. Please try Lookup again before submitting.",
+          );
 
           // ✅ FIXED: Clear on error too
           setFormData((prev) => ({
@@ -447,8 +545,8 @@ export default function PublicEntryForm() {
         }
       }
     } catch (error) {
-      console.error('Error in C-WAGS lookup:', error);
-      setError('Failed to lookup C-WAGS information');
+      console.error("Error in C-WAGS lookup:", error);
+      setError("Failed to lookup C-WAGS information");
     } finally {
       setRegistryLoading(false);
       setEditModeLoading(false);
@@ -456,23 +554,28 @@ export default function PublicEntryForm() {
   };
 
   const saveToRegistry = async () => {
-    if (!formData.cwags_number || !formData.handler_name || !formData.dog_call_name) {
+    if (
+      !formData.cwags_number ||
+      !formData.handler_name ||
+      !formData.dog_call_name
+    ) {
       return;
     }
 
     try {
-      const existingResult = await simpleTrialOperations.getCwagsRegistryByNumber(
-        formData.cwags_number
-      );
+      const existingResult =
+        await simpleTrialOperations.getCwagsRegistryByNumber(
+          formData.cwags_number,
+        );
 
       if (existingResult.success && existingResult.data) {
         // Dog exists - BIDIRECTIONAL SYNC
         const existing = existingResult.data;
         const registryUpdates: any = {};
 
-        console.log('🔄 Starting bidirectional sync...');
-        console.log('Registry data:', existing);
-        console.log('Entry data:', {
+        console.log("🔄 Starting bidirectional sync...");
+        console.log("Registry data:", existing);
+        console.log("Entry data:", {
           email: formData.handler_email,
           phone: formData.handler_phone,
           emergency: formData.emergency_contact,
@@ -481,86 +584,116 @@ export default function PublicEntryForm() {
         // REGISTRY UPDATES: Update registry if it's missing data that the entry has
         if (!existing.handler_email && formData.handler_email) {
           registryUpdates.handler_email = formData.handler_email;
-          console.log('📝 Will update registry email:', formData.handler_email);
+          console.log("📝 Will update registry email:", formData.handler_email);
         }
         if (!existing.handler_phone && formData.handler_phone) {
           registryUpdates.handler_phone = formData.handler_phone;
-          console.log('📝 Will update registry phone:', formData.handler_phone);
+          console.log("📝 Will update registry phone:", formData.handler_phone);
         }
         if (!existing.emergency_contact && formData.emergency_contact) {
           registryUpdates.emergency_contact = formData.emergency_contact;
-          console.log('📝 Will update registry emergency contact:', formData.emergency_contact);
+          console.log(
+            "📝 Will update registry emergency contact:",
+            formData.emergency_contact,
+          );
         }
         if (!existing.breed && formData.dog_breed) {
           registryUpdates.breed = formData.dog_breed;
-          console.log('📝 Will update registry breed:', formData.dog_breed);
+          console.log("📝 Will update registry breed:", formData.dog_breed);
         }
         if (!existing.dog_sex && formData.dog_sex) {
           registryUpdates.dog_sex = formData.dog_sex;
-          console.log('📝 Will update registry sex:', formData.dog_sex);
+          console.log("📝 Will update registry sex:", formData.dog_sex);
         }
 
         // ENTRY UPDATES: Update entry form if it's missing data that the registry has
         let formUpdated = false;
 
         if (!formData.handler_email && existing.handler_email) {
-          setFormData((prev) => ({ ...prev, handler_email: existing.handler_email }));
-          formUpdated = true;
-          console.log('📝 Updated entry form email from registry:', existing.handler_email);
-        }
-        if (!formData.handler_phone && existing.handler_phone) {
-          setFormData((prev) => ({ ...prev, handler_phone: existing.handler_phone }));
-          formUpdated = true;
-          console.log('📝 Updated entry form phone from registry:', existing.handler_phone);
-        }
-        if (!formData.emergency_contact && existing.emergency_contact) {
-          setFormData((prev) => ({ ...prev, emergency_contact: existing.emergency_contact }));
+          setFormData((prev) => ({
+            ...prev,
+            handler_email: existing.handler_email,
+          }));
           formUpdated = true;
           console.log(
-            '📝 Updated entry form emergency contact from registry:',
-            existing.emergency_contact
+            "📝 Updated entry form email from registry:",
+            existing.handler_email,
+          );
+        }
+        if (!formData.handler_phone && existing.handler_phone) {
+          setFormData((prev) => ({
+            ...prev,
+            handler_phone: existing.handler_phone,
+          }));
+          formUpdated = true;
+          console.log(
+            "📝 Updated entry form phone from registry:",
+            existing.handler_phone,
+          );
+        }
+        if (!formData.emergency_contact && existing.emergency_contact) {
+          setFormData((prev) => ({
+            ...prev,
+            emergency_contact: existing.emergency_contact,
+          }));
+          formUpdated = true;
+          console.log(
+            "📝 Updated entry form emergency contact from registry:",
+            existing.emergency_contact,
           );
         }
         if (!formData.dog_breed && existing.breed) {
           setFormData((prev) => ({ ...prev, dog_breed: existing.breed }));
           formUpdated = true;
-          console.log('📝 Updated entry form breed from registry:', existing.breed);
+          console.log(
+            "📝 Updated entry form breed from registry:",
+            existing.breed,
+          );
         }
         if (!formData.dog_sex && existing.dog_sex) {
           setFormData((prev) => ({ ...prev, dog_sex: existing.dog_sex }));
           formUpdated = true;
-          console.log('📝 Updated entry form sex from registry:', existing.dog_sex);
+          console.log(
+            "📝 Updated entry form sex from registry:",
+            existing.dog_sex,
+          );
         }
 
         // Update registry if there are changes
         if (Object.keys(registryUpdates).length > 0) {
-          console.log('💾 Updating registry with:', registryUpdates);
+          console.log("💾 Updating registry with:", registryUpdates);
 
           const { error } = await supabase
-            .from('cwags_registry')
+            .from("cwags_registry")
             .update(registryUpdates)
-            .eq('id', existing.id);
+            .eq("id", existing.id);
 
           if (error) {
-            console.warn('⚠️ Failed to update registry:', error);
+            console.warn("⚠️ Failed to update registry:", error);
           } else {
-            console.log('✅ Successfully updated registry with missing information');
+            console.log(
+              "✅ Successfully updated registry with missing information",
+            );
           }
         }
 
         if (formUpdated) {
-          console.log('✅ Successfully updated entry form with registry information');
+          console.log(
+            "✅ Successfully updated entry form with registry information",
+          );
         }
 
         if (Object.keys(registryUpdates).length === 0 && !formUpdated) {
-          console.log('ℹ️ No bidirectional sync needed - all fields are populated');
+          console.log(
+            "ℹ️ No bidirectional sync needed - all fields are populated",
+          );
         }
 
         return;
       }
 
       // Dog doesn't exist - create new registry entry with all data
-      console.log('📝 Creating new registry entry for:', formData.cwags_number);
+      console.log("📝 Creating new registry entry for:", formData.cwags_number);
 
       const registryData = {
         cwags_number: formData.cwags_number,
@@ -575,15 +708,16 @@ export default function PublicEntryForm() {
         is_active: true,
       };
 
-      const createResult = await simpleTrialOperations.createRegistryEntry(registryData);
+      const createResult =
+        await simpleTrialOperations.createRegistryEntry(registryData);
 
       if (createResult.success) {
-        console.log('✅ Successfully created new registry entry');
+        console.log("✅ Successfully created new registry entry");
       } else {
-        console.warn('⚠️ Failed to create registry entry:', createResult.error);
+        console.warn("⚠️ Failed to create registry entry:", createResult.error);
       }
     } catch (error) {
-      console.error('❌ Error in saveToRegistry:', error);
+      console.error("❌ Error in saveToRegistry:", error);
     }
   };
 
@@ -610,14 +744,15 @@ export default function PublicEntryForm() {
     }));
   };
 
-  const handleRoundSelection = (roundId: string, type: 'regular' | 'feo') => {
+  const handleRoundSelection = (roundId: string, type: "regular" | "feo") => {
     setFormData((prev) => {
       const isCurrentlySelected = prev.selected_rounds.includes(roundId);
       const isCurrentlyFeo = prev.feo_selections.includes(roundId);
 
       if (
         isCurrentlySelected &&
-        ((type === 'feo' && isCurrentlyFeo) || (type === 'regular' && !isCurrentlyFeo))
+        ((type === "feo" && isCurrentlyFeo) ||
+          (type === "regular" && !isCurrentlyFeo))
       ) {
         // Deselect
         const newDivisions = { ...prev.division_selections };
@@ -640,7 +775,7 @@ export default function PublicEntryForm() {
           : [...prev.selected_rounds, roundId];
 
         const newFeoSelections =
-          type === 'feo'
+          type === "feo"
             ? isCurrentlySelected
               ? prev.feo_selections.includes(roundId)
                 ? prev.feo_selections
@@ -667,15 +802,70 @@ export default function PublicEntryForm() {
       const round = trialRounds.find((r) => r.id === roundId);
       if (requiresDivision(round?.trial_classes?.class_name)) {
         if (!formData.division_selections[roundId]) {
-          const className = round?.trial_classes?.class_name || 'Unknown';
+          const className = round?.trial_classes?.class_name || "Unknown";
           missingDivisions.push(`${className} - Round ${round?.round_number}`);
         }
       }
     });
 
     if (missingDivisions.length > 0) {
-      setError(`Please select a division for: ${missingDivisions.join(', ')}`);
+      setError(`Please select a division for: ${missingDivisions.join(", ")}`);
       return false;
+    }
+
+    return true;
+  };
+
+  const validateRegistryIdentityBeforeSubmit = (): boolean => {
+    let formattedNumber: string;
+
+    try {
+      formattedNumber = cleanCwagsNumber(formData.cwags_number);
+    } catch (validationError) {
+      setError(
+        validationError instanceof Error
+          ? validationError.message
+          : "Invalid C-WAGS number",
+      );
+      return false;
+    }
+
+    if (
+      !registryVerification ||
+      registryVerification.cwags_number !== formattedNumber
+    ) {
+      setError(
+        "Please click the Lookup button beside the C-WAGS number before submitting your entry.",
+      );
+
+      setTimeout(() => {
+        document
+          .getElementById("cwags-lookup-section")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 0);
+
+      return false;
+    }
+
+    if (!formData.handler_name.trim() || !formData.dog_call_name.trim()) {
+      setError("Handler name and dog call name are required.");
+      return false;
+    }
+
+    if (registryVerification.status === "existing") {
+      const handlerMatches =
+        normalizeIdentityValue(formData.handler_name) ===
+        normalizeIdentityValue(registryVerification.handler_name);
+      const dogMatches =
+        normalizeIdentityValue(formData.dog_call_name) ===
+        normalizeIdentityValue(registryVerification.dog_call_name);
+
+      if (!handlerMatches || !dogMatches) {
+        setError(
+          `This C-WAGS number belongs to ${registryVerification.handler_name || "the registered handler"} / ${registryVerification.dog_call_name || "the registered dog"}. Restore the registry names or use a different C-WAGS number.`,
+        );
+        return false;
+      }
     }
 
     return true;
@@ -685,14 +875,18 @@ export default function PublicEntryForm() {
   // SUBMISSION
   // ============================================
   const performSubmit = async () => {
+    if (!validateRegistryIdentityBeforeSubmit()) {
+      return;
+    }
+
     // Check required fields
     if (!formData.handler_email || !formData.handler_email.trim()) {
-      setError('Handler email is required');
+      setError("Handler email is required");
       return;
     }
 
     if (!formData.waiver_accepted) {
-      setError('You must accept the waiver before submitting');
+      setError("You must accept the waiver before submitting");
       return;
     }
 
@@ -717,9 +911,15 @@ export default function PublicEntryForm() {
   const handleConfirmedSubmit = async () => {
     setShowConfirmDialog(false);
 
+    if (!validateRegistryIdentityBeforeSubmit()) {
+      return;
+    }
+
     // ✅ FIX 1: Prevent double submission - check if already submitting
     if (submitting) {
-      console.log('⚠️ Submission already in progress, ignoring duplicate click');
+      console.log(
+        "⚠️ Submission already in progress, ignoring duplicate click",
+      );
       return;
     }
 
@@ -727,24 +927,34 @@ export default function PublicEntryForm() {
     setError(null);
 
     try {
+      const authoritativeHandlerName =
+        registryVerification?.status === "existing"
+          ? registryVerification.handler_name || formData.handler_name
+          : formData.handler_name;
+      const authoritativeDogCallName =
+        registryVerification?.status === "existing"
+          ? registryVerification.dog_call_name || formData.dog_call_name
+          : formData.dog_call_name;
+
       // ✅ FIX 2: Check for recent duplicate submissions (within last 60 seconds)
       const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
       const { data: recentDuplicates, error: dupCheckError } = await supabase
-        .from('entries')
-        .select('id, submitted_at')
-        .eq('trial_id', trialId)
-        .eq('cwags_number', formData.cwags_number)
-        .gte('submitted_at', sixtySecondsAgo);
+        .from("entries")
+        .select("id, submitted_at")
+        .eq("trial_id", trialId)
+        .eq("cwags_number", formData.cwags_number)
+        .gte("submitted_at", sixtySecondsAgo);
 
       if (dupCheckError) {
-        console.warn('Could not check for recent duplicates:', dupCheckError);
+        console.warn("Could not check for recent duplicates:", dupCheckError);
       } else if (recentDuplicates && recentDuplicates.length > 0) {
         const secondsAgo = Math.floor(
-          (Date.now() - new Date(recentDuplicates[0].submitted_at).getTime()) / 1000
+          (Date.now() - new Date(recentDuplicates[0].submitted_at).getTime()) /
+            1000,
         );
         setError(
-          `This entry was just submitted ${secondsAgo} seconds ago. Please wait before resubmitting.`
+          `This entry was just submitted ${secondsAgo} seconds ago. Please wait before resubmitting.`,
         );
         setSubmitting(false);
         return;
@@ -752,30 +962,77 @@ export default function PublicEntryForm() {
 
       await saveToRegistry();
 
-      const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
-        const round = trialRounds.find((r) => r.id === roundId);
-        const isFeo = formData.feo_selections.includes(roundId);
-
-        if (isFeo && round?.trial_classes?.feo_price) {
-          return sum + round.trial_classes.feo_price;
-        } else {
-          return sum + (round?.trial_classes?.entry_fee || 0);
-        }
-      }, 0);
-
       let primaryEntryId: string;
       let isNewEntry = false;
 
       const { data: existingEntries, error: findError } = await supabase
-        .from('entries')
-        .select('id, handler_name, dog_call_name')
-        .eq('trial_id', trialId)
-        .eq('cwags_number', formData.cwags_number)
-        .order('submitted_at', { ascending: true });
+        .from("entries")
+        .select("id, handler_name, dog_call_name, entry_status")
+        .eq("trial_id", trialId)
+        .eq("cwags_number", formData.cwags_number)
+        .order("submitted_at", { ascending: true });
 
       if (findError) {
-        throw new Error('Failed to find existing entries: ' + findError.message);
+        throw new Error(
+          "Failed to find existing entries: " + findError.message,
+        );
       }
+
+      // Capacity is checked server-side so the public browser does not need
+      // permission to count other competitors' entries.
+      const existingEntryId = existingEntries?.[0]?.id || null;
+      const capacityResponse = await fetch(`/api/trials/${trialId}/capacity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selected_round_ids: formData.selected_rounds,
+          exclude_entry_id: existingEntryId,
+        }),
+      });
+
+      const capacityResult = await capacityResponse.json();
+      if (!capacityResponse.ok) {
+        throw new Error(
+          capacityResult.error || "Failed to check round capacity.",
+        );
+      }
+
+      const capacityConflicts = capacityResult.conflicts || [];
+      const conflictRoundIds = new Set<string>(
+        capacityConflicts.map((conflict: any) => conflict.trial_round_id),
+      );
+      const shouldWaitlist = capacityConflicts.length > 0;
+      const allSelectionsWaitlisted =
+        formData.selected_rounds.length > 0 &&
+        formData.selected_rounds.every((roundId) => conflictRoundIds.has(roundId));
+      const conflictSummary = shouldWaitlist
+        ? capacityConflicts
+            .map(
+              (conflict: any) =>
+                `${conflict.class_name}, Round ${conflict.round_number} ` +
+                `(${conflict.occupied_places}/${conflict.max_entries} places filled)`,
+            )
+            .join("; ")
+        : "";
+      const acceptedRoundSummary = formData.selected_rounds
+        .filter((roundId) => !conflictRoundIds.has(roundId))
+        .map((roundId) => {
+          const round = trialRounds.find((item) => item.id === roundId);
+          const className = round?.trial_classes?.class_name || "Unknown class";
+          return `${className}, Round ${round?.round_number || 1}`;
+        })
+        .join("; ");
+      const totalFee = formData.selected_rounds.reduce((sum, roundId) => {
+        if (conflictRoundIds.has(roundId)) return sum;
+        const round = trialRounds.find((item) => item.id === roundId);
+        const isFeo = formData.feo_selections.includes(roundId);
+        return (
+          sum +
+          (isFeo && round?.trial_classes?.feo_price
+            ? round.trial_classes.feo_price
+            : round?.trial_classes?.entry_fee || 0)
+        );
+      }, 0);
 
       if (existingEntries && existingEntries.length > 0) {
         primaryEntryId = existingEntries[0].id;
@@ -784,9 +1041,12 @@ export default function PublicEntryForm() {
         console.log(`✅ Found existing entry record: ${primaryEntryId}`);
 
         // ✅ ADD THIS DEBUGGING BLOCK:
-        console.log('🔍 DEBUG: FULL formData state:', JSON.stringify(formData, null, 2));
+        console.log(
+          "🔍 DEBUG: FULL formData state:",
+          JSON.stringify(formData, null, 2),
+        );
 
-        console.log('🔍 DEBUG: About to update entry with:', {
+        console.log("🔍 DEBUG: About to update entry with:", {
           primaryEntryId,
           close_to_titles: formData.close_to_titles,
           volunteer_preferences: formData.volunteer_preferences,
@@ -795,12 +1055,20 @@ export default function PublicEntryForm() {
         // Only update if there's actual data
         const updateData: any = {};
 
+        if (allSelectionsWaitlisted) {
+          updateData.entry_status = "waitlisted";
+        } else if (existingEntries[0].entry_status === "waitlisted") {
+          updateData.entry_status = "submitted";
+        }
+
         if (formData.close_to_titles && formData.close_to_titles.trim()) {
           updateData.close_to_titles = formData.close_to_titles;
         }
 
         // Check if volunteer_preferences has any actual selections (not just empty objects)
-        const hasVolunteerData = Object.keys(formData.volunteer_preferences).some((dayKey) => {
+        const hasVolunteerData = Object.keys(
+          formData.volunteer_preferences,
+        ).some((dayKey) => {
           const dayPrefs = formData.volunteer_preferences[dayKey];
           return Object.values(dayPrefs).some((val) => val === true);
         });
@@ -811,28 +1079,33 @@ export default function PublicEntryForm() {
 
         // Only call update if there's something to update
         if (Object.keys(updateData).length > 0) {
-          const updateResult = await simpleTrialOperations.updateEntry(primaryEntryId, updateData);
+          const updateResult = await simpleTrialOperations.updateEntry(
+            primaryEntryId,
+            updateData,
+          );
 
-          console.log('🔍 DEBUG: Update result:', updateResult);
+          console.log("🔍 DEBUG: Update result:", updateResult);
 
           if (!updateResult.success) {
-            console.error('❌ Update failed:', updateResult.error);
+            console.error("❌ Update failed:", updateResult.error);
           } else {
-            console.log('✅ Updated existing entry with volunteer/titles preferences');
+            console.log(
+              "✅ Updated existing entry with volunteer/titles preferences",
+            );
           }
         }
 
         if (existingEntries.length > 1) {
           console.warn(
-            `⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. This indicates duplicate entries.`
+            `⚠️ Found ${existingEntries.length} entry records for ${formData.cwags_number}. This indicates duplicate entries.`,
           );
         }
       } else {
         isNewEntry = true;
         const entryData = {
           trial_id: trialId,
-          handler_name: formData.handler_name,
-          dog_call_name: formData.dog_call_name,
+          handler_name: authoritativeHandlerName,
+          dog_call_name: authoritativeDogCallName,
           cwags_number: formData.cwags_number,
           dog_breed: formData.dog_breed,
           dog_sex: formData.dog_sex,
@@ -843,8 +1116,8 @@ export default function PublicEntryForm() {
           close_to_titles: formData.close_to_titles || null, // ← ADD THIS
           volunteer_preferences: formData.volunteer_preferences || null, // ← ADD THIS
           total_fee: totalFee,
-          payment_status: 'pending',
-          entry_status: 'submitted',
+          payment_status: "pending",
+          entry_status: allSelectionsWaitlisted ? "waitlisted" : "submitted",
         };
 
         // ✅ FIX 3: createEntry now has duplicate checking built in
@@ -854,13 +1127,13 @@ export default function PublicEntryForm() {
         }
 
         primaryEntryId = createResult.data.id;
-        console.log('✅ Created new entry record:', primaryEntryId);
+        console.log("✅ Created new entry record:", primaryEntryId);
       }
 
       // ============================================
       // SYNC ENTRY SELECTIONS (Score-Aware)
       // ============================================
-      console.log('🔄 Using score-aware sync for entry selections...');
+      console.log("🔄 Using score-aware sync for entry selections...");
 
       // Build the complete list of desired selections
       const allDesiredSelections = await Promise.all(
@@ -871,22 +1144,22 @@ export default function PublicEntryForm() {
           const isFeo = formData.feo_selections.includes(roundId);
 
           let entryFee = round?.trial_classes?.entry_fee || 0;
-          let entryType: 'regular' | 'feo' = 'regular';
+          let entryType: "regular" | "feo" = "regular";
 
           if (isFeo && round?.trial_classes?.feo_price) {
             entryFee = round.trial_classes.feo_price;
-            entryType = 'feo';
+            entryType = "feo";
           }
 
           const gamesSubclass = round?.trial_classes?.games_subclass || null;
 
           // ✅ Calculate the correct running position for THIS SPECIFIC ROUND (exclude withdrawn)
           const { data: existingInRound } = await supabase
-            .from('entry_selections')
-            .select('running_position')
-            .eq('trial_round_id', roundId)
-            .neq('entry_status', 'withdrawn') // ✅ EXCLUDE WITHDRAWN ENTRIES
-            .order('running_position', { ascending: false })
+            .from("entry_selections")
+            .select("running_position")
+            .eq("trial_round_id", roundId)
+            .not("entry_status", "in", NON_ACTIVE_SELECTION_STATUSES_FILTER)
+            .order("running_position", { ascending: false })
             .limit(1);
 
           const nextPosition =
@@ -898,19 +1171,21 @@ export default function PublicEntryForm() {
             trial_round_id: roundId,
             entry_type: entryType,
             fee: entryFee,
-            running_position: nextPosition, // ✅ Now correct per round!
-            entry_status: 'entered' as const,
+            running_position: conflictRoundIds.has(roundId) ? null : nextPosition,
+            entry_status: conflictRoundIds.has(roundId)
+              ? ("waitlisted" as const)
+              : ("entered" as const),
             division: division,
             games_subclass: gamesSubclass,
             jump_height: jumpHeight,
           };
-        })
+        }),
       );
 
       // This will preserve selections with scores!
       const syncResult = await simpleTrialOperations.createEntrySelections(
         primaryEntryId,
-        allDesiredSelections
+        allDesiredSelections,
       );
 
       if (!syncResult.success) {
@@ -918,38 +1193,44 @@ export default function PublicEntryForm() {
       }
 
       if (syncResult.warning) {
-        console.warn('⚠️ SCORE PROTECTION:', syncResult.warning);
+        console.warn("⚠️ SCORE PROTECTION:", syncResult.warning);
       }
 
-      console.log('✅ Entry selections synced successfully');
+      console.log("✅ Entry selections synced successfully");
 
       // Recalculate total_fee after sync
       const { data: postSyncSelections, error: feeRecalcError } = await supabase
-        .from('entry_selections')
-        .select('fee')
-        .eq('entry_id', primaryEntryId);
+        .from("entry_selections")
+        .select("fee, entry_status")
+        .eq("entry_id", primaryEntryId);
 
       let finalTotalFee = 0; // Will be calculated from selections
       if (!feeRecalcError && postSyncSelections) {
-        const recalculatedTotalFee = postSyncSelections.reduce((sum, s) => sum + (s.fee || 0), 0);
+        const recalculatedTotalFee = postSyncSelections.reduce(
+          (sum, s) =>
+            isBillableSelection(s.entry_status) ? sum + (s.fee || 0) : sum,
+          0,
+        );
         finalTotalFee = recalculatedTotalFee;
 
         await simpleTrialOperations.updateEntry(primaryEntryId, {
           total_fee: recalculatedTotalFee,
+          amount_owed: recalculatedTotalFee,
         });
 
         console.log(
-          `✅ Recalculated total fee: $${recalculatedTotalFee} (based on ${postSyncSelections.length} selections)`
+          `✅ Recalculated total fee: $${recalculatedTotalFee} (based on ${postSyncSelections.length} selections)`,
         );
       }
 
       // ✅ LOG TO JOURNAL WITH SNAPSHOT - Query ACTUAL selections from database
-      console.log('📝 Building journal entry from actual database state...');
+      console.log("📝 Building journal entry from actual database state...");
 
-      const { data: actualSelections, error: actualSelectionsError } = await supabase
-        .from('entry_selections')
-        .select(
-          `
+      const { data: actualSelections, error: actualSelectionsError } =
+        await supabase
+          .from("entry_selections")
+          .select(
+            `
     trial_round_id,
     fee,
     division,
@@ -965,19 +1246,23 @@ export default function PublicEntryForm() {
         )
       )
     )
-  `
-        )
-        .eq('entry_id', primaryEntryId);
+  `,
+          )
+          .eq("entry_id", primaryEntryId);
 
       if (actualSelectionsError) {
-        console.error('❌ Failed to get actual selections for journal:', actualSelectionsError);
+        console.error(
+          "❌ Failed to get actual selections for journal:",
+          actualSelectionsError,
+        );
       }
 
       // Build class details from ACTUAL selections in database
-      const { data: allCurrentSelections, error: selectionsError } = await supabase
-        .from('entry_selections')
-        .select(
-          `
+      const { data: allCurrentSelections, error: selectionsError } =
+        await supabase
+          .from("entry_selections")
+          .select(
+            `
     *,
     trial_rounds!inner(
       round_number,
@@ -989,47 +1274,76 @@ export default function PublicEntryForm() {
         )
       )
     )
-  `
-        )
-        .eq('entry_id', primaryEntryId);
+  `,
+          )
+          .eq("entry_id", primaryEntryId);
 
       if (selectionsError) {
-        console.error('⚠️ Failed to fetch current selections for journal:', selectionsError);
+        console.error(
+          "⚠️ Failed to fetch current selections for journal:",
+          selectionsError,
+        );
       }
 
       // Build class details from ACTUAL current state in database
-      const classDetails = (allCurrentSelections || []).map((selection: any) => ({
-        class_name: selection.trial_rounds?.trial_classes?.class_name || 'Unknown',
-        round: selection.trial_rounds?.round_number || 1,
-        fee: selection.fee,
-        division: selection.division || undefined,
-        entry_type: selection.entry_type,
-        day_number: selection.trial_rounds?.trial_classes?.trial_days?.day_number,
-        trial_date: selection.trial_rounds?.trial_classes?.trial_days?.trial_date,
-      }));
+      const classDetails = (allCurrentSelections || []).map(
+        (selection: any) => ({
+          class_name:
+            selection.trial_rounds?.trial_classes?.class_name || "Unknown",
+          round: selection.trial_rounds?.round_number || 1,
+          fee: selection.fee,
+          entry_status: selection.entry_status,
+          division: selection.division || undefined,
+          entry_type: selection.entry_type,
+          day_number:
+            selection.trial_rounds?.trial_classes?.trial_days?.day_number,
+          trial_date:
+            selection.trial_rounds?.trial_classes?.trial_days?.trial_date,
+        }),
+      );
 
-      console.log('📊 Logging to journal with ALL current selections:', classDetails.length);
+      console.log(
+        "📊 Logging to journal with ALL current selections:",
+        classDetails.length,
+      );
 
       // This function automatically detects if it's new or modified!
       await logEntrySubmittedOrModified(
         trialId,
         primaryEntryId,
         {
-          handler_name: formData.handler_name,
-          dog_call_name: formData.dog_call_name,
+          handler_name: authoritativeHandlerName,
+          dog_call_name: authoritativeDogCallName,
           cwags_number: formData.cwags_number,
           handler_email: formData.handler_email,
           handler_phone: formData.handler_phone,
           total_fee: finalTotalFee,
         },
-        classDetails // ✅ Now contains ALL current classes, not just new ones
+        classDetails, // ✅ Now contains ALL current classes, not just new ones
       );
 
+      setFormData((prev) => ({
+        ...prev,
+        cwags_number: registryVerification?.cwags_number || prev.cwags_number,
+        handler_name: authoritativeHandlerName,
+        dog_call_name: authoritativeDogCallName,
+      }));
+      setAcceptedNotice(
+        acceptedRoundSummary ? `Accepted rounds: ${acceptedRoundSummary}.` : null,
+      );
+      setWaitlistNotice(
+        shouldWaitlist
+          ? `Waitlisted rounds: ${conflictSummary}. The trial secretary can promote each waitlisted round individually if space becomes available.`
+          : null,
+      );
+      setWaitlistedRoundIds(new Set(conflictRoundIds));
       setSuccess(true);
-      console.log(`✅ Entry ${isNewEntry ? 'submitted' : 'updated'} successfully`);
+      console.log(
+        `✅ Entry ${isNewEntry ? "submitted" : "updated"} successfully${shouldWaitlist ? " and waitlisted" : ""}`,
+      );
     } catch (err) {
-      console.error('❌ Error submitting entry:', err);
-      setError(err instanceof Error ? err.message : 'Failed to submit entry');
+      console.error("❌ Error submitting entry:", err);
+      setError(err instanceof Error ? err.message : "Failed to submit entry");
     } finally {
       // ✅ FIX 4: Always re-enable after attempt
       setSubmitting(false);
@@ -1050,13 +1364,13 @@ export default function PublicEntryForm() {
       acc[dayNumber].push(round);
       return acc;
     },
-    {} as Record<number, TrialRound[]>
+    {} as Record<number, TrialRound[]>,
   );
 
   Object.keys(roundsByDay).forEach((day) => {
     roundsByDay[parseInt(day)].sort((a, b) => {
-      const orderA = getClassOrder(a.trial_classes?.class_name || '');
-      const orderB = getClassOrder(b.trial_classes?.class_name || '');
+      const orderA = getClassOrder(a.trial_classes?.class_name || "");
+      const orderB = getClassOrder(b.trial_classes?.class_name || "");
       if (orderA !== orderB) return orderA - orderB;
       return a.round_number - b.round_number;
     });
@@ -1073,10 +1387,10 @@ export default function PublicEntryForm() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const cwagsParam = urlParams.get('cwags');
+    const cwagsParam = urlParams.get("cwags");
 
     if (cwagsParam) {
-      console.log('Auto-populating C-WAGS number from URL:', cwagsParam);
+      console.log("Auto-populating C-WAGS number from URL:", cwagsParam);
       setCwagsInputValue(cwagsParam);
       setFormData((prev) => ({ ...prev, cwags_number: cwagsParam }));
 
@@ -1105,13 +1419,15 @@ export default function PublicEntryForm() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Alert className="max-w-md">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Trial not found or entries are not currently open.</AlertDescription>
+          <AlertDescription>
+            Trial not found or entries are not currently open.
+          </AlertDescription>
         </Alert>
       </div>
     );
   }
   // Check entry status
-  if (trial.entry_status === 'draft') {
+  if (trial.entry_status === "draft") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-6">
         <Card className="max-w-2xl w-full">
@@ -1122,13 +1438,16 @@ export default function PublicEntryForm() {
             <CardTitle className="text-3xl mb-2">{trial.trial_name}</CardTitle>
             <CardDescription className="text-lg">
               {(() => {
-                const [y, m, d] = trial.start_date.split('-').map(Number);
-                return new Date(y, m - 1, d, 12, 0, 0).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                });
+                const [y, m, d] = trial.start_date.split("-").map(Number);
+                return new Date(y, m - 1, d, 12, 0, 0).toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  },
+                );
               })()}
             </CardDescription>
           </CardHeader>
@@ -1139,18 +1458,20 @@ export default function PublicEntryForm() {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Entries for this trial are not yet open. Please check back later or contact the
-                trial secretary for more information.
+                Entries for this trial are not yet open. Please check back later
+                or contact the trial secretary for more information.
               </AlertDescription>
             </Alert>
-            <p className="text-gray-600">This page will be updated once registration opens.</p>
+            <p className="text-gray-600">
+              This page will be updated once registration opens.
+            </p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (trial.entry_status === 'closed') {
+  if (trial.entry_status === "closed") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center p-6">
         <Card className="max-w-2xl w-full">
@@ -1161,27 +1482,34 @@ export default function PublicEntryForm() {
             <CardTitle className="text-3xl mb-2">{trial.trial_name}</CardTitle>
             <CardDescription className="text-lg">
               {(() => {
-                const [y, m, d] = trial.start_date.split('-').map(Number);
-                return new Date(y, m - 1, d, 12, 0, 0).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric',
-                });
+                const [y, m, d] = trial.start_date.split("-").map(Number);
+                return new Date(y, m - 1, d, 12, 0, 0).toLocaleDateString(
+                  "en-US",
+                  {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  },
+                );
               })()}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center space-y-4">
-            <Badge className="bg-red-100 text-red-800 text-lg px-6 py-2">Registration Closed</Badge>
+            <Badge className="bg-red-100 text-red-800 text-lg px-6 py-2">
+              Registration Closed
+            </Badge>
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                This trial is no longer accepting new entries. Please contact the trial secretary if
-                you have questions.
+                This trial is no longer accepting new entries. Please contact
+                the trial secretary if you have questions.
               </AlertDescription>
             </Alert>
             {trial.secretary_email && (
-              <p className="text-gray-600">Trial Secretary: {trial.secretary_email}</p>
+              <p className="text-gray-600">
+                Trial Secretary: {trial.secretary_email}
+              </p>
             )}
           </CardContent>
         </Card>
@@ -1204,27 +1532,28 @@ export default function PublicEntryForm() {
             : round.trial_classes?.entry_fee || 0;
 
         // ✅ FIX: Manual date parsing to avoid timezone shift
-        let dayInfo = 'TBD';
+        let dayInfo = "TBD";
         if (round.trial_classes?.trial_days?.trial_date) {
           const dateString = round.trial_classes.trial_days.trial_date;
-          const [year, month, day] = dateString.split('-').map(Number);
+          const [year, month, day] = dateString.split("-").map(Number);
           const date = new Date(year, month - 1, day, 12, 0, 0); // Noon to avoid timezone issues
 
-          dayInfo = date.toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
+          dayInfo = date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
           });
         }
 
         const jumpHeight = formData.jump_height_selections[roundId];
 
         return {
-          className: round.trial_classes?.class_name || 'Unknown',
+          className: round.trial_classes?.class_name || "Unknown",
           roundNumber: round.round_number || 1,
-          entryType: isFeo ? 'FEO' : 'Regular',
+          entryType: isFeo ? "FEO" : "Regular",
           division: division || null,
           fee: fee,
+          isWaitlisted: waitlistedRoundIds.has(roundId),
           dayInfo: dayInfo,
           jumpHeight: jumpHeight || null,
         };
@@ -1232,7 +1561,10 @@ export default function PublicEntryForm() {
       .filter((item): item is NonNullable<typeof item> => item !== null);
 
     // Calculate total
-    const totalFee = selectedClassDetails.reduce((sum, item) => sum + (item?.fee || 0), 0);
+    const totalFee = selectedClassDetails.reduce(
+      (sum, item) => sum + (item?.isWaitlisted ? 0 : item?.fee || 0),
+      0,
+    );
 
     // If updating, show what changed
     const isUpdate = existingEntry !== null;
@@ -1241,7 +1573,7 @@ export default function PublicEntryForm() {
     if (isUpdate && originalFormData) {
       // Check for added rounds
       const addedRounds = formData.selected_rounds.filter(
-        (id) => !originalFormData.selected_rounds.includes(id)
+        (id) => !originalFormData.selected_rounds.includes(id),
       );
       if (addedRounds.length > 0) {
         changes.push(`Added ${addedRounds.length} class(es)`);
@@ -1249,7 +1581,7 @@ export default function PublicEntryForm() {
 
       // Check for removed rounds
       const removedRounds = originalFormData.selected_rounds.filter(
-        (id) => !formData.selected_rounds.includes(id)
+        (id) => !formData.selected_rounds.includes(id),
       );
       if (removedRounds.length > 0) {
         changes.push(`Removed ${removedRounds.length} class(es)`);
@@ -1280,20 +1612,57 @@ export default function PublicEntryForm() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <Card className="max-w-3xl w-full">
           <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-10 w-10 text-green-600" />
+            <div
+              className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                waitlistNotice ? "bg-yellow-100" : "bg-green-100"
+              }`}
+            >
+              {waitlistNotice ? (
+                <Clock className="h-10 w-10 text-yellow-700" />
+              ) : (
+                <CheckCircle className="h-10 w-10 text-green-600" />
+              )}
             </div>
             <CardTitle className="text-2xl">
-              Entry {isUpdate ? 'Updated' : 'Submitted'} Successfully!
+              {waitlistNotice
+                ? acceptedNotice
+                  ? "Entry Received — Some Rounds Are Waitlisted"
+                  : "Entry Received — All Selected Rounds Are Waitlisted"
+                : `Entry ${isUpdate ? "Updated" : "Submitted"} Successfully!`}
             </CardTitle>
             <CardDescription>
-              Your entry for {trial.trial_name} has been {isUpdate ? 'updated' : 'received'}.
+              {waitlistNotice
+                ? acceptedNotice
+                  ? `Your entry for ${trial.trial_name} was received. Available rounds were accepted and full rounds were waitlisted.`
+                  : `Your entry for ${trial.trial_name} was received, but every selected round is currently full.`
+                : `Your entry for ${trial.trial_name} has been ${isUpdate ? "updated" : "received"}.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {acceptedNotice && (
+              <Alert className="border-green-300 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-700" />
+                <AlertDescription className="text-green-900">
+                  <strong>Accepted.</strong> {acceptedNotice}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {waitlistNotice && (
+              <Alert className="border-yellow-300 bg-yellow-50">
+                <Clock className="h-4 w-4 text-yellow-700" />
+                <AlertDescription className="text-yellow-900">
+                  <strong>Waitlist notice.</strong>{" "}
+                  {waitlistNotice}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Basic Info */}
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-              <h3 className="font-semibold text-orange-900 mb-2">Entry Information</h3>
+              <h3 className="font-semibold text-orange-900 mb-2">
+                Entry Information
+              </h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <strong>Handler:</strong> {formData.handler_name}
@@ -1305,7 +1674,8 @@ export default function PublicEntryForm() {
                   <strong>C-WAGS Number:</strong> {formData.cwags_number}
                 </div>
                 <div>
-                  <strong>Total Classes:</strong> {formData.selected_rounds.length}
+                  <strong>Total Classes:</strong>{" "}
+                  {formData.selected_rounds.length}
                 </div>
               </div>
             </div>
@@ -1313,7 +1683,9 @@ export default function PublicEntryForm() {
             {/* Changes Summary (if update) */}
             {isUpdate && changes.length > 0 && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h3 className="font-semibold text-blue-900 mb-2">Changes Made</h3>
+                <h3 className="font-semibold text-blue-900 mb-2">
+                  Changes Made
+                </h3>
                 <ul className="text-sm space-y-1">
                   {changes.map((change, idx) => (
                     <li key={idx} className="flex items-center gap-2">
@@ -1328,7 +1700,7 @@ export default function PublicEntryForm() {
             {/* Detailed Class List */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-3">
-                {isUpdate ? 'Current Class Selections' : 'Classes Selected'}
+                {isUpdate ? "Current Class Selections" : "Classes Selected"}
               </h3>
               <div className="space-y-2">
                 {selectedClassDetails.map((item, idx) => (
@@ -1338,18 +1710,24 @@ export default function PublicEntryForm() {
                   >
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">
-                        {item?.className || 'Unknown'} - Round {item?.roundNumber || 1}
+                        {item?.className || "Unknown"} - Round{" "}
+                        {item?.roundNumber || 1}
                       </div>
+                      {item?.isWaitlisted && (
+                        <Badge className="mt-1 bg-yellow-100 text-yellow-900 border border-yellow-300">
+                          WAITLISTED
+                        </Badge>
+                      )}
                       <div className="text-sm text-gray-600 flex items-center gap-3 mt-1">
-                        <span>{item?.dayInfo || 'TBD'}</span>
+                        <span>{item?.dayInfo || "TBD"}</span>
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            item?.entryType === 'FEO'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-gray-100 text-gray-700'
+                            item?.entryType === "FEO"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {item?.entryType || 'Regular'}
+                          {item?.entryType || "Regular"}
                         </span>
                         {item?.division && (
                           <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
@@ -1365,7 +1743,9 @@ export default function PublicEntryForm() {
                     </div>
                     <div className="text-right">
                       <div className="font-semibold text-gray-900">
-                        ${(item?.fee || 0).toFixed(2)}
+                        {item?.isWaitlisted
+                          ? `$0.00 (${(item?.fee || 0).toFixed(2)} if promoted)`
+                          : `$${(item?.fee || 0).toFixed(2)}`}
                       </div>
                     </div>
                   </div>
@@ -1375,8 +1755,12 @@ export default function PublicEntryForm() {
               {/* Total */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <div className="flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total Entry Fee:</span>
-                  <span className="text-xl font-bold text-orange-600">${totalFee.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-900">
+                    Total Entry Fee:
+                  </span>
+                  <span className="text-xl font-bold text-orange-600">
+                    ${totalFee.toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -1414,12 +1798,27 @@ export default function PublicEntryForm() {
                     <Calendar className="h-4 w-4" />
                     <span>
                       {(() => {
-                        const [startYear, startMonth, startDay] = trial.start_date
-                          .split('-')
+                        const [startYear, startMonth, startDay] =
+                          trial.start_date.split("-").map(Number);
+                        const [endYear, endMonth, endDay] = trial.end_date
+                          .split("-")
                           .map(Number);
-                        const [endYear, endMonth, endDay] = trial.end_date.split('-').map(Number);
-                        const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
-                        const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+                        const startDate = new Date(
+                          startYear,
+                          startMonth - 1,
+                          startDay,
+                          12,
+                          0,
+                          0,
+                        );
+                        const endDate = new Date(
+                          endYear,
+                          endMonth - 1,
+                          endDay,
+                          12,
+                          0,
+                          0,
+                        );
                         return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
                       })()}
                     </span>
@@ -1463,50 +1862,67 @@ export default function PublicEntryForm() {
                   <strong>C-WAGS Notice to Exhibitors</strong>
                 </p>
                 <p>
-                  Competitors, through submission of entry, acknowledge that they are knowledgeable
-                  of C-WAGS rules and regulations including but not limited to the following rules
-                  regarding entry:
+                  Competitors, through submission of entry, acknowledge that
+                  they are knowledgeable of C-WAGS rules and regulations
+                  including but not limited to the following rules regarding
+                  entry:
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>
-                    All exhibitors are expected to treat the judges, trial hosts, your canine
-                    partner and all other exhibitors with respect.
+                    All exhibitors are expected to treat the judges, trial
+                    hosts, your canine partner and all other exhibitors with
+                    respect.
                   </li>
                   <li>
-                    All judges and trial hosts are expected to show respect to all exhibitors.
-                  </li>
-                  <li>This trial is open to all dogs registered with C-WAGS.</li>
-                  <li>
-                    Trial Hosts may elect to accept FOR EXHIBITION ONLY entries of non-registered
-                    dogs.
-                  </li>
-                  <li>Teams may be entered in multiple levels/classes at the same trial.</li>
-                  <li>Dogs must be shown by a member of the owner's immediate family.</li>
-                  <li>
-                    Collars: The dog must wear a flat type collar (buckle, snap or proper fit
-                    martingale) and/or body harness in the ring. Electronic training collars are not
-                    allowed on the show grounds.
+                    All judges and trial hosts are expected to show respect to
+                    all exhibitors.
                   </li>
                   <li>
-                    Owners with disabilities are encouraged to compete. Any necessary modifications
-                    to the exercises must be provided by the handler to the judge and approved by
-                    the judge.
+                    This trial is open to all dogs registered with C-WAGS.
                   </li>
                   <li>
-                    Safety shall always be of foremost consideration in actions and conduct by
-                    handlers at all times. Handlers, through entry at this event, accept full
-                    responsibility for themselves and the actions of their dogs.
+                    Trial Hosts may elect to accept FOR EXHIBITION ONLY entries
+                    of non-registered dogs.
+                  </li>
+                  <li>
+                    Teams may be entered in multiple levels/classes at the same
+                    trial.
+                  </li>
+                  <li>
+                    Dogs must be shown by a member of the owner's immediate
+                    family.
+                  </li>
+                  <li>
+                    Collars: The dog must wear a flat type collar (buckle, snap
+                    or proper fit martingale) and/or body harness in the ring.
+                    Electronic training collars are not allowed on the show
+                    grounds.
+                  </li>
+                  <li>
+                    Owners with disabilities are encouraged to compete. Any
+                    necessary modifications to the exercises must be provided by
+                    the handler to the judge and approved by the judge.
+                  </li>
+                  <li>
+                    Safety shall always be of foremost consideration in actions
+                    and conduct by handlers at all times. Handlers, through
+                    entry at this event, accept full responsibility for
+                    themselves and the actions of their dogs.
                   </li>
                 </ul>
                 <p className="pt-2">
                   <strong>In addition:</strong>
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li>The organizing committee may refuse any entry for any reason.</li>
                   <li>
-                    THERE SHALL BE NO REFUND for entries in the event a dog and/or handler are
-                    dismissed from competition, regardless of reason for such dismissal. There will
-                    be no refunds if the trial has to be cancelled for any reason.
+                    The organizing committee may refuse any entry for any
+                    reason.
+                  </li>
+                  <li>
+                    THERE SHALL BE NO REFUND for entries in the event a dog
+                    and/or handler are dismissed from competition, regardless of
+                    reason for such dismissal. There will be no refunds if the
+                    trial has to be cancelled for any reason.
                   </li>
                 </ul>
               </div>
@@ -1521,12 +1937,14 @@ export default function PublicEntryForm() {
               <Shield className="h-5 w-5" />
               C-WAGS Disclaimer & Liability Waiver
             </CardTitle>
-            <CardDescription>Please read and accept the waiver before proceeding</CardDescription>
+            <CardDescription>
+              Please read and accept the waiver before proceeding
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-gray-50 p-4 rounded border max-h-64 overflow-y-auto">
               <div className="text-sm whitespace-pre-wrap">
-                {trial.waiver_text || 'No waiver text provided.'}
+                {trial.waiver_text || "No waiver text provided."}
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -1534,7 +1952,10 @@ export default function PublicEntryForm() {
                 id="waiver"
                 checked={formData.waiver_accepted}
                 onCheckedChange={(checked) =>
-                  setFormData((prev) => ({ ...prev, waiver_accepted: checked as boolean }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    waiver_accepted: checked as boolean,
+                  }))
                 }
               />
               <Label htmlFor="waiver" className="text-sm">
@@ -1551,7 +1972,9 @@ export default function PublicEntryForm() {
               <Award className="h-5 w-5" />
               Titles & Achievements
             </CardTitle>
-            <CardDescription>Help us have the right ribbons and rosettes on hand!</CardDescription>
+            <CardDescription>
+              Help us have the right ribbons and rosettes on hand!
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -1562,21 +1985,24 @@ export default function PublicEntryForm() {
                 id="close_to_titles"
                 value={formData.close_to_titles}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, close_to_titles: e.target.value }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    close_to_titles: e.target.value,
+                  }))
                 }
                 placeholder="e.g., Working towards Scent Detective Title, 1 Q away from Rally Advanced Ace..."
                 rows={3}
                 className="w-full"
               />
               <p className="text-med text-black-500">
-                Let us know what titles or aces you're pursuing so we can ensure we have appropriate
-                ribbons/rosettes ready.
+                Let us know what titles or aces you're pursuing so we can ensure
+                we have appropriate ribbons/rosettes ready.
               </p>
             </div>
           </CardContent>
         </Card>
 
-       {/* ========== NEW SECTION 2: VOLUNTEER POSITIONS ========== */}
+        {/* ========== NEW SECTION 2: VOLUNTEER POSITIONS ========== */}
         <Card className="mb-6">
           <CardHeader
             className="cursor-pointer select-none"
@@ -1586,117 +2012,139 @@ export default function PublicEntryForm() {
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    Volunteer Positions
-                  </CardTitle>
+                  <CardTitle className="flex items-center gap-2">Volunteer Positions</CardTitle>
                   {!volunteerOpen && (
                     <p className="text-sm text-blue-700 mt-1">
-                      🙋 Shows depend on volunteers — click to indicate what you're available for!
+                      🙋 Shows depend on volunteers — click to indicate what
+                      you're available for!
                     </p>
                   )}
                 </div>
               </div>
-              <div className="text-gray-400 text-lg">{volunteerOpen ? '▲' : '▼'}</div>
+              <div className="text-gray-400 text-lg">
+                {volunteerOpen ? "▲" : "▼"}
+              </div>
             </div>
           </CardHeader>
 
           {volunteerOpen && (
-          <CardContent className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-blue-900">
-                <strong>All trials depend on active participation!</strong> Please select what you
-                can assist with during rounds you are NOT competing. Thank you for your support!
-              </p>
-            </div>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-900">
+                  <strong>All trials depend on active participation!</strong>{" "}
+                  Please select what you can assist with during rounds you are
+                  NOT competing. Thank you for your support!
+                </p>
+              </div>
 
-            <div className="space-y-4">
-              {trialDays.map((day: { id: string; day_number: number; trial_date: string }) => {
-                // ✅ FIX: Use 12 noon date parsing to avoid timezone issues
-                const formatDayDate = (dateString: string) => {
-                  const parts = dateString.split('-');
-                  const date = new Date(
-                    parseInt(parts[0]),
-                    parseInt(parts[1]) - 1,
-                    parseInt(parts[2]),
-                    12,
-                    0,
-                    0 // Set to noon to avoid timezone issues
-                  );
+              <div className="space-y-4">
+                {trialDays.map(
+                  (day: {
+                    id: string;
+                    day_number: number;
+                    trial_date: string;
+                  }) => {
+                    // ✅ FIX: Use 12 noon date parsing to avoid timezone issues
+                    const formatDayDate = (dateString: string) => {
+                      const parts = dateString.split("-");
+                      const date = new Date(
+                        parseInt(parts[0]),
+                        parseInt(parts[1]) - 1,
+                        parseInt(parts[2]),
+                        12,
+                        0,
+                        0, // Set to noon to avoid timezone issues
+                      );
 
-                  return date.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  });
-                };
+                      return date.toLocaleDateString("en-US", {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      });
+                    };
 
-                return (
-                  <div key={day.id} className="border rounded-lg p-4">
-                    <h4 className="font-semibold mb-3">
-                      Day {day.day_number} - {formatDayDate(day.trial_date)}
-                    </h4>
+                    return (
+                      <div key={day.id} className="border rounded-lg p-4">
+                        <h4 className="font-semibold mb-3">
+                          Day {day.day_number} - {formatDayDate(day.trial_date)}
+                        </h4>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {(['Timer', 'Clean_box_setter', 'Gate_person', 'Shoe_runner'] as const).map(
-                        (position) => (
-                          <div key={position} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`volunteer-day${day.day_number}-${position}`}
-                              checked={
-                                formData.volunteer_preferences[`day_${day.day_number}`]?.[
-                                  position
-                                ] || false
-                              }
-                              onCheckedChange={(checked) => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  volunteer_preferences: {
-                                    ...prev.volunteer_preferences,
-                                    [`day_${day.day_number}`]: {
-                                      ...(prev.volunteer_preferences[`day_${day.day_number}`] || {
-                                        Timer: false,
-                                        Clean_box_setter: false,
-                                        Gate_Person: false,
-                                        Shoe_runner: false,
-                                      }),
-                                      [position]: checked as boolean,
-                                    },
-                                  },
-                                }));
-                              }}
-                            />
-                            <Label
-                              htmlFor={`volunteer-day${day.day_number}-${position}`}
-                              className="text-sm cursor-pointer"
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {(
+                            [
+                              "Timer",
+                              "Clean_box_setter",
+                              "Gate_person",
+                              "Shoe_runner",
+                            ] as const
+                          ).map((position) => (
+                            <div
+                              key={position}
+                              className="flex items-center space-x-2"
                             >
-                              {position
-                                .split('_')
-                                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                                .join(' ')}
-                            </Label>
-                          </div>
-                        )
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
+                              <Checkbox
+                                id={`volunteer-day${day.day_number}-${position}`}
+                                checked={
+                                  formData.volunteer_preferences[
+                                    `day_${day.day_number}`
+                                  ]?.[position] || false
+                                }
+                                onCheckedChange={(checked) => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    volunteer_preferences: {
+                                      ...prev.volunteer_preferences,
+                                      [`day_${day.day_number}`]: {
+                                        ...(prev.volunteer_preferences[
+                                          `day_${day.day_number}`
+                                        ] || {
+                                          Timer: false,
+                                          Clean_box_setter: false,
+                                          Gate_Person: false,
+                                          Shoe_runner: false,
+                                        }),
+                                        [position]: checked as boolean,
+                                      },
+                                    },
+                                  }));
+                                }}
+                              />
+                              <Label
+                                htmlFor={`volunteer-day${day.day_number}-${position}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {position
+                                  .split("_")
+                                  .map(
+                                    (word) =>
+                                      word.charAt(0).toUpperCase() +
+                                      word.slice(1),
+                                  )
+                                  .join(" ")}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+            </CardContent>
           )}
         </Card>
 
         {/* C-WAGS Lookup */}
-        <Card className="mb-6">
+        <Card id="cwags-lookup-section" className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search className="h-5 w-5" />
               C-WAGS Number Lookup
             </CardTitle>
             <CardDescription>
-              Enter your C-WAGS number to auto-fill handler and dog information and previous
-              entries, Hit LOOKUP
+              Enter your C-WAGS number to auto-fill handler and dog information
+              and previous entries, Hit LOOKUP
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1704,9 +2152,13 @@ export default function PublicEntryForm() {
               <Input
                 placeholder="C-WAGS-XXXX"
                 value={cwagsInputValue}
-                onChange={(e) => setCwagsInputValue(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setCwagsInputValue(e.target.value.toUpperCase());
+                  setRegistryVerification(null);
+                  setExistingEntry(null);
+                }}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     handleCwagsSubmit();
                   }
                 }}
@@ -1721,18 +2173,22 @@ export default function PublicEntryForm() {
 
 -600 hover:text-white transition-colors"
               >
-                {registryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Lookup'}
+                {registryLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Lookup"
+                )}
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Format: xx-xxxx-xx (e.g., 17-1955 or 17-1955-01). Enter to look up existing
-              registration.
+              Format: xx-xxxx-xx (e.g., 17-1955 or 17-1955-01). Enter to look up
+              existing registration.
             </p>
             {existingEntry && (
               <Alert className="mt-4">
                 <Edit className="h-4 w-4" />
                 <AlertDescription>
-                  Editing existing entry for {existingEntry.handler_name} /{' '}
+                  Editing existing entry for {existingEntry.handler_name} /{" "}
                   {existingEntry.dog_call_name}
                 </AlertDescription>
               </Alert>
@@ -1755,7 +2211,10 @@ export default function PublicEntryForm() {
                 <Input
                   value={formData.handler_name}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, handler_name: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      handler_name: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -1766,7 +2225,10 @@ export default function PublicEntryForm() {
                   type="email"
                   value={formData.handler_email}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, handler_email: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      handler_email: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -1777,7 +2239,10 @@ export default function PublicEntryForm() {
                   type="tel"
                   value={formData.handler_phone}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, handler_phone: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      handler_phone: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -1787,7 +2252,10 @@ export default function PublicEntryForm() {
                 <Input
                   value={formData.emergency_contact}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, emergency_contact: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      emergency_contact: e.target.value,
+                    }))
                   }
                 />
               </div>
@@ -1809,12 +2277,25 @@ export default function PublicEntryForm() {
                 <Label>C-WAGS Number *</Label>
                 <Input
                   value={formData.cwags_number}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, cwags_number: e.target.value.toUpperCase() }))
-                  }
+                  onChange={(e) => {
+                    const nextValue = e.target.value.toUpperCase();
+                    setFormData((prev) => ({
+                      ...prev,
+                      cwags_number: nextValue,
+                    }));
+                    setCwagsInputValue(nextValue);
+                    setRegistryVerification(null);
+                    setExistingEntry(null);
+                  }}
                   onBlur={(e) => {
-                    if (e.target.value.trim())
-                      setFormData((prev) => ({ ...prev, cwags_number: formatCwagsNumber(e.target.value) }));
+                    if (e.target.value.trim()) {
+                      const formattedNumber = formatCwagsNumber(e.target.value);
+                      setFormData((prev) => ({
+                        ...prev,
+                        cwags_number: formattedNumber,
+                      }));
+                      setCwagsInputValue(formattedNumber);
+                    }
                   }}
                   required
                 />
@@ -1824,7 +2305,10 @@ export default function PublicEntryForm() {
                 <Input
                   value={formData.dog_call_name}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, dog_call_name: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      dog_call_name: e.target.value,
+                    }))
                   }
                   required
                 />
@@ -1833,14 +2317,21 @@ export default function PublicEntryForm() {
                 <Label>Breed</Label>
                 <Input
                   value={formData.dog_breed}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, dog_breed: e.target.value }))}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      dog_breed: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
                 <Label>Sex</Label>
                 <Select
                   value={formData.dog_sex}
-                  onValueChange={(value) => setFormData((prev) => ({ ...prev, dog_sex: value }))}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, dog_sex: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select sex" />
@@ -1857,7 +2348,10 @@ export default function PublicEntryForm() {
                 id="junior"
                 checked={formData.is_junior_handler}
                 onCheckedChange={(checked) =>
-                  setFormData((prev) => ({ ...prev, is_junior_handler: checked as boolean }))
+                  setFormData((prev) => ({
+                    ...prev,
+                    is_junior_handler: checked as boolean,
+                  }))
                 }
               />
               <Label htmlFor="junior" className="text-sm">
@@ -1870,7 +2364,11 @@ export default function PublicEntryForm() {
         {/* Class Entries - FIXED VERSION */}
         <div className="mb-6">
           {/* Single Tabs component wrapping BOTH TabsList and TabsContent */}
-          <Tabs value={selectedDayTab} onValueChange={setSelectedDayTab} className="w-full">
+          <Tabs
+            value={selectedDayTab}
+            onValueChange={setSelectedDayTab}
+            className="w-full"
+          >
             {/* Sticky Header Container */}
             <div className="sticky top-0 z-30 bg-gray-50 pt-6">
               <Card>
@@ -1882,8 +2380,7 @@ export default function PublicEntryForm() {
                         Class Entries
                       </CardTitle>
                       <CardDescription>
-                        Select the class entries/rounds you want to enter REMEMBER TO ACCEPT WAIVER
-                        AND ENTER EMAIL
+                        Select the class entries and rounds you want to enter.
                       </CardDescription>
                     </div>
 
@@ -1905,13 +2402,22 @@ export default function PublicEntryForm() {
                       {submitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {existingEntry ? 'Updating...' : 'Submitting...'}
+                          {existingEntry ? "Updating..." : "Submitting..."}
                         </>
                       ) : (
-                        <>{existingEntry ? 'Update Entry' : 'Submit Entry'}</>
+                        <>{existingEntry ? "Update Entry" : "Submit Entry"}</>
                       )}
                     </Button>
                   </div>
+
+                  <Alert className="mt-4 border-orange-300 bg-orange-50">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <AlertDescription className="text-orange-900">
+                      Before submitting, click <strong>Lookup</strong> for the
+                      C-WAGS number, accept the waiver, and enter the handler
+                      email.
+                    </AlertDescription>
+                  </Alert>
                 </CardHeader>
 
                 <CardContent className="pt-0">
@@ -1923,8 +2429,11 @@ export default function PublicEntryForm() {
                           .sort()
                           .map((day) => {
                             const dayRounds = roundsByDay[parseInt(day)];
-                            const dayDate = dayRounds[0]?.trial_classes?.trial_days?.trial_date;
-                            const isDayAccepting = dayAcceptingStatus[parseInt(day)] ?? true;
+                            const dayDate =
+                              dayRounds[0]?.trial_classes?.trial_days
+                                ?.trial_date;
+                            const isDayAccepting =
+                              dayAcceptingStatus[parseInt(day)] ?? true;
 
                             return (
                               <TabsTrigger
@@ -1932,7 +2441,7 @@ export default function PublicEntryForm() {
                                 value={day}
                                 disabled={!isDayAccepting}
                                 className={`
-              ${!isDayAccepting ? 'opacity-50 cursor-not-allowed bg-gray-200' : ''}
+              ${!isDayAccepting ? "opacity-50 cursor-not-allowed bg-gray-200" : ""}
               data-[state=active]:bg-orange-600 data-[state=active]:text-white 
               data-[state=active]:font-bold data-[state=inactive]:bg-white 
               data-[state=inactive]:text-gray-700 border-2 
@@ -1943,10 +2452,12 @@ export default function PublicEntryForm() {
                                 <div className="text-center">
                                   <div className="font-semibold flex items-center justify-center gap-1">
                                     Day {day}
-                                    {!isDayAccepting && <Lock className="h-3 w-3" />}
+                                    {!isDayAccepting && (
+                                      <Lock className="h-3 w-3" />
+                                    )}
                                   </div>
                                   <div className="text-xs">
-                                    {dayDate ? formatDayDate(dayDate) : ''}
+                                    {dayDate ? formatDayDate(dayDate) : ""}
                                   </div>
                                   {!isDayAccepting && (
                                     <div className="text-xs text-red-600 font-semibold mt-1">
@@ -1960,21 +2471,22 @@ export default function PublicEntryForm() {
                       </TabsList>
 
                       {Object.entries(dayAcceptingStatus).some(
-                        ([_, isAccepting]) => !isAccepting
+                        ([_, isAccepting]) => !isAccepting,
                       ) && (
                         <Alert className="mt-4 border-red-200 bg-red-50">
                           <AlertCircle className="h-4 w-4 text-red-600" />
                           <AlertDescription className="text-red-800">
-                            <strong>Notice:</strong> Some days are currently closed for entries.
+                            <strong>Notice:</strong> Some days are currently
+                            closed for entries.
                             {Object.entries(dayAcceptingStatus)
                               .filter(([_, isAccepting]) => !isAccepting)
                               .map(([day]) => ` Day ${day}`)
-                              .join(',')}
+                              .join(",")}
                             {Object.entries(dayAcceptingStatus).filter(
-                              ([_, isAccepting]) => !isAccepting
+                              ([_, isAccepting]) => !isAccepting,
                             ).length === 1
-                              ? ' is'
-                              : ' are'}{' '}
+                              ? " is"
+                              : " are"}{" "}
                             closed.
                           </AlertDescription>
                         </Alert>
@@ -2000,53 +2512,73 @@ export default function PublicEntryForm() {
                         <TabsContent key={day} value={day} className="mt-0">
                           <div className="space-y-3">
                             {roundsByDay[parseInt(day)].map((round) => {
-                              const isSelected = formData.selected_rounds.includes(round.id);
-                              const isFeo = formData.feo_selections.includes(round.id);
-                              const regularFee = round.trial_classes?.entry_fee || 0;
-                              const feoFee = round.trial_classes?.feo_price || 0;
+                              const isSelected =
+                                formData.selected_rounds.includes(round.id);
+                              const isFeo = formData.feo_selections.includes(
+                                round.id,
+                              );
+                              const regularFee =
+                                round.trial_classes?.entry_fee || 0;
+                              const feoFee =
+                                round.trial_classes?.feo_price || 0;
                               const showFeoOptions =
-                                (round.trial_classes?.feo_available || round.feo_available) &&
+                                (round.trial_classes?.feo_available ||
+                                  round.feo_available) &&
                                 round.trial_classes?.feo_price !== undefined &&
                                 round.trial_classes?.feo_price !== null &&
                                 round.trial_classes?.feo_price > 0;
 
                               // DEBUG: Log EVERY class
-                              console.log('=== CLASS DEBUG ===');
-                              console.log('Class Name:', round.trial_classes?.class_name);
-                              console.log('Class Type:', round.trial_classes?.class_type);
+                              console.log("=== CLASS DEBUG ===");
                               console.log(
-                                'Class Type (lowercase):',
-                                round.trial_classes?.class_type?.toLowerCase()
+                                "Class Name:",
+                                round.trial_classes?.class_name,
                               );
-                              console.log('Is Selected:', isSelected);
                               console.log(
-                                'Jump height should show:',
+                                "Class Type:",
+                                round.trial_classes?.class_type,
+                              );
+                              console.log(
+                                "Class Type (lowercase):",
+                                round.trial_classes?.class_type?.toLowerCase(),
+                              );
+                              console.log("Is Selected:", isSelected);
+                              console.log(
+                                "Jump height should show:",
                                 isSelected &&
-                                  ['rally', 'obedience', 'games'].includes(
-                                    round.trial_classes?.class_type?.toLowerCase() || ''
-                                  )
+                                  ["rally", "obedience", "games"].includes(
+                                    round.trial_classes?.class_type?.toLowerCase() ||
+                                      "",
+                                  ),
                               );
-                              console.log('==================');
+                              console.log("==================");
 
                               return (
                                 <div
                                   key={round.id}
-                                  className={`border rounded-lg p-4 transition-all ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-gray-200'}`}
+                                  className={`border rounded-lg p-4 transition-all ${isSelected ? "border-orange-500 bg-orange-50" : "border-gray-200"}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center justify-between mb-2">
                                         <h4 className="font-medium">
-                                          {round.trial_classes?.class_name || 'Unknown Class'}
-                                          {round.trial_classes?.games_subclass && (
+                                          {round.trial_classes?.class_name ||
+                                            "Unknown Class"}
+                                          {round.trial_classes
+                                            ?.games_subclass && (
                                             <span className="text-sm text-gray-600 ml-1">
-                                              ({round.trial_classes.games_subclass})
+                                              (
+                                              {
+                                                round.trial_classes
+                                                  .games_subclass
+                                              }
+                                              )
                                             </span>
                                           )}
                                         </h4>
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
-                                            Judge: {round.judge_name || 'TBA'}
+                                            Judge: {round.judge_name || "TBA"}
                                           </div>
                                           <div className="text-sm text-gray-600">
                                             Round {round.round_number}
@@ -2059,13 +2591,18 @@ export default function PublicEntryForm() {
                                         <Button
                                           type="button"
                                           size="sm"
-                                          onClick={() => handleRoundSelection(round.id, 'regular')}
+                                          onClick={() =>
+                                            handleRoundSelection(
+                                              round.id,
+                                              "regular",
+                                            )
+                                          }
                                           className={`
                                           relative min-w-[140px] font-semibold transition-all duration-200
                                           ${
                                             isSelected && !isFeo
-                                              ? 'bg-green-600 hover:bg-green-700 text-white border-2 border-green-700 shadow-md'
-                                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                              ? "bg-green-600 hover:bg-green-700 text-white border-2 border-green-700 shadow-md"
+                                              : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300"
                                           }
                                         `}
                                         >
@@ -2083,7 +2620,9 @@ export default function PublicEntryForm() {
                                                 />
                                               </svg>
                                             )}
-                                            <span>Regular ${regularFee.toFixed(2)}</span>
+                                            <span>
+                                              Regular ${regularFee.toFixed(2)}
+                                            </span>
                                           </div>
                                         </Button>
 
@@ -2092,13 +2631,18 @@ export default function PublicEntryForm() {
                                           <Button
                                             type="button"
                                             size="sm"
-                                            onClick={() => handleRoundSelection(round.id, 'feo')}
+                                            onClick={() =>
+                                              handleRoundSelection(
+                                                round.id,
+                                                "feo",
+                                              )
+                                            }
                                             className={`
                                             relative min-w-[140px] font-semibold transition-all duration-200
                                             ${
                                               isSelected && isFeo
-                                                ? 'bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-600 shadow-md'
-                                                : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300'
+                                                ? "bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-600 shadow-md"
+                                                : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-2 border-gray-300"
                                             }
                                           `}
                                           >
@@ -2116,7 +2660,9 @@ export default function PublicEntryForm() {
                                                   />
                                                 </svg>
                                               )}
-                                              <span>FEO ${feoFee.toFixed(2)}</span>
+                                              <span>
+                                                FEO ${feoFee.toFixed(2)}
+                                              </span>
                                             </div>
                                           </Button>
                                         )}
@@ -2124,22 +2670,34 @@ export default function PublicEntryForm() {
 
                                       {/* Jump Height Selector - Rally, Obedience, Games Only */}
                                       {(() => {
-                                        console.log('Class check:', {
-                                          className: round.trial_classes?.class_name,
-                                          classType: round.trial_classes?.class_type,
+                                        console.log("Class check:", {
+                                          className:
+                                            round.trial_classes?.class_name,
+                                          classType:
+                                            round.trial_classes?.class_type,
                                           classTypeLower:
                                             round.trial_classes?.class_type?.toLowerCase(),
                                           isSelected: isSelected,
                                           shouldShow:
                                             isSelected &&
-                                            ['rally', 'obedience', 'games'].includes(
-                                              round.trial_classes?.class_type?.toLowerCase() || ''
+                                            [
+                                              "rally",
+                                              "obedience",
+                                              "games",
+                                            ].includes(
+                                              round.trial_classes?.class_type?.toLowerCase() ||
+                                                "",
                                             ),
                                         });
                                         return (
                                           isSelected &&
-                                          ['rally', 'obedience', 'games'].includes(
-                                            round.trial_classes?.class_type?.toLowerCase() || ''
+                                          [
+                                            "rally",
+                                            "obedience",
+                                            "games",
+                                          ].includes(
+                                            round.trial_classes?.class_type?.toLowerCase() ||
+                                              "",
                                           )
                                         );
                                       })() && (
@@ -2149,43 +2707,79 @@ export default function PublicEntryForm() {
                                           </Label>
                                           <Select
                                             value={
-                                              formData.jump_height_selections?.[round.id] || ''
+                                              formData.jump_height_selections?.[
+                                                round.id
+                                              ] || ""
                                             }
                                             onValueChange={(value) =>
-                                              handleJumpHeightChange(round.id, value)
+                                              handleJumpHeightChange(
+                                                round.id,
+                                                value,
+                                              )
                                             }
                                           >
                                             <SelectTrigger className="bg-white border-2 border-gray-300">
                                               <SelectValue placeholder="Select height" />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white">
-                                              <SelectItem value="4">4"</SelectItem>
-                                              <SelectItem value="8">8"</SelectItem>
-                                              <SelectItem value="12">12"</SelectItem>
-                                              <SelectItem value="16">16"</SelectItem>
-                                              <SelectItem value="20">20"</SelectItem>
-                                              <SelectItem value="24">24"</SelectItem>
+                                              <SelectItem value="4">
+                                                4"
+                                              </SelectItem>
+                                              <SelectItem value="8">
+                                                8"
+                                              </SelectItem>
+                                              <SelectItem value="12">
+                                                12"
+                                              </SelectItem>
+                                              <SelectItem value="16">
+                                                16"
+                                              </SelectItem>
+                                              <SelectItem value="20">
+                                                20"
+                                              </SelectItem>
+                                              <SelectItem value="24">
+                                                24"
+                                              </SelectItem>
                                             </SelectContent>
                                           </Select>
                                         </div>
                                       )}
 
                                       {/* Division Dropdown */}
-                                      {requiresDivision(round.trial_classes?.class_name) &&
+                                      {requiresDivision(
+                                        round.trial_classes?.class_name,
+                                      ) &&
                                         isSelected && (
                                           <select
-                                            value={formData.division_selections[round.id] || ''}
+                                            value={
+                                              formData.division_selections[
+                                                round.id
+                                              ] || ""
+                                            }
                                             onChange={(e) =>
-                                              handleDivisionChange(round.id, e.target.value)
+                                              handleDivisionChange(
+                                                round.id,
+                                                e.target.value,
+                                              )
                                             }
                                             className="h-9 px-3 border-2 border-purple-300 rounded-md text-sm font-medium bg-purple-50 hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 mt-3"
                                             required
                                           >
-                                            <option value="">Select Division *</option>
-                                            <option value="A">Division A (Beginner)</option>
-                                            <option value="B">Division B (Experienced)</option>
-                                            <option value="TO">TO (Trial Official)</option>
-                                            <option value="JR">JR (Junior Handler)</option>
+                                            <option value="">
+                                              Select Division *
+                                            </option>
+                                            <option value="A">
+                                              Division A (Beginner)
+                                            </option>
+                                            <option value="B">
+                                              Division B (Experienced)
+                                            </option>
+                                            <option value="TO">
+                                              TO (Trial Official)
+                                            </option>
+                                            <option value="JR">
+                                              JR (Junior Handler)
+                                            </option>
                                           </select>
                                         )}
                                     </div>
@@ -2210,17 +2804,19 @@ export default function PublicEntryForm() {
               <CardHeader>
                 <CardTitle>Confirm Entry Update</CardTitle>
                 <CardDescription>
-                  You are updating an existing entry. Please confirm the changes.
+                  You are updating an existing entry. Please confirm the
+                  changes.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="bg-orange-50 border border-orange-200 rounded p-4">
                   <p className="text-sm">
-                    <strong>Previous selections:</strong> {confirmationData.originalSelections}{' '}
-                    classes
+                    <strong>Previous selections:</strong>{" "}
+                    {confirmationData.originalSelections} classes
                   </p>
                   <p className="text-sm">
-                    <strong>New selections:</strong> {confirmationData.currentSelections} classes
+                    <strong>New selections:</strong>{" "}
+                    {confirmationData.currentSelections} classes
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -2246,18 +2842,26 @@ export default function PublicEntryForm() {
             <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
               <h3 className="text-lg font-bold mb-2">Verify Dog & Handler</h3>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="font-semibold text-gray-900">Handler: {verifyDialog.handler_name}</p>
-                <p className="font-semibold text-gray-900">Dog: {verifyDialog.dog_call_name}</p>
+                <p className="font-semibold text-gray-900">
+                  Handler: {verifyDialog.handler_name}
+                </p>
+                <p className="font-semibold text-gray-900">
+                  Dog: {verifyDialog.dog_call_name}
+                </p>
               </div>
               <p className="text-sm text-gray-700 mb-6">
-                Please verify this is the dog/handler team you are wishing to use.
+                Please verify this is the dog/handler team you are wishing to
+                use.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
                   className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-100 font-medium"
                   onClick={() => {
                     setVerifyDialog(null);
-                    setCwagsInputValue('');
+                    setRegistryVerification(null);
+                    setExistingEntry(null);
+                    setCwagsInputValue("");
+                    setFormData((prev) => ({ ...prev, cwags_number: "" }));
                   }}
                 >
                   No — Re-enter Number
@@ -2265,7 +2869,16 @@ export default function PublicEntryForm() {
                 <button
                   className="px-4 py-2 rounded bg-purple-600 text-white hover:bg-purple-700 font-medium"
                   onClick={() => {
-                    setFormData((prev) => ({ ...prev, ...verifyDialog.pendingData }));
+                    setFormData((prev) => ({
+                      ...prev,
+                      ...verifyDialog.pendingData,
+                    }));
+                    setRegistryVerification({
+                      cwags_number: verifyDialog.pendingData.cwags_number,
+                      status: "existing",
+                      handler_name: verifyDialog.handler_name,
+                      dog_call_name: verifyDialog.dog_call_name,
+                    });
                     setVerifyDialog(null);
                   }}
                 >

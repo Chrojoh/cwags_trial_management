@@ -41,6 +41,7 @@ import {
   Download,
 } from 'lucide-react';
 import { simpleTrialOperations, type EntryData } from '@/lib/trialOperationsSimple';
+import { isBillableSelection, isWaitlistedSelection } from '@/lib/selectionStatus';
 
 interface Trial {
   id: string;
@@ -58,6 +59,8 @@ interface EntryWithSelections extends EntryData {
   amount_owed?: number; // ✅ ADD THIS
   entry_selections?: {
     id: string;
+    entry_id: string;
+    created_at: string;
     trial_round_id: string;
     entry_type: string;
     fee: number;
@@ -95,6 +98,8 @@ interface GroupedEntry {
   amount_owed: number;
   entry_selections: {
     id: string;
+    entry_id: string;
+    created_at: string;
     trial_round_id: string;
     entry_type: string;
     fee: number;
@@ -170,6 +175,7 @@ export default function TrialEntriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [promotingSelectionId, setPromotingSelectionId] = useState<string | null>(null);
 
   // NEW: State for tracking expanded entries
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -273,6 +279,10 @@ export default function TrialEntriesPage() {
       // ✅ SORT entry selections by day number, then by class order
       const sortedSelections = entry.entry_selections
         ? [...entry.entry_selections].sort((a, b) => {
+            if (isWaitlistedSelection(a.entry_status) && isWaitlistedSelection(b.entry_status)) {
+              const chronology = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+              return chronology || a.id.localeCompare(b.id);
+            }
             // First sort by day number
             const dayA = a.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
             const dayB = b.trial_rounds?.trial_classes?.trial_days?.day_number || 0;
@@ -310,6 +320,8 @@ export default function TrialEntriesPage() {
 
           grouped[cwagsNumber].entry_selections.push({
             id: selection.id,
+            entry_id: entry.id!,
+            created_at: selection.created_at,
             trial_round_id: selection.trial_round_id,
             entry_type: selection.entry_type,
             fee: selection.fee,
@@ -321,12 +333,29 @@ export default function TrialEntriesPage() {
           });
 
           // Add to total fee
-          grouped[cwagsNumber].total_fee += selection.fee;
+          if (isBillableSelection(selection.entry_status)) {
+            grouped[cwagsNumber].total_fee += selection.fee;
+          }
         });
       }
     });
 
-    setGroupedEntries(Object.values(grouped));
+    const groupedInWaitlistOrder = Object.values(grouped).sort((a, b) => {
+      const firstWaitlistedA = a.entry_selections
+        .filter((selection) => isWaitlistedSelection(selection.entry_status))
+        .map((selection) => new Date(selection.created_at).getTime())
+        .sort((left, right) => left - right)[0];
+      const firstWaitlistedB = b.entry_selections
+        .filter((selection) => isWaitlistedSelection(selection.entry_status))
+        .map((selection) => new Date(selection.created_at).getTime())
+        .sort((left, right) => left - right)[0];
+
+      if (firstWaitlistedA !== undefined && firstWaitlistedB !== undefined) {
+        return firstWaitlistedA - firstWaitlistedB || a.cwags_number.localeCompare(b.cwags_number);
+      }
+      return 0;
+    });
+    setGroupedEntries(groupedInWaitlistOrder);
   };
 
   const filterEntries = () => {
@@ -355,22 +384,41 @@ export default function TrialEntriesPage() {
     router.push(`/entries/${trialId}?cwags=${entry.cwags_number}`);
   };
 
+  const getAuthorizationHeader = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+    return { Authorization: `Bearer ${session.access_token}` };
+  };
+
+  const updateEntryStatus = async (
+    entryId: string,
+    status: 'confirmed' | 'waitlisted' | 'withdrawn',
+    successMessage: string
+  ) => {
+    const authHeader = await getAuthorizationHeader();
+    const response = await fetch(`/api/trials/${trialId}/entries/${entryId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({ status }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to update entry status');
+
+    alert(successMessage);
+    await loadTrialAndEntries();
+  };
+
   const confirmEntry = async (entryId: string, handlerName: string, dogName: string) => {
     if (!confirm(`Confirm entry for ${handlerName} - ${dogName}?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('entries')
-        .update({ entry_status: 'confirmed' })
-        .eq('id', entryId);
-
-      if (error) throw error;
-
-      alert('Entry confirmed successfully!');
-      loadTrialAndEntries(); // Reload the entries list
+      await updateEntryStatus(entryId, 'confirmed', 'Entry confirmed successfully!');
     } catch (err) {
       console.error('Error confirming entry:', err);
-      alert('Failed to confirm entry');
+      alert(err instanceof Error ? err.message : 'Failed to confirm entry');
     }
   };
 
@@ -378,37 +426,55 @@ export default function TrialEntriesPage() {
     if (!confirm(`Move entry to waitlist for ${handlerName} - ${dogName}?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('entries')
-        .update({ entry_status: 'waitlisted' })
-        .eq('id', entryId);
-
-      if (error) throw error;
-
-      alert('Entry moved to waitlist successfully!');
-      loadTrialAndEntries(); // Reload the entries list
+      await updateEntryStatus(entryId, 'waitlisted', 'Entry moved to waitlist successfully!');
     } catch (err) {
       console.error('Error waitlisting entry:', err);
-      alert('Failed to waitlist entry');
+      alert(err instanceof Error ? err.message : 'Failed to waitlist entry');
     }
   };
 
-  const promoteFromWaitlist = async (entryId: string, handlerName: string, dogName: string) => {
-    if (!confirm(`Promote ${handlerName} - ${dogName} from waitlist to confirmed?`)) return;
+  const promoteWaitlistedSelection = async (
+    entryId: string,
+    selectionId: string,
+    classDisplay: string
+  ) => {
+    if (!confirm(`Promote ${classDisplay} from the waitlist?`)) return;
 
+    const submitPromotion = async (increaseCapacity: boolean) => {
+      const authHeader = await getAuthorizationHeader();
+      return fetch(
+        `/api/trials/${trialId}/entries/${entryId}/selections/${selectionId}/promote`,
+        {
+          method: 'POST',
+          headers: { ...authHeader, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ increaseCapacity }),
+        }
+      );
+    };
+
+    setPromotingSelectionId(selectionId);
     try {
-      const { error } = await supabase
-        .from('entries')
-        .update({ entry_status: 'confirmed' })
-        .eq('id', entryId);
+      let response = await submitPromotion(false);
+      let result = await response.json();
 
-      if (error) throw error;
+      if (response.status === 409 && result.code === 'ROUND_FULL') {
+        const increaseCapacity = confirm(
+          `${classDisplay} is full. Increase this round's capacity by one and promote this selection?`
+        );
+        if (!increaseCapacity) return;
+        response = await submitPromotion(true);
+        result = await response.json();
+      }
 
-      alert('Entry promoted to confirmed successfully!');
-      loadTrialAndEntries(); // Reload the entries list
+      if (!response.ok) throw new Error(result.error || 'Failed to promote waitlisted round');
+
+      alert(`${classDisplay} was promoted successfully.`);
+      await loadTrialAndEntries();
     } catch (err) {
-      console.error('Error promoting entry:', err);
-      alert('Failed to promote entry');
+      console.error('Error promoting waitlisted round:', err);
+      alert(err instanceof Error ? err.message : 'Failed to promote waitlisted round');
+    } finally {
+      setPromotingSelectionId(null);
     }
   };
 
@@ -535,14 +601,7 @@ export default function TrialEntriesPage() {
 
         const balance = calculateBalance(comp.amount_owed, comp.amount_paid);
 
-        return [
-          comp.handler_name,
-          contact.email,
-          contact.phone,
-          dogsWithRuns,
-          totalRuns,
-          balance,
-        ];
+        return [comp.handler_name, contact.email, contact.phone, dogsWithRuns, totalRuns, balance];
       });
 
       const XLSX = await import('xlsx-js-style');
@@ -768,6 +827,9 @@ export default function TrialEntriesPage() {
               <div className="space-y-4">
                 {filteredEntries.map((entry) => {
                   const isExpanded = expandedEntries.has(entry.cwags_number);
+                  const waitlistedSelectionCount = entry.entry_selections.filter(
+                    (selection) => isWaitlistedSelection(selection.entry_status)
+                  ).length;
 
                   return (
                     <div
@@ -791,6 +853,14 @@ export default function TrialEntriesPage() {
                                 <Badge className={`${getStatusColor(entry.entry_status)} border`}>
                                   {entry.entry_status}
                                 </Badge>
+
+                                {waitlistedSelectionCount > 0 && (
+                                  <Badge className="bg-yellow-100 text-yellow-900 border border-yellow-300">
+                                    <Clock className="h-3 w-3 mr-1" />
+                                    {waitlistedSelectionCount} round
+                                    {waitlistedSelectionCount === 1 ? '' : 's'} waitlisted
+                                  </Badge>
+                                )}
 
                                 {/* Buttons for SUBMITTED entries */}
                                 {entry.entry_status === 'submitted' && (
@@ -833,17 +903,11 @@ export default function TrialEntriesPage() {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() =>
-                                      promoteFromWaitlist(
-                                        entry.entry_ids[0],
-                                        entry.handler_name,
-                                        entry.dog_call_name
-                                      )
-                                    }
+                                    onClick={() => toggleExpanded(entry.cwags_number)}
                                     className="h-6 px-2 py-0 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
                                   >
                                     <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                    Promote to Confirmed
+                                    View Waitlisted Rounds
                                   </Button>
                                 )}
                               </div>
@@ -964,9 +1028,14 @@ export default function TrialEntriesPage() {
                       {/* COLLAPSIBLE Class Selections */}
                       {isExpanded && (
                         <div className="mt-4 pt-4 border-t">
-                          <p className="text-sm font-medium text-gray-700 mb-3">
-                            Class Selections:
-                          </p>
+                          <div className="flex items-center justify-between gap-3 mb-3">
+                            <p className="text-sm font-medium text-gray-700">Class Selections:</p>
+                            {waitlistedSelectionCount > 0 && (
+                              <p className="text-xs font-medium text-yellow-800">
+                                Use Promote Round beside each waitlisted selection when space is available.
+                              </p>
+                            )}
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {entry.entry_selections.map((selection, index) => (
                               <div
@@ -984,13 +1053,39 @@ export default function TrialEntriesPage() {
                                       {selection.day_info} - {selection.class_display}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                      Running Position: #{selection.running_position} • Status:{' '}
+                                      Running Position:{' '}
+                                      {selection.running_position == null
+                                        ? 'Unassigned'
+                                        : `#${selection.running_position}`}{' '}
+                                      • Status:{' '}
                                       {selection.entry_status}
                                     </p>
                                   </div>
                                 </div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {formatCurrency(selection.fee)}
+                                <div className="flex items-center gap-2">
+                                  {isWaitlistedSelection(selection.entry_status) && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() =>
+                                        promoteWaitlistedSelection(
+                                          selection.entry_id,
+                                          selection.id,
+                                          selection.class_display
+                                        )
+                                      }
+                                      className="h-7 px-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300"
+                                      disabled={promotingSelectionId === selection.id}
+                                    >
+                                      <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                      {promotingSelectionId === selection.id ? 'Promoting...' : 'Promote Round'}
+                                    </Button>
+                                  )}
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {isWaitlistedSelection(selection.entry_status)
+                                      ? `${formatCurrency(selection.fee)} if promoted`
+                                      : formatCurrency(selection.fee)}
+                                  </div>
                                 </div>
                               </div>
                             ))}

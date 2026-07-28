@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { createClient } from "@supabase/supabase-js";
+import { AuthorizationError, getSupabaseAdmin, requireAdministrator } from "@/lib/server/authorization";
 
-// Initialize Supabase (server-side)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getSupabaseAdmin();
 
 export async function POST(req: Request) {
   try {
+    await requireAdministrator();
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 
     if (!file) {
       return NextResponse.json(
-        { error: "No file uploaded" },
+        { success: false, message: "No file uploaded", error: "No file uploaded" },
         { status: 400 }
       );
     }
@@ -58,9 +56,10 @@ export async function POST(req: Request) {
     }[];
 
     if (parsedEntries.length === 0) {
-      return NextResponse.json({
-        message: "No valid rows found",
-      });
+      return NextResponse.json(
+        { success: false, message: "No valid rows found", error: "No valid rows found" },
+        { status: 400 }
+      );
     }
 
     // -----------------------------
@@ -68,22 +67,27 @@ export async function POST(req: Request) {
     // -----------------------------
     const chunkSize = 1000;
     let processed = 0;
+    let added = 0;
+    let skipped = 0;
 
     for (let i = 0; i < parsedEntries.length; i += chunkSize) {
       const chunk = parsedEntries.slice(i, i + chunkSize);
 
-      const { error } = await supabase
+      const { data: insertedRows, error } = await supabase
         .from("cwags_registry") // ✅ correct table
         .upsert(chunk, {
           onConflict: "cwags_number",
           ignoreDuplicates: true, // ✅ don't overwrite existing data
-        });
+        })
+        .select("cwags_number");
 
       if (error) {
         throw error;
       }
 
       processed += chunk.length;
+      added += insertedRows?.length ?? 0;
+      skipped += chunk.length - (insertedRows?.length ?? 0);
       console.log(`Processed ${processed} / ${parsedEntries.length}`);
     }
 
@@ -91,16 +95,30 @@ export async function POST(req: Request) {
     // ✅ Done
     // -----------------------------
     return NextResponse.json({
-      message: "Import complete",
+      success: true,
+      message: `Import complete: ${added} added, ${skipped} already existed and were skipped.`,
       totalRows: parsedEntries.length,
       processed,
+      added,
+      skipped,
     });
 
   } catch (error: any) {
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json(
+        { success: false, message: error.message, error: error.message },
+        { status: error.status }
+      );
+    }
+
     console.error("Import error:", error);
 
     return NextResponse.json(
-      { error: error.message || "Import failed" },
+      {
+        success: false,
+        message: error.message || "Import failed",
+        error: error.message || "Import failed",
+      },
       { status: 500 }
     );
   }

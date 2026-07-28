@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { isScorableSelection } from '@/lib/selectionStatus';
 
 /**
  * Export ONE score sheet per round as a single-page, portrait PDF
@@ -163,7 +164,7 @@ export async function exportScoreSheetsPDF(
   entriesResult.data.forEach((entry: any) => {
     entry.entry_selections?.forEach((sel: any) => {
       if (used.has(sel.id)) return;
-      if (sel.entry_status === 'withdrawn') return;
+      if (!isScorableSelection(sel.entry_status)) return;
 
       used.add(sel.id);
 

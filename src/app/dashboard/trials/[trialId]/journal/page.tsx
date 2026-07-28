@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { isWaitlistedSelection, isWithdrawnSelection } from '@/lib/selectionStatus';
 import {
   ArrowLeft,
   Calendar,
@@ -13,6 +14,7 @@ import {
   Trash2,
   AlertCircle,
   Filter,
+  Settings,
   X,
 } from 'lucide-react';
 
@@ -25,8 +27,21 @@ interface JournalEntry {
     | 'payment_received'
     | 'entry_withdrawn'
     | 'fees_waived'
+    | 'fees_unwaived'
     | 'selection_modified'
-    | 'dog_substituted';
+    | 'dog_substituted'
+    | 'waitlist_promoted'
+    | 'capacity_changed'
+    | 'entry_status_changed'
+    | 'entry_confirmed'
+    | 'entry_waitlisted'
+    | 'live_event_entry_added'
+    | 'live_event_selection_added'
+    | 'selection_waitlisted'
+    | 'entry_edited'
+    | 'running_order_changed'
+    | 'fees_recalculated'
+    | 'score_corrected';
   handler_name: string;
   dog_call_name: string;
   cwags_number: string;
@@ -107,7 +122,20 @@ export default function TrialJournalPage() {
           'entry_submitted',
           'entry_modified',
           'fees_waived',
+          'fees_unwaived',
           'dog_substituted',
+          'waitlist_promoted',
+          'capacity_changed',
+          'entry_status_changed',
+          'entry_confirmed',
+          'entry_waitlisted',
+          'live_event_entry_added',
+          'live_event_selection_added',
+          'selection_waitlisted',
+          'entry_edited',
+          'running_order_changed',
+          'fees_recalculated',
+          'score_corrected',
         ])
         .order('created_at', { ascending: false });
 
@@ -193,6 +221,112 @@ export default function TrialJournalPage() {
             entry_id: activity.entry_id,
             snapshot: snapshot,
           });
+        } else if (activity.activity_type === 'entry_status_changed') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'entry_status_changed',
+            handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Entry status changed from ${snapshot.previous_status || 'unknown'} to ${snapshot.resulting_status || snapshot.requested_status}`,
+            amount: snapshot.total_fee || 0,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'waitlist_promoted') {
+          const capacityNote = snapshot.capacity_increased
+            ? `; capacity increased ${snapshot.capacity_before} → ${snapshot.capacity_after}`
+            : '';
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'waitlist_promoted',
+            handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Promoted ${snapshot.dog_call_name || 'selection'} into ${snapshot.class_name || 'class'}, Round ${snapshot.round || 1}, Position ${snapshot.running_position}${capacityNote}`,
+            amount: snapshot.fee_added || 0,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'capacity_changed') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'capacity_changed',
+            handler_name: activity.user_name || 'Administrator',
+            dog_call_name: snapshot.class_name || 'Round capacity',
+            cwags_number: `Round ${snapshot.round_number || 1}`,
+            description: `Capacity changed for ${snapshot.class_name || 'class'}, Round ${snapshot.round_number || 1}: ${snapshot.capacity_before} → ${snapshot.capacity_after}. Active: ${snapshot.active_entries}; waitlisted: ${snapshot.waitlisted_entries}.`,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'selection_waitlisted') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'selection_waitlisted',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `${snapshot.dog_call_name || 'Selection'} waitlisted for ${snapshot.class_name || 'class'}, Round ${snapshot.round_number || 1} by ${activity.user_name || 'Unknown user'}`,
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'entry_edited') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'entry_edited',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Entry details edited for ${snapshot.dog_call_name || 'entry'} by ${activity.user_name || 'Unknown user'}`,
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'running_order_changed') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'running_order_changed',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Running order changed for ${snapshot.dog_call_name || 'selection'} in ${snapshot.class_name || 'class'}, Round ${snapshot.round_number || 1}: ${snapshot.before?.running_position ?? 'none'} → ${snapshot.after?.running_position ?? 'none'} by ${activity.user_name || 'Unknown user'}`,
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'fees_recalculated') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'fees_recalculated',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Fees recalculated for ${snapshot.dog_call_name || 'entry'}: $${Number(snapshot.before?.total_fee || 0).toFixed(2)} → $${Number(snapshot.after?.total_fee || 0).toFixed(2)} by ${activity.user_name || 'Unknown user'}`,
+            amount: Number(snapshot.after?.total_fee || 0),
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'score_corrected') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'score_corrected',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Score corrected for ${snapshot.dog_call_name || 'selection'} by ${activity.user_name || 'Unknown user'}`,
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
         } else if (activity.activity_type === 'dog_substituted') {
           const original = snapshot.original || {};
           const substitute = snapshot.substitute || {};
@@ -228,6 +362,52 @@ export default function TrialJournalPage() {
             description: `❌ Removed ${original.dog_call_name} (${original.cwags_number}) from ${classInfo}`,
             entry_id: activity.entry_id,
             snapshot: snapshot,
+          });
+        } else if (['entry_confirmed', 'entry_waitlisted'].includes(activity.activity_type)) {
+          const labels: Record<string, string> = {
+            entry_confirmed: 'Entry confirmed',
+            entry_waitlisted: 'Entry moved to waitlist',
+          };
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: activity.activity_type,
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `${labels[activity.activity_type]} for ${snapshot.dog_call_name || 'Unknown'} by ${activity.user_name || 'Unknown user'}`,
+            notes: snapshot.reason || undefined,
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (
+          ['live_event_entry_added', 'live_event_selection_added'].includes(activity.activity_type)
+        ) {
+          const isNewEntry = activity.activity_type === 'live_event_entry_added';
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: activity.activity_type,
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || '',
+            description: `${isNewEntry ? 'Live Event entry added' : 'Live Event class selection added'} for ${snapshot.dog_call_name || 'Unknown'} — ${snapshot.class_name || 'Unknown class'}, Round ${snapshot.round_number || 1} by ${activity.user_name || 'Unknown user'}`,
+            amount: Number(snapshot.fee || 0),
+            entry_id: activity.entry_id,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'fees_unwaived') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'fees_unwaived',
+            handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Fee waiver removed for ${snapshot.dog_call_name || 'entry'}`,
+            amount: snapshot.gross_billable_fee || 0,
+            entry_id: activity.entry_id,
+            snapshot,
           });
         } else if (activity.activity_type === 'fees_waived') {
           entries.push({
@@ -360,7 +540,7 @@ export default function TrialJournalPage() {
           entry_type: classData.entry_type || 'regular',
           jump_height: classData.jump_height,
           running_position: null,
-          entry_status: 'active',
+          entry_status: classData.entry_status || 'active',
           created_at: entry.timestamp,
           day_number: classData.day_number,
           trial_date: classData.trial_date,
@@ -461,15 +641,32 @@ export default function TrialJournalPage() {
       case 'entry_created':
         return <UserPlus className="h-5 w-5 text-blue-600" />;
       case 'entry_modified':
+      case 'entry_edited':
         return <FileEdit className="h-5 w-5 text-orange-600" />;
       case 'payment_received':
         return <DollarSign className="h-5 w-5 text-green-600" />;
       case 'fees_waived':
         return <AlertCircle className="h-5 w-5 text-purple-600" />;
+      case 'fees_unwaived':
+        return <RefreshCw className="h-5 w-5 text-purple-600" />;
       case 'entry_withdrawn':
         return <Trash2 className="h-5 w-5 text-red-600" />;
       case 'dog_substituted':
         return <RefreshCw className="h-5 w-5 text-cyan-600" />;
+      case 'waitlist_promoted':
+        return <RefreshCw className="h-5 w-5 text-blue-600" />;
+      case 'capacity_changed':
+        return <Settings className="h-5 w-5 text-blue-700" />;
+      case 'selection_waitlisted':
+        return <AlertCircle className="h-5 w-5 text-yellow-700" />;
+      case 'running_order_changed':
+        return <RefreshCw className="h-5 w-5 text-cyan-700" />;
+      case 'fees_recalculated':
+        return <DollarSign className="h-5 w-5 text-purple-700" />;
+      case 'score_corrected':
+        return <FileEdit className="h-5 w-5 text-red-700" />;
+      case 'entry_status_changed':
+        return <FileEdit className="h-5 w-5 text-amber-600" />;
       default:
         return <FileEdit className="h-5 w-5 text-gray-600" />;
     }
@@ -480,13 +677,30 @@ export default function TrialJournalPage() {
       case 'entry_created':
         return 'bg-blue-100 text-blue-800';
       case 'entry_modified':
+      case 'entry_edited':
         return 'bg-orange-100 text-orange-800';
       case 'payment_received':
         return 'bg-green-100 text-green-800';
       case 'fees_waived':
         return 'bg-purple-100 text-purple-800';
+      case 'fees_unwaived':
+        return 'bg-purple-100 text-purple-800';
       case 'entry_withdrawn':
         return 'bg-red-100 text-red-800';
+      case 'waitlist_promoted':
+        return 'bg-blue-100 text-blue-800';
+      case 'capacity_changed':
+        return 'bg-blue-100 text-blue-900';
+      case 'selection_waitlisted':
+        return 'bg-yellow-100 text-yellow-900';
+      case 'running_order_changed':
+        return 'bg-cyan-100 text-cyan-900';
+      case 'fees_recalculated':
+        return 'bg-purple-100 text-purple-900';
+      case 'score_corrected':
+        return 'bg-red-100 text-red-900';
+      case 'entry_status_changed':
+        return 'bg-amber-100 text-amber-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -621,9 +835,18 @@ export default function TrialJournalPage() {
               <option value="all">All Types</option>
               <option value="entry_created">Entries Created</option>
               <option value="entry_modified">Entries Modified</option>
+              <option value="entry_edited">Entry Detail Edits</option>
               <option value="dog_substituted">Dog Substitutions</option>
               <option value="payment_received">Payments</option>
               <option value="fees_waived">Fees Waived</option>
+              <option value="fees_unwaived">Fee Waivers Removed</option>
+              <option value="waitlist_promoted">Waitlist Promotions</option>
+              <option value="capacity_changed">Capacity Changes</option>
+              <option value="entry_status_changed">Status Changes</option>
+              <option value="selection_waitlisted">Waitlisted Selections</option>
+              <option value="running_order_changed">Running Order Changes</option>
+              <option value="fees_recalculated">Fee Recalculations</option>
+              <option value="score_corrected">Score Corrections</option>
             </select>
 
             {/* Date Range */}
@@ -719,6 +942,36 @@ export default function TrialJournalPage() {
                     {entry.notes && (
                       <div className="mt-2 text-sm text-gray-600 italic">Note: {entry.notes}</div>
                     )}
+
+                    {(entry.snapshot?.before !== undefined || entry.snapshot?.after !== undefined) && (
+                      <details
+                        className="mt-3 rounded border border-amber-200 bg-white p-3 text-sm"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <summary className="cursor-pointer font-medium text-gray-700">
+                          Before / after audit details
+                        </summary>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                          <div>
+                            <div className="mb-1 font-semibold text-gray-600">Before</div>
+                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs text-gray-800">
+                              {JSON.stringify(entry.snapshot?.before ?? null, null, 2)}
+                            </pre>
+                          </div>
+                          <div>
+                            <div className="mb-1 font-semibold text-gray-600">After</div>
+                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs text-gray-800">
+                              {JSON.stringify(entry.snapshot?.after ?? null, null, 2)}
+                            </pre>
+                          </div>
+                        </div>
+                        {entry.snapshot?.reason && (
+                          <div className="mt-3 text-gray-700">
+                            <span className="font-semibold">Reason:</span> {entry.snapshot.reason}
+                          </div>
+                        )}
+                      </details>
+                    )}
                   </div>
                 </div>
               </div>
@@ -802,19 +1055,39 @@ export default function TrialJournalPage() {
 
                   {/* Class Entries */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Class Entries ({entryDetails.selections.length})
-                    </h3>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        Class Entries ({entryDetails.selections.length})
+                      </h3>
+                      {entryDetails.selections.some(
+                        (selection: any) => isWaitlistedSelection(selection.entry_status)
+                      ) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            router.push(`/dashboard/trials/${trialId}/entries`)
+                          }
+                          className="px-3 py-1.5 rounded border border-yellow-400 bg-yellow-50 text-yellow-900 text-sm font-medium hover:bg-yellow-100"
+                        >
+                          Manage Waitlisted Rounds
+                        </button>
+                      )}
+                    </div>
                     <div className="space-y-2">
                       {entryDetails.selections.map((selection: any) => {
                         const trialClass = selection.trial_rounds?.trial_classes;
-                        const isWithdrawn = selection.entry_status === 'withdrawn';
+                        const isWithdrawn = isWithdrawnSelection(selection.entry_status);
+                        const isWaitlisted = isWaitlistedSelection(selection.entry_status);
 
                         return (
                           <div
                             key={selection.id}
                             className={`border rounded-lg p-4 ${
-                              isWithdrawn ? 'bg-red-50 border-red-200' : 'bg-white border-amber-200'
+                              isWithdrawn
+                                ? 'bg-red-50 border-red-200'
+                                : isWaitlisted
+                                  ? 'bg-yellow-50 border-yellow-300'
+                                  : 'bg-white border-amber-200'
                             }`}
                           >
                             <div className="flex items-start justify-between">
@@ -823,6 +1096,11 @@ export default function TrialJournalPage() {
                                   {isWithdrawn && (
                                     <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded">
                                       WITHDRAWN
+                                    </span>
+                                  )}
+                                  {isWaitlisted && (
+                                    <span className="px-2 py-0.5 bg-yellow-200 text-yellow-900 text-xs font-semibold rounded">
+                                      WAITLISTED
                                     </span>
                                   )}
                                   <span className="font-semibold text-gray-900">
@@ -886,7 +1164,9 @@ export default function TrialJournalPage() {
 
                               <div className="text-right ml-4">
                                 <p className="font-semibold text-gray-900">
-                                  {formatCurrency(selection.fee)}
+                                  {isWaitlisted
+                                    ? `${formatCurrency(0)} (${formatCurrency(selection.fee)} if promoted)`
+                                    : formatCurrency(selection.fee)}
                                 </p>
                               </div>
                             </div>

@@ -12,6 +12,7 @@ import SecretaryDashboard from '@/components/dashboard/SecretaryDashboard';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import PendingTrialInvitations from '@/components/dashboard/PendingTrialInvitations';
 
 interface Trial {
   id: string;
@@ -234,11 +235,19 @@ export default function DashboardPage() {
       )
       .eq('user_id', user?.id);
 
+    const { data: acceptedCollaborations } = await supabase
+      .from('trial_collaborators')
+      .select(`role, trial_id, trials (*)`)
+      .eq('user_id', user?.id)
+      .eq('invitation_status', 'accepted')
+      .is('revoked_at', null);
+
     // Combine all sources of trials
     const allSecretaryTrials = [
       ...(createdTrials || []),
       ...(assignedFromSecretaries?.map((at: any) => at.trials).filter(Boolean) || []),
       ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || []),
+      ...(acceptedCollaborations?.map((at: any) => at.trials ? ({ ...at.trials, shared_role: at.role }) : null).filter(Boolean) || []),
     ];
 
     // Remove duplicates by trial id and sort by start date
@@ -306,6 +315,8 @@ export default function DashboardPage() {
             </AlertDescription>
           </Alert>
         )}
+
+        <PendingTrialInvitations onAccepted={loadDashboardData} />
 
         {/* Role-Based Dashboard */}
         {user?.role === 'administrator' ? (

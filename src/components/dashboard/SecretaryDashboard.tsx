@@ -32,6 +32,8 @@ import {
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
 import { financialOperations } from '@/lib/financialOperations';
+import { derivePaymentStatus } from '@/lib/financialRules';
+import { isActiveSelection } from '@/lib/selectionStatus';
 
 interface Trial {
   id: string;
@@ -181,7 +183,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
         ) || [];
 
       const totalEntries = nonFeoEntries.length;
-      const pendingPayment = nonFeoEntries.filter((e) => e.payment_status === 'pending').length;
       const waitlisted = nonFeoEntries.filter((e) => e.entry_status === 'waitlisted').length;
       const confirmed = nonFeoEntries.filter((e) => e.entry_status === 'confirmed').length;
 
@@ -193,6 +194,14 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       }
 
       const competitors = financialsResult.data;
+      const pendingPayment = competitors.filter(
+        (competitor) =>
+          derivePaymentStatus(
+            competitor.amount_owed,
+            competitor.amount_paid,
+            competitor.fees_waived
+          ) === 'pending'
+      ).length;
 
       // Calculate totals using EXACT same formula as financials page
       const expectedRevenue = competitors.reduce(
@@ -444,7 +453,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
             // Count active entries across all rounds
             const totalEntries = cls.trial_rounds.reduce((sum: number, round: any) => {
               const activeEntries = (round.entry_selections || []).filter(
-                (sel: any) => sel.entry_status?.toLowerCase() !== 'withdrawn'
+                (sel: any) => isActiveSelection(sel.entry_status)
               ).length;
               return sum + activeEntries;
             }, 0);
@@ -500,7 +509,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           cls.trial_rounds?.reduce((sum: number, round: any) => {
             const activeEntries =
               round.entry_selections?.filter(
-                (sel: any) => sel.entry_status?.toLowerCase() !== 'withdrawn'
+                (sel: any) => isActiveSelection(sel.entry_status)
               ).length || 0;
             return sum + activeEntries;
           }, 0) || 0;

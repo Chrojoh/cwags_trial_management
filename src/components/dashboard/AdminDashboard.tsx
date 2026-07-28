@@ -1,6 +1,4 @@
 // src/components/dashboard/AdminDashboard.tsx
-// UPDATED VERSION - Handles enhanced alerts with trial IDs and makes them clickable
-
 'use client';
 
 import React from 'react';
@@ -13,7 +11,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import {
   Calendar,
@@ -24,7 +21,6 @@ import {
   Plus,
   Calculator,
   UserCheck,
-  UserPlus,
   Settings,
   CheckCircle,
   Eye,
@@ -32,6 +28,7 @@ import {
   AlertCircle,
   ChevronRight,
   Upload,
+  FileDown,
 } from 'lucide-react';
 
 // UPDATED INTERFACE to support enhanced alerts
@@ -317,7 +314,52 @@ export default function AdminDashboard({
             </Button>
 
             {allTrials.length > 0 && (
-              <div className="border-t pt-3 mt-3">
+              <div className="border-t pt-3 mt-3 space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Ringside Testing</p>
+                  <Select
+                    onValueChange={(trialId) =>
+                      router.push(`/dashboard/trials/${trialId}/ringside`)
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2" />
+                        <span>Ringside Setup — Select Trial</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {allTrials.map((trial) => (
+                        <SelectItem key={trial.id} value={trial.id}>
+                          {trial.trial_name} - {formatDate(trial.start_date)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    onValueChange={(trialId) =>
+                      router.push(
+                        `/dashboard/trials/${trialId}/live-event?adminAction=export-beta-running-order`
+                      )
+                    }
+                  >
+                    <SelectTrigger className="mt-2 w-full">
+                      <div className="flex items-center">
+                        <FileDown className="h-4 w-4 mr-2" />
+                        <span>Export Beta Running Order — Select Trial</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {allTrials.map((trial) => (
+                        <SelectItem key={trial.id} value={trial.id}>
+                          {trial.trial_name} - {formatDate(trial.start_date)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
                 <p className="text-xs font-medium text-gray-500 mb-2">Trial Analysis Tools</p>
                 <Select
                   onValueChange={(trialId) =>
@@ -338,6 +380,7 @@ export default function AdminDashboard({
                     ))}
                   </SelectContent>
                 </Select>
+                </div>
               </div>
             )}
           </CardContent>

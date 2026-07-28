@@ -1,14 +1,14 @@
 // src/app/api/public/trials/[trialId]/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple'
 
 // This endpoint is PUBLIC - no authentication required
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { trialId: string } }
+  _request: Request,
+  { params }: { params: Promise<{ trialId: string }> }
 ) {
   try {
-    const trialId = params.trialId
+    const { trialId } = await params
 
     // Get basic trial info (public data only)
     const trialResult = await simpleTrialOperations.getTrial(trialId)
@@ -20,8 +20,27 @@ export async function GET(
     // Get trial rounds
     const roundsResult = await simpleTrialOperations.getAllTrialRounds(trialId)
 
+    const trial = trialResult.data
+    const publicTrial = {
+      id: trial.id,
+      trial_name: trial.trial_name,
+      club_name: trial.club_name,
+      location: trial.location,
+      start_date: trial.start_date,
+      end_date: trial.end_date,
+      entries_open: trial.entries_open,
+      entries_close_date: trial.entries_close_date,
+      entry_status: trial.entry_status,
+      trial_secretary: trial.trial_secretary,
+      secretary_email: trial.secretary_email,
+      secretary_phone: trial.secretary_phone,
+      default_entry_fee: trial.default_entry_fee,
+      default_feo_price: trial.default_feo_price,
+      waiver_text: trial.waiver_text,
+    }
+
     return NextResponse.json({
-      trial: trialResult.data,
+      trial: publicTrial,
       rounds: roundsResult.data || []
     })
   } catch (error) {

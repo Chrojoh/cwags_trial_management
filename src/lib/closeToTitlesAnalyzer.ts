@@ -13,6 +13,7 @@
 
 import { getDogTrialHistory } from './registryOperations';
 import { createClient } from '@supabase/supabase-js';
+import { isScorableSelection } from './selectionStatus';
 import {
   getTitleRequirements,
   getTitleAbbreviation,
@@ -455,7 +456,7 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
       selections.forEach((sel) => {
         // Skip FEO and withdrawn entries
         if (sel.entry_type === 'feo') return;
-        if (sel.entry_status === 'withdrawn') return;
+        if (!isScorableSelection(sel.entry_status)) return;
 
         // Get class name
         const round = Array.isArray(sel.trial_rounds) ? sel.trial_rounds[0] : sel.trial_rounds;

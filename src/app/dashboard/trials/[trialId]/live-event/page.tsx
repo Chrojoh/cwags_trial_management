@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDivisionColor } from '@/lib/divisionUtils';
 import { formatCwagsNumber } from '@/lib/utils';
-import { logSubstitution } from '@/lib/journalLogger';
+import { logLiveEventEntryAdded, logSubstitution } from '@/lib/journalLogger';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { Label } from '@/components/ui/label';
 import {
@@ -58,8 +58,19 @@ import {
   DollarSign,
   Clock,
   Trophy,
+  ArrowUpCircle,
+  UserCheck,
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import {
+  isActiveSelection,
+  isAbsentSelection,
+  isBillableSelection,
+  isRunningOrderSelection,
+  isScorableSelection,
+  isWaitlistedSelection,
+  isWithdrawnSelection,
+} from '@/lib/selectionStatus';
 
 interface Trial {
   id: string;
@@ -87,7 +98,7 @@ interface TrialClass {
   class_level?: string;
   class_order?: number;
   class_status?: string;
-  // ✅ ADD THIS: Array of rounds for displaying round numbers
+  // Rounds available for display and entry selection.
   trial_rounds?: Array<{
     id: string;
     round_number: number;
@@ -126,6 +137,8 @@ interface ClassEntry {
   division?: string | null;
   jump_height?: string | null;
   fee: number;
+  created_at?: string | null;
+  submitted_at?: string | null;
   is_substitute?: boolean;
   original_entry_id?: string | null;
   entries: {
@@ -194,8 +207,7 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
 
   // Check if dog is marked as No Show or Absent - show "Abs"
   if (
-    entry.entry_status === 'no_show' ||
-    entry.entry_status === 'absent' ||
+    isAbsentSelection(entry.entry_status) ||
     score?.entry_status === 'no_show' ||
     score?.entry_status === 'absent' ||
     score?.pass_fail === 'Abs'
@@ -246,11 +258,7 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
 };
 
 const canScore = (entry: ClassEntry): boolean => {
-  const isNoShow =
-    entry.entry_status === 'no_show' ||
-    entry.entry_status === 'absent' ||
-    entry.entry_status === 'withdrawn';
-  return !isNoShow;
+  return isScorableSelection(entry.entry_status);
 };
 
 const getResultBadgeClass = (result: string): string => {
@@ -293,6 +301,15 @@ export default function LiveEventManagementPage() {
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<TrialClass | null>(null);
   const [classEntries, setClassEntries] = useState<ClassEntry[]>([]);
+  const [waitlistedEntries, setWaitlistedEntries] = useState<ClassEntry[]>([]);
+  const [promotingSelectionId, setPromotingSelectionId] = useState<string | null>(null);
+  const [capacityDraft, setCapacityDraft] = useState('');
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [capacityMetrics, setCapacityMetrics] = useState<{
+    activeEntries: number;
+    waitlistedEntries: number;
+    maxEntries: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showDigitalScoreEntry, setShowDigitalScoreEntry] = useState(false);
@@ -306,7 +323,11 @@ export default function LiveEventManagementPage() {
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [classCounts, setClassCounts] = useState<Record<string, number>>({});
   const [showAddEntryModal, setShowAddEntryModal] = useState(false);
-  const [liveVerifyDialog, setLiveVerifyDialog] = useState<{ handler_name: string; dog_call_name: string; pendingData: any } | null>(null);
+  const [liveVerifyDialog, setLiveVerifyDialog] = useState<{
+    handler_name: string;
+    dog_call_name: string;
+    pendingData: any;
+  } | null>(null);
   const [showDaySelector, setShowDaySelector] = useState(false);
   const [activeTab, setActiveTab] = useState<'running-order' | 'score-entry'>('running-order');
   const [scoreEntry, setScoreEntry] = useState<{
@@ -331,7 +352,11 @@ export default function LiveEventManagementPage() {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [savingScore, setSavingScore] = useState(false);
   const [isExportProcessing, setIsExportProcessing] = useState(false);
-  const [exportType, setExportType] = useState<'running-order' | 'score-sheets'>('running-order');
+  const [exportType, setExportType] = useState<'running-order' | 'score-sheets' | 'beta-running-order'>('running-order');
+  const [showBetaSetup, setShowBetaSetup] = useState(false);
+  const [betaDayId, setBetaDayId] = useState('');
+  const [betaRingNames, setBetaRingNames] = useState<string[]>(['Ring 1']);
+  const [betaAssignments, setBetaAssignments] = useState<Record<string, number>>({});
   const [availableDays, setAvailableDays] = useState<
     Array<{
       id: string;
@@ -542,6 +567,8 @@ export default function LiveEventManagementPage() {
   useEffect(() => {
     if (selectedClass) {
       loadClassEntries();
+      setCapacityDraft(String(selectedClass.max_entries || ''));
+      loadRoundCapacity();
     }
   }, [selectedClass]);
 
@@ -551,7 +578,7 @@ export default function LiveEventManagementPage() {
     }
   }, [selectedClass]);
 
-  // ✅ ADD THIS NEW useEffect:
+  // Refresh the selected class after score changes.
   useEffect(() => {
     // Listen for score updates from Score Entry tab
     const handleScoresUpdated = () => {
@@ -616,7 +643,7 @@ export default function LiveEventManagementPage() {
                     entry_fee: cls.entry_fee || 0,
                     feo_available: cls.feo_available || false,
                     feo_price: cls.feo_price || 0,
-                    max_entries: cls.max_entries || 0,
+                    max_entries: round.max_entries ?? cls.max_entries ?? 0,
                     class_level: cls.class_level || '',
                     class_order: cls.class_order || 999,
                     class_status: cls.class_status || 'active',
@@ -637,7 +664,7 @@ export default function LiveEventManagementPage() {
                   entry_fee: cls.entry_fee || 0,
                   feo_available: cls.feo_available || false,
                   feo_price: cls.feo_price || 0,
-                  max_entries: cls.max_entries || 0,
+                  max_entries: round.max_entries ?? cls.max_entries ?? 0,
                   class_level: cls.class_level || '',
                   class_order: cls.class_order || 999,
                   class_status: cls.class_status || 'active',
@@ -652,7 +679,7 @@ export default function LiveEventManagementPage() {
 
       console.log(`Total rounds loaded: ${allClassRounds.length}`);
 
-      // ✅ ADD THIS SORTING CODE HERE
+      // Keep classes in their official display order.
       allClassRounds.sort((a, b) => {
         // First sort by trial_date (day)
         if (a.trial_date !== b.trial_date) {
@@ -745,6 +772,7 @@ export default function LiveEventManagementPage() {
 
       // Filter entries for THIS SPECIFIC ROUND (and subclass for Games)
       const classEntriesData: ClassEntry[] = [];
+      const waitlistedEntriesData: ClassEntry[] = [];
       (entriesResult.data || []).forEach((entry: any) => {
         const selections = entry.entry_selections || [];
         selections.forEach((selection: any) => {
@@ -760,22 +788,15 @@ export default function LiveEventManagementPage() {
             subclassMatches =
               !selection.games_subclass || selection.games_subclass === targetSubclass;
 
-            console.log('Checking subclass match:', {
-              entryHandler: entry.handler_name,
-              selectionSubclass: selection.games_subclass,
-              targetSubclass: targetSubclass,
-              matches: subclassMatches,
-            });
           }
 
           if (roundMatches && subclassMatches) {
-            // FILTER OUT WITHDRAWN ENTRIES
             const entryStatus = selection.entry_status || 'entered';
-            if (
-              entryStatus.toLowerCase() !== 'withdrawn' &&
-              entryStatus.toLowerCase() !== 'waitlisted'
-            ) {
-              classEntriesData.push({
+            const targetList = isWaitlistedSelection(entryStatus)
+              ? waitlistedEntriesData
+              : classEntriesData;
+            if (isActiveSelection(entryStatus) || isWaitlistedSelection(entryStatus)) {
+              targetList.push({
                 id: selection.id,
                 entry_id: entry.id,
                 running_position: selection.running_position || 0,
@@ -786,6 +807,8 @@ export default function LiveEventManagementPage() {
                 division: selection.division || null,
                 jump_height: selection.jump_height || null,
                 fee: selection.fee || 0,
+                created_at: selection.created_at || null,
+                submitted_at: entry.submitted_at || entry.created_at || null,
                 is_substitute: !!selection.original_entry_id,
                 original_entry_id: selection.original_entry_id || null,
                 entries: {
@@ -810,6 +833,11 @@ export default function LiveEventManagementPage() {
 
       // Sort by running position
       classEntriesData.sort((a, b) => a.running_position - b.running_position);
+      waitlistedEntriesData.sort((a, b) => {
+        const aTime = new Date(a.created_at || a.submitted_at || 0).getTime();
+        const bTime = new Date(b.created_at || b.submitted_at || 0).getTime();
+        return aTime - bTime;
+      });
 
       // Optional: Keep minimal logging
       console.log(
@@ -818,6 +846,7 @@ export default function LiveEventManagementPage() {
 
       console.log(`Loaded ${classEntriesData.length} entries for round ${selectedClass.id}`);
       setClassEntries(classEntriesData);
+      setWaitlistedEntries(waitlistedEntriesData);
 
       console.log(
         `Loaded ${classEntriesData.length} entries for round ${selectedClass.id} (base: ${baseRoundId}, subclass: ${targetSubclass})`
@@ -827,6 +856,137 @@ export default function LiveEventManagementPage() {
       console.error('Error loading class entries:', err);
       setError(err instanceof Error ? err.message : 'Failed to load entries');
       setClassEntries([]);
+      setWaitlistedEntries([]);
+    }
+  };
+
+  const promoteWaitlistedSelection = async (entry: ClassEntry, queueIndex: number, increaseCapacity = false) => {
+    if (!selectedClass) return;
+
+    if (queueIndex > 0 && !increaseCapacity) {
+      const proceed = window.confirm(
+        `This dog is #${queueIndex + 1} on this round's waitlist, not first. Promote anyway?`
+      );
+      if (!proceed) return;
+    }
+
+    try {
+      setPromotingSelectionId(entry.id);
+      const response = await fetch(
+        `/api/trials/${trialId}/entries/${entry.entry_id}/selections/${entry.id}/promote`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ increaseCapacity }),
+        }
+      );
+      const result = await response.json();
+
+      if (!response.ok && result.code === 'ROUND_CAPACITY_FULL') {
+        const raiseLimit = window.confirm(
+          `${result.error}
+
+Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
+        );
+        if (raiseLimit) {
+          await promoteWaitlistedSelection(entry, queueIndex, true);
+        }
+        return;
+      }
+      if (!response.ok) throw new Error(result.error || 'Failed to promote waitlisted round');
+
+      alert(
+        result.capacity_increased
+          ? `Capacity increased to ${result.new_max_entries}. ${entry.entries.dog_call_name} was promoted.`
+          : `${entry.entries.dog_call_name} was promoted from the waitlist.`
+      );
+      await loadClassEntries();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to promote waitlisted round');
+    } finally {
+      setPromotingSelectionId(null);
+    }
+  };
+
+  const loadRoundCapacity = async () => {
+    if (!selectedClass) return;
+    const baseRoundId = selectedClass.id.replace(/-(GB|BJ|T|P|C)$/, '');
+    try {
+      const response = await fetch(`/api/trials/${trialId}/capacity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selected_round_ids: [baseRoundId] }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to load round capacity');
+      const metrics = payload.rounds?.[0];
+      if (metrics) {
+        setCapacityMetrics({
+          activeEntries: Number(metrics.active_entries || 0),
+          waitlistedEntries: Number(metrics.waitlisted_entries || 0),
+          maxEntries: Number(metrics.max_entries || 0),
+        });
+        setCapacityDraft(String(metrics.max_entries || ''));
+      }
+    } catch (err) {
+      console.error('Failed to load round capacity metrics:', err);
+    }
+  };
+
+  const updateRoundCapacity = async (requestedCapacity: number) => {
+    if (!selectedClass || !Number.isInteger(requestedCapacity) || requestedCapacity < 1) {
+      setError('Capacity must be a positive whole number.');
+      return;
+    }
+    const activeCount = capacityMetrics?.activeEntries ?? classEntries.length;
+    if (requestedCapacity < activeCount) {
+      setError(`Capacity cannot be lower than the ${activeCount} active entries.`);
+      return;
+    }
+
+    try {
+      setSavingCapacity(true);
+      setError(null);
+      const baseRoundId = selectedClass.id.replace(/-(GB|BJ|T|P|C)$/, '');
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
+
+      const response = await fetch(`/api/trials/${trialId}/capacity`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ round_id: baseRoundId, max_entries: requestedCapacity }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to update round capacity');
+
+      const capacityAfter = Number(payload.result?.capacityAfter ?? requestedCapacity);
+      setCapacityDraft(String(capacityAfter));
+      setTrialClasses((previous) =>
+        previous.map((round) =>
+          round.id.replace(/-(GB|BJ|T|P|C)$/, '') === baseRoundId
+            ? { ...round, max_entries: capacityAfter }
+            : round
+        )
+      );
+      setSelectedClass((previous) =>
+        previous ? { ...previous, max_entries: capacityAfter } : previous
+      );
+      setCapacityMetrics({
+        activeEntries: Number(payload.result?.activeEntries ?? capacityMetrics?.activeEntries ?? 0),
+        waitlistedEntries: Number(
+          payload.result?.waitlistedEntries ?? capacityMetrics?.waitlistedEntries ?? 0
+        ),
+        maxEntries: capacityAfter,
+      });
+      alert(`Round capacity changed to ${capacityAfter}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update round capacity');
+    } finally {
+      setSavingCapacity(false);
     }
   };
 
@@ -980,7 +1140,8 @@ export default function LiveEventManagementPage() {
       console.log('Substitute C-WAGS#:', formattedNewCwags);
 
       // STEP 1: Look up the substitute dog in registry
-      const registryResult = await simpleTrialOperations.getCwagsRegistryByNumber(formattedNewCwags);
+      const registryResult =
+        await simpleTrialOperations.getCwagsRegistryByNumber(formattedNewCwags);
 
       let substituteDogInfo = {
         cwags_number: formattedNewCwags,
@@ -1259,8 +1420,6 @@ export default function LiveEventManagementPage() {
           .eq('id', originalRoundId)
           .single();
 
-        console.log('🔍 DEBUG classInfo structure:', JSON.stringify(classInfo, null, 2));
-
         // Extract class name and trial day info (trial_classes might be an array)
         const trialClassData: any = Array.isArray(classInfo?.trial_classes)
           ? classInfo.trial_classes[0]
@@ -1278,12 +1437,6 @@ export default function LiveEventManagementPage() {
           Array.isArray(trialDaysArray) && trialDaysArray.length > 0
             ? trialDaysArray[0]?.trial_date
             : trialDaysArray?.trial_date; // Try direct access as fallback
-
-        console.log('📅 Logging substitution with date info:', {
-          day_number: logDayNumber,
-          trial_date: logTrialDate,
-          class_name: logClassName,
-        });
 
         // Get original entry's cwags number
         const { data: originalEntryFull } = await supabase
@@ -1445,35 +1598,6 @@ export default function LiveEventManagementPage() {
     setEditingEntryId(entry.id);
   };
 
-  // ADD this debug function to your live-event/page.tsx file
-  // Add it right after the updateEntryField function
-
-  const debugSelectedClassData = () => {
-    console.log('=== SELECTED CLASS DEBUG ===');
-    console.log('selectedClass object:', selectedClass);
-
-    if (selectedClass) {
-      console.log('Class ID:', selectedClass.id);
-      console.log('Class Name:', selectedClass.class_name);
-      console.log('Entry Fee:', selectedClass.entry_fee); // Should be 21
-      console.log('FEO Price:', selectedClass.feo_price); // Should be 15
-      console.log('FEO Available:', selectedClass.feo_available); // Should be true
-      console.log('All properties:', Object.keys(selectedClass));
-    } else {
-      console.log('❌ selectedClass is null/undefined');
-    }
-
-    console.log('trialClasses array:', trialClasses);
-    if (trialClasses && trialClasses.length > 0) {
-      console.log('First class in array:', trialClasses[0]);
-      console.log('First class properties:', Object.keys(trialClasses[0]));
-    }
-
-    console.log('===========================');
-  };
-
-  // Call this from your browser console: debugSelectedClassData()
-
   const loadAllClassCounts = async () => {
     try {
       const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
@@ -1514,9 +1638,7 @@ export default function LiveEventManagementPage() {
               }
 
               // Not withdrawn
-              const notWithdrawn = selection.entry_status?.toLowerCase() !== 'withdrawn';
-
-              return roundMatches && subclassMatches && notWithdrawn;
+              return roundMatches && subclassMatches && isActiveSelection(selection.entry_status);
             }) || [];
 
           return count + selectionsForRound.length;
@@ -1625,15 +1747,54 @@ export default function LiveEventManagementPage() {
       loadClassEntries();
     }
   };
+  const quickScratchEntry = async (entry: ClassEntry) => {
+    if (!selectedClass) return;
+
+    try {
+      const baseRoundId = selectedClass.id.replace(/-(GB|BJ|T|P|C)$/, '');
+      const result = await simpleTrialOperations.upsertScore({
+        entry_selection_id: entry.id,
+        trial_round_id: baseRoundId,
+        pass_fail: 'WD',
+        entry_status: 'WD',
+        scored_by: user?.id || null,
+      });
+
+      if (!result.success) throw new Error(String(result.error || 'Failed to scratch dog'));
+      await loadClassEntries();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to scratch dog');
+    }
+  };
+
   const handleKeyNavigation = (e: React.KeyboardEvent<HTMLDivElement>, entry: ClassEntry) => {
-    // Only handle arrow keys
+    const key = e.key.toLowerCase();
+
+    if (key === 'c') {
+      e.preventDefault();
+      void updateEntryField(entry.id, 'entry_status', 'confirmed');
+      return;
+    }
+    if (key === 'n') {
+      e.preventDefault();
+      void updateEntryField(entry.id, 'entry_status', 'no_show');
+      return;
+    }
+    if (key === 's') {
+      e.preventDefault();
+      void quickScratchEntry(entry);
+      return;
+    }
+
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
 
     e.preventDefault(); // Prevent page scrolling
 
     const currentPosition = entry.running_position;
     const sameRoundEntries = classEntries
-      .filter((e) => e.round_number === entry.round_number && e.entry_status !== 'withdrawn')
+      .filter(
+        (e) => e.round_number === entry.round_number && isRunningOrderSelection(e.entry_status)
+      )
       .sort((a, b) => a.running_position - b.running_position);
 
     let newPosition: number;
@@ -1677,7 +1838,7 @@ export default function LiveEventManagementPage() {
               const passingScore = getPassingScore(selectedClass.class_name);
 
               // Check entry status and type to determine proper pass_fail value
-              if (entry.entry_status === 'no_show' || entry.entry_status === 'absent') {
+              if (isAbsentSelection(entry.entry_status)) {
                 updatedScores[0].pass_fail = 'Abs';
               } else if (entry.entry_type === 'feo') {
                 // FEO entries: ALWAYS "FEO" regardless of score
@@ -1784,7 +1945,7 @@ export default function LiveEventManagementPage() {
         const result = getDisplayResult(entry, selectedClass);
 
         return [
-          entry.entry_status === 'withdrawn' ? 'X' : entry.running_position,
+          isWithdrawnSelection(entry.entry_status) ? 'X' : entry.running_position,
           entry.entries.handler_name,
           entry.entries.dog_call_name,
           entry.entry_type,
@@ -1910,6 +2071,17 @@ export default function LiveEventManagementPage() {
 
       console.log('Target round found:', roundToUse.id, 'for round number:', selectedRound);
 
+      // Games rows use a compound UI id; capacity and selection writes use the base round UUID.
+      let actualRoundId = roundToUse.id;
+      if (selectedClass.class_type?.toLowerCase() === 'games' && roundToUse.id.includes('-')) {
+        const parts = roundToUse.id.split('-');
+        const lastPart = parts[parts.length - 1];
+
+        if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+          actualRoundId = parts.slice(0, -1).join('-');
+        }
+      }
+
       // CALCULATE PROPER FEE BASED ON ENTRY TYPE
       let calculatedFee = 0;
       const isFeO = newEntryData.entry_type.toLowerCase() === 'feo';
@@ -1932,9 +2104,7 @@ export default function LiveEventManagementPage() {
       let isNewEntry = false;
 
       if (existingEntriesResult.success && existingEntriesResult.data) {
-        const normalizedCwags = formatCwagsNumber(
-        newEntryData.cwags_number
-      ).trim().toUpperCase();
+        const normalizedCwags = formatCwagsNumber(newEntryData.cwags_number).trim().toUpperCase();
 
         const existingEntry = existingEntriesResult.data.find(
           (e: any) =>
@@ -1947,9 +2117,6 @@ export default function LiveEventManagementPage() {
           console.log('✅ Found existing entry, reusing entry_id:', existingEntry.id);
           entryId = existingEntry.id;
 
-          // Update the total_fee to include the new class
-          const newTotalFee = existingEntry.total_fee + calculatedFee;
-          await simpleTrialOperations.updateEntry(entryId, { total_fee: newTotalFee });
         } else {
           console.log('🆕 No existing entry found, creating new one');
           isNewEntry = true;
@@ -1966,7 +2133,7 @@ export default function LiveEventManagementPage() {
             handler_phone: '',
             is_junior_handler: false,
             waiver_accepted: true,
-            total_fee: calculatedFee,
+            total_fee: 0,
             payment_status: 'pending',
             entry_status: 'submitted',
           });
@@ -1981,26 +2148,31 @@ export default function LiveEventManagementPage() {
         throw new Error('Failed to check for existing entries');
       }
 
-      // Calculate next running position for the SELECTED round (exclude withdrawn)
+      const capacityResponse = await fetch(`/api/trials/${trialId}/capacity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selected_round_ids: [actualRoundId],
+          exclude_entry_id: entryId,
+        }),
+      });
+      const capacityResult = await capacityResponse.json();
+      if (!capacityResponse.ok) {
+        throw new Error(capacityResult.error || 'Failed to check round capacity.');
+      }
+      const capacityConflict = (capacityResult.conflicts || []).find(
+        (conflict: any) => conflict.trial_round_id === actualRoundId
+      );
+      const shouldWaitlist = Boolean(capacityConflict);
+
+      // Only active selections receive a running position.
       const roundEntries = classEntries.filter(
-        (e) => e.round_number === selectedRound && e.entry_status !== 'withdrawn'
+        (e) => e.round_number === selectedRound && isRunningOrderSelection(e.entry_status)
       );
       const nextPosition =
         roundEntries.length > 0 ? Math.max(...roundEntries.map((e) => e.running_position)) + 1 : 1;
 
       console.log('Next running position for round', selectedRound, ':', nextPosition);
-
-      // Extract base UUID from compound ID for Games classes
-      let actualRoundId = roundToUse.id;
-      if (selectedClass.class_type?.toLowerCase() === 'games' && roundToUse.id.includes('-')) {
-        const parts = roundToUse.id.split('-');
-        const lastPart = parts[parts.length - 1];
-
-        if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-          actualRoundId = parts.slice(0, -1).join('-');
-          console.log('Extracted base round ID:', actualRoundId, 'from compound:', roundToUse.id);
-        }
-      }
 
       // Create entry selection with games_subclass and jump_height
       const insertData: any = {
@@ -2008,8 +2180,8 @@ export default function LiveEventManagementPage() {
         trial_round_id: actualRoundId,
         entry_type: newEntryData.entry_type,
         fee: calculatedFee,
-        running_position: nextPosition,
-        entry_status: 'entered',
+        running_position: shouldWaitlist ? null : nextPosition,
+        entry_status: shouldWaitlist ? 'waitlisted' : 'entered',
       };
 
       // Add jump_height if applicable
@@ -2049,7 +2221,8 @@ export default function LiveEventManagementPage() {
           const { error: updateError } = await supabase
             .from('entry_selections')
             .update({
-              running_position: nextPosition,
+              running_position: insertData.running_position,
+              entry_status: insertData.entry_status,
               entry_type: insertData.entry_type,
               fee: insertData.fee,
             })
@@ -2057,6 +2230,30 @@ export default function LiveEventManagementPage() {
 
           if (updateError) {
             throw new Error('Failed to update existing entry: ' + updateError.message);
+          }
+
+          try {
+            await logLiveEventEntryAdded(trialId, entryId, {
+              handler_name: newEntryData.handler_name,
+              dog_call_name: newEntryData.dog_call_name,
+              cwags_number: formatCwagsNumber(newEntryData.cwags_number),
+              class_name: selectedClass.class_name,
+              round_number: selectedRound,
+              trial_round_id: actualRoundId,
+              entry_type: insertData.entry_type,
+              fee: insertData.fee,
+              running_position: insertData.running_position,
+              entry_status: insertData.entry_status,
+              games_subclass: selectedGamesSubclass,
+              jump_height: newEntryData.jump_height || null,
+              created_new_entry: false,
+            });
+          } catch (journalError) {
+            console.error('Live Event selection update saved but journal logging failed:', journalError);
+            alert(
+              'The running position was updated, but the activity journal could not be updated. ' +
+                'Please note this action and contact an administrator if the journal remains incomplete.'
+            );
           }
 
           // Reload and notify
@@ -2076,7 +2273,9 @@ export default function LiveEventManagementPage() {
 
           alert(
             `${newEntryData.dog_call_name} was already entered in ${selectedClass.class_name} Round ${selectedRound}.\n\n` +
-              `Running position has been updated to #${nextPosition}.`
+              (shouldWaitlist
+                ? 'The round is full, so this selection remains waitlisted with no running position.'
+                : `Running position has been updated to #${nextPosition}.`)
           );
 
           return; // Exit early - don't insert duplicate
@@ -2089,6 +2288,59 @@ export default function LiveEventManagementPage() {
 
       if (insertError) {
         throw new Error('Failed to save entry selection: ' + insertError.message);
+      }
+
+      // Recalculate from saved selections only. This prevents fees from increasing
+      // when duplicate validation or selection insertion fails.
+      const { data: savedSelections, error: feeQueryError } = await supabase
+        .from('entry_selections')
+        .select('fee, entry_status')
+        .eq('entry_id', entryId);
+
+      if (feeQueryError) {
+        throw new Error('Entry was saved, but total fee could not be recalculated: ' + feeQueryError.message);
+      }
+
+      const recalculatedTotalFee = (savedSelections || []).reduce(
+        (total, selection) =>
+          isBillableSelection(selection.entry_status)
+            ? total + Number(selection.fee || 0)
+            : total,
+        0
+      );
+      const feeUpdateResult = await simpleTrialOperations.updateEntry(entryId, {
+        total_fee: recalculatedTotalFee,
+      });
+
+      if (!feeUpdateResult.success) {
+        throw new Error('Entry selection was saved, but total fee update failed. Please refresh and review the entry.');
+      }
+
+      // Record the manual/on-site action in the trial activity journal.
+      // If logging fails, keep the saved entry intact and surface a clear warning
+      // rather than attempting a destructive client-side rollback.
+      try {
+        await logLiveEventEntryAdded(trialId, entryId, {
+          handler_name: newEntryData.handler_name,
+          dog_call_name: newEntryData.dog_call_name,
+          cwags_number: formatCwagsNumber(newEntryData.cwags_number),
+          class_name: selectedClass.class_name,
+          round_number: selectedRound,
+          trial_round_id: actualRoundId,
+          entry_type: newEntryData.entry_type,
+          fee: calculatedFee,
+          running_position: insertData.running_position,
+          entry_status: insertData.entry_status,
+          games_subclass: selectedGamesSubclass,
+          jump_height: newEntryData.jump_height || null,
+          created_new_entry: isNewEntry,
+        });
+      } catch (journalError) {
+        console.error('Live Event entry saved but journal logging failed:', journalError);
+        alert(
+          'The entry was saved, but the activity journal could not be updated. ' +
+            'Please note this action and contact an administrator if the journal remains incomplete.'
+        );
       }
 
       // Reload the class entries to show the new entry
@@ -2108,7 +2360,9 @@ export default function LiveEventManagementPage() {
       setShowAddEntryModal(false);
 
       alert(
-        `Entry ${isNewEntry ? 'added' : 'selection added to existing entry'} successfully to Round ${selectedRound} with fee: $${calculatedFee}!`
+        shouldWaitlist
+          ? `Round ${selectedRound} is full. The selection was added to the waitlist with no current fee or running position.`
+          : `Entry ${isNewEntry ? 'added' : 'selection added to existing entry'} successfully to Round ${selectedRound} with fee: $${calculatedFee}!`
       );
     } catch (error) {
       console.error('Error adding entry:', error);
@@ -2206,6 +2460,23 @@ export default function LiveEventManagementPage() {
     setShowDaySelector(true);
   };
 
+  useEffect(() => {
+    if (
+      new URLSearchParams(window.location.search).get('adminAction') !==
+        'export-beta-running-order' ||
+      user?.role !== 'administrator' ||
+      !trial ||
+      availableDays.length === 0
+    ) {
+      return;
+    }
+
+    setExportType('beta-running-order');
+    setSelectedPrintDay(null);
+    setShowDaySelector(true);
+    router.replace(`/dashboard/trials/${trialId}/live-event`);
+  }, [availableDays.length, router, trial, trialId, user?.role]);
+
   const exportScoreSheets = async () => {
     if (!trial) return;
 
@@ -2219,70 +2490,6 @@ export default function LiveEventManagementPage() {
       setIsExportProcessing(false);
     }
   };
-
-  {
-    showDaySelector && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">
-              {exportType === 'running-order'
-                ? 'Select Day to Export Running Order'
-                : 'Select Day to Export Score Sheets'}
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setShowDaySelector(false);
-                setIsExportProcessing(false); // ADD THIS
-              }}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {availableDays.map((day) => (
-              <Button
-                key={day.id}
-                variant="outline"
-                className="w-full text-left justify-start"
-                onClick={() => {
-                  // Close modal and reset state immediately
-                  setShowDaySelector(false);
-                  setIsExportProcessing(false);
-
-                  // Then start the export
-                  if (exportType === 'running-order') {
-                    setSelectedPrintDay(day.id);
-                    exportRunningOrderToExcel(day.id);
-                  } else {
-                    exportScoreSheetsForDay(day.id);
-                  }
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Day {day.day_number} - {day.formatted_date}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex justify-end mt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowDaySelector(false);
-                setIsExportProcessing(false); // ADD THIS
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Score Sheet Formatting
 
@@ -2320,14 +2527,6 @@ export default function LiveEventManagementPage() {
       });
 
       for (const round of roundsForDay) {
-        console.log('Processing round for score sheet:', {
-          roundId: round.id,
-          className: round.class_name,
-          classType: round.class_type,
-          gamesSubclass: round.games_subclass,
-          roundNumber: round.round_number,
-        });
-
         // Get entries for this round
         const roundEntries: Array<{
           runningOrder: number;
@@ -2347,11 +2546,6 @@ export default function LiveEventManagementPage() {
           if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
             baseRoundId = parts.slice(0, -1).join('-');
             targetSubclass = lastPart;
-            console.log('Compound Games ID detected:', {
-              fullId: round.id,
-              baseRoundId: baseRoundId,
-              targetSubclass: targetSubclass,
-            });
           }
         }
 
@@ -2367,27 +2561,11 @@ export default function LiveEventManagementPage() {
             if (round.class_type === 'games' && targetSubclass) {
               subclassMatches = selection.games_subclass === targetSubclass;
 
-              console.log('Games entry check:', {
-                handler: entry.handler_name,
-                dog: entry.dog_call_name,
-                selectionRoundId: selection.trial_round_id,
-                selectionSubclass: selection.games_subclass,
-                targetSubclass: targetSubclass,
-                roundMatches: roundMatches,
-                subclassMatches: subclassMatches,
-              });
             }
 
-            if (roundMatches && subclassMatches && selection.entry_status !== 'withdrawn') {
+            if (roundMatches && subclassMatches && isScorableSelection(selection.entry_status)) {
               const isFeo = selection.entry_type === 'feo';
               const dogName = isFeo ? `${entry.dog_call_name} (FEO)` : entry.dog_call_name || '';
-              {
-                entry.division && (
-                  <Badge className={`ml-2 ${getDivisionColor(entry.division)}`}>
-                    {entry.division}
-                  </Badge>
-                );
-              }
               roundEntries.push({
                 runningOrder: selection.running_position || 0,
                 cwagsNumber: entry.cwags_number || '',
@@ -2397,10 +2575,6 @@ export default function LiveEventManagementPage() {
             }
           });
         });
-
-        console.log(
-          `Found ${roundEntries.length} entries for ${round.class_name} - ${targetSubclass || 'no subclass'}`
-        );
 
         roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
 
@@ -2559,7 +2733,7 @@ export default function LiveEventManagementPage() {
 
         // Row 8: Instructions
         wsData.push([
-          'Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less then half.',
+          'Faults: Dropped food. Dog stops working. Handler guiding dog. Incorrect find. Destructive behavior. Disturbing search area by dog or handler. Verbally naming item. Continue search after "alert". SR crossing line less than half.',
           '',
           '',
           '',
@@ -2607,10 +2781,10 @@ export default function LiveEventManagementPage() {
 
         // Rows 10+: Entry data (2 rows per entry)
         // ✅ MODIFIED: Running order on top, CWAGS number on bottom (NO MERGE)
-        roundEntries.forEach((entry) => {
+        roundEntries.forEach((entry, entryIndex) => {
           // First row of entry: Running Order Position in column A
           wsData.push([
-            entry.runningOrder,
+            entryIndex + 1,
             '',
             entry.handlerName,
             '',
@@ -2958,7 +3132,13 @@ export default function LiveEventManagementPage() {
       const injectXml =
         '<printOptions horizontalCentered="1" verticalCentered="1"/>' +
         '<pageSetup scale="50" orientation="portrait" paperSize="1"/>';
-      const lateElements = ['<ignoredErrors', '<drawing', '<legacyDrawing', '<tableParts', '<extLst'];
+      const lateElements = [
+        '<ignoredErrors',
+        '<drawing',
+        '<legacyDrawing',
+        '<tableParts',
+        '<extLst',
+      ];
       for (const filePath of Object.keys(zipEntries)) {
         if (/^xl\/worksheets\/sheet\d+\.xml$/.test(filePath)) {
           const xml = strFromU8(zipEntries[filePath]);
@@ -3028,14 +3208,14 @@ export default function LiveEventManagementPage() {
         return map[name] || name;
       };
 
-      const classRounds: ClassRoundColumn[] = dayClasses.map(cls => ({
+      const classRounds: ClassRoundColumn[] = dayClasses.map((cls) => ({
         className: cls.class_name,
         roundNumber: cls.round_number || 1,
         judgeName: cls.judge_name,
         classId: cls.class_id,
         roundId: cls.id,
         columnHeader: `${abbreviateClassName(cls.class_name)} Round ${cls.round_number || 1}`,
-        entries: []
+        entries: [],
       }));
 
       // Sort columns - First by class order, then by round number within each class
@@ -3076,7 +3256,7 @@ export default function LiveEventManagementPage() {
               if (selection.trial_round_id === col.roundId) {
                 // FILTER OUT WITHDRAWN ENTRIES FROM EXCEL EXPORT
                 const entryStatus = selection.entry_status?.toLowerCase() || 'entered';
-                if (entryStatus !== 'withdrawn') {
+                if (isScorableSelection(entryStatus)) {
                   const isFeo = selection.entry_type === 'feo';
                   const handlerName = entry.handler_name;
 
@@ -3088,14 +3268,6 @@ export default function LiveEventManagementPage() {
 
                   // Get score for this entry selection
                   const score = scoresMap?.get(selection.id);
-                  console.log('Excel Debug:', {
-                    handlerName: entry.handler_name,
-                    className: col.className,
-                    score: score,
-                    entryType: selection.entry_type,
-                    entryStatus: entryStatus,
-                  });
-
                   if (entryStatus === 'no_show' || entryStatus === 'absent') {
                     resultDisplay = 'Abs';
                   } else if (isFeo) {
@@ -3151,8 +3323,8 @@ export default function LiveEventManagementPage() {
                     position: selection.running_position,
                     handlerName: handlerName,
                     dogName: dogName,
-                    division: selection.division || null, 
-                    jump_height: selection.jump_height || null, 
+                    division: selection.division || null,
+                    jump_height: selection.jump_height || null,
                     status: selection.entry_status,
                     result: resultDisplay,
                   });
@@ -3170,7 +3342,7 @@ export default function LiveEventManagementPage() {
           // Sort entries and renumber positions to be consecutive (1, 2, 3, 4...)
           const sortedEntries = entries.sort((a, b) => a.position - b.position);
           sortedEntries.forEach((entry, index) => {
-            entry.position = index + 1; 
+            entry.position = index + 1;
           });
 
           col.entries = sortedEntries;
@@ -3273,14 +3445,6 @@ export default function LiveEventManagementPage() {
 
             cellValue = `${firstName} - ${entry.dogName}${infoText}`;
 
-            console.log('Excel Cell Creation:', {
-              originalHandlerName: entry.handlerName,
-              firstName: firstName,
-              dogName: entry.dogName,
-              division: entry.division,
-              result: entry.result,
-              finalCellValue: cellValue,
-            });
           }
 
           worksheet[cellRef] = {
@@ -3299,9 +3463,11 @@ export default function LiveEventManagementPage() {
       worksheet['!ref'] = `A1:${XLSX.utils.encode_col(lastCol)}${lastRow + 1}`;
 
       // Set column widths - 25 for all columns
-      const columnWidths = Array(numColumns).fill(null).map(() => ({
-        wch: 25
-      }));
+      const columnWidths = Array(numColumns)
+        .fill(null)
+        .map(() => ({
+          wch: 25,
+        }));
       worksheet['!cols'] = columnWidths;
 
       // Merge Row 1
@@ -3323,6 +3489,100 @@ export default function LiveEventManagementPage() {
     } catch (error) {
       console.error('Error exporting running order:', error);
       alert('Error exporting running order. Please try again.');
+    }
+  };
+
+  const openBetaSetup = (dayId: string) => {
+    const rounds = trialClasses.filter((round) => round.trial_day_id === dayId);
+    setBetaDayId(dayId);
+    setBetaRingNames(['Ring 1']);
+    setBetaAssignments(Object.fromEntries(rounds.map((round) => [round.id, 0])));
+    setShowDaySelector(false);
+    setIsExportProcessing(false);
+    setShowBetaSetup(true);
+  };
+
+  const exportBetaRunningOrder = async () => {
+    if (!trial || !betaDayId) return;
+    const selectedDay = availableDays.find((day) => day.id === betaDayId);
+    const rounds = trialClasses
+      .filter((round) => round.trial_day_id === betaDayId)
+      .sort((a, b) => {
+        const classDifference = getClassOrder(a.class_name) - getClassOrder(b.class_name);
+        return classDifference || (a.round_number || 1) - (b.round_number || 1);
+      });
+    if (!selectedDay || rounds.length === 0) {
+      alert('No rounds found for this day');
+      return;
+    }
+    if (betaRingNames.some((name) => !name.trim())) {
+      alert('Please name every ring.');
+      return;
+    }
+
+    try {
+      setIsExportProcessing(true);
+      const result = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
+      if (!result.success) throw new Error('Failed to load entries');
+      const workbook = XLSX.utils.book_new();
+
+      betaRingNames.forEach((ringName, ringIndex) => {
+        const rows: any[][] = [[trial.trial_name], [selectedDay.formatted_date], [ringName.trim()], []];
+        const ringRounds = rounds.filter((round) => (betaAssignments[round.id] ?? 0) === ringIndex);
+
+        ringRounds.forEach((round) => {
+          let baseRoundId = round.id;
+          let targetSubclass = round.games_subclass;
+          const suffix = round.id.split('-').pop();
+          if (round.class_type === 'games' && suffix && ['GB', 'BJ', 'T', 'P', 'C'].includes(suffix)) {
+            baseRoundId = round.id.split('-').slice(0, -1).join('-');
+            targetSubclass = suffix;
+          }
+
+          const entries: Array<{ storedPosition: number; registration: string; handler: string; dog: string }> = [];
+          (result.data || []).forEach((entry: any) => {
+            (entry.entry_selections || []).forEach((selection: any) => {
+              const roundMatches = selection.trial_round_id === baseRoundId;
+              const subclassMatches =
+                round.class_type !== 'games' || !targetSubclass || selection.games_subclass === targetSubclass;
+              if (roundMatches && subclassMatches && isRunningOrderSelection(selection.entry_status)) {
+                entries.push({
+                  storedPosition: Number(selection.running_position || 0),
+                  registration: entry.cwags_number || '',
+                  handler: entry.handler_name || '',
+                  dog: `${entry.dog_call_name || ''}${selection.entry_type === 'feo' ? ' (FEO)' : ''}`,
+                });
+              }
+            });
+          });
+          entries.sort((a, b) => a.storedPosition - b.storedPosition);
+
+          rows.push([ringName.trim()]);
+          rows.push([`${round.class_name} - Round ${round.round_number || 1}`]);
+          rows.push([`Judge: ${round.judge_name || 'TBA'}`]);
+          rows.push(['Running Order', 'Registration Number', 'Handler Name', 'Dog Name']);
+          entries.forEach((entry, index) => rows.push([index + 1, entry.registration, entry.handler, entry.dog]));
+          rows.push([]);
+        });
+
+        if (ringRounds.length === 0) rows.push(['No classes assigned to this ring']);
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+        worksheet['!cols'] = [{ wch: 18 }, { wch: 24 }, { wch: 28 }, { wch: 24 }];
+        worksheet['!view'] = [{ showGridLines: false }];
+        XLSX.utils.book_append_sheet(workbook, worksheet, `Ring ${ringIndex + 1}`);
+      });
+
+      XLSX.writeFile(
+        workbook,
+        `Beta-Running-Order-${selectedDay.formatted_date.replace(/[,\/]/g, '')}.xlsx`
+      );
+      setShowBetaSetup(false);
+      alert('Beta running order exported successfully!');
+    } catch (error) {
+      console.error('Error exporting beta running order:', error);
+      alert('Error exporting beta running order. Please try again.');
+    } finally {
+      setIsExportProcessing(false);
     }
   };
 
@@ -3706,7 +3966,7 @@ export default function LiveEventManagementPage() {
                       </p>
                     </CardTitle>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         onClick={() => {
                           // Auto-select the currently displayed round
@@ -3780,7 +4040,20 @@ export default function LiveEventManagementPage() {
                                   </h3>
                                   <p className="text-sm text-gray-600 mt-1">
                                     Judge: {roundInfo.trial_rounds.judge_name} •{' '}
-                                    {roundEntries.length} entries
+                                    {roundEntries.length} entries ·{' '}
+                                    {
+                                      roundEntries.filter((entry) => {
+                                        const score = Array.isArray(entry.scores)
+                                          ? entry.scores[0]
+                                          : entry.scores;
+                                        return (
+                                          entry.entry_type !== 'feo' &&
+                                          isScorableSelection(entry.entry_status) &&
+                                          !score?.pass_fail
+                                        );
+                                      }).length
+                                    }{' '}
+                                    remaining
                                   </p>
                                 </div>
 
@@ -3816,10 +4089,12 @@ export default function LiveEventManagementPage() {
                                               <GripVertical className="h-4 w-4 text-gray-400 cursor-grab active:cursor-grabbing" />
                                               <span className="text-lg font-bold text-orange-600 min-w-[2rem]">
                                                 #
-                                                {entry.entry_status === 'withdrawn'
+                                                {isWithdrawnSelection(entry.entry_status)
                                                   ? 'X'
                                                   : roundEntries
-                                                      .filter((e) => e.entry_status !== 'withdrawn')
+                                                      .filter((e) =>
+                                                        isRunningOrderSelection(e.entry_status)
+                                                      )
                                                       .filter(
                                                         (e) =>
                                                           e.running_position <=
@@ -3868,6 +4143,12 @@ export default function LiveEventManagementPage() {
                                                         className="text-xs bg-teal-100 text-teal-700 border-teal-300"
                                                       >
                                                         {entry.jump_height}" jump
+                                                      </Badge>
+                                                    )}
+                                                    {entry.entry_status === 'confirmed' && (
+                                                      <Badge className="bg-green-100 text-green-800 border border-green-300">
+                                                        <UserCheck className="mr-1 h-3 w-3" />
+                                                        Checked In
                                                       </Badge>
                                                     )}
                                                   </div>
@@ -3925,7 +4206,7 @@ export default function LiveEventManagementPage() {
                                                   )
                                                 }
                                               >
-                                                Mark Confirmed
+                                                Check In
                                               </DropdownMenuItem>
                                               <DropdownMenuItem
                                                 onClick={() =>
@@ -3937,6 +4218,11 @@ export default function LiveEventManagementPage() {
                                                 }
                                               >
                                                 Mark No Show (Absent)
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem
+                                                onClick={() => void quickScratchEntry(entry)}
+                                              >
+                                                Scratch (WD)
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
                                               <DropdownMenuItem
@@ -3988,6 +4274,128 @@ export default function LiveEventManagementPage() {
                   )}
                 </CardContent>
               </Card>
+            {selectedClass && (
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-900">
+                    <Settings className="h-5 w-5" />
+                    Round Capacity
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedClass.class_name}, Round {selectedClass.round_number}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-lg border border-blue-200 bg-white p-4">
+                      <div className="text-sm text-gray-600">Current capacity</div>
+                      <div className="text-2xl font-bold text-blue-900">
+                        {capacityMetrics?.maxEntries || selectedClass.max_entries || 'Unlimited'}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-white p-4">
+                      <div className="text-sm text-gray-600">Active entries</div>
+                      <div className="text-2xl font-bold text-blue-900">
+                        {capacityMetrics?.activeEntries ?? classEntries.length}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-white p-4">
+                      <div className="text-sm text-gray-600">Waitlisted</div>
+                      <div className="text-2xl font-bold text-yellow-700">
+                        {capacityMetrics?.waitlistedEntries ?? waitlistedEntries.length}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="round-capacity">Set capacity</Label>
+                      <Input
+                        id="round-capacity"
+                        type="number"
+                        min={Math.max(1, capacityMetrics?.activeEntries ?? classEntries.length)}
+                        step={1}
+                        value={capacityDraft}
+                        onChange={(event) => setCapacityDraft(event.target.value)}
+                        disabled={savingCapacity}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={savingCapacity}
+                      onClick={() =>
+                        updateRoundCapacity(
+                          Number(capacityMetrics?.maxEntries || selectedClass.max_entries || 0) + 1
+                        )
+                      }
+                    >
+                      Increase by 1
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={savingCapacity || !capacityDraft}
+                      onClick={() => updateRoundCapacity(Number(capacityDraft))}
+                    >
+                      {savingCapacity ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Set Capacity
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-blue-800">
+                    Capacity cannot be reduced below the active-entry count. Waitlisted dogs are
+                    not promoted automatically when capacity changes.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            {selectedClass && (
+              <Card className="border-yellow-300 bg-yellow-50">
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-yellow-900">
+                        <Clock className="h-5 w-5" />
+                        Round Waitlist ({waitlistedEntries.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Ordered by entry time. Any dog may be selected for promotion when priority is justified.
+                      </CardDescription>
+                    </div>
+                    <Badge variant="outline" className="bg-white text-yellow-900">
+                      Capacity: {classEntries.length}/{selectedClass.max_entries || 'Unlimited'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {waitlistedEntries.length === 0 ? (
+                    <p className="text-sm text-yellow-800">No dogs are waitlisted for this round.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {waitlistedEntries.map((entry, index) => (
+                        <div key={entry.id} className="flex flex-col gap-3 rounded-lg border border-yellow-300 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <div className="font-semibold text-gray-900">
+                              #{index + 1} {entry.entries.handler_name} • {entry.entries.dog_call_name}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {entry.entries.cwags_number} • Waitlisted {new Date(entry.created_at || entry.submitted_at || Date.now()).toLocaleString('en-CA')}
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => promoteWaitlistedSelection(entry, index)}
+                            disabled={promotingSelectionId === entry.id}
+                            className="bg-yellow-700 hover:bg-yellow-800"
+                          >
+                            {promotingSelectionId === entry.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUpCircle className="mr-2 h-4 w-4" />}
+                            Promote Selected Dog
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             </TabsContent>
 
             <TabsContent value="scoring" className="space-y-6">
@@ -4019,13 +4427,13 @@ export default function LiveEventManagementPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-green-600">
-                    {classEntries.filter((e) => e.entry_status !== 'no_show').length}
+                    {classEntries.filter((e) => !isAbsentSelection(e.entry_status)).length}
                   </div>
                   <div className="text-sm text-gray-600">Present</div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-600">
-                    {classEntries.filter((e) => e.entry_status === 'no_show').length}
+                    {classEntries.filter((e) => isAbsentSelection(e.entry_status)).length}
                   </div>
                   <div className="text-sm text-gray-600">Abs</div>
                 </div>
@@ -4041,15 +4449,19 @@ export default function LiveEventManagementPage() {
                       classEntries.filter(
                         (e) =>
                           e.entry_type !== 'feo' &&
-                          e.entry_status !== 'no_show' &&
-                          (!((Array.isArray(e.scores) ? e.scores[0] : e.scores) as any)?.pass_fail)
+                          isScorableSelection(e.entry_status) &&
+                          !((Array.isArray(e.scores) ? e.scores[0] : e.scores) as any)?.pass_fail
                       ).length
                     }
                   </div>
                   <div className="text-sm text-gray-600">Missing Scores</div>
                 </div>
-              </div>
-            </CardContent>
+                </div>
+                <p className="mt-4 text-xs text-gray-500">
+                  Keyboard: focus a dog card, then press C to check in, N for no-show, S to
+                  scratch, or ↑/↓ to adjust running order.
+                </p>
+              </CardContent>
           </Card>
         )}
       </div>
@@ -4099,7 +4511,7 @@ export default function LiveEventManagementPage() {
                   Enter C-WAGS number to auto-fill handler and dog name
                 </p>
               </div>
-              {/* Add this new field AFTER the C-WAGS Number input */}
+              {/* Round selection */}
               <div>
                 <Label htmlFor="round_selection">Select Round *</Label>
                 <select
@@ -4389,7 +4801,9 @@ export default function LiveEventManagementPage() {
               <h3 className="text-lg font-semibold">
                 {exportType === 'running-order'
                   ? 'Select Day to Export Running Order'
-                  : 'Select Day to Export Score Sheets'}
+                  : exportType === 'beta-running-order'
+                    ? 'Select Day to Export Beta Running Order'
+                    : 'Select Day to Export Score Sheets'}
               </h3>
               <Button variant="ghost" size="sm" onClick={() => setShowDaySelector(false)}>
                 <X className="h-4 w-4" />
@@ -4410,6 +4824,8 @@ export default function LiveEventManagementPage() {
                     // run proper export action
                     if (exportType === 'running-order') {
                       exportRunningOrderToExcel(day.id);
+                    } else if (exportType === 'beta-running-order') {
+                      openBetaSetup(day.id);
                     } else {
                       exportScoreSheetsForDay(day.id);
                     }
@@ -4432,13 +4848,109 @@ export default function LiveEventManagementPage() {
         </div>
       )}
 
+      {showBetaSetup && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">Beta Running Order Setup</h3>
+                <p className="text-sm text-gray-600">Name the rings and assign each class/round.</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowBetaSetup(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mb-6">
+              <Label htmlFor="beta-ring-count">Number of rings</Label>
+              <Input
+                id="beta-ring-count"
+                type="number"
+                min={1}
+                max={20}
+                value={betaRingNames.length}
+                onChange={(event) => {
+                  const count = Math.max(1, Math.min(20, Number(event.target.value) || 1));
+                  setBetaRingNames((names) =>
+                    Array.from({ length: count }, (_, index) => names[index] || `Ring ${index + 1}`)
+                  );
+                  setBetaAssignments((assignments) =>
+                    Object.fromEntries(
+                      Object.entries(assignments).map(([roundId, ring]) => [roundId, Math.min(ring, count - 1)])
+                    )
+                  );
+                }}
+              />
+            </div>
+
+            <div className="mb-6 grid gap-3 sm:grid-cols-2">
+              {betaRingNames.map((name, index) => (
+                <div key={index}>
+                  <Label htmlFor={`beta-ring-${index}`}>Ring {index + 1} name</Label>
+                  <Input
+                    id={`beta-ring-${index}`}
+                    value={name}
+                    onChange={(event) =>
+                      setBetaRingNames((names) =>
+                        names.map((current, nameIndex) =>
+                          nameIndex === index ? event.target.value : current
+                        )
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-semibold">Class and round assignments</h4>
+              {trialClasses
+                .filter((round) => round.trial_day_id === betaDayId)
+                .map((round) => (
+                  <div key={round.id} className="flex flex-col gap-2 rounded border p-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-medium">
+                      {round.class_name} — Round {round.round_number || 1}
+                    </span>
+                    <select
+                      className="h-10 rounded-md border border-gray-300 bg-white px-3"
+                      value={betaAssignments[round.id] ?? 0}
+                      onChange={(event) =>
+                        setBetaAssignments((assignments) => ({
+                          ...assignments,
+                          [round.id]: Number(event.target.value),
+                        }))
+                      }
+                    >
+                      {betaRingNames.map((ringName, ringIndex) => (
+                        <option key={ringIndex} value={ringIndex}>
+                          {ringName || `Ring ${ringIndex + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setShowBetaSetup(false)}>Cancel</Button>
+              <Button onClick={exportBetaRunningOrder} disabled={isExportProcessing}>
+                <FileDown className="mr-2 h-4 w-4" />
+                Export Workbook
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Live Event C-WAGS Verification Dialog */}
       {liveVerifyDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
             <h3 className="text-lg font-bold mb-2">Verify Dog & Handler</h3>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <p className="font-semibold text-gray-900">Handler: {liveVerifyDialog.handler_name}</p>
+              <p className="font-semibold text-gray-900">
+                Handler: {liveVerifyDialog.handler_name}
+              </p>
               <p className="font-semibold text-gray-900">Dog: {liveVerifyDialog.dog_call_name}</p>
             </div>
             <p className="text-sm text-gray-700 mb-6">

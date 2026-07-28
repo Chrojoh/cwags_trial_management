@@ -257,7 +257,10 @@ export interface Database {
           total_fee: number;
           payment_status: string;
           submitted_at: string;
-          entry_status: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status: 'submitted' | 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
+          amount_paid: number;
+          amount_owed: number;
+          fees_waived: boolean;
           audit_trail: string | null;
           created_at: string;
         };
@@ -278,7 +281,10 @@ export interface Database {
           total_fee: number;
           payment_status?: string;
           submitted_at?: string;
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status?: 'submitted' | 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
+          amount_paid?: number;
+          amount_owed?: number;
+          fees_waived?: boolean;
           audit_trail?: string | null;
           created_at?: string;
         };
@@ -299,7 +305,10 @@ export interface Database {
           total_fee?: number;
           payment_status?: string;
           submitted_at?: string;
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status?: 'submitted' | 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
+          amount_paid?: number;
+          amount_owed?: number;
+          fees_waived?: boolean;
           audit_trail?: string | null;
           created_at?: string;
         };
@@ -312,7 +321,7 @@ export interface Database {
           entry_type: 'regular' | 'feo';
           fee: number;
           running_position: number | null;
-          entry_status: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status: 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
           division: string | null;
           games_subclass: string | null;
           substitute_dog_name: string | null;
@@ -328,7 +337,7 @@ export interface Database {
           entry_type?: 'regular' | 'feo';
           fee: number;
           running_position?: number | null;
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status?: 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
           division?: string | null;
           games_subclass?: string | null;
           substitute_dog_name?: string | null;
@@ -344,7 +353,7 @@ export interface Database {
           entry_type?: 'regular' | 'feo';
           fee?: number;
           running_position?: number | null;
-          entry_status?: 'confirmed' | 'withdrawn' | 'no_show';
+          entry_status?: 'confirmed' | 'entered' | 'waitlisted' | 'withdrawn' | 'no_show';
           division?: string | null;
           games_subclass?: string | null;
           substitute_dog_name?: string | null;
@@ -549,7 +558,80 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      promote_waitlisted_selection: {
+        Args: {
+          p_trial_id: string;
+          p_entry_id: string;
+          p_selection_id: string;
+          p_increase_capacity?: boolean;
+          p_promoted_by?: string | null;
+        };
+        Returns: Json;
+      };
+      recalculate_parent_entry_summary: {
+        Args: { p_entry_id: string };
+        Returns: Json;
+      };
+      set_entry_status_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_id: string;
+          p_status: string;
+          p_changed_by?: string | null;
+        };
+        Returns: Json;
+      };
+      refresh_entry_payment_summary: {
+        Args: { p_entry_id: string };
+        Returns: Json;
+      };
+      record_entry_payment_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_id: string;
+          p_amount: number;
+          p_payment_method: string | null;
+          p_payment_received_by: string | null;
+          p_payment_date: string | null;
+          p_notes?: string | null;
+          p_recorded_by?: string | null;
+        };
+        Returns: Json;
+      };
+      update_entry_payment_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_transaction_id: string;
+          p_amount: number;
+          p_payment_method: string | null;
+          p_payment_received_by: string | null;
+          p_payment_date: string | null;
+          p_notes?: string | null;
+          p_changed_by?: string | null;
+        };
+        Returns: Json;
+      };
+      set_entry_fee_waiver_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_ids: string[];
+          p_waived: boolean;
+          p_reason?: string | null;
+          p_changed_by?: string | null;
+        };
+        Returns: Json;
+      };
+      set_judge_volunteer_pricing_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_ids: string[];
+          p_is_judge_volunteer: boolean;
+          p_regular_rate: number;
+          p_feo_rate: number;
+          p_changed_by?: string | null;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       [_ in never]: never;
