@@ -22,7 +22,6 @@ import {
   searchByRegistryNumber,
   searchByHandlerName,
   getDogProfile,
-  updateRegistry,
   preloadTrialData,
   clearCache,
   parseRegistrationNumber,
@@ -232,7 +231,10 @@ export default function AdminRegistryPage() {
 
     setSaving(true);
     try {
-      const success = await updateRegistry(editForm.id, {
+      const response = await fetch(`/api/registry/${encodeURIComponent(editForm.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
         handler_name: editForm.handler_name,
         dog_call_name: editForm.dog_call_name,
         handler_email: editForm.handler_email,
@@ -242,14 +244,20 @@ export default function AdminRegistryPage() {
         dog_sex: editForm.dog_sex,
         is_junior_handler: editForm.is_junior_handler,
         is_active: editForm.is_active,
+        }),
       });
+      const result = await response.json();
 
-      if (success) {
-        setSelectedDog(editForm);
+      if (response.ok && result.success) {
+        const synchronizedDog = result.registry as RegistryDog;
+        setSelectedDog(synchronizedDog);
+        setEditForm(synchronizedDog);
         setIsEditing(false);
-        alert('Successfully updated registry information');
+        alert(
+          `Successfully updated the registry and ${result.updatedEntries ?? 0} matching trial entries.`
+        );
       } else {
-        alert('Failed to update registry information');
+        alert(result.message || 'Failed to update registry and entry information');
       }
     } catch (error) {
       console.error('Save error:', error);

@@ -222,22 +222,6 @@ export async function getLitterMates(regNumber: string): Promise<RegistryDog[]> 
 }
 
 /**
- * Update registry information
- */
-export async function updateRegistry(id: string, updates: Partial<RegistryDog>): Promise<boolean> {
-  try {
-    const { error } = await supabase.from('cwags_registry').update(updates).eq('id', id);
-
-    if (error) throw error;
-    console.log('✅ Updated dog information in database');
-    return true;
-  } catch (error) {
-    console.error('Error updating registry:', error);
-    return false;
-  }
-}
-
-/**
  * Get all trial entries and scores for a dog from Excel file
  */
 export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord[]> {
