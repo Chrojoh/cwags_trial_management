@@ -12,6 +12,7 @@ export default function RegistryImportPage() {
     totalRows?: number;
     processed?: number;
     added?: number;
+    updated?: number;
     skipped?: number;
     errors?: string[];
   } | null>(null);
@@ -27,7 +28,6 @@ export default function RegistryImportPage() {
   const handleImport = async () => {
     if (!file) return;
 
-    console.log('🚀 Starting import with file:', file.name);
     setImporting(true);
     setResult(null);
 
@@ -35,31 +35,25 @@ export default function RegistryImportPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      console.log('📤 Sending request to /api/registry/import');
-
       const response = await fetch('/api/registry/import', {
         method: 'POST',
         body: formData,
       });
 
-      console.log('📥 Response received, status:', response.status);
-
       const data = await response.json();
-      console.log('📊 Response data:', data);
 
       if (!response.ok || data.success !== true) {
         throw new Error(data.message || data.error || 'Import failed');
       }
 
       setResult(data);
-    } catch (error: any) {
-      console.error('❌ Import error:', error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Import failed';
       setResult({
         success: false,
-        message: error.message || 'Import failed',
+        message,
       });
     } finally {
-      console.log('✅ Import process finished');
       setImporting(false);
     }
   };
@@ -125,7 +119,7 @@ export default function RegistryImportPage() {
             <p className={result.success ? 'text-green-700' : 'text-red-700'}>{result.message}</p>
 
             {result.success && (
-              <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                 <div>
                   <dt className="text-gray-500">Valid rows</dt>
                   <dd className="font-semibold text-gray-900">{result.totalRows ?? 0}</dd>
@@ -133,6 +127,10 @@ export default function RegistryImportPage() {
                 <div>
                   <dt className="text-gray-500">Added</dt>
                   <dd className="font-semibold text-green-800">{result.added ?? 0}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Updated</dt>
+                  <dd className="font-semibold text-blue-800">{result.updated ?? 0}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Skipped</dt>
@@ -162,7 +160,9 @@ export default function RegistryImportPage() {
           <li>Column B: Dog Call Name</li>
           <li>Column D: Handler Name</li>
           <li>First row should be headers (will be skipped)</li>
-          <li>Existing CWAGS numbers will be skipped (not duplicated)</li>
+          <li>Existing CWAGS numbers will be overwritten with the corrected dog and handler names</li>
+          <li>New CWAGS numbers will be added</li>
+          <li>Blank or incomplete rows will be skipped and reported</li>
         </ul>
       </div>
     </div>
