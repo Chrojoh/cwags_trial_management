@@ -220,7 +220,7 @@ src/
 
 ```bash
 git clone <repo-url>
-cd cwags_trial_management
+cd TrialMgr
 npm install
 ```
 
