@@ -249,8 +249,8 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
 
   if (score?.pass_fail === 'Pass') {
     return 'Pass';
-  } else if (score?.pass_fail === 'Fail') {
-    return 'Fail';
+  } else if (['Fail', 'NQ'].includes(String(score?.pass_fail))) {
+    return 'NQ';
   }
 
   // No score yet
@@ -3305,8 +3305,8 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                         resultDisplay = score.pass_fail; // Show subclass symbol directly
                       } else if (score.pass_fail === 'Pass') {
                         resultDisplay = 'Pass';
-                      } else if (score.pass_fail === 'Fail') {
-                        resultDisplay = 'F';
+                      } else if (['Fail', 'NQ'].includes(String(score.pass_fail))) {
+                        resultDisplay = 'NQ';
                       } else if (score.pass_fail === 'FEO') {
                         resultDisplay = 'FEO';
                       } else if (score.pass_fail === 'ABS') {

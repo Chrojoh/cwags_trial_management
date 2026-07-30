@@ -377,7 +377,7 @@ export interface Database {
           fault2: string | null;
           time_seconds: number | null;
           numerical_score: number | null;
-          pass_fail: 'Pass' | 'Fail' | 'ABS' | 'WD';
+          pass_fail: 'Pass' | 'Fail' | 'NQ' | 'ABS' | 'WD';
           entry_status: 'present' | 'ABS' | 'WD';
           judge_notes: string | null;
           scored_at: string;
@@ -397,7 +397,7 @@ export interface Database {
           fault2?: string | null;
           time_seconds?: number | null;
           numerical_score?: number | null;
-          pass_fail: 'Pass' | 'Fail' | 'ABS' | 'WD';
+          pass_fail: 'Pass' | 'Fail' | 'NQ' | 'ABS' | 'WD';
           entry_status?: 'present' | 'ABS' | 'WD';
           judge_notes?: string | null;
           scored_at?: string;
@@ -417,7 +417,7 @@ export interface Database {
           fault2?: string | null;
           time_seconds?: number | null;
           numerical_score?: number | null;
-          pass_fail?: 'Pass' | 'Fail' | 'ABS' | 'WD';
+          pass_fail?: 'Pass' | 'Fail' | 'NQ' | 'ABS' | 'WD';
           entry_status?: 'present' | 'ABS' | 'WD';
           judge_notes?: string | null;
           scored_at?: string;

@@ -2682,8 +2682,8 @@ export const simpleTrialOperations = {
     // Handle other class types - show P/F
     if (score.pass_fail === 'Pass') {
       return 'P';
-    } else if (score.pass_fail === 'Fail') {
-      return 'F';
+    } else if (['Fail', 'NQ'].includes(String(score.pass_fail))) {
+      return 'NQ';
     }
 
     return '-';
