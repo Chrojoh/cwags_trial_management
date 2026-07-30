@@ -37,6 +37,24 @@ test('parses two-column sheets as separate rounds', () => {
   assert.deepEqual(parsed.records.map((record) => [record.roundNumber, record.result]), [[1, 'Pass'], [2, 'Fail']]);
 });
 
+test('imports qualifying Rally, Obedience, and Obedience 5 numerical scores', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Result', 'Judge', 'Result', 'Judge'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Starter', 71, 'Judge One', 97, 'Judge Two'],
+    ['12-3456-79', 'Finn', '', '2026-07-04', 'Obedience 5', 120, 'Judge One', 150, 'Judge Two'],
+    ['12-3456-80', 'Pip', '', '2026-07-04', 'Advanced', '-', 'Judge One', 100, 'Judge Two'],
+  ];
+  const parsed = parseScoreSheetWorkbook(workbookBuffer([{ name: 'Obed_Rally', rows }]), 'scores.xlsx');
+  assert.equal(parsed.warnings.length, 0);
+  assert.deepEqual(parsed.records.map((record) => [record.className, record.numericalScore, record.result]), [
+    ['Advanced', 100, 'Pass'],
+    ['Obedience 5', 120, 'Pass'],
+    ['Obedience 5', 150, 'Pass'],
+    ['Starter', 71, 'Pass'],
+    ['Starter', 97, 'Pass'],
+  ]);
+});
+
 test('parses league sheets with dates and judges across columns', () => {
   const rows: unknown[][] = [
     ['League Trial'], ['League Club'], ['', '', '', '', '', 'Patrol 1'], [],

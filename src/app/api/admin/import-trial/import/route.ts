@@ -192,6 +192,7 @@ export async function POST(request: NextRequest) {
       const { error: scoreError } = await supabase.from('scores').insert({
         entry_selection_id: selection.id,
         trial_round_id: roundId,
+        numerical_score: record.numericalScore,
         pass_fail: record.result,
         entry_status: record.result === 'ABS' ? 'ABS' : 'present',
       });

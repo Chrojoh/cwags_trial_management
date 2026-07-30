@@ -11,6 +11,7 @@ export interface ParsedScoreRecord {
   roundNumber: number;
   judgeName: string;
   result: ImportedResult;
+  numericalScore: number | null;
   sourceSheet: string;
   sourceRow: number;
 }
@@ -156,13 +157,41 @@ const makeRecord = (
   resultValue: unknown,
   warnings: string[]
 ): ParsedScoreRecord | null => {
-  const result = normalizeImportedResult(resultValue);
+  const normalizedClass = normalizeImportedClassName(className);
+  let result = normalizeImportedResult(resultValue);
+  let numericalScore: number | null = null;
+  const rawNumericScore =
+    typeof resultValue === 'number'
+      ? resultValue
+      : /^\d+(?:\.\d+)?$/.test(String(resultValue ?? '').trim())
+        ? Number(resultValue)
+        : null;
+
+  if (!result && rawNumericScore !== null) {
+    const isObedienceFive = normalizedClass.toLowerCase().includes('obedience 5');
+    const isNumericalClass =
+      normalizedClass.toLowerCase().includes('obedience') ||
+      ['starter', 'advanced', 'pro', 'arf', 'zoom'].some((name) =>
+        normalizedClass.toLowerCase().includes(name)
+      );
+    const minimum = isObedienceFive ? 120 : 70;
+    const maximum = isObedienceFive ? 150 : 100;
+    if (isNumericalClass && rawNumericScore >= minimum && rawNumericScore <= maximum) {
+      result = 'Pass';
+      numericalScore = rawNumericScore;
+    } else if (isNumericalClass) {
+      warnings.push(
+        `${sheetName}, row ${row}: score "${String(resultValue)}" is outside the valid ${minimum}-${maximum} range for ${normalizedClass} and was skipped.`
+      );
+      return null;
+    }
+  }
+
   if (!result) {
     if (!isNotEnteredResult(resultValue))
       warnings.push(`${sheetName}, row ${row}: unrecognized result "${String(resultValue)}" was skipped.`);
     return null;
   }
-  const normalizedClass = normalizeImportedClassName(className);
   if (!normalizedClass) {
     warnings.push(`${sheetName}, row ${row}: class name is blank; result was skipped.`);
     return null;
@@ -175,6 +204,7 @@ const makeRecord = (
     roundNumber: Math.max(1, Number(roundNumber) || 1),
     judgeName: String(judgeName ?? '').trim() || 'Unknown Judge',
     result,
+    numericalScore,
     sourceSheet: sheetName,
     sourceRow: row,
   };
