@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,11 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { financialOperations } from '@/lib/financialOperations';
+import {
+  financialOperations,
+  type CompetitorFinancial,
+  type TrialExpense,
+} from '@/lib/financialOperations';
 import { isActiveSelection } from '@/lib/selectionStatus';
 import { useAuth } from '@/hooks/useAuth';
 import { AlertCircle, ChevronDown, ChevronUp, Download, Loader2 } from 'lucide-react';
@@ -60,6 +64,7 @@ interface TrialAnnualRow extends TrialBase {
   collected: number;
   outstanding: number;
   waived: number;
+  waivedByJudge: Array<{ judgeName: string; amount: number; runs: number }>;
   expenses: number;
   net: number;
 }
@@ -97,6 +102,8 @@ const formatMetric = (value: number, format: 'number' | 'money' | 'percent') => 
   return number.format(value);
 };
 
+const REPORT_PAGE_SIZE = 1000;
+
 export default function AnnualReportPage() {
   const { user } = useAuth();
   const supabase = getSupabaseBrowser();
@@ -107,6 +114,8 @@ export default function AnnualReportPage() {
   const [completedOnly, setCompletedOnly] = useState(false);
   const [rows, setRows] = useState<TrialAnnualRow[]>([]);
   const [expandedMetric, setExpandedMetric] = useState<MetricKey | null>(null);
+  const [waivedBreakdownMode, setWaivedBreakdownMode] = useState<'trial' | 'judge'>('trial');
+  const [expandedWaivedTrialId, setExpandedWaivedTrialId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -169,63 +178,90 @@ export default function AnnualReportPage() {
         return;
       }
 
-      const { data: days, error: daysError } = await supabase
-        .from('trial_days')
-        .select('id, trial_id')
-        .in('trial_id', trialIds);
-      if (daysError) throw daysError;
-      const dayIds = (days || []).map((day) => day.id);
+      const fetchAllPages = async <T,>(fetchPage: (from: number, to: number) => PromiseLike<{
+        data: T[] | null;
+        error: { message: string } | null;
+      }>) => {
+        const records: T[] = [];
+        let from = 0;
+        while (true) {
+          const { data, error: pageError } = await fetchPage(from, from + REPORT_PAGE_SIZE - 1);
+          if (pageError) throw pageError;
+          const page = data || [];
+          records.push(...page);
+          if (page.length < REPORT_PAGE_SIZE) break;
+          from += REPORT_PAGE_SIZE;
+        }
+        return records;
+      };
 
-      const classesResult = dayIds.length
-        ? await supabase.from('trial_classes').select('id, trial_day_id').in('trial_day_id', dayIds)
-        : { data: [], error: null };
-      if (classesResult.error) throw classesResult.error;
-      const classIds = (classesResult.data || []).map((trialClass) => trialClass.id);
+      const days = await fetchAllPages<{ id: string; trial_id: string }>((from, to) =>
+        supabase.from('trial_days').select('id, trial_id').in('trial_id', trialIds).range(from, to)
+      );
+      const dayIds = days.map((day) => day.id);
 
-      const roundsResult = classIds.length
-        ? await supabase.from('trial_rounds').select('id, trial_class_id').in('trial_class_id', classIds)
-        : { data: [], error: null };
-      if (roundsResult.error) throw roundsResult.error;
-      const roundIds = (roundsResult.data || []).map((round) => round.id);
+      const trialClasses = dayIds.length
+        ? await fetchAllPages<{ id: string; trial_day_id: string }>((from, to) =>
+            supabase.from('trial_classes').select('id, trial_day_id').in('trial_day_id', dayIds).range(from, to)
+          )
+        : [];
+      const classIds = trialClasses.map((trialClass) => trialClass.id);
 
-      const selectionsResult = roundIds.length
-        ? await supabase
-            .from('entry_selections')
-            .select('id, entry_id, trial_round_id, entry_type, entry_status')
-            .in('trial_round_id', roundIds)
-        : { data: [], error: null };
-      if (selectionsResult.error) throw selectionsResult.error;
+      const trialRounds = classIds.length
+        ? await fetchAllPages<{ id: string; trial_class_id: string; judge_name: string | null }>((from, to) =>
+            supabase.from('trial_rounds').select('id, trial_class_id, judge_name').in('trial_class_id', classIds).range(from, to)
+          )
+        : [];
+      const roundIds = trialRounds.map((round) => round.id);
 
-      const { data: entries, error: entriesError } = await supabase
-        .from('entries')
-        .select('id, trial_id')
-        .in('trial_id', trialIds);
-      if (entriesError) throw entriesError;
+      const selections = roundIds.length
+        ? await fetchAllPages<{
+            id: string;
+            entry_id: string;
+            trial_round_id: string;
+            entry_type: string | null;
+            entry_status: string | null;
+            fee: number | null;
+          }>((from, to) =>
+            supabase
+              .from('entry_selections')
+              .select('id, entry_id, trial_round_id, entry_type, entry_status, fee')
+              .in('trial_round_id', roundIds)
+              .range(from, to)
+          )
+        : [];
+
+      const entries = await fetchAllPages<{ id: string; trial_id: string; fees_waived: boolean | null }>((from, to) =>
+        supabase.from('entries').select('id, trial_id, fees_waived').in('trial_id', trialIds).range(from, to)
+      );
 
       let scores: Array<{ entry_selection_id: string; pass_fail: string | null; entry_status: string | null }> = [];
       let from = 0;
-      const pageSize = 1000;
       while (true) {
         const { data: scorePage, error: scoreError } = await supabase
           .from('scores')
           .select('entry_selection_id, pass_fail, entry_status')
-          .range(from, from + pageSize - 1);
+          .range(from, from + REPORT_PAGE_SIZE - 1);
         if (scoreError) throw scoreError;
         scores = scores.concat(scorePage || []);
-        if (!scorePage || scorePage.length < pageSize) break;
-        from += pageSize;
+        if (!scorePage || scorePage.length < REPORT_PAGE_SIZE) break;
+        from += REPORT_PAGE_SIZE;
       }
 
-      const dayToTrial = new Map((days || []).map((day) => [day.id, day.trial_id]));
+      const dayToTrial = new Map(days.map((day) => [day.id, day.trial_id]));
       const classToTrial = new Map(
-        (classesResult.data || []).map((trialClass) => [trialClass.id, dayToTrial.get(trialClass.trial_day_id)])
+        trialClasses.map((trialClass) => [trialClass.id, dayToTrial.get(trialClass.trial_day_id)])
       );
       const roundToTrial = new Map(
-        (roundsResult.data || []).map((round) => [round.id, classToTrial.get(round.trial_class_id)])
+        trialRounds.map((round) => [round.id, classToTrial.get(round.trial_class_id)])
       );
-      const entryToTrial = new Map((entries || []).map((entry) => [entry.id, entry.trial_id]));
+      const roundToJudge = new Map(
+        trialRounds.map((round) => [round.id, round.judge_name?.trim() || 'Unassigned judge'])
+      );
+      const entryToTrial = new Map(entries.map((entry) => [entry.id, entry.trial_id]));
+      const waivedEntryIds = new Set(entries.filter((entry) => entry.fees_waived).map((entry) => entry.id));
       const selectionToTrial = new Map(
-        (selectionsResult.data || []).map((selection) => [selection.id, roundToTrial.get(selection.trial_round_id)])
+        selections.map((selection) => [selection.id, roundToTrial.get(selection.trial_round_id)])
       );
       const financialResults = await Promise.all(
         filteredTrials.map(async (trial) => {
@@ -233,13 +269,17 @@ export default function AnnualReportPage() {
             financialOperations.getCompetitorFinancials(trial.id),
             financialOperations.getTrialExpenses(trial.id),
           ]);
-          return { trialId: trial.id, financials: financials.data || [], expenses: expenses.data || [] };
+          return {
+            trialId: trial.id,
+            financials: (financials.data || []) as CompetitorFinancial[],
+            expenses: (expenses.data || []) as TrialExpense[],
+          };
         })
       );
       const financialMap = new Map(financialResults.map((result) => [result.trialId, result]));
 
       const reportRows = filteredTrials.map((trial) => {
-        const trialSelections = (selectionsResult.data || []).filter(
+        const trialSelections = selections.filter(
           (selection) => roundToTrial.get(selection.trial_round_id) === trial.id
         );
         const activeSelections = trialSelections.filter((selection) => isActiveSelection(selection.entry_status));
@@ -256,21 +296,35 @@ export default function AnnualReportPage() {
         const abs = trialScores.filter(
           (score) => String(score.pass_fail).toUpperCase() === 'ABS' || String(score.entry_status).toUpperCase() === 'ABS'
         ).length;
+        const waivedJudgeMap = new Map<string, { amount: number; runs: number }>();
+        activeSelections
+          .filter((selection) => waivedEntryIds.has(selection.entry_id))
+          .forEach((selection) => {
+            const judgeName = roundToJudge.get(selection.trial_round_id) || 'Unassigned judge';
+            const existing = waivedJudgeMap.get(judgeName) || { amount: 0, runs: 0 };
+            existing.amount += Number(selection.fee || 0);
+            existing.runs += 1;
+            waivedJudgeMap.set(judgeName, existing);
+          });
+        const waivedByJudge = Array.from(waivedJudgeMap, ([judgeName, values]) => ({
+          judgeName,
+          ...values,
+        })).sort((a, b) => b.amount - a.amount || a.judgeName.localeCompare(b.judgeName));
         const finance = financialMap.get(trial.id);
-        const assessed = finance?.financials.reduce((sum: number, competitor: any) => sum + Number(competitor.amount_owed || 0), 0) || 0;
-        const collected = finance?.financials.reduce((sum: number, competitor: any) => sum + Number(competitor.amount_paid || 0), 0) || 0;
-        const outstanding = finance?.financials.reduce((sum: number, competitor: any) => {
+        const assessed = finance?.financials.reduce((sum, competitor) => sum + Number(competitor.amount_owed || 0), 0) || 0;
+        const collected = finance?.financials.reduce((sum, competitor) => sum + Number(competitor.amount_paid || 0), 0) || 0;
+        const outstanding = finance?.financials.reduce((sum, competitor) => {
           const balance = competitor.fees_waived ? 0 : Number(competitor.amount_owed || 0) - Number(competitor.amount_paid || 0);
           return sum + Math.max(0, balance);
         }, 0) || 0;
-        const waived = finance?.financials.reduce((sum: number, competitor: any) => sum + Number(competitor.waived_amount || 0), 0) || 0;
-        const expenses = finance?.expenses.reduce((sum: number, expense: any) => sum + Number(expense.amount || 0), 0) || 0;
+        const waived = finance?.financials.reduce((sum, competitor) => sum + Number(competitor.waived_amount || 0), 0) || 0;
+        const expenses = finance?.expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0) || 0;
 
         return {
           ...trial,
-          trialDays: (days || []).filter((day) => day.trial_id === trial.id).length,
-          classes: (classesResult.data || []).filter((trialClass) => classToTrial.get(trialClass.id) === trial.id).length,
-          entries: (entries || []).filter((entry) => entryToTrial.get(entry.id) === trial.id).length,
+          trialDays: days.filter((day) => day.trial_id === trial.id).length,
+          classes: trialClasses.filter((trialClass) => classToTrial.get(trialClass.id) === trial.id).length,
+          entries: entries.filter((entry) => entryToTrial.get(entry.id) === trial.id).length,
           runs: activeSelections.length,
           passes,
           fails,
@@ -280,6 +334,7 @@ export default function AnnualReportPage() {
           collected,
           outstanding,
           waived,
+          waivedByJudge,
           expenses,
           net: collected - expenses,
         } satisfies TrialAnnualRow;
@@ -435,20 +490,119 @@ export default function AnnualReportPage() {
 
         {expandedMetric && rows.length > 0 && (() => {
           const definition = metricDefinitions.find((metric) => metric.key === expandedMetric)!;
+          const annualJudgeWaivers = expandedMetric === 'waived'
+            ? Array.from(
+                rows.reduce((totalsByJudge, row) => {
+                  row.waivedByJudge.forEach(({ judgeName, amount, runs }) => {
+                    const current = totalsByJudge.get(judgeName) || { amount: 0, runs: 0, trials: new Set<string>() };
+                    current.amount += amount;
+                    current.runs += runs;
+                    current.trials.add(row.id);
+                    totalsByJudge.set(judgeName, current);
+                  });
+                  return totalsByJudge;
+                }, new Map<string, { amount: number; runs: number; trials: Set<string> }>()),
+                ([judgeName, values]) => ({ judgeName, ...values, trialCount: values.trials.size })
+              ).sort((a, b) => b.amount - a.amount || a.judgeName.localeCompare(b.judgeName))
+            : [];
           return (
             <Card>
-              <CardHeader><CardTitle>{definition.label} by Trial</CardTitle><CardDescription>{definition.description}</CardDescription></CardHeader>
+              <CardHeader className="gap-3">
+                <div>
+                  <CardTitle>
+                    {definition.label} {expandedMetric === 'waived' && waivedBreakdownMode === 'judge' ? 'by Judge' : 'by Trial'}
+                  </CardTitle>
+                  <CardDescription>{definition.description}</CardDescription>
+                </div>
+                {expandedMetric === 'waived' && (
+                  <div className="inline-flex w-fit rounded-md border bg-white p-1" aria-label="Fees waived breakdown view">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={waivedBreakdownMode === 'trial' ? 'default' : 'ghost'}
+                      onClick={() => setWaivedBreakdownMode('trial')}
+                    >
+                      By trial
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={waivedBreakdownMode === 'judge' ? 'default' : 'ghost'}
+                      onClick={() => setWaivedBreakdownMode('judge')}
+                    >
+                      Judges for year
+                    </Button>
+                  </div>
+                )}
+              </CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b bg-gray-50"><th className="p-3 text-left">Trial</th><th className="p-3 text-left">Club</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Status</th><th className="p-3 text-right">{definition.label}</th></tr></thead>
-                  <tbody>
-                    {rows.map((row) => (
-                      <tr key={row.id} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{row.trial_name}</td><td className="p-3">{row.club_name || '-'}</td><td className="p-3">{row.start_date}</td><td className="p-3 capitalize">{row.trial_status}</td><td className="p-3 text-right font-semibold">{formatMetric(Number(getTrialMetric(row, expandedMetric)), definition.format)}</td>
+                {expandedMetric === 'waived' && waivedBreakdownMode === 'judge' ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="p-3 text-left">Judge</th>
+                        <th className="p-3 text-right">Trials</th>
+                        <th className="p-3 text-right">Waived runs</th>
+                        <th className="p-3 text-right">Fees waived</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {annualJudgeWaivers.length > 0 ? annualJudgeWaivers.map((judge) => (
+                        <tr key={judge.judgeName} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-medium">{judge.judgeName}</td>
+                          <td className="p-3 text-right">{number.format(judge.trialCount)}</td>
+                          <td className="p-3 text-right">{number.format(judge.runs)}</td>
+                          <td className="p-3 text-right font-semibold">{money.format(judge.amount)}</td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={4} className="p-6 text-center text-gray-500">No waived fees match the selected filters.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b bg-gray-50"><th className="p-3 text-left">Trial</th><th className="p-3 text-left">Club</th><th className="p-3 text-left">Date</th><th className="p-3 text-left">Status</th><th className="p-3 text-right">{definition.label}</th></tr></thead>
+                    <tbody>
+                      {rows.map((row) => {
+                        const canExpandJudges = expandedMetric === 'waived' && row.waivedByJudge.length > 0;
+                        const isTrialExpanded = canExpandJudges && expandedWaivedTrialId === row.id;
+                        return (
+                          <Fragment key={row.id}>
+                            <tr
+                              className={`border-b hover:bg-gray-50 ${canExpandJudges ? 'cursor-pointer' : ''}`}
+                              onClick={() => canExpandJudges && setExpandedWaivedTrialId(isTrialExpanded ? null : row.id)}
+                              aria-expanded={canExpandJudges ? isTrialExpanded : undefined}
+                            >
+                              <td className="p-3 font-medium">
+                                <span className="flex items-center gap-2">
+                                  {canExpandJudges && (isTrialExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
+                                  {row.trial_name}
+                                </span>
+                              </td>
+                              <td className="p-3">{row.club_name || '-'}</td><td className="p-3">{row.start_date}</td><td className="p-3 capitalize">{row.trial_status}</td><td className="p-3 text-right font-semibold">{formatMetric(Number(getTrialMetric(row, expandedMetric)), definition.format)}</td>
+                            </tr>
+                            {isTrialExpanded && (
+                              <tr className="border-b bg-orange-50/40">
+                                <td colSpan={5} className="p-4 pl-10">
+                                  <p className="mb-2 font-medium">Waived fees by judge</p>
+                                  <div className="space-y-1">
+                                    {row.waivedByJudge.map((judge) => (
+                                      <div key={judge.judgeName} className="grid grid-cols-[1fr_auto_auto] gap-5 rounded bg-white px-3 py-2">
+                                        <span>{judge.judgeName}</span>
+                                        <span className="text-gray-600">{number.format(judge.runs)} waived {judge.runs === 1 ? 'run' : 'runs'}</span>
+                                        <span className="min-w-24 text-right font-semibold">{money.format(judge.amount)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </CardContent>
             </Card>
           );
