@@ -340,12 +340,6 @@ function TrialDaysPageContent() {
     }
   }, [trial]);
 
-  const handleMaxEntriesChange = (dayIndex: number, value: number) => {
-    setTrialDays((prev) =>
-      prev.map((day, index) => (index === dayIndex ? { ...day, max_entries: value } : day))
-    );
-  };
-
   const handleNotesChange = (dayIndex: number, value: string) => {
     setTrialDays((prev) =>
       prev.map((day, index) => (index === dayIndex ? { ...day, notes: value } : day))
@@ -626,10 +620,6 @@ function TrialDaysPageContent() {
   ];
 
   const selectedCount = trialDays.filter((d) => d.selected).length;
-  const totalEntries = trialDays
-    .filter((d) => d.selected)
-    .reduce((sum, d) => sum + d.max_entries, 0);
-
   return (
     <MainLayout
       title={isEditMode ? 'Edit Trial - Select Days' : 'Create Trial - Select Days'}
@@ -685,14 +675,10 @@ function TrialDaysPageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="text-sm">
               <div>
                 <span className="text-gray-600">Selected Days:</span>
                 <span className="ml-2 font-semibold">{selectedCount}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Total Entry Capacity:</span>
-                <span className="ml-2 font-semibold">{totalEntries}</span>
               </div>
             </div>
           </CardContent>
@@ -858,21 +844,6 @@ function TrialDaysPageContent() {
                             </div>
 
                             <div className="space-y-2">
-                              <div>
-                                <Label className="text-xs font-medium text-gray-700">
-                                  Max Entries
-                                </Label>
-                                <Input
-                                  type="number"
-                                  value={day.max_entries}
-                                  onChange={(e) =>
-                                    handleMaxEntriesChange(dayIndex, parseInt(e.target.value) || 50)
-                                  }
-                                  className="mt-1 text-sm"
-                                  min="1"
-                                />
-                              </div>
-
                               <div>
                                 <Label className="text-xs font-medium text-gray-700">
                                   Notes (optional)

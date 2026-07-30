@@ -82,6 +82,34 @@ interface TrialDay {
   trial_date: string;
 }
 
+const ROUND_START_TIMES = Array.from({ length: 24 * 12 }, (_, index) => {
+  const hours = Math.floor(index / 12);
+  const minutes = (index % 12) * 5;
+  const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  const displayHours = hours % 12 || 12;
+  const period = hours < 12 ? 'AM' : 'PM';
+
+  return {
+    value,
+    label: `${displayHours}:${String(minutes).padStart(2, '0')} ${period}`,
+  };
+});
+
+const normalizeRoundStartTime = (time?: string | null) => {
+  if (!time) return '';
+
+  const [hoursText, minutesText] = time.split(':');
+  const hours = Number(hoursText);
+  const minutes = Number(minutesText);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return '';
+
+  const roundedTotalMinutes = Math.round((hours * 60 + minutes) / 5) * 5;
+  const normalizedHours = Math.floor(roundedTotalMinutes / 60) % 24;
+  const normalizedMinutes = roundedTotalMinutes % 60;
+
+  return `${String(normalizedHours).padStart(2, '0')}:${String(normalizedMinutes).padStart(2, '0')}`;
+};
+
 function CreateRoundsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -207,7 +235,7 @@ function CreateRoundsPageContent() {
             round_number: round.round_number || 1,
             judge_name: round.judge_name || '',
             judge_email: round.judge_email || '',
-            start_time: round.start_time || '',
+            start_time: normalizeRoundStartTime(round.start_time),
             estimated_duration: round.estimated_duration || '',
             max_entries: round.max_entries || cls.max_entries || 50,
             has_reset: false, // will be set below
@@ -224,8 +252,6 @@ function CreateRoundsPageContent() {
               const parent = loaded.find((r) => !r.is_reset && r.round_number === parentNum);
               if (parent) {
                 parent.has_reset = true;
-                parent.reset_judge_name = round.judge_name;
-                parent.reset_judge_email = round.judge_email;
               }
             }
           });
@@ -301,44 +327,6 @@ function CreateRoundsPageContent() {
             : round
         ) || [],
     }));
-  };
-
-  const handleResetJudgeSelect = (classId: string, roundIndex: number, judgeId: string) => {
-    if (judgeId === 'TBA') {
-      handleRoundChange(classId, roundIndex, 'reset_judge_name', 'TBA');
-      handleRoundChange(classId, roundIndex, 'reset_judge_email', '');
-      return;
-    }
-    const classQualifiedJudges = qualifiedJudges[classId] || [];
-    const judge = classQualifiedJudges.find((j) => j.id === judgeId);
-    if (!judge) return;
-
-    setRounds((prev) => {
-      const classRounds = [...(prev[classId] || [])];
-      const parentRound = classRounds[roundIndex];
-      const resetRoundNumber = parentRound.round_number + 0.5;
-
-      // Update the parent round's display fields (for the UI selector)
-      classRounds[roundIndex] = {
-        ...parentRound,
-        reset_judge_name: judge.name || '',
-        reset_judge_email: judge.email || '',
-      };
-
-      // Also push the judge onto the actual reset round record
-      const resetIdx = classRounds.findIndex(
-        (r) => r.round_number === resetRoundNumber && r.is_reset
-      );
-      if (resetIdx !== -1) {
-        classRounds[resetIdx] = {
-          ...classRounds[resetIdx],
-          judge_name: judge.name || '',
-          judge_email: judge.email || '',
-        };
-      }
-
-      return { ...prev, [classId]: classRounds };
-    });
   };
 
   const handleRoundChange = (
@@ -508,15 +496,6 @@ function CreateRoundsPageContent() {
           );
           if (status !== 'valid') newErrors[`${classId}-${idx}-judge`] = assignmentError(status);
         }
-        if (round.has_reset && round.reset_judge_name && round.reset_judge_name !== 'TBA') {
-          const status = getJudgeAssignmentStatus(
-            findAssignedJudge(round.reset_judge_name, round.reset_judge_email),
-            className
-          );
-          if (status !== 'valid') {
-            newErrors[`${classId}-${idx}-reset-judge`] = assignmentError(status);
-          }
-        }
       });
     });
 
@@ -539,22 +518,6 @@ function CreateRoundsPageContent() {
           const status = getJudgeAssignmentStatus(assigned, className);
           if (status !== 'valid' && !isReadOnlyHistoricalTrial()) {
             newErrors[`${classId}-${idx}-judge`] = assignmentError(status);
-            isValid = false;
-          }
-        }
-        if (
-          round.has_reset &&
-          (!round.reset_judge_name ||
-            (round.reset_judge_name !== 'TBA' && !round.reset_judge_email))
-        ) {
-          newErrors[`${classId}-${idx}-reset-judge`] =
-            'Reset judge is required when reset is enabled';
-          isValid = false;
-        } else if (round.has_reset && round.reset_judge_name !== 'TBA') {
-          const resetJudge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
-          const status = getJudgeAssignmentStatus(resetJudge, className);
-          if (status !== 'valid' && !isReadOnlyHistoricalTrial()) {
-            newErrors[`${classId}-${idx}-reset-judge`] = assignmentError(status);
             isValid = false;
           }
         }
@@ -1024,23 +987,33 @@ function CreateRoundsPageContent() {
                         </div>
 
                         <div>
-                          <Label>Start Time</Label>
-                          <Input
-                            type="time"
+                          <Label>Start Time (Optional)</Label>
+                          <Select
                             value={round.start_time}
-                            onChange={(e) =>
+                            onValueChange={(value) =>
                               handleRoundChange(
                                 selectedClassId,
                                 roundIndex,
                                 'start_time',
-                                e.target.value
+                                value
                               )
                             }
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select start time" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROUND_START_TIMES.map((time) => (
+                                <SelectItem key={time.value} value={time.value}>
+                                  {time.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div>
-                          <Label>Estimated Duration</Label>
+                          <Label>Estimated Duration (Optional)</Label>
                           <Input
                             placeholder="e.g., 2 hours"
                             value={round.estimated_duration}
@@ -1054,6 +1027,10 @@ function CreateRoundsPageContent() {
                             }
                           />
                         </div>
+
+                        <p className="col-span-2 text-sm text-gray-600">
+                          Start time and duration are planning aids only and may be left blank.
+                        </p>
 
                         <div>
                           <Label>Max Entries</Label>
@@ -1071,7 +1048,7 @@ function CreateRoundsPageContent() {
                           />
                         </div>
 
-                        <div className="flex items-center space-x-2 pt-6">
+                        {!round.is_reset && <div className="flex items-center space-x-2 pt-6">
                           <Checkbox
                             id={`reset-${roundIndex}`}
                             checked={round.has_reset}
@@ -1080,74 +1057,9 @@ function CreateRoundsPageContent() {
                             }
                           />
                           <Label htmlFor={`reset-${roundIndex}`} className="cursor-pointer">
-                            Has Reset Judge
+                            Add Reset Round
                           </Label>
-                        </div>
-
-                        {round.has_reset && (
-                          <div className="col-span-2">
-                            <Label>Reset Judge *</Label>
-                            <JudgeAutocomplete
-                              judges={qualifiedJudges[selectedClassId] || []}
-                              className={selectedClass.class_name}
-                              selectedJudge={(() => {
-                                const judge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
-                                return judge && getJudgeAssignmentStatus(judge, selectedClass.class_name) === 'valid' ? judge : undefined;
-                              })()}
-                              historicalAssignment={(() => {
-                                if (!round.reset_judge_name || round.reset_judge_name === 'TBA') return undefined;
-                                const judge = findAssignedJudge(round.reset_judge_name, round.reset_judge_email);
-                                const status = getJudgeAssignmentStatus(judge, selectedClass.class_name);
-                                return status === 'valid' ? undefined : { name: round.reset_judge_name, email: round.reset_judge_email, status };
-                              })()}
-                              isTba={round.reset_judge_name === 'TBA'}
-                              allowTba
-                              onSelect={(judge) => handleResetJudgeSelect(selectedClassId, roundIndex, judge.id)}
-                              onSelectTba={() => handleResetJudgeSelect(selectedClassId, roundIndex, 'TBA')}
-                              onClear={() => {
-                                handleRoundChange(selectedClassId, roundIndex, 'reset_judge_name', '');
-                                handleRoundChange(selectedClassId, roundIndex, 'reset_judge_email', '');
-                              }}
-                              error={Boolean(errors[`${selectedClassId}-${roundIndex}-reset-judge`])}
-                              placeholder="Type to search reset judges..."
-                            />
-                            {false && (
-                            <Select
-                              value={
-                                qualifiedJudges[selectedClassId]?.find(
-                                  (j) => j.name === round.reset_judge_name
-                                )?.id || ''
-                              }
-                              onValueChange={(judgeId) =>
-                                handleResetJudgeSelect(selectedClassId, roundIndex, judgeId)
-                              }
-                            >
-                              <SelectTrigger
-                                className={`mt-1 ${
-                                  errors[`${selectedClassId}-${roundIndex}-reset-judge`]
-                                    ? 'border-red-500 bg-red-50'
-                                    : ''
-                                }`}
-                              >
-                                <SelectValue placeholder="Select reset judge..." />
-                              </SelectTrigger>
-                              <SelectContent className="bg-white border-2 border-gray-300 shadow-xl max-h-60 overflow-y-auto">
-                                <SelectItem value="TBA">TBA - To Be Announced</SelectItem>
-                                  {(qualifiedJudges[selectedClassId] || []).map((judge) => (
-                                    <SelectItem key={judge.id} value={judge.id}>
-                                    {judge.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                            </Select>
-                            )}
-                            {errors[`${selectedClassId}-${roundIndex}-reset-judge`] && (
-                              <p className="text-sm text-red-600 mt-1">
-                                {errors[`${selectedClassId}-${roundIndex}-reset-judge`]}
-                              </p>
-                            )}
-                          </div>
-                        )}
+                        </div>}
 
                         <div className="col-span-2">
                           <Label>Notes</Label>

@@ -243,12 +243,14 @@ export const financialOperations = {
 
         // Sum up fees
         const calculatedOwed = calculateSelectionFees(selections);
+        const storedOwed = Number(entry.amount_owed || 0);
+        const effectiveAmountOwed = storedOwed > 0 ? storedOwed : calculatedOwed;
         if (entry.fees_waived) {
           ownerGroups[ownerId].waived_amount += calculatedOwed;
         }
         ownerGroups[ownerId].amount_owed += entry.fees_waived
           ? 0
-          : entry.amount_owed ?? calculatedOwed;
+          : effectiveAmountOwed;
 
         // Collect payment history
         const entryPayments = paymentsByEntry[entry.id] || [];

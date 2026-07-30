@@ -387,10 +387,6 @@ export default function CreateTrialPage() {
     if (!trialData.secretary_email?.trim()) {
       newErrors.secretary_email = 'Secretary email is required';
     }
-    if (!trialData.max_entries_per_day || trialData.max_entries_per_day < 1) {
-      newErrors.max_entries_per_day = 'Max entries per day must be at least 1';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -763,21 +759,6 @@ export default function CreateTrialPage() {
                     value={trialData.secretary_phone}
                     onChange={(e) => handleInputChange('secretary_phone', e.target.value)}
                     placeholder="(555) 123-4567"
-                    className="py-3 sm:py-2 text-base sm:text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="max_entries">Max Entries Per Day</Label>
-                  <Input
-                    id="max_entries"
-                    type="number"
-                    min="1"
-                    max="200"
-                    value={trialData.max_entries_per_day}
-                    onChange={(e) =>
-                      handleInputChange('max_entries_per_day', parseInt(e.target.value) || 50)
-                    }
                     className="py-3 sm:py-2 text-base sm:text-sm"
                   />
                 </div>

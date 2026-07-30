@@ -194,14 +194,15 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       }
 
       const competitors = financialsResult.data;
-      const pendingPayment = competitors.filter(
+      const competitorsWithOutstandingBalances = competitors.filter(
         (competitor) =>
           derivePaymentStatus(
             competitor.amount_owed,
             competitor.amount_paid,
             competitor.fees_waived
           ) === 'pending'
-      ).length;
+      );
+      const pendingPayment = competitorsWithOutstandingBalances.length;
 
       // Calculate totals using EXACT same formula as financials page
       const expectedRevenue = competitors.reduce(
@@ -211,7 +212,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const collected = competitors.reduce((sum, c) => sum + c.amount_paid, 0);
       const outstanding = competitors.reduce((sum, c) => {
         const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
-        return sum + balance;
+        return sum + Math.max(0, balance);
       }, 0);
 
       // Calculate days until start
@@ -1081,8 +1082,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           </div>
 
           {/* Outstanding Balances */}
-          {outstandingEntries.length > 0 && (
-            <Card className="border-orange-200 bg-orange-50">
+          <Card className="border-orange-200 bg-orange-50">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center space-x-2">
@@ -1115,7 +1115,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="bg-white rounded-lg border">
+                {outstandingEntries.length > 0 ? <div className="bg-white rounded-lg border">
                   <table className="w-full">
                     <thead className="border-b bg-gray-50">
                       <tr>
@@ -1144,10 +1144,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </div> : (
+                  <div className="bg-white rounded-lg border p-4 text-sm text-green-700">
+                    No outstanding balances for this trial.
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
 
           {/* Other Action Items */}
           {actionItems.length > 0 && (
