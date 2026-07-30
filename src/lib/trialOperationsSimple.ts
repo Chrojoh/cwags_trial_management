@@ -358,12 +358,27 @@ export const simpleTrialOperations = {
 
         if (assignmentError) console.error('Error fetching assigned trials:', assignmentError);
 
-        // Collaboration support is intentionally omitted until the pending
-        // trial_collaborators migration is installed in production Supabase.
+        const { data: collaborations, error: collaborationError } = await supabase
+          .from('trial_collaborators')
+          .select('role,trial_id')
+          .eq('user_id', user.id)
+          .eq('invitation_status', 'accepted')
+          .is('revoked_at', null);
+
+        if (collaborationError)
+          console.error('Error fetching accepted trial collaborations:', collaborationError);
+
+        const collaborationRoles = new Map<string, string>();
+        (collaborations || []).forEach((collaboration: any) => {
+          if (collaboration.trial_id)
+            collaborationRoles.set(collaboration.trial_id, collaboration.role);
+        });
+
         const assignedIds = Array.from(
           new Set([
             ...(secretaryAssignments || []).map((assignment: any) => assignment.trial_id),
             ...(assignments || []).map((assignment: any) => assignment.trial_id),
+            ...(collaborations || []).map((collaboration: any) => collaboration.trial_id),
           ].filter(Boolean))
         );
 
@@ -378,7 +393,7 @@ export const simpleTrialOperations = {
           ...(createdTrials || []).map((trial: any) => ({ ...trial, ownership: 'owned' })),
           ...assignedTrials.map((trial: any) => ({
             ...trial,
-            shared_role: 'secretary',
+            shared_role: collaborationRoles.get(trial.id) || 'secretary',
           })),
         ];
 

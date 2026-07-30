@@ -235,11 +235,44 @@ export default function DashboardPage() {
       )
       .eq('user_id', user?.id);
 
+    const { data: acceptedCollaborations, error: collaborationError } = await supabase
+      .from('trial_collaborators')
+      .select('role, trial_id')
+      .eq('user_id', user?.id)
+      .eq('invitation_status', 'accepted')
+      .is('revoked_at', null);
+
+    if (collaborationError) {
+      console.error('Error loading accepted trial collaborations:', collaborationError);
+    }
+
+    const collaborationIds = (acceptedCollaborations || [])
+      .map((collaboration: any) => collaboration.trial_id)
+      .filter(Boolean);
+    let collaboratedTrials: any[] = [];
+    if (collaborationIds.length > 0) {
+      const { data, error } = await supabase.from('trials').select('*').in('id', collaborationIds);
+      if (error) console.error('Error loading collaborated trials:', error);
+      else {
+        const roles = new Map(
+          (acceptedCollaborations || []).map((collaboration: any) => [
+            collaboration.trial_id,
+            collaboration.role,
+          ])
+        );
+        collaboratedTrials = (data || []).map((trial: any) => ({
+          ...trial,
+          shared_role: roles.get(trial.id),
+        }));
+      }
+    }
+
     // Combine all sources of trials
     const allSecretaryTrials = [
       ...(createdTrials || []),
       ...(assignedFromSecretaries?.map((at: any) => at.trials).filter(Boolean) || []),
       ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || []),
+      ...collaboratedTrials,
     ];
 
     // Remove duplicates by trial id and sort by start date
