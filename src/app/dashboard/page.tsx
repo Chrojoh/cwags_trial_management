@@ -235,19 +235,11 @@ export default function DashboardPage() {
       )
       .eq('user_id', user?.id);
 
-    const { data: acceptedCollaborations } = await supabase
-      .from('trial_collaborators')
-      .select(`role, trial_id, trials (*)`)
-      .eq('user_id', user?.id)
-      .eq('invitation_status', 'accepted')
-      .is('revoked_at', null);
-
     // Combine all sources of trials
     const allSecretaryTrials = [
       ...(createdTrials || []),
       ...(assignedFromSecretaries?.map((at: any) => at.trials).filter(Boolean) || []),
       ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || []),
-      ...(acceptedCollaborations?.map((at: any) => at.trials ? ({ ...at.trials, shared_role: at.role }) : null).filter(Boolean) || []),
     ];
 
     // Remove duplicates by trial id and sort by start date
