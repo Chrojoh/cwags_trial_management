@@ -127,6 +127,11 @@ export const normalizeImportedResult = (input: unknown): ImportedResult | null =
   return null;
 };
 
+const isNotEnteredResult = (input: unknown) => {
+  const result = String(input ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return !result || ['-', 'NA', 'N/A'].includes(result);
+};
+
 export const detectScoreSheetType = (sheet: XLSX.WorkSheet): ScoreSheetType => {
   const d6 = String(cellValue(sheet, 6, 4) ?? '').trim().toLowerCase();
   if (d6 !== 'date') return 'league';
@@ -153,7 +158,8 @@ const makeRecord = (
 ): ParsedScoreRecord | null => {
   const result = normalizeImportedResult(resultValue);
   if (!result) {
-    if (!isBlank(resultValue)) warnings.push(`${sheetName}, row ${row}: unrecognized result "${String(resultValue)}" was skipped.`);
+    if (!isNotEnteredResult(resultValue))
+      warnings.push(`${sheetName}, row ${row}: unrecognized result "${String(resultValue)}" was skipped.`);
     return null;
   }
   const normalizedClass = normalizeImportedClassName(className);

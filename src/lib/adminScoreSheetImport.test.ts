@@ -18,10 +18,13 @@ test('parses one-column sheets and retains non-qualifying outcomes', () => {
     ['12-3456-78', 'Scout', '', '07/04/2026', 'Patrol 1', 1, 'Pass', 'Jane Judge'],
     ['12-3456-79', 'Finn', '', '07/04/2026', 'Patrol 1', 1, 'NQ', 'Jane Judge'],
     ['12-3456-80', 'Pip', '', '07/04/2026', 'Patrol 1', 1, 'ABS', 'Jane Judge'],
+    ['12-3456-81', 'Dash', '', '07/04/2026', 'Patrol 1', 1, '-', 'Jane Judge'],
   ];
   const parsed = parseScoreSheetWorkbook(workbookBuffer([{ name: 'Scores', rows }]), 'scores.xlsx');
   assert.equal(parsed.detections[0].type, 'one-column');
   assert.deepEqual(parsed.records.map((record) => record.result), ['Pass', 'NQ', 'ABS']);
+  assert.equal(parsed.warnings.some((warning) => warning.includes('12-3456-81')), false);
+  assert.equal(parsed.warnings.some((warning) => warning.includes('unrecognized result "-"')), false);
 });
 
 test('parses two-column sheets as separate rounds', () => {
