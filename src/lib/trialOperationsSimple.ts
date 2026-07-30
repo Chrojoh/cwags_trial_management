@@ -337,70 +337,62 @@ export const simpleTrialOperations = {
           .select('*')
           .eq('created_by', user.id);
 
-        if (createdError) {
-          console.error('Error fetching created trials:', createdError);
-          return { success: false, error: createdError.message };
-        }
+        if (createdError) console.error('Error fetching created trials:', createdError);
 
         // Get trials assigned through the secretary-specific assignment table.
         // The dashboard already includes this source; the shared loader must do
         // the same so the sidebar and dashboard cannot disagree.
         const { data: secretaryAssignments, error: secretaryAssignmentError } = await supabase
           .from('trial_secretaries')
-          .select(
-            `
-          trial_id,
-          trials (*)
-        `
-          )
+          .select('trial_id')
           .eq('user_id', user.id);
 
-        if (secretaryAssignmentError) {
+        if (secretaryAssignmentError)
           console.error('Error fetching secretary-assigned trials:', secretaryAssignmentError);
-          return { success: false, error: secretaryAssignmentError.message };
-        }
 
         // Get trials they're assigned to
         const { data: assignments, error: assignmentError } = await supabase
           .from('trial_assignments')
-          .select(
-            `
-          trial_id,
-          trials (*)
-        `
-          )
+          .select('trial_id')
           .eq('user_id', user.id);
 
-        if (assignmentError) {
-          console.error('Error fetching assigned trials:', assignmentError);
-          return { success: false, error: assignmentError.message };
-        }
-
-        // Combine and deduplicate trials
-        const assignedTrials = (assignments || [])
-          .map((a: any) => a.trials)
-          .filter((t: any) => t !== null);
-        const secretaryTrials = (secretaryAssignments || [])
-          .map((assignment: any) => assignment.trials)
-          .filter((trial: any) => trial !== null);
+        if (assignmentError) console.error('Error fetching assigned trials:', assignmentError);
 
         const { data: collaborations, error: collaborationError } = await supabase
           .from('trial_collaborators')
-          .select('role,trials(*)')
+          .select('role,trial_id')
           .eq('user_id', user.id)
           .eq('invitation_status', 'accepted')
           .is('revoked_at', null);
         if (collaborationError && collaborationError.code !== '42P01') {
           console.error('Error fetching shared trials:', collaborationError);
-          return { success: false, error: collaborationError.message };
         }
-        const sharedTrials = (collaborations || []).map((c: any) => c.trials ? ({ ...c.trials, shared_role: c.role }) : null).filter(Boolean);
+
+        const sharedRoles = new Map<string, string>();
+        (collaborations || []).forEach((collaboration: any) => {
+          if (collaboration.trial_id) sharedRoles.set(collaboration.trial_id, collaboration.role);
+        });
+        const assignedIds = Array.from(
+          new Set([
+            ...(secretaryAssignments || []).map((assignment: any) => assignment.trial_id),
+            ...(assignments || []).map((assignment: any) => assignment.trial_id),
+            ...(collaborations || []).map((collaboration: any) => collaboration.trial_id),
+          ].filter(Boolean))
+        );
+
+        let assignedTrials: any[] = [];
+        if (assignedIds.length > 0) {
+          const { data, error } = await supabase.from('trials').select('*').in('id', assignedIds);
+          if (error) console.error('Error fetching trials for sidebar assignments:', error);
+          else assignedTrials = data || [];
+        }
 
         const allTrials = [
           ...(createdTrials || []).map((trial: any) => ({ ...trial, ownership: 'owned' })),
-          ...secretaryTrials.map((trial: any) => ({ ...trial, shared_role: 'secretary' })),
-          ...assignedTrials.map((trial: any) => ({ ...trial, shared_role: 'secretary' })),
-          ...sharedTrials,
+          ...assignedTrials.map((trial: any) => ({
+            ...trial,
+            shared_role: sharedRoles.get(trial.id) || 'secretary',
+          })),
         ];
 
         // Remove duplicates by ID
