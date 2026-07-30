@@ -31,6 +31,10 @@ export interface ParsedScoreWorkbook {
   errors: string[];
 }
 
+export interface ScoreSheetImportOptions {
+  includeRepeatedRows?: boolean;
+}
+
 const SKIP_SHEETS = new Set([
   'example. directions_sheet',
   'example_sheet',
@@ -227,8 +231,14 @@ const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: stri
   return records;
 };
 
-const parseTwoColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[]) => {
+const parseTwoColumn = (
+  sheet: XLSX.WorkSheet,
+  sheetName: string,
+  warnings: string[],
+  includeRepeatedRows: boolean
+) => {
   const records: ParsedScoreRecord[] = [];
+  const rowOccurrences = new Map<string, number>();
   for (let row = 7; row <= lastDataRow(sheet, 1); row++) {
     const registration = cellValue(sheet, row, 1);
     if (isBlank(registration)) continue;
@@ -240,12 +250,27 @@ const parseTwoColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: stri
       warnings.push(`${sheetName}, row ${row}: the date could not be read; results were skipped.`);
       continue;
     }
+    const className = cellValue(sheet, row, 5);
+    const occurrenceKey = [
+      normalizeRegistrationNumber(registration),
+      databaseDate(date),
+      normalizeImportedClassName(className).toLowerCase(),
+    ].join('|');
+    const occurrence = rowOccurrences.get(occurrenceKey) || 0;
+    rowOccurrences.set(occurrenceKey, occurrence + 1);
+    if (occurrence > 0 && !includeRepeatedRows) {
+      warnings.push(
+        `${sheetName}, row ${row}: repeated dog/date/class row was omitted. Enable "Treat repeated rows as additional rounds" to import it.`
+      );
+      continue;
+    }
+    const roundOffset = includeRepeatedRows ? occurrence * 2 : 0;
     if (!isBlank(first)) {
-      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, cellValue(sheet, row, 5), 1, cellValue(sheet, row, 7), first, warnings);
+      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, className, roundOffset + 1, cellValue(sheet, row, 7), first, warnings);
       if (record) records.push(record);
     }
     if (!isBlank(second)) {
-      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, cellValue(sheet, row, 5), 2, cellValue(sheet, row, 9), second, warnings);
+      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, className, roundOffset + 2, cellValue(sheet, row, 9), second, warnings);
       if (record) records.push(record);
     }
   }
@@ -287,7 +312,11 @@ const parseLeague = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[
 
 const cleanFileName = (fileName: string) => fileName.replace(/\.(xlsx|xlsm|xls)$/i, '').replace(/[_-]+/g, ' ').trim();
 
-export const parseScoreSheetWorkbook = (buffer: ArrayBuffer | Uint8Array, fileName: string): ParsedScoreWorkbook => {
+export const parseScoreSheetWorkbook = (
+  buffer: ArrayBuffer | Uint8Array,
+  fileName: string,
+  options: ScoreSheetImportOptions = {}
+): ParsedScoreWorkbook => {
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -314,7 +343,13 @@ export const parseScoreSheetWorkbook = (buffer: ArrayBuffer | Uint8Array, fileNa
     const type = detectScoreSheetType(sheet);
     let sheetRecords: ParsedScoreRecord[] = [];
     if (type === 'one-column') sheetRecords = parseOneColumn(sheet, sheetName, warnings);
-    else if (type === 'two-column') sheetRecords = parseTwoColumn(sheet, sheetName, warnings);
+    else if (type === 'two-column')
+      sheetRecords = parseTwoColumn(
+        sheet,
+        sheetName,
+        warnings,
+        Boolean(options.includeRepeatedRows)
+      );
     else if (type === 'league') sheetRecords = parseLeague(sheet, sheetName, warnings);
     else errors.push(`${sheetName}: unable to detect one-column, two-column, or league format.`);
     detections.push({ sheetName, type, resultCount: sheetRecords.length });

@@ -62,7 +62,9 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    const parsed = parseScoreSheetWorkbook(await file.arrayBuffer(), file.name);
+    const parsed = parseScoreSheetWorkbook(await file.arrayBuffer(), file.name, {
+      includeRepeatedRows: formData.get('includeRepeatedRows') === 'true',
+    });
     if (parsed.errors.length || parsed.records.length === 0) {
       return NextResponse.json({ error: parsed.errors.join(' ') || 'No scores found.' }, { status: 400 });
     }

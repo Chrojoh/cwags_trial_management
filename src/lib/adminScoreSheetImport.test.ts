@@ -55,6 +55,23 @@ test('imports qualifying Rally, Obedience, and Obedience 5 numerical scores', ()
   ]);
 });
 
+test('optionally treats repeated two-column rows as additional round pairs', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Result', 'Judge', 'Result', 'Judge'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Zoom 1', 94, 'Judge One', '-', ''],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Zoom 1', 92, 'Judge Two', 99, 'Judge Two'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Zoom 1', 82, 'Judge Two', '-', ''],
+  ];
+  const buffer = workbookBuffer([{ name: 'Obed_Rally', rows }]);
+  const omitted = parseScoreSheetWorkbook(buffer, 'scores.xlsx');
+  assert.deepEqual(omitted.records.map((record) => record.roundNumber), [1]);
+  assert.equal(omitted.warnings.some((warning) => warning.includes('repeated dog/date/class row')), true);
+
+  const included = parseScoreSheetWorkbook(buffer, 'scores.xlsx', { includeRepeatedRows: true });
+  assert.deepEqual(included.records.map((record) => record.roundNumber), [1, 3, 4, 5]);
+  assert.equal(included.warnings.some((warning) => warning.includes('duplicate dog/class/round')), false);
+});
+
 test('parses league sheets with dates and judges across columns', () => {
   const rows: unknown[][] = [
     ['League Trial'], ['League Club'], ['', '', '', '', '', 'Patrol 1'], [],

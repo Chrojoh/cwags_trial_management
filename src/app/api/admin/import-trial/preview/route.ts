@@ -23,7 +23,9 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file');
     if (!(file instanceof File)) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
 
-    const parsed = parseScoreSheetWorkbook(await file.arrayBuffer(), file.name);
+    const parsed = parseScoreSheetWorkbook(await file.arrayBuffer(), file.name, {
+      includeRepeatedRows: formData.get('includeRepeatedRows') === 'true',
+    });
     const dates = Array.from(new Set(parsed.records.map((record) => record.trialDate))).sort();
     const rounds = new Map<string, typeof parsed.records>();
     for (const record of parsed.records) {

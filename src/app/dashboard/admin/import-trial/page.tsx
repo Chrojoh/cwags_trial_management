@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Upload,
   FileSpreadsheet,
@@ -67,6 +69,7 @@ export default function ImportTrialPage() {
   const [uploading, setUploading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [includeRepeatedRows, setIncludeRepeatedRows] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Admin only
@@ -114,6 +117,7 @@ export default function ImportTrialPage() {
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('includeRepeatedRows', String(includeRepeatedRows));
 
       const response = await fetch('/api/admin/import-trial/preview', {
         method: 'POST',
@@ -156,6 +160,7 @@ export default function ImportTrialPage() {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('confirmed', 'true');
+      formData.append('includeRepeatedRows', String(includeRepeatedRows));
 
       const response = await fetch('/api/admin/import-trial/import', {
         method: 'POST',
@@ -185,6 +190,7 @@ export default function ImportTrialPage() {
     setFile(null);
     setSummary(null);
     setError(null);
+    setIncludeRepeatedRows(false);
   };
 
   return (
@@ -242,6 +248,24 @@ export default function ImportTrialPage() {
                   </p>
                   <p className="text-sm text-gray-500">Supports .xlsx, .xlsm, and .xls files</p>
                 </label>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+                <Checkbox
+                  id="include-repeated-rows"
+                  checked={includeRepeatedRows}
+                  onCheckedChange={(checked) => setIncludeRepeatedRows(Boolean(checked))}
+                />
+                <div>
+                  <Label htmlFor="include-repeated-rows" className="font-semibold text-amber-950">
+                    Treat repeated dog/date/class rows as additional rounds
+                  </Label>
+                  <p className="mt-1 text-sm text-amber-800">
+                    Select this when competitors appear on several rows because the sheet ran out
+                    of result columns. Later rows become Rounds 3/4, 5/6, and so on. Leave it
+                    unchecked to warn about and omit repeated rows.
+                  </p>
+                </div>
               </div>
 
               {file && (
@@ -308,6 +332,9 @@ export default function ImportTrialPage() {
                   <h3 className="font-semibold text-lg text-green-900">{summary.trialName}</h3>
                   {summary.clubName && <p className="text-green-700">{summary.clubName}</p>}
                   <p className="text-sm text-green-600">{summary.dateRange}</p>
+                  <p className="mt-1 text-sm font-medium text-green-800">
+                    Repeated rows: {includeRepeatedRows ? 'included as additional rounds' : 'omitted after warning'}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
