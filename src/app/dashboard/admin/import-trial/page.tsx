@@ -35,6 +35,10 @@ interface ImportSummary {
     totalRounds: number;
     totalEntries: number;
     totalScores: number;
+    Pass: number;
+    Fail: number;
+    NQ: number;
+    ABS: number;
   };
   days: Array<{
     dayNumber: number;
@@ -44,6 +48,11 @@ interface ImportSummary {
       rounds: number;
       entries: number;
     }>;
+  }>;
+  detections: Array<{
+    sheetName: string;
+    type: 'league' | 'two-column' | 'one-column' | 'unknown';
+    resultCount: number;
   }>;
   warnings: string[];
   errors: string[];
@@ -78,8 +87,8 @@ export default function ImportTrialPage() {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       // Validate file type
-      if (!selectedFile.name.match(/\.(xlsx|xls)$/i)) {
-        setError('Please select an Excel file (.xlsx or .xls)');
+      if (!selectedFile.name.match(/\.(xlsx|xlsm|xls)$/i)) {
+        setError('Please select an Excel file (.xlsx, .xlsm, or .xls)');
         return;
       }
       setFile(selectedFile);
@@ -185,8 +194,7 @@ export default function ImportTrialPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Import Trial from Excel</h1>
           <p className="text-gray-600 mt-2">
-            Upload a completed trial spreadsheet to automatically create the trial, entries, and
-            scores
+            Upload completed C-WAGS score sheets to create the trial, entries, rounds, and results.
           </p>
         </div>
 
@@ -199,33 +207,14 @@ export default function ImportTrialPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-blue-800 space-y-2">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <p className="font-semibold mb-2">Page 1 (any tab):</p>
-                <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li>
-                    <strong>A1:</strong> Trial name / Date range (e.g., "June 6 -- July 26, 2024")
-                  </li>
-                  <li>
-                    <strong>A2:</strong> Club name (optional)
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <p className="font-semibold mb-2">Each tab (class):</p>
-                <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li>
-                    <strong>Row 5:</strong> Judge names
-                  </li>
-                  <li>
-                    <strong>Row 6:</strong> Dates
-                  </li>
-                  <li>
-                    <strong>Row 7+:</strong> Col A: CWAGS#, Col B: Dog, Col C: Handler, Col D+:
-                    Scores
-                  </li>
-                </ul>
-              </div>
+            <div className="space-y-2 text-sm">
+              <p>The importer automatically detects the current C-WAGS formats:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li><strong>One-column:</strong> one result and judge per row</li>
+                <li><strong>Two-column:</strong> two result/judge pairs per row</li>
+                <li><strong>League:</strong> one class per sheet with rounds across columns</li>
+              </ul>
+              <p>Passes, Fails, NQs, and ABS results are retained. Summary, recap, master, and example tabs are ignored.</p>
             </div>
           </CardContent>
         </Card>
@@ -241,7 +230,7 @@ export default function ImportTrialPage() {
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                 <input
                   type="file"
-                  accept=".xlsx,.xls"
+                  accept=".xlsx,.xlsm,.xls"
                   onChange={handleFileSelect}
                   className="hidden"
                   id="file-upload"
@@ -251,7 +240,7 @@ export default function ImportTrialPage() {
                   <p className="text-lg font-medium text-gray-700 mb-2">
                     {file ? file.name : 'Click to select Excel file'}
                   </p>
-                  <p className="text-sm text-gray-500">Supports .xlsx and .xls files</p>
+                  <p className="text-sm text-gray-500">Supports .xlsx, .xlsm, and .xls files</p>
                 </label>
               </div>
 
@@ -356,6 +345,24 @@ export default function ImportTrialPage() {
                       {summary.stats.totalScores}
                     </div>
                     <div className="text-xs text-gray-600">Scores</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {(['Pass', 'Fail', 'NQ', 'ABS'] as const).map((result) => (
+                    <div key={result} className="bg-white rounded-lg p-3 text-center border">
+                      <div className="text-xl font-bold text-gray-900">{summary.stats[result]}</div>
+                      <div className="text-xs text-gray-600">{result}</div>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-green-900 mb-2">Detected worksheet formats</p>
+                  <div className="flex flex-wrap gap-2">
+                    {summary.detections.map((detection) => (
+                      <Badge key={detection.sheetName} variant="outline" className="bg-white">
+                        {detection.sheetName}: {detection.type} ({detection.resultCount})
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </CardContent>

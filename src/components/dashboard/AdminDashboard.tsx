@@ -313,6 +313,15 @@ export default function AdminDashboard({
               All Trials Summary
             </Button>
 
+            <Button
+              onClick={() => router.push('/dashboard/admin/annual-report')}
+              variant="outline"
+              className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Annual Report
+            </Button>
+
             {allTrials.length > 0 && (
               <div className="border-t pt-3 mt-3 space-y-3">
                 <div>

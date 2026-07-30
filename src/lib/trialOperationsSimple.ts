@@ -342,6 +342,24 @@ export const simpleTrialOperations = {
           return { success: false, error: createdError.message };
         }
 
+        // Get trials assigned through the secretary-specific assignment table.
+        // The dashboard already includes this source; the shared loader must do
+        // the same so the sidebar and dashboard cannot disagree.
+        const { data: secretaryAssignments, error: secretaryAssignmentError } = await supabase
+          .from('trial_secretaries')
+          .select(
+            `
+          trial_id,
+          trials (*)
+        `
+          )
+          .eq('user_id', user.id);
+
+        if (secretaryAssignmentError) {
+          console.error('Error fetching secretary-assigned trials:', secretaryAssignmentError);
+          return { success: false, error: secretaryAssignmentError.message };
+        }
+
         // Get trials they're assigned to
         const { data: assignments, error: assignmentError } = await supabase
           .from('trial_assignments')
@@ -362,6 +380,9 @@ export const simpleTrialOperations = {
         const assignedTrials = (assignments || [])
           .map((a: any) => a.trials)
           .filter((t: any) => t !== null);
+        const secretaryTrials = (secretaryAssignments || [])
+          .map((assignment: any) => assignment.trials)
+          .filter((trial: any) => trial !== null);
 
         const { data: collaborations, error: collaborationError } = await supabase
           .from('trial_collaborators')
@@ -375,7 +396,12 @@ export const simpleTrialOperations = {
         }
         const sharedTrials = (collaborations || []).map((c: any) => c.trials ? ({ ...c.trials, shared_role: c.role }) : null).filter(Boolean);
 
-        const allTrials = [...(createdTrials || []).map((t: any) => ({ ...t, ownership: 'owned' })), ...assignedTrials.map((t: any) => ({ ...t, shared_role: 'secretary' })), ...sharedTrials];
+        const allTrials = [
+          ...(createdTrials || []).map((trial: any) => ({ ...trial, ownership: 'owned' })),
+          ...secretaryTrials.map((trial: any) => ({ ...trial, shared_role: 'secretary' })),
+          ...assignedTrials.map((trial: any) => ({ ...trial, shared_role: 'secretary' })),
+          ...sharedTrials,
+        ];
 
         // Remove duplicates by ID
         const uniqueTrials = allTrials.filter(
@@ -1822,7 +1848,9 @@ export const simpleTrialOperations = {
           (e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Pass')
         ).length,
         failedEntries: entries.filter(
-          (e: any) => e.scores && e.scores.some((s: any) => s.pass_fail === 'Fail')
+          (e: any) =>
+            e.scores &&
+            e.scores.some((s: any) => ['Fail', 'NQ'].includes(String(s.pass_fail)))
         ).length,
         gamesSubclass: gamesSubclass,
       };
@@ -2418,12 +2446,22 @@ export const simpleTrialOperations = {
             const failCount = classEntries.filter(
               (entry: any) =>
                 entry.entry_status?.toLowerCase() !== 'no_show' &&
-                getScoresArray(entry).some((s: any) => s.pass_fail === 'Fail')
+                getScoresArray(entry).some((s: any) =>
+                  ['Fail', 'NQ'].includes(String(s.pass_fail))
+                )
             ).length;
 
             const absCount = classEntries.filter((entry: any) => {
               const status = entry.entry_status?.toLowerCase();
-              return status === 'no_show' || status === 'absent';
+              return (
+                status === 'no_show' ||
+                status === 'absent' ||
+                getScoresArray(entry).some(
+                  (score: any) =>
+                    String(score.pass_fail).toUpperCase() === 'ABS' ||
+                    String(score.entry_status).toUpperCase() === 'ABS'
+                )
+              );
             }).length;
 
             const completedRuns = passCount + failCount + absCount;
