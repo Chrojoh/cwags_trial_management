@@ -288,7 +288,9 @@ export default function ClassSummaryPage() {
               result = score.pass_fail;
             } else if (score.pass_fail === 'Pass') {
               result = 'P';
-            } else if (['Fail', 'NQ'].includes(String(score.pass_fail))) {
+            } else if (score.pass_fail === 'Fail') {
+              result = 'F';
+            } else if (score.pass_fail === 'NQ') {
               result = 'NQ';
             }
           }
@@ -538,7 +540,10 @@ export default function ClassSummaryPage() {
               result = 'Pass';
               targetClassData.totalPasses++;
               targetClassData.totalRuns++;
-            } else if (['Fail', 'NQ'].includes(String(score.pass_fail))) {
+            } else if (score.pass_fail === 'Fail') {
+              result = 'F';
+              targetClassData.totalRuns++;
+            } else if (score.pass_fail === 'NQ') {
               result = 'NQ';
               targetClassData.totalRuns++;
             }

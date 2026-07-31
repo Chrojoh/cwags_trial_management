@@ -225,6 +225,11 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
     selectedClass &&
     isRallyOrObedienceClass(selectedClass.class_type, selectedClass.class_name)
   ) {
+    // Imported score sheets may provide an explicit NQ/Fail without a numeric
+    // score. Preserve that completed result instead of displaying it as blank.
+    if (['Fail', 'NQ'].includes(String(score?.pass_fail))) {
+      return 'NQ';
+    }
     if (score?.numerical_score !== null && score?.numerical_score !== undefined) {
       const passingScore = getPassingScore(selectedClass.class_name);
 
@@ -249,7 +254,9 @@ const getDisplayResult = (entry: ClassEntry, selectedClass: TrialClass | null): 
 
   if (score?.pass_fail === 'Pass') {
     return 'Pass';
-  } else if (['Fail', 'NQ'].includes(String(score?.pass_fail))) {
+  } else if (score?.pass_fail === 'Fail') {
+    return 'Fail';
+  } else if (score?.pass_fail === 'NQ') {
     return 'NQ';
   }
 
@@ -3305,7 +3312,9 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                         resultDisplay = score.pass_fail; // Show subclass symbol directly
                       } else if (score.pass_fail === 'Pass') {
                         resultDisplay = 'Pass';
-                      } else if (['Fail', 'NQ'].includes(String(score.pass_fail))) {
+                      } else if (score.pass_fail === 'Fail') {
+                        resultDisplay = 'F';
+                      } else if (score.pass_fail === 'NQ') {
                         resultDisplay = 'NQ';
                       } else if (score.pass_fail === 'FEO') {
                         resultDisplay = 'FEO';
