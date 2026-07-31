@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { localDateOnly } from '@/lib/dateOnly';
 
 // Canadian provinces/territories and US states
 const LOCATIONS = {
@@ -409,8 +410,8 @@ export default function CreateTrialPage() {
         trial_name: trialData.trial_name || 'Draft Trial',
         club_name: trialData.club_name || user.club_name || 'Unknown Club',
         location: location,
-        start_date: trialData.start_date || new Date().toISOString().split('T')[0],
-        end_date: trialData.end_date || new Date().toISOString().split('T')[0],
+        start_date: trialData.start_date || localDateOnly(),
+        end_date: trialData.end_date || localDateOnly(),
         created_by: user.id,
         trial_status: 'draft',
         premium_published: false,

@@ -231,8 +231,8 @@ export default function ClassSummaryPage() {
 
       // Sort rounds chronologically
       roundsForThisClass.sort((a: any, b: any) => {
-        const dateA = new Date(a.trial_classes?.trial_days?.trial_date || 0);
-        const dateB = new Date(b.trial_classes?.trial_days?.trial_date || 0);
+        const dateA = safeDateFromISO(a.trial_classes?.trial_days?.trial_date || '');
+        const dateB = safeDateFromISO(b.trial_classes?.trial_days?.trial_date || '');
         if (dateA.getTime() !== dateB.getTime()) {
           return dateA.getTime() - dateB.getTime();
         }

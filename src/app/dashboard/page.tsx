@@ -13,6 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import PendingTrialInvitations from '@/components/dashboard/PendingTrialInvitations';
+import { compareDateOnly, localDateOnly } from '@/lib/dateOnly';
 
 interface Trial {
   id: string;
@@ -91,8 +92,7 @@ export default function DashboardPage() {
     }
 
     const trials = trialsResult.data || [];
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = localDateOnly();
 
     // Calculate trial stats
     const totalTrials = trials.length;
@@ -123,7 +123,7 @@ export default function DashboardPage() {
     // Get recent trials (last 5)
     const recent = trials
       .sort(
-        (a: Trial, b: Trial) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+        (a: Trial, b: Trial) => compareDateOnly(b.start_date, a.start_date)
       )
       .slice(0, 5);
 
@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
     // Store all trials for judge compensation dropdown
     const allTrialsSorted = [...trials].sort(
-      (a: Trial, b: Trial) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+      (a: Trial, b: Trial) => compareDateOnly(b.start_date, a.start_date)
     );
     setAllTrials(allTrialsSorted);
 
@@ -278,7 +278,7 @@ export default function DashboardPage() {
     // Remove duplicates by trial id and sort by start date
     const uniqueTrials = Array.from(
       new Map(allSecretaryTrials.map((t) => [t.id, t])).values()
-    ).sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+    ).sort((a, b) => compareDateOnly(b.start_date, a.start_date));
 
     setUserTrials(uniqueTrials);
   };

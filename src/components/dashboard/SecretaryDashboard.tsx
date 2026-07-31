@@ -33,6 +33,7 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
 import { financialOperations } from '@/lib/financialOperations';
 import { derivePaymentStatus } from '@/lib/financialRules';
+import { compareDateOnly, localDateOnly, parseDateOnly } from '@/lib/dateOnly';
 import { isActiveSelection } from '@/lib/selectionStatus';
 
 interface Trial {
@@ -129,9 +130,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Priority: active > published > upcoming > draft
       const activeTrial = userTrials.find((t) => t.trial_status === 'active');
       const publishedTrial = userTrials.find((t) => t.trial_status === 'published');
+      const today = localDateOnly();
       const upcomingTrial = [...userTrials]
-        .filter((t) => new Date(t.start_date) > new Date())
-        .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())[0];
+        .filter((t) => t.start_date >= today)
+        .sort((a, b) => compareDateOnly(a.start_date, b.start_date))[0];
 
       const defaultTrial = activeTrial || publishedTrial || upcomingTrial || userTrials[0];
       setSelectedTrialId(defaultTrial.id);
@@ -216,7 +218,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       }, 0);
 
       // Calculate days until start
-      const startDate = new Date(trialData?.start_date || '');
+      const startDate = parseDateOnly(trialData?.start_date);
       const today = new Date();
       const daysUntilStart = Math.ceil(
         (startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)

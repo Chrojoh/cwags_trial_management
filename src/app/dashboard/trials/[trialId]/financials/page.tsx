@@ -51,6 +51,7 @@ import {
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { isBillableSelection } from '@/lib/selectionStatus';
+import { localDateOnly } from '@/lib/dateOnly';
 
 const supabase = getSupabaseBrowser();
 
@@ -133,7 +134,7 @@ export default function TrialFinancialsPage() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReceivedBy, setPaymentReceivedBy] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(localDateOnly());
   const [paymentNotes, setPaymentNotes] = useState('');
 
   // Edit payment modal states
@@ -150,7 +151,7 @@ export default function TrialFinancialsPage() {
   const [refundAmount, setRefundAmount] = useState('');
   const [refundMethod, setRefundMethod] = useState('');
   const [refundIssuedBy, setRefundIssuedBy] = useState('');
-  const [refundDate, setRefundDate] = useState(new Date().toISOString().split('T')[0]);
+  const [refundDate, setRefundDate] = useState(localDateOnly());
   const [refundNotes, setRefundNotes] = useState('');
 
   // Waive fees modal state
@@ -340,7 +341,7 @@ export default function TrialFinancialsPage() {
     setPaymentAmount(remaining > 0 ? remaining.toFixed(2) : '');
     setPaymentMethod('');
     setPaymentReceivedBy('');
-    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setPaymentDate(localDateOnly());
     setPaymentNotes('');
     setShowPaymentModal(true);
   };
@@ -394,7 +395,7 @@ export default function TrialFinancialsPage() {
     setEditPaymentAmount(payment.amount.toString());
     setEditPaymentMethod(payment.payment_method || '');
     setEditPaymentReceivedBy(payment.payment_received_by || '');
-    setEditPaymentDate(payment.payment_date || new Date().toISOString().split('T')[0]);
+    setEditPaymentDate(payment.payment_date || localDateOnly());
     setEditPaymentNotes(payment.notes || '');
     setShowEditPaymentModal(true);
   };
@@ -450,7 +451,7 @@ export default function TrialFinancialsPage() {
     setRefundAmount(overpayment > 0 ? overpayment.toFixed(2) : '');
     setRefundMethod('');
     setRefundIssuedBy('');
-    setRefundDate(new Date().toISOString().split('T')[0]);
+    setRefundDate(localDateOnly());
     setRefundNotes('');
     setShowRefundModal(true);
   };
@@ -870,7 +871,7 @@ export default function TrialFinancialsPage() {
 
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Financial Summary');
 
-    const filename = `${trialName.replace(/[^a-z0-9]/gi, '-')}-financials-${new Date().toISOString().split('T')[0]}.xlsx`;
+    const filename = `${trialName.replace(/[^a-z0-9]/gi, '-')}-financials-${localDateOnly()}.xlsx`;
     XLSX.writeFile(workbook, filename);
   };
 
@@ -962,7 +963,7 @@ End of Report
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `break-even-analysis-${trial?.trial_name?.replace(/\s+/g, '-') || 'trial'}-${new Date().toISOString().split('T')[0]}.txt`;
+    link.download = `break-even-analysis-${trial?.trial_name?.replace(/\s+/g, '-') || 'trial'}-${localDateOnly()}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

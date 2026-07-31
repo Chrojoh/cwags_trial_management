@@ -2,6 +2,7 @@
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { isBillableSelection, isRunningOrderSelection } from '@/lib/selectionStatus';
+import { compareDateOnly } from '@/lib/dateOnly';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
   id?: string;
@@ -404,7 +405,7 @@ export const simpleTrialOperations = {
 
         // Sort by start date
         uniqueTrials.sort(
-          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+          (a, b) => compareDateOnly(b.start_date, a.start_date)
         );
 
         return { success: true, data: uniqueTrials };

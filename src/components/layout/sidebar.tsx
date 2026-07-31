@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
+import { compareDateOnly } from '@/lib/dateOnly';
 
 interface Trial {
   id: string;
@@ -74,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const sorted = result.data
           .sort(
             (a: Trial, b: Trial) =>
-              new Date(b.start_date).getTime() - new Date(a.start_date).getTime() // ← flip b and a
+              compareDateOnly(b.start_date, a.start_date)
           )
           .slice(0, 5);
 

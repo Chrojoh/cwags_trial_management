@@ -109,6 +109,7 @@ const formatMetric = (value: number, format: 'number' | 'money' | 'percent') => 
 };
 
 const REPORT_PAGE_SIZE = 1000;
+const dateOnlyYear = (date: string) => Number(String(date).slice(0, 4));
 
 export default function AnnualReportPage() {
   const { user } = useAuth();
@@ -155,7 +156,7 @@ export default function AnnualReportPage() {
         setLoading(false);
         return;
       }
-      const availableYears = trials.map((trial) => new Date(trial.start_date).getFullYear());
+      const availableYears = trials.map((trial) => dateOnlyYear(trial.start_date));
       if (availableYears.length && !availableYears.includes(currentYear)) {
         setSelectedYear(String(Math.max(...availableYears)));
       }
@@ -165,7 +166,7 @@ export default function AnnualReportPage() {
 
   const filteredTrials = useMemo(
     () => allTrials.filter((trial) => {
-      const matchesYear = new Date(trial.start_date).getFullYear() === Number(selectedYear);
+      const matchesYear = dateOnlyYear(trial.start_date) === Number(selectedYear);
       const matchesClub = selectedClub === 'all' || trial.club_name === selectedClub;
       const matchesStatus = !completedOnly || trial.trial_status === 'completed';
       return matchesYear && matchesClub && matchesStatus;
@@ -201,69 +202,110 @@ export default function AnnualReportPage() {
         return records;
       };
 
-      const days = await fetchAllPages<{ id: string; trial_id: string }>((from, to) =>
-        supabase.from('trial_days').select('id, trial_id').in('trial_id', trialIds).range(from, to)
+      // Keep PostgREST `.in(...)` URLs below practical browser/proxy limits.
+      // UUID lists become very large once an annual report includes hundreds of rounds.
+      const fetchInBatches = async <T,>(
+        ids: string[],
+        fetchPage: (idsForRequest: string[], from: number, to: number) => PromiseLike<{
+          data: T[] | null;
+          error: { message: string } | null;
+        }>
+      ) => {
+        const records: T[] = [];
+        const idBatchSize = 75;
+        for (let index = 0; index < ids.length; index += idBatchSize) {
+          const idsForRequest = ids.slice(index, index + idBatchSize);
+          const batch = await fetchAllPages<T>((from, to) =>
+            fetchPage(idsForRequest, from, to)
+          );
+          records.push(...batch);
+        }
+        return records;
+      };
+
+      const days = await fetchInBatches<{ id: string; trial_id: string }>(
+        trialIds,
+        (idsForRequest, from, to) =>
+          supabase
+            .from('trial_days')
+            .select('id, trial_id')
+            .in('trial_id', idsForRequest)
+            .range(from, to)
       );
       const dayIds = days.map((day) => day.id);
 
       const trialClasses = dayIds.length
-        ? await fetchAllPages<{ id: string; trial_day_id: string }>((from, to) =>
-            supabase.from('trial_classes').select('id, trial_day_id').in('trial_day_id', dayIds).range(from, to)
+        ? await fetchInBatches<{ id: string; trial_day_id: string }>(
+            dayIds,
+            (idsForRequest, from, to) =>
+              supabase
+                .from('trial_classes')
+                .select('id, trial_day_id')
+                .in('trial_day_id', idsForRequest)
+                .range(from, to)
           )
         : [];
       const classIds = trialClasses.map((trialClass) => trialClass.id);
 
       const trialRounds = classIds.length
-        ? await fetchAllPages<{ id: string; trial_class_id: string }>((from, to) =>
-            supabase.from('trial_rounds').select('id, trial_class_id').in('trial_class_id', classIds).range(from, to)
+        ? await fetchInBatches<{ id: string; trial_class_id: string }>(
+            classIds,
+            (idsForRequest, from, to) =>
+              supabase
+                .from('trial_rounds')
+                .select('id, trial_class_id')
+                .in('trial_class_id', idsForRequest)
+                .range(from, to)
           )
         : [];
       const roundIds = trialRounds.map((round) => round.id);
 
       const selections = roundIds.length
-        ? await fetchAllPages<{
+        ? await fetchInBatches<{
             id: string;
             entry_id: string;
             trial_round_id: string;
             entry_type: string | null;
             entry_status: string | null;
             fee: number | null;
-          }>((from, to) =>
+          }>(roundIds, (idsForRequest, from, to) =>
             supabase
               .from('entry_selections')
               .select('id, entry_id, trial_round_id, entry_type, entry_status, fee')
-              .in('trial_round_id', roundIds)
+              .in('trial_round_id', idsForRequest)
               .range(from, to)
           )
         : [];
 
-      const entries = await fetchAllPages<{
+      const entries = await fetchInBatches<{
         id: string;
         trial_id: string;
         handler_name: string;
         fees_waived: boolean | null;
         is_judge_volunteer: boolean | null;
         waiver_reason: string | null;
-      }>((from, to) =>
+      }>(trialIds, (idsForRequest, from, to) =>
         supabase
           .from('entries')
           .select('id, trial_id, handler_name, fees_waived, is_judge_volunteer, waiver_reason')
-          .in('trial_id', trialIds)
+          .in('trial_id', idsForRequest)
           .range(from, to)
       );
 
-      let scores: Array<{ entry_selection_id: string; pass_fail: string | null; entry_status: string | null }> = [];
-      let from = 0;
-      while (true) {
-        const { data: scorePage, error: scoreError } = await supabase
-          .from('scores')
-          .select('entry_selection_id, pass_fail, entry_status')
-          .range(from, from + REPORT_PAGE_SIZE - 1);
-        if (scoreError) throw scoreError;
-        scores = scores.concat(scorePage || []);
-        if (!scorePage || scorePage.length < REPORT_PAGE_SIZE) break;
-        from += REPORT_PAGE_SIZE;
-      }
+      const selectionIds = selections.map((selection) => selection.id);
+      const scores = selectionIds.length
+        ? await fetchInBatches<{
+            entry_selection_id: string;
+            pass_fail: string | null;
+            entry_status: string | null;
+          }>(selectionIds, (idsForRequest, from, to) =>
+            supabase
+              .from('scores')
+              .select('entry_selection_id, pass_fail, entry_status')
+              .in('entry_selection_id', idsForRequest)
+              .range(from, to)
+          )
+        : [];
 
       const dayToTrial = new Map(days.map((day) => [day.id, day.trial_id]));
       const classToTrial = new Map(
@@ -411,7 +453,7 @@ export default function AnnualReportPage() {
   }, [rows]);
 
   const years = useMemo(
-    () => Array.from(new Set(allTrials.map((trial) => new Date(trial.start_date).getFullYear()))).sort((a, b) => b - a),
+    () => Array.from(new Set(allTrials.map((trial) => dateOnlyYear(trial.start_date)))).sort((a, b) => b - a),
     [allTrials]
   );
   const clubs = useMemo(

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/table';
 import { Users, Calendar, Trash2, Plus, AlertCircle, Loader2, X, UserPlus } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { parseDateOnly } from '@/lib/dateOnly';
 
 interface Trial {
   id: string;
@@ -335,8 +336,8 @@ export default function TrialAssignmentsPage() {
                       <span>{trial.trial_name}</span>
                     </CardTitle>
                     <CardDescription className="mt-1">
-                      {trial.location} • {new Date(trial.start_date).toLocaleDateString()} -{' '}
-                      {new Date(trial.end_date).toLocaleDateString()}
+                      {trial.location} • {parseDateOnly(trial.start_date).toLocaleDateString()} -{' '}
+                      {parseDateOnly(trial.end_date).toLocaleDateString()}
                     </CardDescription>
                   </div>
                   <Badge>
@@ -438,7 +439,7 @@ export default function TrialAssignmentsPage() {
                   <SelectContent className="bg-white">
                     {trials.map((trial) => (
                       <SelectItem key={trial.id} value={trial.id}>
-                        {trial.trial_name} ({new Date(trial.start_date).toLocaleDateString()})
+                        {trial.trial_name} ({parseDateOnly(trial.start_date).toLocaleDateString()})
                       </SelectItem>
                     ))}
                   </SelectContent>
