@@ -398,7 +398,7 @@ export default function ClassSummaryPage() {
             trialDate: string;
             roundNumber: number;
             sortOrder: number;
-            results: Map<string, string>;
+            results: Map<string, string | number>;
           }>;
           totalPasses: number;
           totalRuns: number;
@@ -487,7 +487,7 @@ export default function ClassSummaryPage() {
           }
 
           const score = scoresMap.get(selection.id);
-          let result = '-';
+          let result: string | number = '-';
 
           if (
             isAbsentSelection(selection.entry_status) ||
@@ -524,7 +524,9 @@ export default function ClassSummaryPage() {
               const passingScore = className.toLowerCase().includes('obedience 5') ? 120 : 70;
 
               if (score.numerical_score >= passingScore && score.pass_fail === 'Pass') {
-                result = score.numerical_score.toString();
+                // Preserve qualifying numerical scores as numbers so Excel does
+                // not flag them as "Number stored as text."
+                result = Number(score.numerical_score);
                 targetClassData.totalPasses++;
               } else {
                 result = 'NQ';

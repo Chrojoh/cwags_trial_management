@@ -658,6 +658,7 @@ export default function TrialFinancialsPage() {
       waivedNet: number;
       balance: number;
       isWaived: boolean;
+      isPartiallyWaived: boolean;
     };
     const compRows: CompRow[] = [];
 
@@ -694,6 +695,7 @@ export default function TrialFinancialsPage() {
         waivedNet,
         balance,
         isWaived: comp.fees_waived,
+        isPartiallyWaived: Boolean(comp.has_waived_entries && comp.has_billable_entries),
       });
 
       rows.push([
@@ -706,7 +708,11 @@ export default function TrialFinancialsPage() {
         refunds,
         waivedNet,
         { f: `E${excelRow}-F${excelRow}+G${excelRow}-H${excelRow}` }, // self-checking
-        comp.fees_waived ? `Waived: ${comp.waiver_reason || 'No reason given'}` : '',
+        comp.fees_waived
+          ? `Waived: ${comp.waiver_reason || 'No reason given'}`
+          : comp.has_waived_entries && comp.has_billable_entries
+            ? `Partially waived: ${comp.waiver_reason || 'No reason given'}`
+            : '',
       ]);
     });
 
@@ -723,7 +729,20 @@ export default function TrialFinancialsPage() {
       { f: `SUM(F${dataStartRow}:F${lastDataRow})` },
       { f: `SUM(G${dataStartRow}:G${lastDataRow})` },
       { f: `SUM(H${dataStartRow}:H${lastDataRow})` },
-      { f: `SUM(I${dataStartRow}:I${lastDataRow})` },
+      { f: `SUMIF(I${dataStartRow}:I${lastDataRow},">0",I${dataStartRow}:I${lastDataRow})` },
+      '',
+    ]);
+    const creditsRowNum = totalsRowNum + 1;
+    rows.push([
+      'CREDITS / OVERPAYMENTS',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      { f: `-SUMIF(I${dataStartRow}:I${lastDataRow},"<0",I${dataStartRow}:I${lastDataRow})` },
       '',
     ]);
 
@@ -800,7 +819,13 @@ export default function TrialFinancialsPage() {
     compRows.forEach((cr, idx) => {
       const excelRow = dataStartRow + idx;
       const isEven = idx % 2 === 0;
-      const baseBg = cr.isWaived ? 'F5F3FF' : isEven ? 'FFF7ED' : 'FFFFFF';
+      const baseBg = cr.isWaived
+        ? 'F5F3FF'
+        : cr.isPartiallyWaived
+          ? 'FEF3C7'
+          : isEven
+            ? 'FFF7ED'
+            : 'FFFFFF';
 
       headerCols.forEach((col) => {
         const addr = `${col}${excelRow}`;
@@ -857,8 +882,19 @@ export default function TrialFinancialsPage() {
       if (moneyCols.includes(col)) cell.z = numFmt;
     });
 
+    // Keep credits visible instead of netting them against positive balances.
+    headerCols.forEach((col) => {
+      const cell = getCell(`${col}${creditsRowNum}`);
+      cell.s = {
+        font: { bold: true, sz: 10, name: 'Calibri', color: { rgb: '7C2D12' } },
+        fill: { fgColor: { rgb: 'FFEDD5' } },
+        alignment: { horizontal: moneyCols.includes(col) ? 'right' : 'left', vertical: 'center' },
+      };
+      if (moneyCols.includes(col)) cell.z = numFmt;
+    });
+
     // ── Footer note ───────────────────────────────────────────────
-    const noteRow = totalsRowNum + 2;
+    const noteRow = totalsRowNum + 3;
     rows.push([]); // blank
     rows.push([
       breakEvenData.regular_entry_fee > 0
@@ -1444,6 +1480,16 @@ End of Report
                                     Waived: {comp.waiver_reason}
                                   </Badge>
                                 )}
+                                {!comp.fees_waived &&
+                                  comp.has_waived_entries &&
+                                  comp.has_billable_entries && (
+                                    <Badge
+                                      variant="outline"
+                                      className="mt-1 bg-amber-50 text-amber-800 text-xs"
+                                    >
+                                      Partially waived
+                                    </Badge>
+                                  )}
                               </td>
                               <td
                                 className="p-2 text-center"

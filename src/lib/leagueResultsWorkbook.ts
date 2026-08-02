@@ -4,7 +4,7 @@ export interface LeagueWorkbookRound {
   judgeInfo: string;
   trialDate: string;
   roundNumber: number;
-  results: Map<string, string>;
+  results: Map<string, string | number>;
 }
 
 export interface LeagueWorkbookClass {
@@ -286,9 +286,9 @@ const resultCounts = (classData: LeagueWorkbookClass) => {
   let absences = 0;
   classData.rounds.forEach((round) => {
     round.results.forEach((result) => {
-      if (result === 'Pass' || ['GB', 'BJ', 'C', 'T', 'P'].includes(result)) passes++;
+      if (result === 'Pass' || (typeof result === 'string' && ['GB', 'BJ', 'C', 'T', 'P'].includes(result))) passes++;
       else if (result === 'F' || result === 'NQ') fails++;
-      else if (result.toLowerCase() === 'abs') absences++;
+      else if (typeof result === 'string' && result.toLowerCase() === 'abs') absences++;
       else if (result !== '-' && !Number.isNaN(Number(result))) passes++;
     });
   });
