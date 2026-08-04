@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { mapTrialApplicationData } from './mapper';
-import { fittedFontSize, fitTextLines, renderTrialApplicationPdf, safeApplicationFilename } from './renderer';
+import { fittedFontSize, fitTextLines, renderTrialApplicationPdf, safeApplicationFilename, surfaceLines } from './renderer';
 import { PDFDocument } from 'pdf-lib';
 
 const trial = {
@@ -64,6 +64,16 @@ test('wraps a long judge list into at most two lines before shrinking excessivel
   assert.equal(fitted.lines.length, 2);
   assert.equal(fitted.truncated, false);
   assert.ok(fitted.lines.join(', ').includes('Judge 12'));
+});
+
+test('stacks up to four ring surfaces in entered order', () => {
+  assert.deepEqual(surfaceLines('pavement, gravel; rubber mats\ngrass'), [
+    'pavement',
+    'gravel',
+    'rubber mats',
+    'grass',
+  ]);
+  assert.deepEqual(surfaceLines('one, two, three, four, five'), ['one', 'two', 'three', 'four']);
 });
 
 test('sanitizes generated filenames', () => {

@@ -108,6 +108,40 @@ function drawFitLines(page: PDFPage, font: PDFFont, text: string, box: Box, maxL
   });
 }
 
+export function surfaceLines(text: string, maxLines = 4): string[] {
+  return text
+    .split(/[,;\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, maxLines);
+}
+
+function drawSurfaceStack(page: PDFPage, font: PDFFont, text: string, box: Box) {
+  const lines = surfaceLines(text);
+  if (!lines.length) return;
+
+  const gap = 0.5;
+  const availableLineHeight = (box.height - gap * (lines.length - 1)) / lines.length;
+  const preferredSize = Math.min(box.size || 8, availableLineHeight);
+  const minimumSize = Math.min(box.minSize || 3.5, preferredSize);
+  const sizes = lines.map((line) =>
+    fittedFontSize(line, font, box.width - 2, preferredSize, minimumSize)
+  );
+
+  let baseline = box.y + 1;
+  lines.forEach((line, index) => {
+    const size = sizes[index];
+    page.drawText(line, {
+      x: box.x + 1,
+      y: baseline,
+      size,
+      font,
+      color: rgb(0, 0, 0),
+    });
+    baseline += size + gap;
+  });
+}
+
 function drawX(page: PDFPage, box: Box) {
   const inset = 2;
   page.drawLine({ start: { x: box.x + inset, y: box.y + inset }, end: { x: box.x + box.width - inset, y: box.y + box.height - inset }, thickness: 1.2 });
@@ -130,7 +164,7 @@ const general = {
   dayTop: 443, headerTop: 471, firstRowTop: 496, rowHeight: 36.8, pageOneRows: 10,
   dayStarts: [159, 292, 424, 556, 688, 820], dayDateStarts: [225, 357, 489, 621, 753, 885],
   continuationDayTop: 72, continuationHeaderTop: 100, continuationFirstRowTop: 124, continuationRowHeight: 36.8, continuationRows: 29,
-  setting: px({ x: 350, top: 890, width: 150, height: 28, size: 9 }), surface: px({ x: 635, top: 890, width: 125, height: 28, size: 9 }),
+  setting: px({ x: 350, top: 890, width: 150, height: 28, size: 9 }), surface: px({ x: 635, top: 880, width: 125, height: 40, size: 7, minSize: 3.5 }),
   leagueYes: px({ x: 835, top: 897, width: 13, height: 13 }), leagueNo: px({ x: 908, top: 897, width: 13, height: 13 }),
   exception: px({ x: 330, top: 920, width: 170, height: 36, size: 8.5 }), count: px({ x: 760, top: 920, width: 185, height: 36, size: 9 }),
   insurance: px({ x: 380, top: 960, width: 120, height: 35, size: 9 }), resetYes: px({ x: 729, top: 966, width: 13, height: 13 }), resetNo: px({ x: 790, top: 966, width: 13, height: 13 }),
@@ -147,7 +181,7 @@ const scent = {
   dayTop: 475, headerTop: 503, firstRowTop: 527, rowHeight: 36.7, pageOneRows: 10,
   dayStarts: [180, 300, 424, 556, 688, 820], dayDateStarts: [225, 345, 469, 601, 733, 865],
   continuationDayTop: 100, continuationHeaderTop: 129, continuationFirstRowTop: 153, continuationRowHeight: 36.8, continuationRows: 29,
-  setting: px({ x: 350, top: 918, width: 155, height: 28, size: 9 }), surface: px({ x: 635, top: 918, width: 85, height: 28, size: 9 }),
+  setting: px({ x: 350, top: 918, width: 155, height: 28, size: 9 }), surface: px({ x: 635, top: 906, width: 85, height: 40, size: 7, minSize: 3.5 }),
   leagueYes: px({ x: 797, top: 915, width: 25, height: 26 }), leagueNo: px({ x: 872, top: 915, width: 25, height: 26 }),
   exception: px({ x: 340, top: 946, width: 165, height: 36, size: 8.5 }), count: px({ x: 790, top: 946, width: 165, height: 36, size: 9 }),
   insurance: px({ x: 390, top: 984, width: 115, height: 35, size: 9 }), resetYes: px({ x: 772, top: 983, width: 27, height: 27 }), resetNo: px({ x: 882, top: 983, width: 27, height: 27 }),
@@ -191,7 +225,7 @@ export async function renderTrialApplicationPdf(data: TrialApplicationData, draf
     }
   }
   drawFit(page, font, data.venue.setting || '', cfg.setting);
-  drawFit(page, font, data.venue.surface, cfg.surface);
+  drawSurfaceStack(page, font, data.venue.surface, cfg.surface);
   drawFit(page, font, data.venue.ringSizeExceptionRequest, cfg.exception);
   drawFit(page, font, String(data.scent?.numberOfSearchAreas ?? data.venue.numberOfRings ?? ''), cfg.count);
   drawFit(page, font, formatDate(data.venue.insuranceExpirationDate), cfg.insurance);
