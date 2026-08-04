@@ -28,6 +28,9 @@ interface ClassJudgeStatisticsProps {
   preSelectedClass?: string; // If provided, auto-select this class and hide dropdown
 }
 
+const PAGE_SIZE = 1000;
+const ID_BATCH_SIZE = 75;
+
 export default function ClassJudgeStatistics({
   clubName,
   preSelectedClass,
@@ -55,11 +58,16 @@ export default function ClassJudgeStatistics({
       const supabase = getSupabaseBrowser();
 
       // STEP 1: Get all trial_class_ids that have scores
-      const { data: scoresData, error: scoresError } = await supabase
-        .from('scores')
-        .select('trial_round_id');
-
-      if (scoresError) throw scoresError;
+      const scoresData: Array<{ trial_round_id: string }> = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error: scoresError } = await supabase
+          .from('scores')
+          .select('trial_round_id')
+          .range(from, from + PAGE_SIZE - 1);
+        if (scoresError) throw scoresError;
+        scoresData.push(...(data || []));
+        if (!data || data.length < PAGE_SIZE) break;
+      }
 
       // Get unique trial_round_ids
       const roundIdsWithScores = new Set(scoresData?.map((s) => s.trial_round_id) || []);
@@ -72,30 +80,33 @@ export default function ClassJudgeStatistics({
       }
 
       // STEP 2: Get class info for those rounds
-      let query = supabase
-        .from('trial_rounds')
-        .select(
-          `
-          id,
-          trial_classes!inner(
-            class_name,
-            trial_days!inner(
-              trials!inner(
-                club_name
+      const data: Array<{ id: string; trial_classes: unknown }> = [];
+      const scoredRoundIds = Array.from(roundIdsWithScores);
+      for (let index = 0; index < scoredRoundIds.length; index += ID_BATCH_SIZE) {
+        let query = supabase
+          .from('trial_rounds')
+          .select(
+            `
+            id,
+            trial_classes!inner(
+              class_name,
+              trial_days!inner(
+                trials!inner(
+                  club_name
+                )
               )
             )
+          `
           )
-        `
-        )
-        .in('id', Array.from(roundIdsWithScores));
+          .in('id', scoredRoundIds.slice(index, index + ID_BATCH_SIZE));
 
-      if (clubName) {
-        query = query.eq('trial_classes.trial_days.trials.club_name', clubName);
+        if (clubName) {
+          query = query.eq('trial_classes.trial_days.trials.club_name', clubName);
+        }
+        const { data: batch, error } = await query;
+        if (error) throw error;
+        data.push(...(batch || []));
       }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
 
       console.log(`Found ${data?.length || 0} rounds with class info`);
 
@@ -181,21 +192,29 @@ export default function ClassJudgeStatistics({
       // STEP 2: Get all scores for these rounds
       const roundIds = rounds.map((r) => r.id);
 
-      const { data: scores, error: scoresError } = await supabase
-        .from('scores')
-        .select(
-          `
-          pass_fail,
-          entry_status,
-          trial_round_id,
-          entry_selections!inner(
-            entry_type
-          )
-        `
-        )
-        .in('trial_round_id', roundIds);
-
-      if (scoresError) throw scoresError;
+      const scores: unknown[] = [];
+      for (let index = 0; index < roundIds.length; index += ID_BATCH_SIZE) {
+        const idsForRequest = roundIds.slice(index, index + ID_BATCH_SIZE);
+        for (let from = 0; ; from += PAGE_SIZE) {
+          const { data: page, error: scoresError } = await supabase
+            .from('scores')
+            .select(
+              `
+              pass_fail,
+              entry_status,
+              trial_round_id,
+              entry_selections!inner(
+                entry_type
+              )
+            `
+            )
+            .in('trial_round_id', idsForRequest)
+            .range(from, from + PAGE_SIZE - 1);
+          if (scoresError) throw scoresError;
+          scores.push(...(page || []));
+          if (!page || page.length < PAGE_SIZE) break;
+        }
+      }
 
       console.log(`Loaded ${scores?.length || 0} scores`);
 
@@ -242,7 +261,7 @@ export default function ClassJudgeStatistics({
           if (score.entry_selections?.entry_type !== 'regular') return;
 
           // Skip if ABS
-          if (score.entry_status === 'ABS') return;
+          if (String(score.entry_status || '').toUpperCase() === 'ABS') return;
 
           // Count this run
           judgeData.runs++;
