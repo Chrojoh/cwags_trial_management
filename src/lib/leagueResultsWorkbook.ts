@@ -121,8 +121,19 @@ const normalizedRecapName = (className: string): string => {
   return aliases[className] || className;
 };
 
-const splitLocation = (location: string): { city: string; province: string } => {
+export const splitLocation = (location: string): { city: string; province: string } => {
   const parts = location.split(',').map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 4) {
+    // Trials are saved as venue, city, province/state, country.
+    return { city: parts[1], province: parts[2] };
+  }
+  if (parts.length === 3) {
+    const finalPart = parts[2].toLowerCase();
+    const endsWithCountry = ['canada', 'usa', 'united states', 'united states of america'].includes(finalPart);
+    return endsWithCountry
+      ? { city: parts[0], province: parts[1] }
+      : { city: parts[1], province: parts[2] };
+  }
   return { city: parts[0] || location, province: parts[1] || '' };
 };
 
