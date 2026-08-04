@@ -120,17 +120,16 @@ function drawSurfaceStack(page: PDFPage, font: PDFFont, text: string, box: Box) 
   const lines = surfaceLines(text);
   if (!lines.length) return;
 
-  const gap = 0.5;
-  const availableLineHeight = (box.height - gap * (lines.length - 1)) / lines.length;
-  const preferredSize = Math.min(box.size || 8, availableLineHeight);
-  const minimumSize = Math.min(box.minSize || 3.5, preferredSize);
-  const sizes = lines.map((line) =>
-    fittedFontSize(line, font, box.width - 2, preferredSize, minimumSize)
-  );
+  const gap = 1;
+  const preferredSize = box.size || 7;
+  const minimumSize = box.minSize || 5.5;
 
   let baseline = box.y + 1;
   lines.forEach((line, index) => {
-    const size = sizes[index];
+    // The printed field itself is narrow because the League label follows it.
+    // Higher lines can safely use the blank area above that label.
+    const lineWidth = index === 0 ? box.width : box.width + 48;
+    const size = fittedFontSize(line, font, lineWidth - 2, preferredSize, minimumSize);
     page.drawText(line, {
       x: box.x + 1,
       y: baseline,
@@ -164,7 +163,7 @@ const general = {
   dayTop: 443, headerTop: 471, firstRowTop: 496, rowHeight: 36.8, pageOneRows: 10,
   dayStarts: [159, 292, 424, 556, 688, 820], dayDateStarts: [225, 357, 489, 621, 753, 885],
   continuationDayTop: 72, continuationHeaderTop: 100, continuationFirstRowTop: 124, continuationRowHeight: 36.8, continuationRows: 29,
-  setting: px({ x: 350, top: 890, width: 150, height: 28, size: 9 }), surface: px({ x: 635, top: 880, width: 125, height: 40, size: 7, minSize: 3.5 }),
+  setting: px({ x: 350, top: 890, width: 150, height: 28, size: 9 }), surface: px({ x: 635, top: 862, width: 125, height: 58, size: 7, minSize: 5.5 }),
   leagueYes: px({ x: 835, top: 897, width: 13, height: 13 }), leagueNo: px({ x: 908, top: 897, width: 13, height: 13 }),
   exception: px({ x: 330, top: 920, width: 170, height: 36, size: 8.5 }), count: px({ x: 760, top: 920, width: 185, height: 36, size: 9 }),
   insurance: px({ x: 380, top: 960, width: 120, height: 35, size: 9 }), resetYes: px({ x: 729, top: 966, width: 13, height: 13 }), resetNo: px({ x: 790, top: 966, width: 13, height: 13 }),
@@ -181,7 +180,7 @@ const scent = {
   dayTop: 475, headerTop: 503, firstRowTop: 527, rowHeight: 36.7, pageOneRows: 10,
   dayStarts: [180, 300, 424, 556, 688, 820], dayDateStarts: [225, 345, 469, 601, 733, 865],
   continuationDayTop: 100, continuationHeaderTop: 129, continuationFirstRowTop: 153, continuationRowHeight: 36.8, continuationRows: 29,
-  setting: px({ x: 350, top: 918, width: 155, height: 28, size: 9 }), surface: px({ x: 635, top: 906, width: 85, height: 40, size: 7, minSize: 3.5 }),
+  setting: px({ x: 350, top: 918, width: 155, height: 28, size: 9 }), surface: px({ x: 635, top: 888, width: 85, height: 58, size: 7, minSize: 5.5 }),
   leagueYes: px({ x: 797, top: 915, width: 25, height: 26 }), leagueNo: px({ x: 872, top: 915, width: 25, height: 26 }),
   exception: px({ x: 340, top: 946, width: 165, height: 36, size: 8.5 }), count: px({ x: 790, top: 946, width: 165, height: 36, size: 9 }),
   insurance: px({ x: 390, top: 984, width: 115, height: 35, size: 9 }), resetYes: px({ x: 772, top: 983, width: 27, height: 27 }), resetNo: px({ x: 882, top: 983, width: 27, height: 27 }),
