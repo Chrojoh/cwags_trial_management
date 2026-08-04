@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { isWaitlistedSelection, isWithdrawnSelection } from '@/lib/selectionStatus';
 import {
   ArrowLeft,
@@ -114,32 +115,33 @@ export default function TrialJournalPage() {
       const entries: JournalEntry[] = [];
 
       // ✅ PART 1: Load entry submissions and modifications from trial_activity_log
-      const { data: activityData, error: activityError } = await supabase
-        .from('trial_activity_log')
-        .select('*')
-        .eq('trial_id', trialId)
-        .in('activity_type', [
-          'entry_submitted',
-          'entry_modified',
-          'fees_waived',
-          'fees_unwaived',
-          'dog_substituted',
-          'waitlist_promoted',
-          'capacity_changed',
-          'entry_status_changed',
-          'entry_confirmed',
-          'entry_waitlisted',
-          'live_event_entry_added',
-          'live_event_selection_added',
-          'selection_waitlisted',
-          'entry_edited',
-          'running_order_changed',
-          'fees_recalculated',
-          'score_corrected',
-        ])
-        .order('created_at', { ascending: false });
-
-      if (activityError) throw activityError;
+      const activityData = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('trial_activity_log')
+          .select('*')
+          .eq('trial_id', trialId)
+          .in('activity_type', [
+            'entry_submitted',
+            'entry_modified',
+            'fees_waived',
+            'fees_unwaived',
+            'dog_substituted',
+            'waitlist_promoted',
+            'capacity_changed',
+            'entry_status_changed',
+            'entry_confirmed',
+            'entry_waitlisted',
+            'live_event_entry_added',
+            'live_event_selection_added',
+            'selection_waitlisted',
+            'entry_edited',
+            'running_order_changed',
+            'fees_recalculated',
+            'score_corrected',
+          ])
+          .order('created_at', { ascending: false })
+          .range(from, to)
+      );
 
       // Process activity log entries with snapshots
       (activityData || []).forEach((activity: any) => {

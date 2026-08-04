@@ -2,6 +2,7 @@
 import { getSupabaseBrowser } from './supabaseBrowser';
 import { calculateSelectionFees, getCwagsOwnerKey } from './financialRules';
 import { isBillableSelection } from './selectionStatus';
+import { fetchAllPages, fetchInBatches } from './supabasePagination';
 
 const supabase = getSupabaseBrowser();
 
@@ -140,10 +141,11 @@ export const financialOperations = {
 
   async getCompetitorFinancials(trialId: string): Promise<OperationResult<CompetitorFinancial[]>> {
     try {
-      const { data: entries, error: entriesError } = await supabase
-        .from('entries')
-        .select(
-          `
+      const entries = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('entries')
+          .select(
+            `
         id,
         handler_name,
         dog_call_name,
@@ -159,18 +161,24 @@ export const financialOperations = {
           entry_status
         )
       `
-        )
-        .eq('trial_id', trialId);
-
-      if (entriesError) throw entriesError;
+          )
+          .eq('trial_id', trialId)
+          .order('id')
+          .range(from, to)
+      );
 
       // Get payment history
       const entryIds = (entries || []).map((e: any) => e.id);
-      const { data: payments } = await supabase
-        .from('entry_payment_transactions')
-        .select('*')
-        .in('entry_id', entryIds)
-        .order('payment_date', { ascending: false });
+      const payments = entryIds.length
+        ? await fetchInBatches<any>(entryIds, (idsForRequest, from, to) =>
+            supabase
+              .from('entry_payment_transactions')
+              .select('*')
+              .in('entry_id', idsForRequest)
+              .order('payment_date', { ascending: false })
+              .range(from, to)
+          )
+        : [];
 
       const paymentsByEntry: Record<string, PaymentTransaction[]> = {};
       (payments || []).forEach((payment: any) => {

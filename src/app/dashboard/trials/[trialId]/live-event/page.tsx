@@ -3242,20 +3242,22 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
         return a.roundNumber - b.roundNumber;
       });
 
-      // Get all scores at once
-      const { data: allScores } = await supabase.from('scores').select('*');
-
-      const scoresMap = new Map();
-      if (allScores) {
-        allScores.forEach((score) => {
-          scoresMap.set(score.entry_selection_id, score);
-        });
-      }
-      console.log('Loaded scores for lookup:', allScores?.length || 0);
-
-      // Populate entries for each column with updated result logic
+      // The shared trial loader already includes the scores nested under each
+      // selection. Reusing them keeps this export scoped to the selected trial
+      // and avoids Supabase's 1,000-row cap on a global scores query.
       const entriesResult = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
       if (entriesResult.success) {
+        const scoresMap = new Map<string, any>();
+        (entriesResult.data || []).forEach((entry: any) => {
+          (entry.entry_selections || []).forEach((selection: any) => {
+            const score = Array.isArray(selection.scores)
+              ? selection.scores[0]
+              : selection.scores;
+            if (score) scoresMap.set(selection.id, score);
+          });
+        });
+
+        // Populate entries for each column with updated result logic
         classRounds.forEach((col) => {
           const entries: any[] = [];
           (entriesResult.data || []).forEach((entry: any) => {

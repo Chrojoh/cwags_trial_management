@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, Loader2 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { calculatePassRate, hasRecordedResult, isAbsentResult, isPassingResult } from '@/lib/resultMetrics';
+import { isActiveSelection } from '@/lib/selectionStatus';
+import { fetchInBatches } from '@/lib/supabasePagination';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 
 interface JudgeStats {
@@ -114,23 +117,22 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
       const roundIds = rounds.map((r) => r.id);
       console.log(`Loading scores for ${roundIds.length} rounds...`);
 
-      const { data: scores, error: scoresError } = await supabase
-        .from('scores')
-        .select(
-          `
+      const scores = await fetchInBatches<any>(roundIds, (idsForRequest, from, to) =>
+        supabase
+          .from('scores')
+          .select(
+            `
           *,
           entry_selections!inner(
             id,
-            entry_type
+            entry_type,
+            entry_status
           )
         `
-        )
-        .in('trial_round_id', roundIds);
-
-      if (scoresError) {
-        console.error('Scores error:', scoresError);
-        throw scoresError;
-      }
+          )
+          .in('trial_round_id', idsForRequest)
+          .range(from, to)
+      );
 
       console.log(`Loaded ${scores?.length || 0} scores directly`);
 
@@ -219,8 +221,12 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
           }
 
           // Skip if ABS
-          if (score.entry_status === 'ABS') {
+          if (!isActiveSelection(score.entry_selections?.entry_status) || isAbsentResult(score)) {
             debugCounters.isABS++;
+            return;
+          }
+          if (!hasRecordedResult(score)) {
+            debugCounters.noScores++;
             return;
           }
 
@@ -231,7 +237,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
           totalRuns++;
 
           // Count passes
-          if (score.pass_fail === 'Pass') {
+          if (isPassingResult(score)) {
             classData.passes++;
             totalPasses++;
           }
@@ -256,7 +262,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         .filter((c) => c.runs > 0) // Only include classes with scored runs
         .sort((a, b) => getClassOrder(a.class_name) - getClassOrder(b.class_name)); // Sort by C-WAGS order
 
-      const overallPassRate = totalRuns > 0 ? (totalPasses / totalRuns) * 100 : 0;
+      const overallPassRate = calculatePassRate(totalPasses, totalRuns - totalPasses);
 
       setStats({
         total_runs: totalRuns,

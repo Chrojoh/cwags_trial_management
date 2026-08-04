@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/select';
 import { BarChart3, Loader2, Users } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { calculatePassRate, hasRecordedResult, isAbsentResult, isPassingResult } from '@/lib/resultMetrics';
+import { isActiveSelection } from '@/lib/selectionStatus';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 
 interface JudgeClassStats {
@@ -204,7 +206,8 @@ export default function ClassJudgeStatistics({
               entry_status,
               trial_round_id,
               entry_selections!inner(
-                entry_type
+                entry_type,
+                entry_status
               )
             `
             )
@@ -261,13 +264,15 @@ export default function ClassJudgeStatistics({
           if (score.entry_selections?.entry_type !== 'regular') return;
 
           // Skip if ABS
-          if (String(score.entry_status || '').toUpperCase() === 'ABS') return;
+          if (!isActiveSelection(score.entry_selections?.entry_status)) return;
+          if (isAbsentResult(score)) return;
+          if (!hasRecordedResult(score)) return;
 
           // Count this run
           judgeData.runs++;
 
           // Count passes
-          if (score.pass_fail === 'Pass') {
+          if (isPassingResult(score)) {
             judgeData.passes++;
           }
         });
@@ -279,7 +284,7 @@ export default function ClassJudgeStatistics({
           judge_name: judgeName,
           runs: data.runs,
           passes: data.passes,
-          pass_rate: data.runs > 0 ? (data.passes / data.runs) * 100 : 0,
+          pass_rate: calculatePassRate(data.passes, data.runs - data.passes),
           rounds_judged: data.rounds.size,
         }))
         .filter((j) => j.runs > 0) // Only include judges with scored runs

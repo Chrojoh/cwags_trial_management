@@ -21,6 +21,7 @@ import {
   type TrialExpense,
 } from '@/lib/financialOperations';
 import { isActiveSelection } from '@/lib/selectionStatus';
+import { calculatePassRate, isAbsentResult, isFailingResult, isPassingResult } from '@/lib/resultMetrics';
 import { useAuth } from '@/hooks/useAuth';
 import { AlertCircle, ChevronDown, ChevronUp, Download, Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -347,11 +348,9 @@ export default function AnnualReportPage() {
         const trialScores = scores.filter(
           (score) => selectionToTrial.get(score.entry_selection_id) === trial.id && regularSelectionIds.has(score.entry_selection_id)
         );
-        const passes = trialScores.filter((score) => String(score.pass_fail).toLowerCase() === 'pass').length;
-        const fails = trialScores.filter((score) => ['fail', 'nq'].includes(String(score.pass_fail).toLowerCase())).length;
-        const abs = trialScores.filter(
-          (score) => String(score.pass_fail).toUpperCase() === 'ABS' || String(score.entry_status).toUpperCase() === 'ABS'
-        ).length;
+        const passes = trialScores.filter((score) => isPassingResult(score)).length;
+        const fails = trialScores.filter((score) => isFailingResult(score)).length;
+        const abs = trialScores.filter((score) => isAbsentResult(score)).length;
         const waivedOfficialMap = new Map<string, {
           officialName: string;
           amount: number;
@@ -404,7 +403,7 @@ export default function AnnualReportPage() {
           passes,
           fails,
           abs,
-          passRate: passes + fails > 0 ? (passes / (passes + fails)) * 100 : 0,
+          passRate: calculatePassRate(passes, fails),
           assessed,
           collected,
           outstanding,
@@ -442,7 +441,7 @@ export default function AnnualReportPage() {
       passes,
       fails,
       abs: sum('abs'),
-      passRate: passes + fails > 0 ? (passes / (passes + fails)) * 100 : 0,
+      passRate: calculatePassRate(passes, fails),
       assessed: sum('assessed'),
       collected: sum('collected'),
       outstanding: sum('outstanding'),

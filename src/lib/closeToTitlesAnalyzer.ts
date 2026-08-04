@@ -14,6 +14,7 @@
 import { getDogTrialHistory } from './registryOperations';
 import { createClient } from '@supabase/supabase-js';
 import { isScorableSelection } from './selectionStatus';
+import { fetchAllPages } from './supabasePagination';
 import {
   getTitleRequirements,
   getTitleAbbreviation,
@@ -408,10 +409,11 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
     // -------------------------------------------------------
     // Step 2: Get all entries for this trial with their classes
     // -------------------------------------------------------
-    const { data: entries, error: entriesError } = await supabase
-      .from('entries')
-      .select(
-        `
+    const entries = await fetchAllPages<any>((from, to) =>
+      supabase
+        .from('entries')
+        .select(
+          `
         cwags_number,
         dog_call_name,
         handler_name,
@@ -426,13 +428,11 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
           )
         )
       `
-      )
-      .eq('trial_id', trialId);
-
-    if (entriesError || !entries) {
-      console.error('Error loading entries:', entriesError);
-      return report;
-    }
+        )
+        .eq('trial_id', trialId)
+        .order('id')
+        .range(from, to)
+    );
 
     console.log(`📋 Found ${entries.length} entries`);
 
@@ -453,7 +453,7 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
     entries.forEach((entry) => {
       const selections = entry.entry_selections || [];
 
-      selections.forEach((sel) => {
+      selections.forEach((sel: any) => {
         // Skip FEO and withdrawn entries
         if (sel.entry_type === 'feo') return;
         if (!isScorableSelection(sel.entry_status)) return;

@@ -32,12 +32,21 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { isActiveSelection } from '@/lib/selectionStatus';
+import {
+  calculatePassRate,
+  hasRecordedResult,
+  isAbsentResult,
+  isFailingResult,
+  isPassingResult,
+} from '@/lib/resultMetrics';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 interface ClassAggregate {
   class_name: string;
   class_type: string;
   regular_runs: number; // Only regular, non-FEO, non-ABS runs
   pass_count: number;
+  fail_count: number;
   pass_rate: number;
 }
 
@@ -149,35 +158,35 @@ export default function AllTrialsSummaryPage() {
       });
 
       // STEP 2: Load classes with rounds and entries
-      let query = supabase.from('trial_classes').select(`
-          id,
-          class_name,
-          class_type,
-          trial_rounds!inner(
+      const allClasses = await fetchAllPages<any>((from, to) => {
+        let query = supabase
+          .from('trial_classes')
+          .select(`
             id,
-            entry_selections!inner(
+            class_name,
+            class_type,
+            trial_rounds!inner(
               id,
-              entry_type,
-              entry_status
+              entry_selections!inner(
+                id,
+                entry_type,
+                entry_status
+              )
+            ),
+            trial_days!inner(
+              trials!inner(
+                club_name
+              )
             )
-          ),
-          trial_days!inner(
-            trials!inner(
-              club_name
-            )
-          )
-        `);
+          `)
+          .order('id')
+          .range(from, to);
 
-      if (selectedClub !== 'all') {
-        query = query.eq('trial_days.trials.club_name', selectedClub);
-      }
-
-      const { data: allClasses, error: classError } = await query;
-
-      if (classError) {
-        console.error('Error loading classes:', classError);
-        throw classError;
-      }
+        if (selectedClub !== 'all') {
+          query = query.eq('trial_days.trials.club_name', selectedClub);
+        }
+        return query;
+      });
 
       const filterMessage =
         selectedClub !== 'all' ? ` (filtered to club: ${selectedClub})` : ' (all clubs)';
@@ -240,11 +249,8 @@ export default function AllTrialsSummaryPage() {
           // Must have a score
           if (!score) return false;
           // Exclude ABS (absent)
-          if (score.entry_status?.toUpperCase() === 'ABS') return false;
-          // Must have a result: Pass/Fail/NQ OR numerical_score OR games results
-          return (
-            score.pass_fail || score.numerical_score !== null || score.numerical_score !== undefined
-          );
+          if (isAbsentResult(score)) return false;
+          return hasRecordedResult(score);
         });
 
         const regularRunCount = scoredRegularRuns.length;
@@ -252,17 +258,22 @@ export default function AllTrialsSummaryPage() {
         // Count passes from the scored runs
         const passCount = scoredRegularRuns.filter((r) => {
           const score = scoresMap.get(r.selection_id);
-          return score?.pass_fail === 'Pass';
+          return isPassingResult(score);
         }).length;
 
         // Pass rate = passes / regular runs
-        const passRate = regularRunCount > 0 ? (passCount / regularRunCount) * 100 : 0;
+        const failCount = scoredRegularRuns.filter((r) => {
+          const score = scoresMap.get(r.selection_id);
+          return isFailingResult(score);
+        }).length;
+        const passRate = calculatePassRate(passCount, failCount);
 
         return {
           class_name: group.class_name,
           class_type: group.class_type,
           regular_runs: regularRunCount,
           pass_count: passCount,
+          fail_count: failCount,
           pass_rate: passRate,
         };
       });
@@ -273,12 +284,13 @@ export default function AllTrialsSummaryPage() {
       // Calculate overall stats
       const totalRegularRuns = aggregates.reduce((sum, a) => sum + a.regular_runs, 0);
       const totalPasses = aggregates.reduce((sum, a) => sum + a.pass_count, 0);
+      const totalFails = aggregates.reduce((sum, a) => sum + a.fail_count, 0);
 
       const overall: OverallStats = {
         total_classes: aggregates.length,
         total_regular_runs: totalRegularRuns,
         total_passes: totalPasses,
-        overall_pass_rate: totalRegularRuns > 0 ? (totalPasses / totalRegularRuns) * 100 : 0,
+        overall_pass_rate: calculatePassRate(totalPasses, totalFails),
       };
 
       setClassData(aggregates);

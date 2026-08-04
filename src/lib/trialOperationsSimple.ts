@@ -2,6 +2,8 @@
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { isBillableSelection, isRunningOrderSelection } from '@/lib/selectionStatus';
+import { calculatePassRate, isAbsentResult, isFailingResult, isPassingResult } from '@/lib/resultMetrics';
+import { fetchAllPages } from '@/lib/supabasePagination';
 import { compareDateOnly } from '@/lib/dateOnly';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
@@ -1519,10 +1521,11 @@ export const simpleTrialOperations = {
       console.log('Getting trial entries with selections for trial ID (OPTIMIZED):', trialId);
 
       // ✅ SINGLE QUERY with all joins - no nested loops!
-      const { data: entries, error: entriesError } = await supabase
-        .from('entries')
-        .select(
-          `
+      const entries = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('entries')
+          .select(
+            `
     *,
     entry_selections!entry_selections_entry_id_fkey (
       *,
@@ -1547,14 +1550,11 @@ export const simpleTrialOperations = {
       )
     )
   `
-        )
-        .eq('trial_id', trialId)
-        .order('created_at', { ascending: true });
-
-      if (entriesError) {
-        console.error('Error getting entries:', entriesError);
-        return { success: false, error: entriesError.message };
-      }
+          )
+          .eq('trial_id', trialId)
+          .order('created_at', { ascending: true })
+          .range(from, to)
+      );
 
       if (!entries || entries.length === 0) {
         console.log('No entries found for trial');
@@ -2434,16 +2434,14 @@ export const simpleTrialOperations = {
                 entry.entry_status?.toLowerCase() !== 'no_show' &&
                 getScoresArray(entry).some(
                   (s: any) =>
-                    s.pass_fail === 'Pass' || ['GB', 'BJ', 'T', 'P', 'C'].includes(s.pass_fail)
+                    isPassingResult(s)
                 )
             ).length;
 
             const failCount = classEntries.filter(
               (entry: any) =>
                 entry.entry_status?.toLowerCase() !== 'no_show' &&
-                getScoresArray(entry).some((s: any) =>
-                  ['Fail', 'NQ'].includes(String(s.pass_fail))
-                )
+                getScoresArray(entry).some((s: any) => isFailingResult(s))
             ).length;
 
             const absCount = classEntries.filter((entry: any) => {
@@ -2451,11 +2449,7 @@ export const simpleTrialOperations = {
               return (
                 status === 'no_show' ||
                 status === 'absent' ||
-                getScoresArray(entry).some(
-                  (score: any) =>
-                    String(score.pass_fail).toUpperCase() === 'ABS' ||
-                    String(score.entry_status).toUpperCase() === 'ABS'
-                )
+                getScoresArray(entry).some((score: any) => isAbsentResult(score))
               );
             }).length;
 
@@ -2559,7 +2553,7 @@ export const simpleTrialOperations = {
           total_fails: totalFails, // Excludes FEO
           total_abs: totalAbs, // Excludes FEO
           total_completed: totalCompleted, // Excludes FEO
-          overall_pass_rate: totalCompleted > 0 ? (totalPasses / totalCompleted) * 100 : 0,
+          overall_pass_rate: calculatePassRate(totalPasses, totalFails),
           completion_rate: totalParticipants > 0 ? (totalCompleted / totalParticipants) * 100 : 0,
         },
       };

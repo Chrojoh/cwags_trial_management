@@ -138,13 +138,21 @@ export default function TrialTimeCalculatorPage() {
           }
 
           // Get all rounds for this trial to map round IDs to class names and days
-          const { data: allRounds } = await supabase.from('trial_rounds').select(`
-    id,
-    trial_classes!inner (
-      class_name,
-      trial_day_id
-    )
-  `);
+          const { data: allRounds, error: roundsError } = await supabase
+            .from('trial_rounds')
+            .select(`
+              id,
+              trial_classes!inner (
+                class_name,
+                trial_day_id
+              )
+            `)
+            .eq('trial_classes.trial_day_id', day.id);
+
+          if (roundsError) {
+            console.error('Error loading rounds for day:', roundsError);
+            throw roundsError;
+          }
 
           console.log('Rounds for mapping:', allRounds?.length);
 

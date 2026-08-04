@@ -17,6 +17,7 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { formatCwagsNumber } from '@/lib/utils';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { isScorableSelection } from '@/lib/selectionStatus';
+import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
 
 interface RunDetail {
@@ -82,10 +83,11 @@ export default function DogPerformanceHistory() {
       console.log(`🔍 Searching for dog history: ${formatted}`);
 
       // Step 1: Get all entries for this dog
-      const { data: entries, error: entriesError } = await supabase
-        .from('entries')
-        .select(
-          `
+      const entries = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('entries')
+          .select(
+            `
           id,
           cwags_number,
           dog_call_name,
@@ -115,13 +117,11 @@ export default function DogPerformanceHistory() {
             )
           )
         `
-        )
-        .eq('cwags_number', formatted);
-
-      if (entriesError) {
-        console.error('Error fetching entries:', entriesError);
-        throw entriesError;
-      }
+          )
+          .eq('cwags_number', formatted)
+          .order('id')
+          .range(from, to)
+      );
 
       if (!entries || entries.length === 0) {
         setError(`No trial history found for C-WAGS number: ${cwagsNumber}`);
@@ -174,15 +174,13 @@ export default function DogPerformanceHistory() {
       console.log(`📊 Loading scores for ${selectionIds.length} selections...`);
 
       // Step 3: Fetch all scores for these selections
-      const { data: scores, error: scoresError } = await supabase
-        .from('scores')
-        .select('entry_selection_id, pass_fail, entry_status')
-        .in('entry_selection_id', selectionIds);
-
-      if (scoresError) {
-        console.error('Error fetching scores:', scoresError);
-        throw scoresError;
-      }
+      const scores = await fetchInBatches<any>(selectionIds, (idsForRequest, from, to) =>
+        supabase
+          .from('scores')
+          .select('entry_selection_id, pass_fail, entry_status')
+          .in('entry_selection_id', idsForRequest)
+          .range(from, to)
+      );
 
       // Create scores map
       const scoresMap = new Map();

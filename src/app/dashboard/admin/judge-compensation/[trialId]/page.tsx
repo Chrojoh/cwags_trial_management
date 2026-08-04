@@ -21,6 +21,7 @@ import {
 import { Calculator, AlertCircle, Loader2, ArrowLeft, CheckCircle, DollarSign } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { isActiveSelection } from '@/lib/selectionStatus';
+import { fetchAllPages } from '@/lib/supabasePagination';
 
 interface PricingInputs {
   standardEntryFee: string;
@@ -184,10 +185,11 @@ export default function JudgeCompensationPage() {
       setTrialName(trial.trial_name);
 
       // Get all unique judges from trial rounds
-      const { data: rounds, error: roundsError } = await supabase
-        .from('trial_rounds')
-        .select(
-          `
+      const rounds = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('trial_rounds')
+          .select(
+            `
           judge_name,
           trial_classes!inner(
             trial_days!inner(
@@ -195,16 +197,18 @@ export default function JudgeCompensationPage() {
             )
           )
         `
-        )
-        .eq('trial_classes.trial_days.trial_id', trialId);
-
-      if (roundsError) throw roundsError;
+          )
+          .eq('trial_classes.trial_days.trial_id', trialId)
+          .order('id')
+          .range(from, to)
+      );
 
       // Get all handlers and their run counts
-      const { data: entries, error: entriesError } = await supabase
-        .from('entries')
-        .select(
-          `
+      const entries = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('entries')
+          .select(
+            `
           handler_name,
           handler_email,
           cwags_number,
@@ -213,10 +217,11 @@ export default function JudgeCompensationPage() {
             entry_status
           )
         `
-        )
-        .eq('trial_id', trialId);
-
-      if (entriesError) throw entriesError;
+          )
+          .eq('trial_id', trialId)
+          .order('id')
+          .range(from, to)
+      );
 
       const { data: judgeReferences, error: judgesError } = await supabase
         .from('judges')
@@ -402,10 +407,11 @@ export default function JudgeCompensationPage() {
     setLoading(true);
     try {
       // Calculate runs judging for each judge
-      const { data: rounds, error: roundsError } = await supabase
-        .from('trial_rounds')
-        .select(
-          `
+      const rounds = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('trial_rounds')
+          .select(
+            `
           id,
           judge_name,
           entry_selections!inner(
@@ -418,10 +424,11 @@ export default function JudgeCompensationPage() {
             )
           )
         `
-        )
-        .eq('trial_classes.trial_days.trial_id', trialId);
-
-      if (roundsError) throw roundsError;
+          )
+          .eq('trial_classes.trial_days.trial_id', trialId)
+          .order('id')
+          .range(from, to)
+      );
 
       // Count valid entries per judge
       const judgeRunCounts = new Map<string, number>();
