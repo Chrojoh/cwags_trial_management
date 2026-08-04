@@ -209,6 +209,20 @@ const setCell = (
   cell.appendChild(inlineString);
 };
 
+const copyCellStyle = (
+  document: XMLDocument,
+  targetAddress: string,
+  sourceAddress: string
+): void => {
+  const cells = Array.from(document.getElementsByTagNameNS(spreadsheetNamespace, 'c'));
+  const target = cells.find((cell) => cell.getAttribute('r') === targetAddress);
+  const source = cells.find((cell) => cell.getAttribute('r') === sourceAddress);
+  const style = source?.getAttribute('s');
+
+  if (!target || !style) return;
+  target.setAttribute('s', style);
+};
+
 const setFormula = (document: XMLDocument, address: string, formula: string): void => {
   const cell = getOrCreateCell(document, address);
   while (cell.firstChild) cell.removeChild(cell.firstChild);
@@ -257,7 +271,7 @@ const populateClassSheet = (
   setCell(
     document,
     'G1',
-    `Trial Dates: ${displayShortDate(trial.startDate)} to ${displayShortDate(trial.endDate)}`
+    `${displayShortDate(trial.startDate)} to ${displayShortDate(trial.endDate)}`
   );
   setCell(document, 'F3', normalizedRecapName(classData.className));
   setCell(document, 'B5', trial.clubName);
@@ -266,7 +280,8 @@ const populateClassSheet = (
   for (let columnIndex = 3; columnIndex <= lastResultColumn; columnIndex++) {
     const column = columnName(columnIndex);
     const round = rounds[columnIndex - 3];
-    setCell(document, `${column}5`, round?.judgeInfo || '', 'I5');
+    setCell(document, `${column}5`, round?.judgeInfo || '', 'D5');
+    copyCellStyle(document, `${column}5`, 'D5');
     setCell(document, `${column}6`, round ? displayDate(round.trialDate) : '', 'I6');
   }
 
