@@ -103,9 +103,6 @@ export function mapTrialApplicationData(
           let reason: ResetSetupIssue['reason'] | undefined;
           if (!child || !child.is_reset) reason = 'missing_reset_round';
           else if (!judgeName) reason = 'missing_reset_judge';
-          else if (clean(round.reset_judge_name) && clean(round.reset_judge_name) !== childJudge) {
-            reason = 'judge_mismatch';
-          }
           if (reason) {
             resetIssues.push({
               parentRoundId: round.id,

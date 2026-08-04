@@ -89,6 +89,25 @@ test('application-only reset override completes preview without silently changin
   assert.equal(incomplete[0].trial_classes![0].trial_rounds.length, 1);
 });
 
+test('uses the actual reset round judge when a stale parent reset name disagrees', () => {
+  const staleParent = structuredClone(days);
+  staleParent[0].trial_classes![0].trial_rounds = [
+    {
+      id: 'parent', round_number: 1, judge_name: 'Brenda Cirricione', has_reset: true,
+      reset_judge_name: 'Renea Dahms', is_reset: false,
+    },
+    {
+      id: 'reset', round_number: 1.5, judge_name: 'Sarah Krueger', has_reset: false,
+      is_reset: true,
+    },
+  ];
+
+  const data = mapTrialApplicationData(trial, staleParent);
+  assert.equal(data.resetIssues.length, 0);
+  assert.equal(data.missingRequired.includes('Reset setup'), false);
+  assert.equal(data.schedule.find((row) => row.isReset)?.judgeName, 'Sarah Krueger');
+});
+
 test('shrinks long text to the minimum needed for its mapped box', () => {
   const font = { widthOfTextAtSize: (text: string, size: number) => text.length * size };
   assert.equal(fittedFontSize('1234567890', font, 50, 10, 5), 5);
