@@ -124,7 +124,8 @@ function drawSurfaceStack(page: PDFPage, font: PDFFont, text: string, box: Box) 
   const preferredSize = box.size || 7;
   const minimumSize = box.minSize || 5.5;
 
-  let baseline = box.y + 1;
+  // Keep the lowest text clear of the form's printed underline.
+  let baseline = box.y + 3;
   lines.forEach((line, index) => {
     // The printed field itself is narrow because the League label follows it.
     // Higher lines can safely use the blank area above that label.
