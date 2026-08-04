@@ -5,6 +5,7 @@ import type {
   TrialApplicationOverrides,
   TrialApplicationScheduleRow,
 } from '@/types/trialApplication';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 
 type RawRound = {
   id: string; round_number: number; judge_name: string | null; judge_email?: string | null;
@@ -146,11 +147,20 @@ export function mapTrialApplicationData(
   }
 
   schedule.sort(
-    (a, b) =>
-      a.date.localeCompare(b.date) ||
-      a.classOrder - b.classOrder ||
-      a.className.localeCompare(b.className) ||
-      a.roundNumber - b.roundNumber
+    (a, b) => {
+      const aCanonicalOrder = getClassOrder(a.className);
+      const bCanonicalOrder = getClassOrder(b.className);
+      const bothUnknown = aCanonicalOrder === 999 && bCanonicalOrder === 999;
+
+      return (
+        aCanonicalOrder - bCanonicalOrder ||
+        (bothUnknown ? a.classOrder - b.classOrder : 0) ||
+        a.className.localeCompare(b.className) ||
+        a.roundNumber - b.roundNumber ||
+        a.date.localeCompare(b.date) ||
+        a.dayNumber - b.dayNumber
+      );
+    }
   );
   const trialDates = sortedDays.map((day) => day.trial_date);
   const missingRequired: string[] = [];

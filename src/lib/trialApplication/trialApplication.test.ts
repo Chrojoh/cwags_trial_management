@@ -40,6 +40,44 @@ test('does not infer resets from multiple ordinary rounds', () => {
   assert.equal(data.scent?.resetsOffered, false);
 });
 
+test('orders application rows by canonical class then round before day', () => {
+  const unorderedDays = [
+    {
+      day_number: 2,
+      trial_date: '2026-08-03',
+      trial_classes: [
+        {
+          id: 'super-day-2', class_name: 'Super Sleuth 4', class_type: 'scent', class_order: 1,
+          trial_rounds: [{ id: 'super-r1', round_number: 1, judge_name: 'Judge B', is_reset: false }],
+        },
+        {
+          id: 'investigator-day-2', class_name: 'Investigator 3', class_type: 'scent', class_order: 99,
+          trial_rounds: [{ id: 'investigator-r3', round_number: 3, judge_name: 'Judge A', is_reset: false }],
+        },
+      ],
+    },
+    {
+      day_number: 1,
+      trial_date: '2026-08-02',
+      trial_classes: [
+        {
+          id: 'investigator-day-1', class_name: 'Investigator 3', class_type: 'scent', class_order: 99,
+          trial_rounds: [
+            { id: 'investigator-r2', round_number: 2, judge_name: 'Judge A', is_reset: false },
+            { id: 'investigator-r1', round_number: 1, judge_name: 'Judge A', is_reset: false },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const data = mapTrialApplicationData(trial, unorderedDays);
+  assert.deepEqual(
+    data.schedule.map((row) => `${row.className} R${row.roundNumber}`),
+    ['Investigator 3 R1', 'Investigator 3 R2', 'Investigator 3 R3', 'Super Sleuth 4 R1']
+  );
+});
+
 test('application-only reset override completes preview without silently changing stored data', () => {
   const incomplete = structuredClone(days);
   incomplete[0].trial_classes![0].trial_rounds = [
