@@ -498,7 +498,10 @@ export default function TrialEntriesPage() {
         result = await response.json();
       }
 
-      if (!response.ok) throw new Error(result.error || 'Failed to promote waitlisted round');
+      if (!response.ok) {
+        const diagnostic = result.code ? ` (${result.code})` : '';
+        throw new Error(`${result.error || 'Failed to promote waitlisted round'}${diagnostic}`);
+      }
 
       alert(`${classDisplay} was promoted successfully.`);
       await loadTrialAndEntries();

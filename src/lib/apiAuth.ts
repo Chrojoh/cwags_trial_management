@@ -75,28 +75,55 @@ export async function requireTrialPermission(
 ): Promise<TrialAuthorizationResult> {
   const authHeader = request.headers.get('authorization');
   if (!authHeader?.startsWith('Bearer ')) {
-    return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: 'Unauthorized', code: 'AUTH_HEADER_MISSING' },
+        { status: 401 }
+      ),
+    };
   }
 
   const accessToken = authHeader.slice('Bearer '.length).trim();
   if (!accessToken) {
-    return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        { error: 'Unauthorized', code: 'AUTH_TOKEN_MISSING' },
+        { status: 401 }
+      ),
+    };
   }
 
-  // Validate the explicit bearer token directly. Creating an anon client with
-  // a global Authorization header can lose or override that header during
-  // server-side auth calls, causing valid browser sessions to return 401.
-  const service = getServiceRoleClient();
-  const { data: { user }, error } = await service.auth.getUser(accessToken);
+  // Validate the explicit bearer token with the same public project client
+  // that issued the browser session. Passing the token as an argument avoids
+  // global-header overrides while keeping service credentials out of auth.
+  const authClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+  const { data: { user }, error } = await authClient.auth.getUser(accessToken);
   if (error || !user) {
     console.warn('Trial API bearer validation failed', {
       trialId,
       errorCode: error?.code || null,
       errorStatus: error?.status || null,
     });
-    return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+    return {
+      authorized: false,
+      response: NextResponse.json(
+        {
+          error: 'Unauthorized',
+          code: 'AUTH_TOKEN_INVALID',
+          authStatus: error?.status || null,
+        },
+        { status: 401 }
+      ),
+    };
   }
 
+  const service = getServiceRoleClient();
   const [{ data: profile }, { data: trial }] = await Promise.all([
     service.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
     service.from('trials').select('created_by').eq('id', trialId).maybeSingle(),
