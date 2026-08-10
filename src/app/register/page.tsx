@@ -40,24 +40,9 @@ export default function RegisterPage() {
     try {
       console.log('Starting registration for:', email);
 
-      // Step 1: Check if user already exists in users table
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('email', email.trim())
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking existing user:', checkError);
-        throw new Error('Failed to check existing user');
-      }
-
-      if (existingProfile) {
-        setLoading(false);
-        return setError('An account with this email already exists. Please log in instead.');
-      }
-
-      // Step 2: Create auth user
+      // Create the authentication account. The database trigger installed with
+      // user-profile RLS creates the matching public.users row from this metadata.
+      // The public registration page must not enumerate or write profile rows directly.
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -87,58 +72,6 @@ export default function RegisterPage() {
       }
 
       console.log('Auth user created:', data.user.id);
-
-      // Step 3: Check if profile was auto-created (shouldn't happen, but safety check)
-      const { data: autoProfile } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', data.user.id)
-        .maybeSingle();
-
-      if (autoProfile) {
-        console.log('User profile already exists (auto-created)');
-        setLoading(false);
-        alert(
-          'Registration successful! Please check your email to verify your account, then log in.'
-        );
-        router.push('/login');
-        return;
-      }
-
-      // Step 4: Insert into users table
-      const { error: insertError } = await supabase.from('users').insert([
-        {
-          id: data.user.id,
-          email: email.trim(),
-          first_name: first.trim(),
-          last_name: last.trim(),
-          role: 'trial_secretary',
-        },
-      ]);
-
-      if (insertError) {
-        console.error('User profile insert error:', insertError);
-
-        // Handle duplicate key error specifically
-        if (insertError.code === '23505') {
-          console.log('Profile already exists, proceeding anyway');
-          setLoading(false);
-          alert(
-            'Registration successful! Please check your email to verify your account, then log in.'
-          );
-          router.push('/login');
-          return;
-        }
-
-        throw new Error(`Failed to create user profile: ${insertError.message}`);
-      }
-
-      console.log('User profile created successfully:', {
-        id: data.user.id,
-        email: email.trim(),
-        first_name: first.trim(),
-        last_name: last.trim(),
-      });
 
       setLoading(false);
       alert(

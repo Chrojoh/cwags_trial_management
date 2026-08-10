@@ -1,13 +1,13 @@
 // src/lib/judges.ts
 // Judge utilities for C-WAGS Trial Management System
 
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import type { Judge, JudgeFormData } from '../types/judge';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Reuse the application's cookie-aware browser client. A plain supabase-js
+// client does not receive the authenticated SSR session and is treated as
+// anonymous once judge RLS is enabled.
+const supabase = getSupabaseBrowser();
 
 /**
  * Get all judges

@@ -54,6 +54,7 @@ export default function JudgesPage() {
   const [editingJudge, setEditingJudge] = useState<Judge | null>(null);
   const [formData, setFormData] = useState<JudgeFormData>(emptyJudgeForm);
   const [saving, setSaving] = useState(false);
+  const [expandedStatisticsJudgeId, setExpandedStatisticsJudgeId] = useState<string | null>(null);
 
   useEffect(() => {
     loadJudges();
@@ -549,7 +550,22 @@ export default function JudgesPage() {
                   loadingDates={loadingDates}
                 />
                 {/* ✅ ADD THIS: Statistics card below each judge */}
-                <JudgeStatistics judgeName={judge.name} />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedStatisticsJudgeId((current) =>
+                      current === judge.id ? null : judge.id
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  {expandedStatisticsJudgeId === judge.id
+                    ? 'Hide Judge Statistics'
+                    : 'View Judge Statistics'}
+                </button>
+                {expandedStatisticsJudgeId === judge.id && (
+                  <JudgeStatistics judgeName={judge.name} />
+                )}
               </div>
             ))}
           </div>

@@ -526,6 +526,13 @@ export default function TrialJournalPage() {
     setLoadingDetails(true);
 
     try {
+      // Score audit snapshots contain score fields, not a complete entry and
+      // class-selection snapshot. Display them in their own comparison view.
+      if (entry.type === 'score_corrected' && entry.snapshot) {
+        setEntryDetails({ audit: entry.snapshot });
+        return;
+      }
+
       // Use snapshot data if available (for entry submissions and modifications)
       if (entry.snapshot && entry.type !== 'entry_edited') {
         const snapshot = entry.snapshot;
@@ -1006,7 +1013,11 @@ export default function TrialJournalPage() {
             <div className="sticky top-0 bg-yellow-100 border-b border-amber-200 px-6 py-4 flex items-center justify-between z-10">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h2 className="text-xl font-bold text-gray-900">Entry Details</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {selectedEntry.type === 'score_corrected'
+                      ? 'Score Correction Details'
+                      : 'Entry Details'}
+                  </h2>
                   {entryDetails?.entry?.from_snapshot && (
                     <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded">
                       Historical Snapshot
@@ -1035,6 +1046,84 @@ export default function TrialJournalPage() {
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading details...</p>
+                </div>
+              ) : selectedEntry.type === 'score_corrected' && entryDetails?.audit ? (
+                <div className="space-y-5">
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm text-gray-700">
+                      This audit record shows the score values immediately before and after the
+                      correction. Technical record identifiers are intentionally omitted.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {[
+                      { title: 'Before', values: entryDetails.audit.before },
+                      { title: 'After', values: entryDetails.audit.after },
+                    ].map((column) => {
+                      const labels: Record<string, string> = {
+                        is_reset_round: 'Reset Round',
+                        scent1: 'Scent 1',
+                        scent2: 'Scent 2',
+                        scent3: 'Scent 3',
+                        scent4: 'Scent 4',
+                        fault1: 'Fault 1',
+                        fault2: 'Fault 2',
+                        time_seconds: 'Time (seconds)',
+                        numerical_score: 'Numerical Score',
+                        pass_fail: 'Result',
+                        entry_status: 'Entry Status',
+                        judge_notes: 'Judge Notes',
+                        scored_at: 'Scored At',
+                      };
+                      const hiddenFields = new Set([
+                        'id',
+                        'entry_selection_id',
+                        'trial_round_id',
+                        'scored_by',
+                        'created_at',
+                      ]);
+                      const values = Object.entries(column.values || {}).filter(
+                        ([field]) => !hiddenFields.has(field)
+                      );
+
+                      return (
+                        <div key={column.title} className="rounded-lg border border-amber-200 bg-white p-4">
+                          <h3 className="mb-3 text-lg font-semibold text-gray-900">
+                            {column.title}
+                          </h3>
+                          <dl className="space-y-2 text-sm">
+                            {values.map(([field, value]) => (
+                              <div
+                                key={field}
+                                className="flex items-start justify-between gap-4 border-b border-gray-100 pb-2 last:border-0"
+                              >
+                                <dt className="text-gray-600">{labels[field] || field}</dt>
+                                <dd className="text-right font-medium text-gray-900">
+                                  {field === 'scored_at' && value
+                                    ? formatTimestamp(String(value))
+                                    : value === null || value === ''
+                                    ? '—'
+                                    : typeof value === 'boolean'
+                                      ? value
+                                        ? 'Yes'
+                                        : 'No'
+                                      : String(value)}
+                                </dd>
+                              </div>
+                            ))}
+                          </dl>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {entryDetails.audit.reason && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <span className="font-semibold text-gray-900">Reason or judge notes: </span>
+                      <span className="text-gray-700">{entryDetails.audit.reason}</span>
+                    </div>
+                  )}
                 </div>
               ) : entryDetails ? (
                 <div className="space-y-6">

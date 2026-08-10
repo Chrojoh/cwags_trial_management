@@ -78,25 +78,11 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         }
       }
 
-      // STEP 2: Get all rounds with full details
-      const { data: rounds, error: roundsError } = await supabase
+      // STEP 2: Load the hierarchy in separate queries. A deeply embedded
+      // relationship query can time out once every table applies trial-role RLS.
+      const { data: rawRounds, error: roundsError } = await supabase
         .from('trial_rounds')
-        .select(
-          `
-          id,
-          judge_name,
-          trial_class_id,
-          trial_classes!inner(
-            class_name,
-            class_type,
-            trial_day_id,
-            trial_days!inner(
-              trial_id,
-              trials!inner(id)
-            )
-          )
-        `
-        )
+        .select('id, judge_name, trial_class_id')
         .eq('judge_name', judgeName);
 
       if (roundsError) {
@@ -104,14 +90,47 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         throw roundsError;
       }
 
-      console.log(`Query returned ${rounds?.length || 0} rounds with classes`);
+      console.log(`Query returned ${rawRounds?.length || 0} rounds`);
 
-      if (!rounds || rounds.length === 0) {
+      if (!rawRounds || rawRounds.length === 0) {
         console.log('❌ No rounds found after joining with classes');
         setStats(null);
         setLoading(false);
         return;
       }
+
+      const classIds = [...new Set(rawRounds.map((round) => round.trial_class_id))];
+      const classes = await fetchInBatches<any>(classIds, (idsForRequest, from, to) =>
+        supabase
+          .from('trial_classes')
+          .select('id, class_name, class_type, trial_day_id')
+          .in('id', idsForRequest)
+          .range(from, to)
+      );
+
+      const dayIds = [...new Set(classes.map((trialClass) => trialClass.trial_day_id))];
+      const days = await fetchInBatches<any>(dayIds, (idsForRequest, from, to) =>
+        supabase
+          .from('trial_days')
+          .select('id, trial_id')
+          .in('id', idsForRequest)
+          .range(from, to)
+      );
+
+      const daysById = new Map(days.map((day) => [day.id, day]));
+      const classesById = new Map(
+        classes.map((trialClass) => [
+          trialClass.id,
+          {
+            ...trialClass,
+            trial_days: daysById.get(trialClass.trial_day_id) || null,
+          },
+        ])
+      );
+      const rounds = rawRounds.map((round) => ({
+        ...round,
+        trial_classes: classesById.get(round.trial_class_id) || null,
+      }));
 
       // STEP 3: Get scores directly for these rounds using trial_round_id
       const roundIds = rounds.map((r) => r.id);
@@ -184,7 +203,7 @@ export default function JudgeStatistics({ judgeName, className = '' }: JudgeStat
         }
 
         // Track trials
-        const trialId = round.trial_classes?.trial_days?.trials?.id;
+        const trialId = round.trial_classes?.trial_days?.trial_id;
         if (trialId) trialsSet.add(trialId);
 
         // Initialize class stats

@@ -4206,7 +4206,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                                                   )
                                                 }
                                               >
-                                                Mark Present
+                                                Undo Check In
                                               </DropdownMenuItem>
                                               <DropdownMenuItem
                                                 onClick={() =>
