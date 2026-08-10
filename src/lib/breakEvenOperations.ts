@@ -1,7 +1,9 @@
 // src/lib/breakEvenOperations.ts
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
-const supabase = createClientComponentClient();
+// Use the same cookie-aware client as the rest of the authenticated app.
+// The deprecated auth-helper client can appear anonymous under current RLS.
+const supabase = getSupabaseBrowser();
 
 export interface BreakEvenConfig {
   id?: string;

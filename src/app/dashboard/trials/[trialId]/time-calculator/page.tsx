@@ -41,6 +41,17 @@ interface DayData {
   rally_configs: TimeConfig[];
 }
 
+const decimalMinutesToParts = (decimalMinutes: number) => {
+  const totalSeconds = Math.max(0, Math.round(decimalMinutes * 60));
+  return {
+    minutes: Math.floor(totalSeconds / 60),
+    seconds: totalSeconds % 60,
+  };
+};
+
+const durationPartsToDecimalMinutes = (minutes: number, seconds: number) =>
+  (Math.max(0, minutes) * 60 + Math.min(59, Math.max(0, seconds))) / 60;
+
 export default function TrialTimeCalculatorPage() {
   const params = useParams();
   const router = useRouter();
@@ -338,10 +349,20 @@ export default function TrialTimeCalculatorPage() {
       });
     }
   };
-  const handleMinutesChange = (configId: string, value: string) => {
+  const handleDurationPartChange = (
+    configId: string,
+    currentValue: number,
+    part: 'minutes' | 'seconds',
+    value: string
+  ) => {
+    const current = decimalMinutesToParts(editingMinutes[configId] ?? currentValue);
+    const parsedValue = Math.max(0, Math.floor(Number(value) || 0));
+    const minutes = part === 'minutes' ? parsedValue : current.minutes;
+    const seconds = part === 'seconds' ? Math.min(59, parsedValue) : current.seconds;
+
     setEditingMinutes((prev) => ({
       ...prev,
-      [configId]: parseFloat(value) || 0,
+      [configId]: durationPartsToDecimalMinutes(minutes, seconds),
     }));
   };
 
@@ -609,7 +630,7 @@ export default function TrialTimeCalculatorPage() {
                           <TableRow>
                             <TableHead className="text-xs sm:text-sm">Class</TableHead>
                             <TableHead className="text-center text-xs sm:text-sm">
-                              Min/Run
+                              Time/Run
                             </TableHead>
                             <TableHead className="text-center text-xs sm:text-sm">
                               Entries
@@ -626,22 +647,36 @@ export default function TrialTimeCalculatorPage() {
                                 {config.class_name}
                               </TableCell>
                               <TableCell className="text-center">
-                                <Input
-                                  type="number"
-                                  step="0.25"
-                                  value={editingMinutes[config.id!] ?? config.minutes_per_run}
-                                  onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
-                                  onBlur={() => handleMinutesSave(config.id!)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
+                                <div
+                                  className="flex items-center justify-center gap-1"
+                                  onBlur={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
                                       handleMinutesSave(config.id!);
-                                      e.currentTarget.blur();
                                     }
                                   }}
-                                  className="w-16 sm:w-20 mx-auto text-center text-xs sm:text-sm py-2 min-h-[44px]"
-                                  min="0"
-                                />
+                                >
+                                  <Input
+                                    aria-label={`${config.class_name} minutes per run`}
+                                    type="number"
+                                    step="1"
+                                    value={decimalMinutesToParts(editingMinutes[config.id!] ?? config.minutes_per_run).minutes}
+                                    onChange={(e) => handleDurationPartChange(config.id!, config.minutes_per_run, 'minutes', e.target.value)}
+                                    className="w-14 text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                                    min="0"
+                                  />
+                                  <span className="text-xs text-muted-foreground">min</span>
+                                  <Input
+                                    aria-label={`${config.class_name} seconds per run`}
+                                    type="number"
+                                    step="1"
+                                    value={decimalMinutesToParts(editingMinutes[config.id!] ?? config.minutes_per_run).seconds}
+                                    onChange={(e) => handleDurationPartChange(config.id!, config.minutes_per_run, 'seconds', e.target.value)}
+                                    className="w-14 text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                                    min="0"
+                                    max="59"
+                                  />
+                                  <span className="text-xs text-muted-foreground">sec</span>
+                                </div>
                               </TableCell>
                               <TableCell className="text-center text-xs sm:text-sm">
                                 {config.entry_count}
@@ -667,7 +702,7 @@ export default function TrialTimeCalculatorPage() {
                           <TableRow>
                             <TableHead className="text-xs sm:text-sm">Class</TableHead>
                             <TableHead className="text-center text-xs sm:text-sm">
-                              Min/Run
+                              Time/Run
                             </TableHead>
                             <TableHead className="text-center text-xs sm:text-sm">
                               Entries
@@ -684,22 +719,36 @@ export default function TrialTimeCalculatorPage() {
                                 {config.class_name}
                               </TableCell>
                               <TableCell className="text-center">
-                                <Input
-                                  type="number"
-                                  step="0.25"
-                                  value={editingMinutes[config.id!] ?? config.minutes_per_run}
-                                  onChange={(e) => handleMinutesChange(config.id!, e.target.value)}
-                                  onBlur={() => handleMinutesSave(config.id!)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
+                                <div
+                                  className="flex items-center justify-center gap-1"
+                                  onBlur={(e) => {
+                                    if (!e.currentTarget.contains(e.relatedTarget)) {
                                       handleMinutesSave(config.id!);
-                                      e.currentTarget.blur();
                                     }
                                   }}
-                                  className="w-16 sm:w-20 mx-auto text-center text-xs sm:text-sm py-2 min-h-[44px]"
-                                  min="0"
-                                />
+                                >
+                                  <Input
+                                    aria-label={`${config.class_name} minutes per run`}
+                                    type="number"
+                                    step="1"
+                                    value={decimalMinutesToParts(editingMinutes[config.id!] ?? config.minutes_per_run).minutes}
+                                    onChange={(e) => handleDurationPartChange(config.id!, config.minutes_per_run, 'minutes', e.target.value)}
+                                    className="w-14 text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                                    min="0"
+                                  />
+                                  <span className="text-xs text-muted-foreground">min</span>
+                                  <Input
+                                    aria-label={`${config.class_name} seconds per run`}
+                                    type="number"
+                                    step="1"
+                                    value={decimalMinutesToParts(editingMinutes[config.id!] ?? config.minutes_per_run).seconds}
+                                    onChange={(e) => handleDurationPartChange(config.id!, config.minutes_per_run, 'seconds', e.target.value)}
+                                    className="w-14 text-center text-xs sm:text-sm py-2 min-h-[44px]"
+                                    min="0"
+                                    max="59"
+                                  />
+                                  <span className="text-xs text-muted-foreground">sec</span>
+                                </div>
                               </TableCell>
                               <TableCell className="text-center text-xs sm:text-sm">
                                 {config.entry_count}
