@@ -132,10 +132,36 @@ export async function requireTrialPermission(
   }
 
   const service = getServiceRoleClient();
-  const [{ data: profile }, { data: trial }] = await Promise.all([
-    service.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
+  // Read the caller's profile with the caller's validated JWT. The users RLS
+  // policy explicitly permits self-read, and this avoids incorrectly reporting
+  // a missing profile when the service-role environment is unavailable or
+  // misconfigured in a deployment.
+  const profileClient = accessToken
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          auth: { autoRefreshToken: false, persistSession: false },
+          global: { headers: { Authorization: `Bearer ${accessToken}` } },
+        }
+      )
+    : authClient;
+  const [{ data: profile, error: profileError }, { data: trial }] = await Promise.all([
+    profileClient.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
     service.from('trials').select('created_by').eq('id', trialId).maybeSingle(),
   ]);
+  if (profileError) {
+    console.error('Trial API profile lookup failed', {
+      trialId,
+      userId: user.id,
+      code: profileError.code,
+      message: profileError.message,
+    });
+    return {
+      authorized: false,
+      response: NextResponse.json({ error: 'Unable to verify active user profile' }, { status: 500 }),
+    };
+  }
   if (!profile || profile.is_active === false) {
     return { authorized: false, response: NextResponse.json({ error: 'Active user profile required' }, { status: 403 }) };
   }
