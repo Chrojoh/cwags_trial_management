@@ -78,7 +78,7 @@ export async function requireTrialPermission(
     return {
       authorized: false,
       response: NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_HEADER_MISSING' },
+        { error: 'Unauthorized [AUTH_HEADER_MISSING]', code: 'AUTH_HEADER_MISSING' },
         { status: 401 }
       ),
     };
@@ -89,7 +89,7 @@ export async function requireTrialPermission(
     return {
       authorized: false,
       response: NextResponse.json(
-        { error: 'Unauthorized', code: 'AUTH_TOKEN_MISSING' },
+        { error: 'Unauthorized [AUTH_TOKEN_MISSING]', code: 'AUTH_TOKEN_MISSING' },
         { status: 401 }
       ),
     };
@@ -114,7 +114,7 @@ export async function requireTrialPermission(
       authorized: false,
       response: NextResponse.json(
         {
-          error: 'Unauthorized',
+          error: 'Unauthorized [AUTH_TOKEN_INVALID]',
           code: 'AUTH_TOKEN_INVALID',
           authStatus: error?.status || null,
         },
