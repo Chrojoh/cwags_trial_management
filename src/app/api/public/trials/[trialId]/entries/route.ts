@@ -13,6 +13,25 @@ type RequestedSelection = {
   jumpHeight: string | null;
 };
 
+const mapSnapshotClasses = (selections: any[]) =>
+  selections.map((selection: any) => {
+    const round = Array.isArray(selection.trial_rounds) ? selection.trial_rounds[0] : selection.trial_rounds;
+    const cls = Array.isArray(round?.trial_classes) ? round.trial_classes[0] : round?.trial_classes;
+    const day = Array.isArray(cls?.trial_days) ? cls.trial_days[0] : cls?.trial_days;
+    return {
+      name: cls?.class_name || 'Unknown Class',
+      round: round?.round_number || 1,
+      fee: Number(selection.fee || 0),
+      entry_status: selection.entry_status,
+      division: selection.division || null,
+      entry_type: selection.entry_type,
+      day_number: day?.day_number || null,
+      trial_date: day?.trial_date || null,
+      jump_height: selection.jump_height || null,
+      created_at: selection.created_at || null,
+    };
+  });
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ trialId: string }> }
@@ -94,6 +113,30 @@ export async function POST(
       .order('submitted_at', { ascending: true });
     if (entryLookupError) throw entryLookupError;
     const primary = existingEntries?.[0] || null;
+
+    // Journal comparisons must use the database state immediately before this
+    // request. The last journal snapshot can lag behind Live Event changes.
+    let beforeSnapshot: Record<string, unknown> | null = null;
+    if (primary) {
+      const { data: beforeSelections, error: beforeError } = await db
+        .from('entry_selections')
+        .select(`fee,entry_status,entry_type,division,jump_height,created_at,
+          trial_rounds!inner(round_number,trial_classes!inner(class_name,trial_days!inner(day_number,trial_date)))`)
+        .eq('entry_id', primary.id);
+      if (beforeError) throw beforeError;
+      const beforeClasses = mapSnapshotClasses(beforeSelections || []);
+      const beforeFee = beforeClasses.reduce(
+        (sum, selection) => inactive.has(String(selection.entry_status).toLowerCase())
+          ? sum
+          : sum + Number(selection.fee || 0),
+        0
+      );
+      beforeSnapshot = {
+        total_fee: beforeFee,
+        class_count: beforeClasses.length,
+        classes: beforeClasses,
+      };
+    }
 
     if (!primary) {
       const recent = new Date(Date.now() - 60_000).toISOString();
@@ -277,23 +320,7 @@ export async function POST(
       .eq('id', entryId);
     if (totalError) throw totalError;
 
-    const classes = (finalSelections || []).map((selection: any) => {
-      const round = Array.isArray(selection.trial_rounds) ? selection.trial_rounds[0] : selection.trial_rounds;
-      const cls = Array.isArray(round?.trial_classes) ? round.trial_classes[0] : round?.trial_classes;
-      const day = Array.isArray(cls?.trial_days) ? cls.trial_days[0] : cls?.trial_days;
-      return {
-        name: cls?.class_name || 'Unknown Class',
-        round: round?.round_number || 1,
-        fee: Number(selection.fee || 0),
-        entry_status: selection.entry_status,
-        division: selection.division || null,
-        entry_type: selection.entry_type,
-        day_number: day?.day_number || null,
-        trial_date: day?.trial_date || null,
-        jump_height: selection.jump_height || null,
-        created_at: selection.created_at || null,
-      };
-    });
+    const classes = mapSnapshotClasses(finalSelections || []);
     const snapshot = {
       handler_name: handlerName,
       dog_call_name: dogCallName,
@@ -305,18 +332,7 @@ export async function POST(
       class_count: classes.length,
       classes,
     };
-    const { data: previous } = await db
-      .from('trial_activity_log')
-      .select('snapshot_data,activity_type')
-      .eq('entry_id', entryId)
-      .in('activity_type', ['entry_submitted', 'entry_modified'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const previousState: any = previous?.activity_type === 'entry_modified'
-      ? (previous.snapshot_data as any)?.after
-      : previous?.snapshot_data;
-    if (!previous) {
+    if (isNew || !beforeSnapshot) {
       await db.from('trial_activity_log').insert({
         trial_id: trialId,
         activity_type: 'entry_submitted',
@@ -325,8 +341,8 @@ export async function POST(
         user_name: handlerName,
       });
     } else if (
-      Number(previousState?.total_fee) !== totalFee ||
-      Number(previousState?.class_count) !== classes.length
+      Number(beforeSnapshot.total_fee) !== totalFee ||
+      Number(beforeSnapshot.class_count) !== classes.length
     ) {
       await db.from('trial_activity_log').insert({
         trial_id: trialId,
@@ -336,7 +352,7 @@ export async function POST(
           handler_name: handlerName,
           dog_call_name: dogCallName,
           cwags_number: cwagsNumber,
-          before: previousState,
+          before: beforeSnapshot,
           after: snapshot,
         },
         user_name: handlerName,
