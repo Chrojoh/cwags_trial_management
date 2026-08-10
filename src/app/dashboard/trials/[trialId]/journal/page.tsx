@@ -527,7 +527,7 @@ export default function TrialJournalPage() {
 
     try {
       // Use snapshot data if available (for entry submissions and modifications)
-      if (entry.snapshot) {
+      if (entry.snapshot && entry.type !== 'entry_edited') {
         const snapshot = entry.snapshot;
 
         // For entry_modified, use the 'after' state
@@ -620,10 +620,26 @@ export default function TrialJournalPage() {
           trial_date: sel.trial_rounds?.trial_classes?.trial_days?.trial_date,
         }));
 
+        const editChanges =
+          entry.type === 'entry_edited' && entry.snapshot?.before && entry.snapshot?.after
+            ? Object.keys(entry.snapshot.after)
+                .filter(
+                  (field) =>
+                    JSON.stringify(entry.snapshot.before[field]) !==
+                    JSON.stringify(entry.snapshot.after[field])
+                )
+                .map((field) => ({
+                  field,
+                  before: entry.snapshot.before[field],
+                  after: entry.snapshot.after[field],
+                }))
+            : [];
+
         setEntryDetails({
           entry: entryData,
           selections: selectionsWithDays,
           payments: paymentsData || [],
+          edit_changes: editChanges,
         });
       }
     } catch (err) {
@@ -1022,6 +1038,57 @@ export default function TrialJournalPage() {
                 </div>
               ) : entryDetails ? (
                 <div className="space-y-6">
+                  {selectedEntry.type === 'entry_edited' &&
+                    entryDetails.edit_changes?.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Changes Made
+                        </h3>
+                        <div className="space-y-2">
+                          {entryDetails.edit_changes.map((change: any) => {
+                            const labels: Record<string, string> = {
+                              handler_name: 'Handler Name',
+                              handler_email: 'Email',
+                              handler_phone: 'Phone',
+                              emergency_contact: 'Emergency Contact',
+                              dog_call_name: 'Dog Name',
+                              cwags_number: 'CWAGS Number',
+                              dog_breed: 'Breed',
+                              dog_sex: 'Sex',
+                              is_junior_handler: 'Junior Handler',
+                              close_to_titles: 'Close to Titles',
+                              volunteer_preferences: 'Volunteer Preferences',
+                            };
+                            const displayValue = (value: any) => {
+                              if (value === null || value === undefined || value === '') {
+                                return 'Blank';
+                              }
+                              if (typeof value === 'object') return JSON.stringify(value);
+                              if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+                              return String(value);
+                            };
+
+                            return (
+                              <div
+                                key={change.field}
+                                className="rounded-lg border border-orange-200 bg-orange-50 p-4"
+                              >
+                                <div className="font-semibold text-gray-900">
+                                  {labels[change.field] || change.field}
+                                </div>
+                                <div className="mt-1 text-sm text-gray-700">
+                                  <span className="text-gray-500">
+                                    {displayValue(change.before)}
+                                  </span>{' '}
+                                  → <span className="font-medium">{displayValue(change.after)}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                   {/* Entry Information */}
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">Entry Information</h3>

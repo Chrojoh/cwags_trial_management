@@ -581,17 +581,22 @@ export default function PublicEntryForm() {
           emergency: formData.emergency_contact,
         });
 
-        // REGISTRY UPDATES: Update registry if it's missing data that the entry has
-        if (!existing.handler_email && formData.handler_email) {
-          registryUpdates.handler_email = formData.handler_email;
+        // Contact fields are user-editable. Keep the registry synchronized
+        // whenever the submitted value differs, not only when it was blank.
+        if ((existing.handler_email || "").trim() !== formData.handler_email.trim()) {
+          registryUpdates.handler_email = formData.handler_email.trim();
           console.log("📝 Will update registry email:", formData.handler_email);
         }
-        if (!existing.handler_phone && formData.handler_phone) {
-          registryUpdates.handler_phone = formData.handler_phone;
+        if ((existing.handler_phone || "").trim() !== formData.handler_phone.trim()) {
+          registryUpdates.handler_phone = formData.handler_phone.trim() || null;
           console.log("📝 Will update registry phone:", formData.handler_phone);
         }
-        if (!existing.emergency_contact && formData.emergency_contact) {
-          registryUpdates.emergency_contact = formData.emergency_contact;
+        if (
+          (existing.emergency_contact || "").trim() !==
+          formData.emergency_contact.trim()
+        ) {
+          registryUpdates.emergency_contact =
+            formData.emergency_contact.trim() || null;
           console.log(
             "📝 Will update registry emergency contact:",
             formData.emergency_contact,
@@ -1057,6 +1062,8 @@ export default function PublicEntryForm() {
 
         // Keep this trial's entry synchronized with contact edits. Registry
         // synchronization is handled separately.
+        updateData.handler_email = formData.handler_email.trim();
+        updateData.handler_phone = formData.handler_phone.trim();
         updateData.emergency_contact = formData.emergency_contact?.trim() || null;
 
         if (allSelectionsWaitlisted) {
