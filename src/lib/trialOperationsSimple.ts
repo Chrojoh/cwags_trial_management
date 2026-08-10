@@ -165,8 +165,21 @@ export const simpleTrialOperations = {
     try {
       console.log('Creating trial with data:', trialData);
 
+      // Use the authenticated Supabase identity as the owner of every newly
+      // created trial.  The profile passed by the page is useful for display,
+      // but it must not be trusted for an RLS-protected ownership column.
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !authUser) {
+        console.error('Could not verify the authenticated trial creator:', authError);
+        return { success: false, error: 'Your session could not be verified. Please sign in again.' };
+      }
+
       // Handle the hardcoded user ID issue
-      let dataToInsert = { ...trialData };
+      let dataToInsert = { ...trialData, created_by: authUser.id };
 
       // If we get the hardcoded ID '2', convert it to a real user
       const createdById = String(dataToInsert.created_by);
