@@ -926,6 +926,54 @@ export default function PublicEntryForm() {
           ? registryVerification.dog_call_name || formData.dog_call_name
           : formData.dog_call_name;
 
+      // All entry, selection, capacity, fee, score-protection, and journal
+      // writes now run through the controlled public server transaction.
+      await saveToRegistry();
+      const entryResponse = await fetch(`/api/public/trials/${trialId}/entries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          handler_name: authoritativeHandlerName,
+          dog_call_name: authoritativeDogCallName,
+        }),
+      });
+      const entryResult = await entryResponse.json();
+      if (!entryResponse.ok) {
+        throw new Error(entryResult.error || "Failed to save entry");
+      }
+
+      const waitlistedIds = new Set<string>(entryResult.waitlistedRoundIds || []);
+      const acceptedRounds = formData.selected_rounds
+        .filter((roundId) => !waitlistedIds.has(roundId))
+        .map((roundId) => {
+          const round = trialRounds.find((item) => item.id === roundId);
+          return `${round?.trial_classes?.class_name || "Unknown class"}, Round ${round?.round_number || 1}`;
+        });
+      const waitlistedRounds = (entryResult.conflicts || []).map(
+        (conflict: any) =>
+          `${conflict.class_name}, Round ${conflict.round_number} ` +
+          `(${conflict.occupied_places}/${conflict.max_entries} places filled)`,
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        cwags_number: registryVerification?.cwags_number || prev.cwags_number,
+        handler_name: entryResult.authoritativeHandlerName || authoritativeHandlerName,
+        dog_call_name: entryResult.authoritativeDogCallName || authoritativeDogCallName,
+      }));
+      setAcceptedNotice(
+        acceptedRounds.length ? `Accepted rounds: ${acceptedRounds.join("; ")}.` : null,
+      );
+      setWaitlistNotice(
+        waitlistedRounds.length
+          ? `Waitlisted rounds: ${waitlistedRounds.join("; ")}. The trial secretary can promote each waitlisted round individually if space becomes available.`
+          : null,
+      );
+      setWaitlistedRoundIds(waitlistedIds);
+      setSuccess(true);
+      if (entryResult.success) return;
+
       // ✅ FIX 2: Check for recent duplicate submissions (within last 60 seconds)
       const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
