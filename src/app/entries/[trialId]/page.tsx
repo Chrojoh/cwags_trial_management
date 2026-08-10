@@ -221,6 +221,7 @@ export default function PublicEntryForm() {
   const [registryLoading, setRegistryLoading] = useState(false);
   const [existingEntry, setExistingEntry] = useState<any>(null);
   const [cwagsInputValue, setCwagsInputValue] = useState("");
+  const [lookupEmail, setLookupEmail] = useState("");
   const [editModeLoading, setEditModeLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
@@ -240,27 +241,20 @@ export default function PublicEntryForm() {
       setLoading(true);
       setError(null);
 
-      const trialResult = await simpleTrialOperations.getTrial(trialId);
-      if (!trialResult.success) {
-        throw new Error("Failed to load trial information");
-      }
+      const response = await fetch(`/api/public/trials/${trialId}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to load trial information");
 
-      setTrial(trialResult.data);
-
-      const roundsResult =
-        await simpleTrialOperations.getAllTrialRounds(trialId);
-      if (!roundsResult.success) {
-        throw new Error("Failed to load trial classes");
-      }
-
-      setTrialRounds(roundsResult.data || []);
+      setTrial(result.trial);
+      const rounds = result.rounds || [];
+      setTrialRounds(rounds);
 
       // Extract unique trial days from rounds
       const uniqueDays = new Map<
         number,
         { id: string; day_number: number; trial_date: string }
       >();
-      (roundsResult.data || []).forEach((round: any) => {
+      rounds.forEach((round: any) => {
         const dayData = round.trial_classes?.trial_days;
         if (dayData && dayData.day_number) {
           uniqueDays.set(dayData.day_number, {
@@ -278,7 +272,7 @@ export default function PublicEntryForm() {
 
       // ✅ ADD THIS BLOCK: Build day accepting status
       const dayStatus: Record<number, boolean> = {};
-      (roundsResult.data || []).forEach((round: any) => {
+      rounds.forEach((round: any) => {
         const dayNum = round.trial_classes?.trial_days?.day_number;
         const accepting =
           round.trial_classes?.trial_days?.is_accepting_entries ?? true;
@@ -304,6 +298,10 @@ export default function PublicEntryForm() {
   const handleCwagsSubmit = async () => {
     if (!cwagsInputValue.trim()) {
       setError("Please enter a C-WAGS registration number");
+      return;
+    }
+    if (!lookupEmail.trim()) {
+      setError("Please enter the email address for this entry");
       return;
     }
 
@@ -338,9 +336,9 @@ export default function PublicEntryForm() {
       console.log("Starting C-WAGS lookup for:", cwagsNumber);
 
       const lookupResponse = await fetch(
-        `/api/public/trials/${trialId}/entries?cwags=${encodeURIComponent(cwagsNumber)}`,
+        `/api/public/trials/${trialId}/entries?cwags=${encodeURIComponent(cwagsNumber)}&email=${encodeURIComponent(lookupEmail.trim())}`,
       );
-      const lookupResult: { entries?: any[]; selections?: any[]; error?: string } =
+      const lookupResult: { entries?: any[]; selections?: any[]; registry?: any; error?: string } =
         await lookupResponse.json();
       const existingEntries: any[] = lookupResult.entries || [];
       const entryError = lookupResponse.ok
@@ -366,15 +364,13 @@ export default function PublicEntryForm() {
         console.log("Found existing entry:", existingEntry);
         setExistingEntry(existingEntry);
 
-        const registryResult =
-          await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
         const authoritativeHandlerName =
-          registryResult.success && registryResult.data?.handler_name
-            ? registryResult.data.handler_name
+          lookupResult.registry?.handler_name
+            ? lookupResult.registry.handler_name
             : existingEntry.handler_name || "";
         const authoritativeDogCallName =
-          registryResult.success && registryResult.data?.dog_call_name
-            ? registryResult.data.dog_call_name
+          lookupResult.registry?.dog_call_name
+            ? lookupResult.registry.dog_call_name
             : existingEntry.dog_call_name || "";
 
         setRegistryVerification({
@@ -469,24 +465,23 @@ export default function PublicEntryForm() {
         setExistingEntry(null);
 
         try {
-          const registryResult =
-            await simpleTrialOperations.getCwagsRegistryByNumber(cwagsNumber);
-          if (registryResult.success && registryResult.data) {
-            console.log("Found C-WAGS registry data:", registryResult.data);
+          const registryData = lookupResult.registry;
+          if (registryData) {
+            console.log("Found C-WAGS registry identity");
             console.log("🧹 Clearing all selections for new entry");
 
             // ✅ FIXED: Clear ALL selections since this is a new entry for this trial
             setVerifyDialog({
-              handler_name: registryResult.data.handler_name || "",
-              dog_call_name: registryResult.data.dog_call_name || "",
+              handler_name: registryData.handler_name || "",
+              dog_call_name: registryData.dog_call_name || "",
               pendingData: {
-                handler_name: registryResult.data.handler_name || "",
-                dog_call_name: registryResult.data.dog_call_name || "",
-                handler_email: registryResult.data.handler_email || "",
-                handler_phone: registryResult.data.handler_phone || "",
-                emergency_contact: registryResult.data.emergency_contact || "",
-                dog_breed: registryResult.data.breed || "",
-                dog_sex: registryResult.data.dog_sex || "",
+                handler_name: registryData.handler_name || "",
+                dog_call_name: registryData.dog_call_name || "",
+                handler_email: lookupEmail.trim(),
+                handler_phone: "",
+                emergency_contact: "",
+                dog_breed: "",
+                dog_sex: "",
                 cwags_number: cwagsNumber,
                 selected_rounds: [],
                 feo_selections: [],
@@ -509,6 +504,7 @@ export default function PublicEntryForm() {
             setFormData((prev) => ({
               ...prev,
               cwags_number: cwagsNumber,
+              handler_email: lookupEmail.trim(),
               handler_name: "",
               dog_call_name: "",
               // Clear all round selections
@@ -544,7 +540,11 @@ export default function PublicEntryForm() {
       }
     } catch (error) {
       console.error("Error in C-WAGS lookup:", error);
-      setError("Failed to lookup C-WAGS information");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to lookup C-WAGS information",
+      );
     } finally {
       setRegistryLoading(false);
       setEditModeLoading(false);
@@ -669,7 +669,10 @@ export default function PublicEntryForm() {
           const response = await fetch(`/api/public/trials/${trialId}/registry-sync`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify({
+              ...formData,
+              verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
+            }),
           });
           const result = await response.json();
           if (!response.ok) {
@@ -698,7 +701,10 @@ export default function PublicEntryForm() {
       const response = await fetch(`/api/public/trials/${trialId}/registry-sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -926,20 +932,25 @@ export default function PublicEntryForm() {
 
       // All entry, selection, capacity, fee, score-protection, and journal
       // writes now run through the controlled public server transaction.
-      await saveToRegistry();
       const entryResponse = await fetch(`/api/public/trials/${trialId}/entries`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
           handler_name: authoritativeHandlerName,
           dog_call_name: authoritativeDogCallName,
         }),
       });
       const entryResult = await entryResponse.json();
       if (!entryResponse.ok) {
-        throw new Error(entryResult.error || "Failed to save entry");
+        throw new Error(
+          entryResult.detail
+            ? `${entryResult.error || "Failed to save entry"} ${entryResult.detail}`
+            : entryResult.error || "Failed to save entry",
+        );
       }
+      await saveToRegistry();
 
       const waitlistedIds = new Set<string>(entryResult.waitlistedRoundIds || []);
       const acceptedRounds = formData.selected_rounds
@@ -1445,9 +1456,6 @@ export default function PublicEntryForm() {
       setCwagsInputValue(cwagsParam);
       setFormData((prev) => ({ ...prev, cwags_number: cwagsParam }));
 
-      setTimeout(() => {
-        handleCwagsLookup(cwagsParam);
-      }, 500);
     }
   }, []);
 
@@ -2194,12 +2202,11 @@ export default function PublicEntryForm() {
               C-WAGS Number Lookup
             </CardTitle>
             <CardDescription>
-              Enter your C-WAGS number to auto-fill handler and dog information
-              and previous entries, Hit LOOKUP
+              Enter your C-WAGS number and the entry email to look up or edit an entry.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <Input
                 placeholder="C-WAGS-XXXX"
                 value={cwagsInputValue}
@@ -2215,9 +2222,23 @@ export default function PublicEntryForm() {
                 }}
                 className="flex-1"
               />
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={lookupEmail}
+                onChange={(e) => {
+                  setLookupEmail(e.target.value);
+                  setFormData((prev) => ({ ...prev, handler_email: e.target.value }));
+                  setRegistryVerification(null);
+                  setExistingEntry(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCwagsSubmit();
+                }}
+              />
               <Button
                 onClick={handleCwagsSubmit}
-                disabled={registryLoading || !cwagsInputValue}
+                disabled={registryLoading || !cwagsInputValue || !lookupEmail.trim()}
                 className="border-2 border-purple
 
 -600 hover:bg-purple
@@ -2232,8 +2253,7 @@ export default function PublicEntryForm() {
               </Button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              Format: xx-xxxx-xx (e.g., 17-1955 or 17-1955-01). Enter to look up
-              existing registration.
+              Existing entries are shown only when the registration number and email match.
             </p>
             {existingEntry && (
               <Alert className="mt-4">

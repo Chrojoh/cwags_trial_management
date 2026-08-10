@@ -36,6 +36,23 @@ export async function POST(
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
+    const submittedEmail = clean(body.verification_email, 254).toLowerCase();
+    const { data: verifiedEntry, error: verificationError } = await db
+      .from('entries')
+      .select('id')
+      .eq('trial_id', trialId)
+      .eq('cwags_number', cwagsNumber)
+      .ilike('handler_email', submittedEmail)
+      .limit(1)
+      .maybeSingle();
+    if (verificationError) throw verificationError;
+    if (!submittedEmail || !verifiedEntry) {
+      return NextResponse.json(
+        { error: 'The submitted entry could not be verified.' },
+        { status: 403 }
+      );
+    }
+
     const { data: existing, error: registryError } = await db
       .from('cwags_registry')
       .select('id,handler_name,dog_call_name,breed,dog_sex')

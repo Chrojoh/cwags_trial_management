@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/apiAuth';
+import { createHash } from 'crypto';
 
 const inactive = new Set(['waitlisted', 'withdrawn']);
 const text = (value: unknown, max: number) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
 const nameKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+const VERIFY_WINDOW_MS = 15 * 60 * 1000;
+const MAX_VERIFY_FAILURES = 5;
+
+const verificationKey = (request: NextRequest, trialId: string, cwagsNumber: string) => {
+  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
+  const pepper = process.env.SUPABASE_SERVICE_ROLE_KEY || 'local-development';
+  return createHash('sha256')
+    .update(`${pepper}|${forwarded}|${trialId}|${cwagsNumber.toLowerCase()}`)
+    .digest('hex');
+};
 
 type RequestedSelection = {
   roundId: string;
@@ -39,11 +50,25 @@ export async function GET(
   try {
     const { trialId } = await params;
     const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 32);
-    if (!cwagsNumber) {
-      return NextResponse.json({ error: 'A registration number is required.' }, { status: 400 });
+    const submittedEmail = text(request.nextUrl.searchParams.get('email'), 254).toLowerCase();
+    if (!cwagsNumber || !submittedEmail) {
+      return NextResponse.json({ error: 'A registration number and email are required.' }, { status: 400 });
     }
 
     const db = getServiceRoleClient();
+    const keyHash = verificationKey(request, trialId, cwagsNumber);
+    const { data: limit, error: limitError } = await db
+      .from('public_entry_verification_limits')
+      .select('failed_attempts,window_started_at,blocked_until')
+      .eq('key_hash', keyHash)
+      .maybeSingle();
+    if (limitError) throw limitError;
+    if (limit?.blocked_until && new Date(limit.blocked_until).getTime() > Date.now()) {
+      return NextResponse.json(
+        { error: 'Too many unsuccessful attempts. Please try again later.' },
+        { status: 429 }
+      );
+    }
     const { data: trial, error: trialError } = await db
       .from('trials')
       .select('id,entry_status')
@@ -65,7 +90,41 @@ export async function GET(
       .order('submitted_at', { ascending: false });
     if (entryError) throw entryError;
 
-    const entryIds = (entries || []).map((entry) => entry.id);
+    const verifiedEntries = (entries || []).filter(
+      (entry) => String(entry.handler_email || '').trim().toLowerCase() === submittedEmail
+    );
+    if ((entries || []).length > 0 && verifiedEntries.length === 0) {
+      const windowStart = limit?.window_started_at
+        ? new Date(limit.window_started_at).getTime()
+        : 0;
+      const inWindow = Date.now() - windowStart < VERIFY_WINDOW_MS;
+      const failedAttempts = (inWindow ? Number(limit?.failed_attempts || 0) : 0) + 1;
+      const now = new Date();
+      const blockedUntil = failedAttempts >= MAX_VERIFY_FAILURES
+        ? new Date(now.getTime() + VERIFY_WINDOW_MS).toISOString()
+        : null;
+      const { error: recordError } = await db
+        .from('public_entry_verification_limits')
+        .upsert({
+          key_hash: keyHash,
+          failed_attempts: failedAttempts,
+          window_started_at: inWindow && limit?.window_started_at
+            ? limit.window_started_at
+            : now.toISOString(),
+          blocked_until: blockedUntil,
+          updated_at: now.toISOString(),
+        });
+      if (recordError) throw recordError;
+      return NextResponse.json(
+        { error: 'The registration number and email could not be verified.' },
+        { status: 403 }
+      );
+    }
+    if (verifiedEntries.length > 0 && limit) {
+      await db.from('public_entry_verification_limits').delete().eq('key_hash', keyHash);
+    }
+
+    const entryIds = verifiedEntries.map((entry) => entry.id);
     const { data: selections, error: selectionsError } = entryIds.length
       ? await db
           .from('entry_selections')
@@ -74,7 +133,18 @@ export async function GET(
       : { data: [], error: null };
     if (selectionsError) throw selectionsError;
 
-    return NextResponse.json({ entries: entries || [], selections: selections || [] });
+    const { data: registry, error: registryError } = await db
+      .from('cwags_registry')
+      .select('handler_name,dog_call_name')
+      .eq('cwags_number', cwagsNumber)
+      .maybeSingle();
+    if (registryError) throw registryError;
+
+    return NextResponse.json({
+      entries: verifiedEntries,
+      selections: selections || [],
+      registry: registry || null,
+    });
   } catch (error) {
     console.error('Public entry lookup failed:', error);
     return NextResponse.json({ error: 'Unable to look up this entry.' }, { status: 500 });
@@ -156,12 +226,22 @@ export async function POST(
 
     const { data: existingEntries, error: entryLookupError } = await db
       .from('entries')
-      .select('id,entry_status,fees_waived,amount_paid,submitted_at')
+      .select('id,entry_status,fees_waived,amount_paid,submitted_at,handler_email')
       .eq('trial_id', trialId)
       .eq('cwags_number', cwagsNumber)
       .order('submitted_at', { ascending: true });
     if (entryLookupError) throw entryLookupError;
     const primary = existingEntries?.[0] || null;
+    if (
+      primary &&
+      String(primary.handler_email || '').trim().toLowerCase() !==
+        text(body.verification_email, 254).toLowerCase()
+    ) {
+      return NextResponse.json(
+        { error: 'The registration number and email could not be verified.' },
+        { status: 403 }
+      );
+    }
 
     // Journal comparisons must use the database state immediately before this
     // request. The last journal snapshot can lag behind Live Event changes.
@@ -233,7 +313,6 @@ export async function POST(
       }
     }
 
-    const allWaitlisted = requested.every((selection) => conflictIds.has(selection.roundId));
     const entryValues = {
       handler_name: handlerName,
       dog_call_name: dogCallName,
@@ -249,7 +328,9 @@ export async function POST(
         body.volunteer_preferences && typeof body.volunteer_preferences === 'object'
           ? body.volunteer_preferences
           : null,
-      entry_status: allWaitlisted ? 'waitlisted' : 'submitted',
+      // Waitlisting is tracked per round selection. The parent entry remains a
+      // valid submitted entry even when every requested round is waitlisted.
+      entry_status: 'submitted',
     };
 
     let entryId: string;
@@ -420,6 +501,18 @@ export async function POST(
     });
   } catch (error) {
     console.error('Public entry transaction failed:', error);
-    return NextResponse.json({ error: 'Unable to save this entry.' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'Unable to save this entry.',
+        ...(process.env.NODE_ENV === 'development'
+          ? {
+              detail: error instanceof Error
+                ? error.message
+                : JSON.stringify(error),
+            }
+          : {}),
+      },
+      { status: 500 }
+    );
   }
 }
