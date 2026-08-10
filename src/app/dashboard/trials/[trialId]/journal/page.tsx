@@ -42,6 +42,7 @@ interface JournalEntry {
     | 'entry_edited'
     | 'running_order_changed'
     | 'fees_recalculated'
+    | 'score_recorded'
     | 'score_corrected';
   handler_name: string;
   dog_call_name: string;
@@ -317,14 +318,15 @@ export default function TrialJournalPage() {
             snapshot,
           });
         } else if (activity.activity_type === 'score_corrected') {
+          const isInitialScore = snapshot.operation === 'insert' || !snapshot.before;
           entries.push({
             id: activity.id,
             timestamp: activity.created_at,
-            type: 'score_corrected',
+            type: isInitialScore ? 'score_recorded' : 'score_corrected',
             handler_name: snapshot.handler_name || 'Unknown',
             dog_call_name: snapshot.dog_call_name || 'Unknown',
             cwags_number: snapshot.cwags_number || 'Unknown',
-            description: `Score corrected for ${snapshot.dog_call_name || 'selection'} by ${activity.user_name || 'Unknown user'}`,
+            description: `${isInitialScore ? 'Score recorded' : 'Score corrected'} for ${snapshot.dog_call_name || 'selection'} by ${activity.user_name || 'Unknown user'}`,
             notes: snapshot.reason || undefined,
             entry_id: activity.entry_id,
             snapshot,
@@ -528,7 +530,7 @@ export default function TrialJournalPage() {
     try {
       // Score audit snapshots contain score fields, not a complete entry and
       // class-selection snapshot. Display them in their own comparison view.
-      if (entry.type === 'score_corrected' && entry.snapshot) {
+      if (['score_recorded', 'score_corrected'].includes(entry.type) && entry.snapshot) {
         setEntryDetails({ audit: entry.snapshot });
         return;
       }
@@ -690,6 +692,8 @@ export default function TrialJournalPage() {
         return <DollarSign className="h-5 w-5 text-purple-700" />;
       case 'score_corrected':
         return <FileEdit className="h-5 w-5 text-red-700" />;
+      case 'score_recorded':
+        return <FileEdit className="h-5 w-5 text-green-700" />;
       case 'entry_status_changed':
         return <FileEdit className="h-5 w-5 text-amber-600" />;
       default:
@@ -724,6 +728,8 @@ export default function TrialJournalPage() {
         return 'bg-purple-100 text-purple-900';
       case 'score_corrected':
         return 'bg-red-100 text-red-900';
+      case 'score_recorded':
+        return 'bg-green-100 text-green-900';
       case 'entry_status_changed':
         return 'bg-amber-100 text-amber-800';
       default:
@@ -871,6 +877,7 @@ export default function TrialJournalPage() {
               <option value="selection_waitlisted">Waitlisted Selections</option>
               <option value="running_order_changed">Running Order Changes</option>
               <option value="fees_recalculated">Fee Recalculations</option>
+              <option value="score_recorded">Scores Recorded</option>
               <option value="score_corrected">Score Corrections</option>
             </select>
 
@@ -1014,8 +1021,10 @@ export default function TrialJournalPage() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-xl font-bold text-gray-900">
-                    {selectedEntry.type === 'score_corrected'
-                      ? 'Score Correction Details'
+                    {selectedEntry.type === 'score_recorded'
+                      ? 'Score Record Details'
+                      : selectedEntry.type === 'score_corrected'
+                        ? 'Score Correction Details'
                       : 'Entry Details'}
                   </h2>
                   {entryDetails?.entry?.from_snapshot && (
@@ -1047,12 +1056,14 @@ export default function TrialJournalPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading details...</p>
                 </div>
-              ) : selectedEntry.type === 'score_corrected' && entryDetails?.audit ? (
+              ) : ['score_recorded', 'score_corrected'].includes(selectedEntry.type) &&
+                entryDetails?.audit ? (
                 <div className="space-y-5">
                   <div className="rounded-lg border border-red-200 bg-red-50 p-4">
                     <p className="text-sm text-gray-700">
-                      This audit record shows the score values immediately before and after the
-                      correction. Technical record identifiers are intentionally omitted.
+                      {selectedEntry.type === 'score_recorded'
+                        ? 'This audit record shows the values from the initial saved score. Technical record identifiers are intentionally omitted.'
+                        : 'This audit record shows the score values immediately before and after the correction. Technical record identifiers are intentionally omitted.'}
                     </p>
                   </div>
 
