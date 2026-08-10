@@ -385,11 +385,44 @@ export default function TrialEntriesPage() {
   };
 
   const getAuthorizationHeader = async () => {
-    const {
+    let {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) throw new Error('Not authenticated');
+
+    // Native confirmation dialogs pause the browser event loop, which can
+    // prevent Supabase's automatic token refresh. Refresh proactively when
+    // the access token is close to expiry before a protected mutation.
+    const expiresWithinOneMinute =
+      !session.expires_at || session.expires_at * 1000 <= Date.now() + 60_000;
+    if (expiresWithinOneMinute) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) throw new Error('Your session expired. Please sign in again.');
+      session = data.session;
+    }
     return { Authorization: `Bearer ${session.access_token}` };
+  };
+
+  const authenticatedFetch = async (url: string, init: RequestInit) => {
+    let authHeader = await getAuthorizationHeader();
+    let response = await fetch(url, {
+      ...init,
+      headers: { ...authHeader, ...(init.headers || {}) },
+    });
+
+    // A token can expire while a confirmation dialog is open. Refresh once
+    // and retry the same idempotency-protected server operation.
+    if (response.status === 401) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) return response;
+      authHeader = { Authorization: `Bearer ${data.session.access_token}` };
+      response = await fetch(url, {
+        ...init,
+        headers: { ...authHeader, ...(init.headers || {}) },
+      });
+    }
+
+    return response;
   };
 
   const updateEntryStatus = async (
@@ -441,12 +474,11 @@ export default function TrialEntriesPage() {
     if (!confirm(`Promote ${classDisplay} from the waitlist?`)) return;
 
     const submitPromotion = async (increaseCapacity: boolean) => {
-      const authHeader = await getAuthorizationHeader();
-      return fetch(
+      return authenticatedFetch(
         `/api/trials/${trialId}/entries/${entryId}/selections/${selectionId}/promote`,
         {
           method: 'POST',
-          headers: { ...authHeader, 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ increaseCapacity }),
         }
       );
