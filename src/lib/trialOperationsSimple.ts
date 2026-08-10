@@ -1429,7 +1429,9 @@ export const simpleTrialOperations = {
             entry_type: selection.entry_type || 'regular',
             fee: selection.fee || 0,
             running_position: isRunningOrderSelection(selection.entry_status)
-              ? selection.running_position
+              ? isRunningOrderSelection(existing.entry_status)
+                ? existing.running_position
+                : selection.running_position
               : null,
             entry_status: selection.entry_status || 'entered',
             division: selection.division || null,
