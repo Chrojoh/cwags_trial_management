@@ -78,17 +78,25 @@ export async function requireTrialPermission(
     return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
-  const client = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: authHeader } } }
-  );
-  const { data: { user }, error } = await client.auth.getUser();
-  if (error || !user) {
+  const accessToken = authHeader.slice('Bearer '.length).trim();
+  if (!accessToken) {
     return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
   }
 
+  // Validate the explicit bearer token directly. Creating an anon client with
+  // a global Authorization header can lose or override that header during
+  // server-side auth calls, causing valid browser sessions to return 401.
   const service = getServiceRoleClient();
+  const { data: { user }, error } = await service.auth.getUser(accessToken);
+  if (error || !user) {
+    console.warn('Trial API bearer validation failed', {
+      trialId,
+      errorCode: error?.code || null,
+      errorStatus: error?.status || null,
+    });
+    return { authorized: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
   const [{ data: profile }, { data: trial }] = await Promise.all([
     service.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
     service.from('trials').select('created_by').eq('id', trialId).maybeSingle(),
