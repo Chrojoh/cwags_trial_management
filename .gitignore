@@ -14,6 +14,9 @@
 /coverage
 /.codex-tmp/
 
+# Local database safety snapshots contain private participant data.
+/local-backups/
+
 # next.js
 /.next/
 /out/

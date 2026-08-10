@@ -543,7 +543,7 @@ export default function TrialJournalPage() {
           jump_height: classData.jump_height,
           running_position: null,
           entry_status: classData.entry_status || 'active',
-          created_at: entry.timestamp,
+          created_at: classData.created_at || entry.timestamp,
           day_number: classData.day_number,
           trial_date: classData.trial_date,
           trial_rounds: {

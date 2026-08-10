@@ -94,6 +94,7 @@ export interface EntryData {
   dog_sex: string | null;
   handler_email: string;
   handler_phone: string;
+  emergency_contact?: string | null;
   is_junior_handler: boolean;
   waiver_accepted: boolean;
   close_to_titles?: string | null; // ← ADD THIS LINE
@@ -1277,7 +1278,9 @@ export const simpleTrialOperations = {
 
       const { data: existingSelections, error: selectionsError } = await supabase
         .from('entry_selections')
-        .select('id, trial_round_id, entry_type')
+        .select(
+          'id, entry_id, trial_round_id, entry_type, fee, running_position, entry_status, division, games_subclass, jump_height, created_at'
+        )
         .in('entry_id', allEntryIds);
 
       if (selectionsError) {
@@ -1321,9 +1324,18 @@ export const simpleTrialOperations = {
           });
         }
 
-        // STEP 4: Delete only entry selections WITHOUT scores
+        const desiredRoundIds = new Set(
+          (selections || []).map((selection) => selection.trial_round_id)
+        );
+
+        // Delete only deselected rows without scores. Unchanged selections
+        // retain their IDs and original created_at timestamps.
         const selectionsToDelete = existingSelections
-          .filter((sel) => !selectionsWithScoreIds.has(sel.id))
+          .filter(
+            (sel) =>
+              !selectionsWithScoreIds.has(sel.id) &&
+              !desiredRoundIds.has(sel.trial_round_id)
+          )
           .map((sel) => sel.id);
 
         if (selectionsToDelete.length > 0) {
@@ -1397,9 +1409,46 @@ export const simpleTrialOperations = {
         });
       }
 
-      // Filter out selections that would conflict with existing scored rounds
+      const existingDesiredSelections = new Map(
+        (existingSelections || [])
+          .filter((selection) =>
+            selections.some((desired) => desired.trial_round_id === selection.trial_round_id)
+          )
+          .map((selection) => [selection.trial_round_id, selection])
+      );
+
+      // Update desired, unscored selections in place. This preserves their
+      // original created_at while allowing editable selection fields to change.
+      for (const selection of selections) {
+        const existing = existingDesiredSelections.get(selection.trial_round_id);
+        if (!existing || selectionsWithScoreIds.has(existing.id)) continue;
+
+        const { error: updateError } = await supabase
+          .from('entry_selections')
+          .update({
+            entry_type: selection.entry_type || 'regular',
+            fee: selection.fee || 0,
+            running_position: isRunningOrderSelection(selection.entry_status)
+              ? selection.running_position
+              : null,
+            entry_status: selection.entry_status || 'entered',
+            division: selection.division || null,
+            games_subclass: selection.games_subclass || null,
+            jump_height: selection.jump_height || null,
+          })
+          .eq('id', existing.id);
+
+        if (updateError) {
+          return {
+            success: false,
+            error: `Failed to update existing selection: ${updateError.message}`,
+          };
+        }
+      }
+
+      // Insert only genuinely new rounds. Existing desired rows stay in place.
       const selectionsToInsert = selections.filter((selection) => {
-        const wouldConflict = existingRoundsWithScores.has(selection.trial_round_id);
+        const wouldConflict = existingDesiredSelections.has(selection.trial_round_id);
 
         if (wouldConflict) {
           console.log(

@@ -1055,6 +1055,10 @@ export default function PublicEntryForm() {
         // Only update if there's actual data
         const updateData: any = {};
 
+        // Keep this trial's entry synchronized with contact edits. Registry
+        // synchronization is handled separately.
+        updateData.emergency_contact = formData.emergency_contact?.trim() || null;
+
         if (allSelectionsWaitlisted) {
           updateData.entry_status = "waitlisted";
         } else if (existingEntries[0].entry_status === "waitlisted") {
@@ -1111,6 +1115,7 @@ export default function PublicEntryForm() {
           dog_sex: formData.dog_sex,
           handler_email: formData.handler_email,
           handler_phone: formData.handler_phone,
+          emergency_contact: formData.emergency_contact?.trim() || null,
           is_junior_handler: formData.is_junior_handler,
           waiver_accepted: formData.waiver_accepted,
           close_to_titles: formData.close_to_titles || null, // ← ADD THIS
@@ -1299,6 +1304,7 @@ export default function PublicEntryForm() {
             selection.trial_rounds?.trial_classes?.trial_days?.day_number,
           trial_date:
             selection.trial_rounds?.trial_classes?.trial_days?.trial_date,
+          created_at: selection.created_at,
         }),
       );
 
@@ -1317,6 +1323,7 @@ export default function PublicEntryForm() {
           cwags_number: formData.cwags_number,
           handler_email: formData.handler_email,
           handler_phone: formData.handler_phone,
+          emergency_contact: formData.emergency_contact,
           total_fee: finalTotalFee,
         },
         classDetails, // ✅ Now contains ALL current classes, not just new ones

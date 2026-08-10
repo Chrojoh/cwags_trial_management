@@ -17,6 +17,7 @@ export async function logEntrySubmitted(
     total_fee: number;
     handler_email: string;
     handler_phone: string;
+    emergency_contact?: string;
   },
   classes: Array<{
     class_name?: string;
@@ -39,6 +40,7 @@ export async function logEntrySubmitted(
       cwags_number: entryData.cwags_number,
       handler_email: entryData.handler_email,
       handler_phone: entryData.handler_phone,
+      emergency_contact: entryData.emergency_contact || null,
       total_fee: entryData.total_fee,
       class_count: classes.length,
       classes: classes.map((c) => ({
@@ -404,6 +406,7 @@ export async function logEntrySubmittedOrModified(
     total_fee: number;
     handler_email: string;
     handler_phone: string;
+    emergency_contact?: string;
   },
   classes: Array<{
     class_name?: string;
@@ -415,6 +418,7 @@ export async function logEntrySubmittedOrModified(
     day_number?: number; // ← ADD THIS
     trial_date?: string; // ← ADD THIS
     jump_height?: string; // ← ADD THIS
+    created_at?: string;
   }>
 ) {
   try {
@@ -427,6 +431,7 @@ export async function logEntrySubmittedOrModified(
       cwags_number: entryData.cwags_number,
       handler_email: entryData.handler_email,
       handler_phone: entryData.handler_phone,
+      emergency_contact: entryData.emergency_contact || null,
       total_fee: entryData.total_fee,
       class_count: classes.length,
       classes: classes.map((c) => ({
@@ -439,6 +444,7 @@ export async function logEntrySubmittedOrModified(
         day_number: c.day_number || null, // ← ADD THIS
         trial_date: c.trial_date || null, // ← ADD THIS
         jump_height: c.jump_height || null, // ← ADD THIS
+        created_at: c.created_at || null,
       })),
     };
 
@@ -447,6 +453,7 @@ export async function logEntrySubmittedOrModified(
       .from('trial_activity_log')
       .select('snapshot_data, activity_type')
       .eq('entry_id', entryId)
+      .in('activity_type', ['entry_submitted', 'entry_modified'])
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -484,22 +491,10 @@ export async function logEntrySubmittedOrModified(
     const previousState =
       previousActivityType === 'entry_modified' ? previousSnapshot.after : previousSnapshot;
 
-    // Safety check - if previous state is missing required fields, treat as new
+    // Never create a second submission record from a malformed historical
+    // snapshot. Keep the existing journal intact for manual review.
     if (!previousState || previousState.class_count === undefined) {
-      console.warn('Previous snapshot missing required fields, treating as new entry');
-      const { error } = await supabase.from('trial_activity_log').insert({
-        trial_id: trialId,
-        activity_type: 'entry_submitted',
-        entry_id: entryId,
-        snapshot_data: currentSnapshot,
-        user_name: entryData.handler_name,
-      });
-
-      if (error) {
-        console.error('Failed to log entry submission:', error);
-      } else {
-        console.log('✅ Logged entry submission to journal (previous snapshot incomplete)');
-      }
+      console.warn('Previous entry journal snapshot is incomplete; skipping duplicate-safe log');
       return;
     }
 
