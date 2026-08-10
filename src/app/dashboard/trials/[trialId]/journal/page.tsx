@@ -975,35 +975,6 @@ export default function TrialJournalPage() {
                       <div className="mt-2 text-sm text-gray-600 italic">Note: {entry.notes}</div>
                     )}
 
-                    {(entry.snapshot?.before !== undefined || entry.snapshot?.after !== undefined) && (
-                      <details
-                        className="mt-3 rounded border border-amber-200 bg-white p-3 text-sm"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <summary className="cursor-pointer font-medium text-gray-700">
-                          Before / after audit details
-                        </summary>
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
-                          <div>
-                            <div className="mb-1 font-semibold text-gray-600">Before</div>
-                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs text-gray-800">
-                              {JSON.stringify(entry.snapshot?.before ?? null, null, 2)}
-                            </pre>
-                          </div>
-                          <div>
-                            <div className="mb-1 font-semibold text-gray-600">After</div>
-                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-50 p-2 text-xs text-gray-800">
-                              {JSON.stringify(entry.snapshot?.after ?? null, null, 2)}
-                            </pre>
-                          </div>
-                        </div>
-                        {entry.snapshot?.reason && (
-                          <div className="mt-3 text-gray-700">
-                            <span className="font-semibold">Reason:</span> {entry.snapshot.reason}
-                          </div>
-                        )}
-                      </details>
-                    )}
                   </div>
                 </div>
               </div>
