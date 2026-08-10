@@ -1,5 +1,6 @@
 // src/app/api/public/trials/[trialId]/route.ts
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { getServiceRoleClient } from '@/lib/apiAuth'
 
 // This endpoint is PUBLIC - no authentication required
@@ -9,6 +10,31 @@ export async function GET(
 ) {
   try {
     const { trialId } = await params
+
+    // Prefer the narrowly scoped public RPC. It exposes only published trial
+    // entry-form data and does not depend on a deployment service-role secret.
+    const publicDb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const { data: publicPayload, error: publicError } = await publicDb.rpc(
+      'get_public_trial_entry_form',
+      { p_trial_id: trialId }
+    )
+    if (!publicError) {
+      if (!publicPayload) {
+        return NextResponse.json({ error: 'Trial not found' }, { status: 404 })
+      }
+      return NextResponse.json(publicPayload)
+    }
+
+    // Temporary compatibility path while the additive RPC migration is being
+    // installed in an existing Supabase project.
+    console.warn('Public trial RPC unavailable; using compatibility lookup', {
+      code: publicError.code,
+      message: publicError.message,
+    })
 
     const db = getServiceRoleClient()
     const { data: trial, error: trialError } = await db
