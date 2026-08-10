@@ -136,7 +136,7 @@ export async function requireTrialPermission(
   // policy explicitly permits self-read, and this avoids incorrectly reporting
   // a missing profile when the service-role environment is unavailable or
   // misconfigured in a deployment.
-  const profileClient = accessToken
+  const requestClient = accessToken
     ? createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -146,9 +146,12 @@ export async function requireTrialPermission(
         }
       )
     : authClient;
-  const [{ data: profile, error: profileError }, { data: trial }] = await Promise.all([
-    profileClient.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
-    service.from('trials').select('created_by').eq('id', trialId).maybeSingle(),
+  const [
+    { data: profile, error: profileError },
+    { data: trial, error: trialError },
+  ] = await Promise.all([
+    requestClient.from('users').select('role,is_active').eq('id', user.id).maybeSingle(),
+    requestClient.from('trials').select('created_by').eq('id', trialId).maybeSingle(),
   ]);
   if (profileError) {
     console.error('Trial API profile lookup failed', {
@@ -164,6 +167,18 @@ export async function requireTrialPermission(
   }
   if (!profile || profile.is_active === false) {
     return { authorized: false, response: NextResponse.json({ error: 'Active user profile required' }, { status: 403 }) };
+  }
+  if (trialError) {
+    console.error('Trial API trial lookup failed', {
+      trialId,
+      userId: user.id,
+      code: trialError.code,
+      message: trialError.message,
+    });
+    return {
+      authorized: false,
+      response: NextResponse.json({ error: 'Unable to verify trial access' }, { status: 500 }),
+    };
   }
   if (!trial) {
     return { authorized: false, response: NextResponse.json({ error: 'Trial not found' }, { status: 404 }) };
