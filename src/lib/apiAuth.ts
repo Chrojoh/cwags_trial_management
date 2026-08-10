@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   hasTrialPermission,
@@ -74,18 +75,10 @@ export async function requireTrialPermission(
   permission: TrialPermission
 ): Promise<TrialAuthorizationResult> {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      authorized: false,
-      response: NextResponse.json(
-        { error: 'Unauthorized [AUTH_HEADER_MISSING]', code: 'AUTH_HEADER_MISSING' },
-        { status: 401 }
-      ),
-    };
-  }
-
-  const accessToken = authHeader.slice('Bearer '.length).trim();
-  if (!accessToken) {
+  const accessToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice('Bearer '.length).trim()
+    : '';
+  if (authHeader?.startsWith('Bearer ') && !accessToken) {
     return {
       authorized: false,
       response: NextResponse.json(
@@ -98,15 +91,30 @@ export async function requireTrialPermission(
   // Validate the explicit bearer token with the same public project client
   // that issued the browser session. Passing the token as an argument avoids
   // global-header overrides while keeping service credentials out of auth.
-  const authClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  );
-  const { data: { user }, error } = await authClient.auth.getUser(accessToken);
+  const authClient = accessToken
+    ? createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+    : createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll: () => request.cookies.getAll(),
+            setAll: () => {},
+          },
+        }
+      );
+  const { data: { user }, error } = accessToken
+    ? await authClient.auth.getUser(accessToken)
+    : await authClient.auth.getUser();
   if (error || !user) {
-    console.warn('Trial API bearer validation failed', {
+    const code = accessToken ? 'AUTH_TOKEN_INVALID' : 'AUTH_SESSION_MISSING';
+    console.warn('Trial API authentication failed', {
       trialId,
+      method: accessToken ? 'bearer' : 'cookie',
       errorCode: error?.code || null,
       errorStatus: error?.status || null,
     });
@@ -114,8 +122,8 @@ export async function requireTrialPermission(
       authorized: false,
       response: NextResponse.json(
         {
-          error: 'Unauthorized [AUTH_TOKEN_INVALID]',
-          code: 'AUTH_TOKEN_INVALID',
+          error: `Unauthorized [${code}]`,
+          code,
           authStatus: error?.status || null,
         },
         { status: 401 }
