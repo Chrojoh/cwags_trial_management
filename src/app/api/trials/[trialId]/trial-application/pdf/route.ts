@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireTrialPermission } from '@/lib/apiAuth';
+import { getAuthenticatedRequestClient, requireTrialPermission } from '@/lib/apiAuth';
 import { getTrialApplicationData } from '@/lib/trialApplication/server';
 import { renderTrialApplicationPdf, safeApplicationFilename } from '@/lib/trialApplication/renderer';
 import type { TrialApplicationOverrides } from '@/types/trialApplication';
@@ -12,7 +12,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const auth = await requireTrialPermission(request, trialId, 'generate_trial_application');
     if (!auth.authorized) return auth.response;
     const body = await request.json() as { overrides?: TrialApplicationOverrides; draft?: boolean };
-    const data = await getTrialApplicationData(trialId, body.overrides || {});
+    const data = await getTrialApplicationData(
+      trialId,
+      body.overrides || {},
+      getAuthenticatedRequestClient(request)
+    );
     const draft = Boolean(body.draft);
     if (data.missingRequired.length && !draft) {
       return NextResponse.json({ error: 'Required information is missing', missing: data.missingRequired }, { status: 409 });

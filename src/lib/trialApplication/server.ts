@@ -3,12 +3,14 @@ import { mapTrialApplicationData } from './mapper';
 import type { TrialApplicationOverrides } from '@/types/trialApplication';
 import { getQualifiedJudges } from '@/lib/judgeSelector';
 import type { Judge } from '@/types/judge';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export async function getTrialApplicationData(
   trialId: string,
-  overrides: TrialApplicationOverrides = {}
+  overrides: TrialApplicationOverrides = {},
+  databaseClient?: SupabaseClient
 ) {
-  const supabase = getServiceRoleClient();
+  const supabase = databaseClient || getServiceRoleClient();
   const [{ data: trial, error: trialError }, { data: days, error: daysError }, { data: judges, error: judgesError }] = await Promise.all([
     supabase.from('trials').select('*').eq('id', trialId).single(),
     supabase

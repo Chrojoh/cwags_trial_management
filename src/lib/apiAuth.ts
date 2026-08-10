@@ -64,6 +64,31 @@ export function getServiceRoleClient() {
   );
 }
 
+/** Database client carrying the current request's authenticated Supabase session. */
+export function getAuthenticatedRequestClient(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: authHeader } },
+      }
+    );
+  }
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: () => {},
+      },
+    }
+  );
+}
+
 export type TrialAuthorizationResult =
   | { authorized: true; userId: string; role: EffectiveTrialRole }
   | { authorized: false; response: NextResponse };
