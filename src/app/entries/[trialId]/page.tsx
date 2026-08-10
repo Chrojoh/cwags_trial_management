@@ -668,17 +668,14 @@ export default function PublicEntryForm() {
         if (Object.keys(registryUpdates).length > 0) {
           console.log("💾 Updating registry with:", registryUpdates);
 
-          const { error } = await supabase
-            .from("cwags_registry")
-            .update(registryUpdates)
-            .eq("id", existing.id);
-
-          if (error) {
-            console.warn("⚠️ Failed to update registry:", error);
-          } else {
-            console.log(
-              "✅ Successfully updated registry with missing information",
-            );
+          const response = await fetch(`/api/public/trials/${trialId}/registry-sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData),
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to update registry");
           }
         }
 
@@ -700,26 +697,14 @@ export default function PublicEntryForm() {
       // Dog doesn't exist - create new registry entry with all data
       console.log("📝 Creating new registry entry for:", formData.cwags_number);
 
-      const registryData = {
-        cwags_number: formData.cwags_number,
-        dog_call_name: formData.dog_call_name,
-        handler_name: formData.handler_name,
-        handler_email: formData.handler_email || null,
-        handler_phone: formData.handler_phone || null,
-        emergency_contact: formData.emergency_contact || null,
-        breed: formData.dog_breed || null,
-        dog_sex: formData.dog_sex || null,
-        is_junior_handler: formData.is_junior_handler,
-        is_active: true,
-      };
-
-      const createResult =
-        await simpleTrialOperations.createRegistryEntry(registryData);
-
-      if (createResult.success) {
-        console.log("✅ Successfully created new registry entry");
-      } else {
-        console.warn("⚠️ Failed to create registry entry:", createResult.error);
+      const response = await fetch(`/api/public/trials/${trialId}/registry-sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create registry entry");
       }
     } catch (error) {
       console.error("❌ Error in saveToRegistry:", error);
