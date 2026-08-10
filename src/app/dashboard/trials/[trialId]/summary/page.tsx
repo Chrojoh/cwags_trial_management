@@ -151,6 +151,22 @@ export default function ClassSummaryPage() {
     return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
   }
 
+  function getTrialScores(entries: any[]) {
+    return entries.flatMap((entry) =>
+      (entry.entry_selections || []).flatMap((selection: any) => {
+        const scores = Array.isArray(selection.scores)
+          ? selection.scores
+          : selection.scores
+            ? [selection.scores]
+            : [];
+        return scores.map((score: any) => ({
+          ...score,
+          entry_selection_id: score.entry_selection_id || selection.id,
+        }));
+      })
+    );
+  }
+
   const generateClassDisplayData = async (classId: string) => {
     if (!summaryData) return null;
 
@@ -166,10 +182,10 @@ export default function ClassSummaryPage() {
 
       // Get all scores
       // Fetch ALL scores using pagination (handles unlimited rows)
-      let allScores: any[] = [];
+      let allScores: any[] = getTrialScores(entriesResult.data || []);
       let from = 0;
       const pageSize = 1000;
-      let hasMore = true;
+      let hasMore = false;
 
       console.log('📊 [DISPLAY] Loading scores with pagination...');
 
@@ -338,10 +354,10 @@ export default function ClassSummaryPage() {
       }
       // Get all scores at once (removed 1000 default limit)
       // Fetch ALL scores using pagination (handles unlimited rows)
-      let allScores: any[] = [];
+      let allScores: any[] = getTrialScores(entriesResult.data || []);
       let from = 0;
       const pageSize = 1000;
-      let hasMore = true;
+      let hasMore = false;
 
       console.log('📊 [EXCEL] Loading scores with pagination...');
 
