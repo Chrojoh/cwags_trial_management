@@ -337,12 +337,15 @@ export default function PublicEntryForm() {
     try {
       console.log("Starting C-WAGS lookup for:", cwagsNumber);
 
-      const { data: existingEntries, error: entryError } = await supabase
-        .from("entries")
-        .select("*")
-        .eq("trial_id", trialId)
-        .eq("cwags_number", cwagsNumber)
-        .order("submitted_at", { ascending: false });
+      const lookupResponse = await fetch(
+        `/api/public/trials/${trialId}/entries?cwags=${encodeURIComponent(cwagsNumber)}`,
+      );
+      const lookupResult: { entries?: any[]; selections?: any[]; error?: string } =
+        await lookupResponse.json();
+      const existingEntries: any[] = lookupResult.entries || [];
+      const entryError = lookupResponse.ok
+        ? null
+        : { message: lookupResult.error || "Entry lookup failed" };
 
       console.log("Direct entry query result:", existingEntries, entryError);
 
@@ -384,13 +387,8 @@ export default function PublicEntryForm() {
         const entryIds = existingEntries.map((entry) => entry.id);
         console.log("Loading entry selections for all entry IDs:", entryIds);
 
-        const { data: allEntrySelections, error: selectionsError } =
-          await supabase
-            .from("entry_selections")
-            .select(
-              "trial_round_id, entry_type, division, entry_id, jump_height",
-            )
-            .in("entry_id", entryIds);
+        const allEntrySelections = lookupResult.selections || [];
+        const selectionsError = null;
 
         console.log(
           "Entry selections query result:",
@@ -974,6 +972,11 @@ export default function PublicEntryForm() {
       setSuccess(true);
       if (entryResult.success) return;
 
+      throw new Error("The server did not confirm the saved entry");
+
+      /* Retired browser-write implementation retained temporarily for
+         deployment rollback reference. It is deliberately not executable and
+         will be deleted after the RLS migration is verified in production.
       // ✅ FIX 2: Check for recent duplicate submissions (within last 60 seconds)
       const sixtySecondsAgo = new Date(Date.now() - 60000).toISOString();
 
@@ -1388,6 +1391,7 @@ export default function PublicEntryForm() {
       console.log(
         `✅ Entry ${isNewEntry ? "submitted" : "updated"} successfully${shouldWaitlist ? " and waitlisted" : ""}`,
       );
+      */
     } catch (err) {
       console.error("❌ Error submitting entry:", err);
       setError(err instanceof Error ? err.message : "Failed to submit entry");

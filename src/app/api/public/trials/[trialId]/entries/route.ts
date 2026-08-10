@@ -32,6 +32,55 @@ const mapSnapshotClasses = (selections: any[]) =>
     };
   });
 
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ trialId: string }> }
+) {
+  try {
+    const { trialId } = await params;
+    const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 32);
+    if (!cwagsNumber) {
+      return NextResponse.json({ error: 'A registration number is required.' }, { status: 400 });
+    }
+
+    const db = getServiceRoleClient();
+    const { data: trial, error: trialError } = await db
+      .from('trials')
+      .select('id,entry_status')
+      .eq('id', trialId)
+      .maybeSingle();
+    if (trialError) throw trialError;
+    if (!trial) return NextResponse.json({ error: 'Trial not found.' }, { status: 404 });
+    if (trial.entry_status !== 'open') {
+      return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
+    }
+
+    const { data: entries, error: entryError } = await db
+      .from('entries')
+      .select(`id,handler_name,dog_call_name,cwags_number,dog_breed,dog_sex,
+        handler_email,handler_phone,emergency_contact,is_junior_handler,
+        waiver_accepted,close_to_titles,volunteer_preferences,entry_status,submitted_at`)
+      .eq('trial_id', trialId)
+      .eq('cwags_number', cwagsNumber)
+      .order('submitted_at', { ascending: false });
+    if (entryError) throw entryError;
+
+    const entryIds = (entries || []).map((entry) => entry.id);
+    const { data: selections, error: selectionsError } = entryIds.length
+      ? await db
+          .from('entry_selections')
+          .select('trial_round_id,entry_type,division,entry_id,jump_height')
+          .in('entry_id', entryIds)
+      : { data: [], error: null };
+    if (selectionsError) throw selectionsError;
+
+    return NextResponse.json({ entries: entries || [], selections: selections || [] });
+  } catch (error) {
+    console.error('Public entry lookup failed:', error);
+    return NextResponse.json({ error: 'Unable to look up this entry.' }, { status: 500 });
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ trialId: string }> }
