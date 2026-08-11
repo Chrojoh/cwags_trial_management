@@ -12,7 +12,7 @@
 // ============================================================
 
 import { getDogTrialHistory } from './registryOperations';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBrowser } from './supabaseBrowser';
 import { isScorableSelection } from './selectionStatus';
 import { fetchAllPages } from './supabasePagination';
 import {
@@ -24,10 +24,11 @@ import {
   type MasterTitleRequirement,
 } from './titleRequirements';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Use the same cookie-aware browser client as the rest of the authenticated
+// application. A plain @supabase/supabase-js client does not see the SSR auth
+// session, so RLS returns no trial entries and the report appears legitimately
+// empty even when dogs are projected to earn titles.
+const supabase = getSupabaseBrowser();
 
 // ============================================================
 // Data structures for the report
@@ -398,11 +399,13 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
     // -------------------------------------------------------
     // Step 1: Get trial name
     // -------------------------------------------------------
-    const { data: trial } = await supabase
+    const { data: trial, error: trialError } = await supabase
       .from('trials')
       .select('trial_name')
       .eq('id', trialId)
       .single();
+
+    if (trialError) throw trialError;
 
     if (trial) report.trialName = trial.trial_name;
 
