@@ -1,7 +1,7 @@
 // src/components/layout/sidebar.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -51,10 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [expandedTrials, setExpandedTrials] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadRecentTrials();
-  }, []);
+  const activeTrialId = pathname.match(/\/dashboard\/trials\/([^/]+)/)?.[1] || null;
 
   // Auto-expand trial if we're viewing one of its pages
   useEffect(() => {
@@ -65,19 +62,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [pathname]);
 
-  const loadRecentTrials = async () => {
+  const loadRecentTrials = useCallback(async () => {
     try {
       setLoading(true);
       const result = await simpleTrialOperations.getAllTrials();
 
       if (result.success && result.data) {
         // Sort by start_date (most recent first) and take 5 most recent
-        const sorted = result.data
-          .sort(
-            (a: Trial, b: Trial) =>
-              compareDateOnly(b.start_date, a.start_date)
-          )
-          .slice(0, 5);
+        const allTrials = [...result.data].sort(
+          (a: Trial, b: Trial) => compareDateOnly(b.start_date, a.start_date)
+        );
+        const sorted = allTrials.slice(0, 5);
+
+        // The open trial must remain visible even when it is older than the
+        // five trials normally shown in the sidebar.
+        if (activeTrialId && !sorted.some((trial: Trial) => trial.id === activeTrialId)) {
+          const activeTrial = allTrials.find((trial: Trial) => trial.id === activeTrialId);
+          if (activeTrial) sorted.splice(Math.min(4, sorted.length), 1, activeTrial);
+        }
 
         setTrials(sorted);
       }
@@ -86,12 +88,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTrialId]);
+
+  useEffect(() => {
+    loadRecentTrials();
+  }, [loadRecentTrials]);
 
   const toggleTrial = (trialId: string) => {
     setExpandedTrials((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(trialId)) {
+      // The menu for the trial represented by the current URL stays open.
+      if (trialId === activeTrialId) {
+        newSet.add(trialId);
+      } else if (newSet.has(trialId)) {
         newSet.delete(trialId);
       } else {
         newSet.add(trialId);
@@ -247,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <div className="space-y-1">
                 {trials.map((trial) => {
-                  const isExpanded = expandedTrials.has(trial.id);
+                  const isExpanded = trial.id === activeTrialId || expandedTrials.has(trial.id);
                   const isActive = isTrialActive(trial.id);
 
                   return (
