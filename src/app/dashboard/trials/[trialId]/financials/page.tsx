@@ -42,7 +42,6 @@ import {
   Edit2,
   RefreshCcw,
 } from 'lucide-react';
-import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import {
   financialOperations,
   type TrialExpense,
@@ -50,7 +49,6 @@ import {
 } from '@/lib/financialOperations';
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { isBillableSelection } from '@/lib/selectionStatus';
 import { localDateOnly } from '@/lib/dateOnly';
 
 const supabase = getSupabaseBrowser();
@@ -169,78 +167,21 @@ export default function TrialFinancialsPage() {
     try {
       setLoading(true);
       setError(null);
-
-      const [trialResult, expensesResult, competitorsResult, breakEvenResult] = await Promise.all([
-        simpleTrialOperations.getTrial(trialId),
-        financialOperations.getTrialExpenses(trialId),
-        financialOperations.getCompetitorFinancials(trialId),
-        breakEvenOperations.getConfig(trialId),
-      ]);
-
-      if (!trialResult.success) throw new Error('Failed to load trial');
-      if (!expensesResult.success) throw new Error('Failed to load expenses');
-      if (!competitorsResult.success) throw new Error('Failed to load competitor data');
-
-      setTrial(trialResult.data);
-      setExpenses(expensesResult.data);
-      // Load judges and their run counts from this trial
-      const { data: rounds } = await supabase
-        .from('trial_rounds')
-        .select(
-          `
-    judge_name,
-    entry_selections!inner(entry_type, entry_status),
-    trial_classes!inner(trial_days!inner(trial_id))
-  `
-        )
-        .eq('trial_classes.trial_days.trial_id', trialId);
-
-      if (rounds) {
-        const judgeRunMap = new Map<string, number>();
-        rounds.forEach((round: any) => {
-          const name = round.judge_name;
-          if (!name || name.trim() === '') return;
-          const validRuns = (round.entry_selections || []).filter(
-            (s: any) =>
-              s.entry_type?.toLowerCase() !== 'feo' && isBillableSelection(s.entry_status)
-          ).length;
-          judgeRunMap.set(name, (judgeRunMap.get(name) || 0) + validRuns);
-        });
-        setTrialJudges(
-          Array.from(judgeRunMap.entries())
-            .map(([name, runsJudged]) => ({ name, runsJudged }))
-            .sort((a, b) => a.name.localeCompare(b.name))
-        );
-      }
-      setCompetitors(competitorsResult.data || []);
-
-      // Load J/V status for each competitor
-      const jvStatusPromises = (competitorsResult.data || []).map(
-        async (comp: CompetitorFinancial) => {
-          const { data } = await supabase
-            .from('entries')
-            .select('is_judge_volunteer')
-            .eq('id', comp.entry_id)
-            .single();
-
-          return { entryId: comp.entry_id, isJV: data?.is_judge_volunteer || false };
-        }
-      );
-
-      const jvResults = await Promise.all(jvStatusPromises);
-      const jvStatus: Record<string, boolean> = {};
-      jvResults.forEach((result) => {
-        jvStatus[result.entryId] = result.isJV;
+      const response = await fetch(`/api/trials/${trialId}/financials/summary`, {
+        headers: await getFinancialApiHeaders(),
+        cache: 'no-store',
       });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to load financial data');
 
-      setJudgeVolunteerStatus(jvStatus);
+      setTrial(payload.trial);
+      setExpenses(payload.expenses || []);
+      setCompetitors(payload.competitors || []);
+      setTrialJudges(payload.trialJudges || []);
+      setJudgeVolunteerStatus(payload.judgeVolunteerStatus || {});
+      if (payload.breakEvenConfig) setBreakEvenData(payload.breakEvenConfig);
 
-      // Load break-even config if exists
-      if (breakEvenResult.success && breakEvenResult.data) {
-        setBreakEvenData(breakEvenResult.data);
-      }
-
-      if (expensesResult.data.length === 0) {
+      if ((payload.expenses || []).length === 0) {
         initializeDefaultExpenses();
       }
     } catch (err) {

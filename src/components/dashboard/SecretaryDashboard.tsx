@@ -31,10 +31,17 @@ import {
 } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import CloseToTitlesReport from '@/components/trials/CloseToTitlesReport';
-import { financialOperations } from '@/lib/financialOperations';
 import { derivePaymentStatus } from '@/lib/financialRules';
 import { compareDateOnly, localDateOnly, parseDateOnly } from '@/lib/dateOnly';
 import { isActiveSelection } from '@/lib/selectionStatus';
+import type { CompetitorFinancial } from '@/lib/financialOperations';
+
+async function getDashboardApiHeaders() {
+  const { data, error } = await getSupabaseBrowser().auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) throw new Error('Your session has expired');
+  return { Authorization: `Bearer ${token}` };
+}
 
 interface Trial {
   id: string;
@@ -99,6 +106,12 @@ interface RecentActivity {
   type: string;
   message: string;
   timestamp: string;
+}
+
+interface DashboardContactEntry {
+  cwags_number: string;
+  handler_email: string | null;
+  handler_phone: string | null;
 }
 
 interface SecretaryDashboardProps {
@@ -189,13 +202,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const confirmed = nonFeoEntries.filter((e) => e.entry_status === 'confirmed').length;
 
       // Get financial metrics using the SAME function as the Financial Summary page
-      const financialsResult = await financialOperations.getCompetitorFinancials(trialId);
-
-      if (!financialsResult.success || !financialsResult.data) {
-        throw new Error('Failed to load financial data');
-      }
-
-      const competitors = financialsResult.data;
+      const financialResponse = await fetch(`/api/trials/${trialId}/financials/summary`, {
+        headers: await getDashboardApiHeaders(),
+        cache: 'no-store',
+      });
+      const financialPayload = await financialResponse.json();
+      if (!financialResponse.ok) throw new Error(financialPayload.error || 'Failed to load financial data');
+      const competitors: CompetitorFinancial[] = financialPayload.competitors || [];
       const competitorsWithOutstandingBalances = competitors.filter(
         (competitor) =>
           derivePaymentStatus(
@@ -647,20 +660,17 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
 
     try {
       // Get financial data grouped by owner
-      const financialsResult = await financialOperations.getCompetitorFinancials(selectedTrialId);
-
-      if (!financialsResult.success || !financialsResult.data) {
-        alert('Failed to load financial data for export');
+      const response = await fetch(`/api/trials/${selectedTrialId}/dashboard`, {
+        headers: await getDashboardApiHeaders(),
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        alert(payload.error || 'Failed to load financial data for export');
         return;
       }
-
-      const competitors = financialsResult.data;
-
-      // Get all entries to map owner IDs to contact info
-      const { data: entries } = await supabase
-        .from('entries')
-        .select('cwags_number, handler_email, handler_phone')
-        .eq('trial_id', selectedTrialId);
+      const competitors: CompetitorFinancial[] = payload.competitors || [];
+      const entries: DashboardContactEntry[] = payload.entries || [];
 
       const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
 
