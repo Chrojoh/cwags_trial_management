@@ -90,8 +90,20 @@ export async function GET(
       .order('submitted_at', { ascending: false });
     if (entryError) throw entryError;
 
+    const { data: registry, error: registryError } = await db
+      .from('cwags_registry')
+      .select('handler_name,dog_call_name,handler_email')
+      .eq('cwags_number', cwagsNumber)
+      .maybeSingle();
+    if (registryError) throw registryError;
+
+    const registryEmailMatches =
+      Boolean(submittedEmail) &&
+      String(registry?.handler_email || '').trim().toLowerCase() === submittedEmail;
     const verifiedEntries = (entries || []).filter(
-      (entry) => String(entry.handler_email || '').trim().toLowerCase() === submittedEmail
+      (entry) =>
+        String(entry.handler_email || '').trim().toLowerCase() === submittedEmail ||
+        registryEmailMatches
     );
     if ((entries || []).length > 0 && verifiedEntries.length === 0) {
       const windowStart = limit?.window_started_at
@@ -133,17 +145,15 @@ export async function GET(
       : { data: [], error: null };
     if (selectionsError) throw selectionsError;
 
-    const { data: registry, error: registryError } = await db
-      .from('cwags_registry')
-      .select('handler_name,dog_call_name')
-      .eq('cwags_number', cwagsNumber)
-      .maybeSingle();
-    if (registryError) throw registryError;
-
     return NextResponse.json({
       entries: verifiedEntries,
       selections: selections || [],
-      registry: registry || null,
+      registry: registry
+        ? {
+            handler_name: registry.handler_name,
+            dog_call_name: registry.dog_call_name,
+          }
+        : null,
     });
   } catch (error) {
     console.error('Public entry lookup failed:', error);
@@ -192,7 +202,7 @@ export async function POST(
 
     const { data: registry, error: registryError } = await db
       .from('cwags_registry')
-      .select('handler_name,dog_call_name')
+      .select('handler_name,dog_call_name,handler_email')
       .eq('cwags_number', cwagsNumber)
       .maybeSingle();
     if (registryError) throw registryError;
@@ -232,10 +242,18 @@ export async function POST(
       .order('submitted_at', { ascending: true });
     if (entryLookupError) throw entryLookupError;
     const primary = existingEntries?.[0] || null;
+    const verificationEmail = text(body.verification_email, 254).toLowerCase();
+    const entryEmailMatches = (existingEntries || []).some(
+      (entry) =>
+        String(entry.handler_email || '').trim().toLowerCase() === verificationEmail
+    );
+    const registryEmailMatches =
+      Boolean(verificationEmail) &&
+      String(registry?.handler_email || '').trim().toLowerCase() === verificationEmail;
     if (
       primary &&
-      String(primary.handler_email || '').trim().toLowerCase() !==
-        text(body.verification_email, 254).toLowerCase()
+      !entryEmailMatches &&
+      !registryEmailMatches
     ) {
       return NextResponse.json(
         { error: 'The registration number and email could not be verified.' },
