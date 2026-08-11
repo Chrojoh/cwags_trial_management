@@ -7,13 +7,17 @@ export async function POST(
   const { showNumber } = await params;
   const body = await req.json();
   const db = getServiceRoleClient();
-  const { data: entry } = await db
+  const { data: entry, error: entryError } = await db
     .from('ringside_entries')
     .select(
       '*,ringside_blocks!inner(ringside_rings!ringside_blocks_ring_id_fkey!inner(show_id,ringside_shows!inner(public_show_number,status)))'
     )
     .eq('id', body.entryId)
     .maybeSingle();
+  if (entryError) {
+    console.error('Unable to load ringside competitor entry:', entryError);
+    return NextResponse.json({ error: 'Unable to load this run.' }, { status: 500 });
+  }
   const show = entry?.ringside_blocks?.ringside_rings?.ringside_shows;
   if (
     !entry ||
@@ -32,7 +36,7 @@ export async function POST(
       { status: 403 }
     );
   if (body.action === 'declare_conflict') {
-    await db
+    const { error } = await db
       .from('ringside_entries')
       .update({
         status: 'conflict_hold',
@@ -42,14 +46,22 @@ export async function POST(
         conflict_declared_at: new Date().toISOString(),
       })
       .eq('id', entry.id);
+    if (error) {
+      console.error('Unable to declare ringside conflict:', error);
+      return NextResponse.json({ error: 'Unable to save the conflict.' }, { status: 500 });
+    }
   } else if (body.action === 'available') {
-    await db
+    const { error } = await db
       .from('ringside_entries')
       .update({
         status: 'available_waiting_for_secretary',
         conflict_return_note: 'Handler reports available — secretary must restore queue placement.',
       })
       .eq('id', entry.id);
+    if (error) {
+      console.error('Unable to mark ringside competitor available:', error);
+      return NextResponse.json({ error: 'Unable to update this run.' }, { status: 500 });
+    }
   } else return NextResponse.json({ error: 'Unknown action.' }, { status: 400 });
   return NextResponse.json({ ok: true });
 }

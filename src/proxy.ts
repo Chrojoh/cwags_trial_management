@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = request.nextUrl;
   const pathname = url.pathname;
   const params = url.searchParams;
@@ -44,6 +44,11 @@ export function proxy(request: NextRequest) {
       },
     }
   );
+
+  // Refresh and validate the cookie-backed session on every matched request.
+  // Merely constructing the server client does not refresh expired tokens,
+  // which can make authenticated RLS queries intermittently appear anonymous.
+  await supabase.auth.getUser();
 
   return response;
 }
