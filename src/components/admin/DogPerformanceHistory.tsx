@@ -1,60 +1,39 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { Calendar, ChevronDown, ChevronUp, FileSpreadsheet, MapPin, Search, Trophy } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import {
-  Search,
-  Trophy,
-  Calendar,
-  MapPin,
-  ChevronDown,
-  ChevronUp,
-  FileSpreadsheet,
-} from 'lucide-react';
-import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { formatCwagsNumber } from '@/lib/utils';
-import { getClassOrder } from '@/lib/cwagsClassNames';
-import { isScorableSelection } from '@/lib/selectionStatus';
-import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
-import * as XLSX from 'xlsx'; // ✅ Import centralized C-WAGS order
 
 interface RunDetail {
   trial_date: string;
   trial_name: string;
   judge_name: string;
-  result: string; // 'Pass', 'Fail', 'NQ', etc.
+  result: string;
 }
-
 interface DogClassStats {
   class_name: string;
   total_runs: number;
   passes: number;
   pass_rate: number;
   class_order: number;
-  run_details: RunDetail[]; // NEW: Store individual run details
+  run_details: RunDetail[];
 }
-
 interface DogPerformanceData {
-  dog_info: {
-    cwags_number: string;
-    dog_call_name: string;
-    handler_name: string;
-  };
-  date_range: {
-    earliest: string;
-    latest: string;
-  };
+  dog_info: { cwags_number: string; dog_call_name: string; handler_name: string };
+  date_range: { earliest: string; latest: string };
   trial_count: number;
   club_count: number;
   class_stats: DogClassStats[];
 }
+interface DogPerformanceResponse extends Partial<DogPerformanceData> { error?: string }
 
-// Safe date formatter to avoid timezone issues
 const safeDateFromISO = (iso: string) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d, 12, 0, 0); // force noon local time
+  const [year, month, day] = iso.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0);
 };
 
 export default function DogPerformanceHistory() {
@@ -62,315 +41,38 @@ export default function DogPerformanceHistory() {
   const [loading, setLoading] = useState(false);
   const [performanceData, setPerformanceData] = useState<DogPerformanceData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expandedClass, setExpandedClass] = useState<string | null>(null); // NEW: Track expanded class
-  const supabase = getSupabaseBrowser();
+  const [expandedClass, setExpandedClass] = useState<string | null>(null);
 
   const searchDogHistory = async () => {
     if (!cwagsNumber.trim()) {
       setError('Please enter a C-WAGS registration number');
       return;
     }
-
+    setLoading(true);
+    setError(null);
+    setPerformanceData(null);
     try {
-      setLoading(true);
-      setError(null);
-      setPerformanceData(null);
-
-      // Format and update the input display before searching
       const formatted = formatCwagsNumber(cwagsNumber);
       setCwagsNumber(formatted);
-
-      console.log(`🔍 Searching for dog history: ${formatted}`);
-
-      // Step 1: Get all entries for this dog
-      const entries = await fetchAllPages<any>((from, to) =>
-        supabase
-          .from('entries')
-          .select(
-            `
-          id,
-          cwags_number,
-          dog_call_name,
-          handler_name,
-          trial_id,
-          trials!inner(
-            trial_name,
-            club_name,
-            trial_days(
-              trial_date
-            )
-          ),
-          entry_selections!entry_selections_entry_id_fkey!inner(
-            id,
-            entry_type,
-            entry_status,
-            trial_round_id,
-            trial_rounds!inner(
-              id,
-              judge_name,
-              trial_classes!inner(
-                class_name,
-                trial_days!inner(
-                  trial_date
-                )
-              )
-            )
-          )
-        `
-          )
-          .eq('cwags_number', formatted)
-          .order('id')
-          .range(from, to)
+      const response = await fetch(
+        `/api/admin/dog-performance?cwags=${encodeURIComponent(formatted)}`,
+        { credentials: 'include', cache: 'no-store' }
       );
-
-      if (!entries || entries.length === 0) {
-        setError(`No trial history found for C-WAGS number: ${cwagsNumber}`);
-        return;
-      }
-
-      console.log(`✅ Found ${entries.length} entries`);
-
-      // Debug: Log first entry structure to verify query
-      if (
-        entries.length > 0 &&
-        entries[0].entry_selections &&
-        entries[0].entry_selections.length > 0
-      ) {
-        const firstSelection = entries[0].entry_selections[0];
-        // Handle trial_rounds as either array or object
-        const trialRound = Array.isArray(firstSelection.trial_rounds)
-          ? firstSelection.trial_rounds[0]
-          : firstSelection.trial_rounds;
-        const trialClass = Array.isArray(trialRound?.trial_classes)
-          ? trialRound.trial_classes[0]
-          : trialRound?.trial_classes;
-        const trialDay = Array.isArray(trialClass?.trial_days)
-          ? trialClass.trial_days[0]
-          : trialClass?.trial_days;
-        console.log('📋 Sample entry structure:', {
-          has_trial_rounds: !!trialRound,
-          judge_name: trialRound?.judge_name,
-          has_trial_classes: !!trialClass,
-          class_name: trialClass?.class_name,
-          has_trial_days: !!trialDay,
-          trial_date: trialDay?.trial_date,
-        });
-      }
-
-      // Step 2: Get all selection IDs to fetch scores
-      const selectionIds: string[] = [];
-      entries.forEach((entry: any) => {
-        entry.entry_selections?.forEach((selection: any) => {
-          // Only count regular runs (not FEO)
-          if (
-            selection.entry_type?.toLowerCase() === 'regular' &&
-            isScorableSelection(selection.entry_status)
-          ) {
-            selectionIds.push(selection.id);
-          }
-        });
-      });
-
-      console.log(`📊 Loading scores for ${selectionIds.length} selections...`);
-
-      // Step 3: Fetch all scores for these selections
-      const scores = await fetchInBatches<any>(selectionIds, (idsForRequest, from, to) =>
-        supabase
-          .from('scores')
-          .select('entry_selection_id, pass_fail, entry_status')
-          .in('entry_selection_id', idsForRequest)
-          .range(from, to)
-      );
-
-      // Create scores map
-      const scoresMap = new Map();
-      (scores || []).forEach((score: any) => {
-        scoresMap.set(score.entry_selection_id, score);
-      });
-
-      console.log(`✅ Loaded ${scores?.length || 0} scores`);
-
-      // Step 4: Process data
-      const classStatsMap = new Map<
-        string,
-        {
-          total_runs: number;
-          passes: number;
-          run_details: RunDetail[];
-        }
-      >();
-      const trialDates: string[] = [];
-      const trialIds = new Set<string>();
-      const clubs = new Set<string>();
-
-      let dogInfo = {
-        cwags_number: cwagsNumber,
-        dog_call_name: '',
-        handler_name: '',
-      };
-
-      entries.forEach((entry: any) => {
-        // Get dog info from first entry
-        if (!dogInfo.dog_call_name) {
-          dogInfo.dog_call_name = entry.dog_call_name || 'Unknown';
-          dogInfo.handler_name = entry.handler_name || 'Unknown';
-        }
-
-        // Collect trial info
-        if (entry.trial_id) {
-          trialIds.add(entry.trial_id);
-        }
-        if (entry.trials?.club_name) {
-          clubs.add(entry.trials.club_name);
-        }
-        if (entry.trials?.trial_days) {
-          entry.trials.trial_days.forEach((day: any) => {
-            if (day.trial_date) {
-              trialDates.push(day.trial_date);
-            }
-          });
-        }
-
-        // Process selections
-        entry.entry_selections?.forEach((selection: any) => {
-          // Only count regular runs (not FEO) and not withdrawn
-          if (
-            selection.entry_type?.toLowerCase() !== 'regular' ||
-            !isScorableSelection(selection.entry_status)
-          ) {
-            return;
-          }
-
-          // Extract trial_rounds as object (not array)
-          // Supabase returns this as a single object for many-to-one relationships
-          const trialRound = Array.isArray(selection.trial_rounds)
-            ? selection.trial_rounds[0]
-            : selection.trial_rounds;
-
-          const className = trialRound?.trial_classes?.class_name;
-          if (!className) return;
-
-          // Check if this run was scored
-          const score = scoresMap.get(selection.id);
-
-          // Only count if scored (exclude no-shows/absent)
-          if (!score || score.entry_status?.toUpperCase() === 'ABS') {
-            return;
-          }
-
-          // Initialize class stats if needed
-          if (!classStatsMap.has(className)) {
-            classStatsMap.set(className, {
-              total_runs: 0,
-              passes: 0,
-              run_details: [],
-            });
-          }
-
-          const stats = classStatsMap.get(className)!;
-          stats.total_runs++;
-
-          // Get trial date from the round's trial_class -> trial_day
-          const trialDate = trialRound?.trial_classes?.trial_days?.trial_date || 'Unknown';
-          const trialName = entry.trials?.trial_name || 'Unknown Trial';
-          const judgeName = trialRound?.judge_name || 'Unknown Judge';
-          const result = score.pass_fail || 'Unknown';
-
-          // Debug logging for first few runs to verify data
-          if (stats.run_details.length < 2) {
-            console.log('📋 Run detail sample:', {
-              className,
-              trialDate,
-              trialName,
-              judgeName,
-              result,
-              raw_trial_round: trialRound,
-              judge_from_round: trialRound?.judge_name,
-            });
-          }
-
-          // Add run detail
-          stats.run_details.push({
-            trial_date: trialDate,
-            trial_name: trialName,
-            judge_name: judgeName,
-            result: result,
-          });
-
-          // Count passes
-          if (score.pass_fail === 'Pass') {
-            stats.passes++;
-          }
-        });
-      });
-
-      // Step 5: Build class stats array
-      const classStats: DogClassStats[] = Array.from(classStatsMap.entries()).map(
-        ([className, stats]) => {
-          // Sort run details by date (newest first)
-          const sortedRunDetails = stats.run_details.sort((a, b) => {
-            try {
-              const dateA = safeDateFromISO(a.trial_date).getTime();
-              const dateB = safeDateFromISO(b.trial_date).getTime();
-              return dateB - dateA; // Newest first
-            } catch {
-              return 0; // If dates can't be parsed, maintain order
-            }
-          });
-
-          return {
-            class_name: className,
-            total_runs: stats.total_runs,
-            passes: stats.passes,
-            pass_rate: stats.total_runs > 0 ? (stats.passes / stats.total_runs) * 100 : 0,
-            class_order: getClassOrder(className),
-            run_details: sortedRunDetails,
-          };
-        }
-      );
-
-      // Sort by C-WAGS order
-      classStats.sort((a, b) => a.class_order - b.class_order);
-
-      // Step 6: Calculate date range
-      trialDates.sort((a, b) => {
-        try {
-          return safeDateFromISO(a).getTime() - safeDateFromISO(b).getTime();
-        } catch {
-          return 0;
-        }
-      });
-      const dateRange = {
-        earliest: trialDates[0] || 'Unknown',
-        latest: trialDates[trialDates.length - 1] || 'Unknown',
-      };
-
-      const result: DogPerformanceData = {
-        dog_info: dogInfo,
-        date_range: dateRange,
-        trial_count: trialIds.size,
-        club_count: clubs.size,
-        class_stats: classStats,
-      };
-
-      console.log('✅ Performance data compiled:', result);
-      setPerformanceData(result);
-    } catch (err) {
-      console.error('Error loading dog performance:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load dog performance data');
+      const result = (await response.json()) as DogPerformanceResponse;
+      if (!response.ok) throw new Error(result.error || 'Failed to load dog performance data.');
+      setPerformanceData(result as DogPerformanceData);
+    } catch (searchError) {
+      setError(searchError instanceof Error ? searchError.message : 'Failed to load dog performance data.');
     } finally {
       setLoading(false);
     }
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString || dateString === 'Unknown') return dateString;
     try {
-      if (!dateString || dateString === 'Unknown') return dateString;
-      const date = safeDateFromISO(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return safeDateFromISO(dateString).toLocaleDateString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric',
       });
     } catch {
       return dateString;
@@ -378,339 +80,125 @@ export default function DogPerformanceHistory() {
   };
 
   const exportToExcel = () => {
-    if (!performanceData) {
-      alert('No data to export');
-      return;
-    }
-
-    try {
-      console.log('📊 Generating Excel export for dog performance...');
-
-      const workbook = XLSX.utils.book_new();
-
-      // SHEET 1: Summary Sheet
-      const summaryData = [
-        ['Dog Performance Summary'],
-        [],
-        ['Dog Name:', performanceData.dog_info.dog_call_name],
-        ['Handler Name:', performanceData.dog_info.handler_name],
-        ['C-WAGS Number:', performanceData.dog_info.cwags_number],
-        [],
-        [
-          'Date Range:',
-          `${formatDate(performanceData.date_range.earliest)} - ${formatDate(performanceData.date_range.latest)}`,
-        ],
-        ['Total Trials:', performanceData.trial_count],
-        ['Total Clubs:', performanceData.club_count],
-        [],
-        ['Class Summary'],
-        ['Class Name', 'Total Runs', 'Passes', 'Pass Rate'],
+    if (!performanceData) return;
+    const workbook = XLSX.utils.book_new();
+    const summary = [
+      ['Dog Performance Summary'], [],
+      ['Dog Name:', performanceData.dog_info.dog_call_name],
+      ['Handler Name:', performanceData.dog_info.handler_name],
+      ['C-WAGS Number:', performanceData.dog_info.cwags_number], [],
+      ['Date Range:', `${formatDate(performanceData.date_range.earliest)} - ${formatDate(performanceData.date_range.latest)}`],
+      ['Total Trials:', performanceData.trial_count],
+      ['Total Clubs:', performanceData.club_count], [],
+      ['Class Summary'], ['Class Name', 'Total Runs', 'Passes', 'Pass Rate'],
+      ...performanceData.class_stats.map((item) => [item.class_name, item.total_runs, item.passes, `${item.pass_rate.toFixed(1)}%`]),
+    ];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summary);
+    summarySheet['!cols'] = [{ wch: 25 }, { wch: 22 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    performanceData.class_stats.forEach((item) => {
+      const rows = [
+        [item.class_name], [], ['Total Runs:', item.total_runs], ['Passes:', item.passes],
+        ['Pass Rate:', `${item.pass_rate.toFixed(1)}%`], [], ['Run Details'],
+        ['Trial Date', 'Trial Name', 'Judge', 'Result'],
+        ...item.run_details.map((run) => [formatDate(run.trial_date), run.trial_name, run.judge_name, run.result]),
       ];
-
-      // Add class statistics to summary
-      performanceData.class_stats.forEach((classData) => {
-        summaryData.push([
-          classData.class_name,
-          classData.total_runs,
-          classData.passes,
-          `${classData.pass_rate.toFixed(1)}%`,
-        ]);
-      });
-
-      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-
-      // Set column widths for summary sheet
-      summarySheet['!cols'] = [
-        { wch: 25 }, // Class Name / Label
-        { wch: 15 }, // Total Runs / Value
-        { wch: 15 }, // Passes
-        { wch: 15 }, // Pass Rate
-      ];
-
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
-
-      // SHEET 2+: One sheet per class with run details
-      performanceData.class_stats.forEach((classData) => {
-        const classSheetData = [
-          [classData.class_name],
-          [],
-          ['Total Runs:', classData.total_runs],
-          ['Passes:', classData.passes],
-          ['Pass Rate:', `${classData.pass_rate.toFixed(1)}%`],
-          [],
-          ['Run Details'],
-          ['Trial Date', 'Trial Name', 'Judge', 'Result'],
-        ];
-
-        // Add each run detail
-        classData.run_details.forEach((run) => {
-          classSheetData.push([
-            formatDate(run.trial_date),
-            run.trial_name,
-            run.judge_name,
-            run.result,
-          ]);
-        });
-
-        const classSheet = XLSX.utils.aoa_to_sheet(classSheetData);
-
-        // Set column widths for class sheets
-        classSheet['!cols'] = [
-          { wch: 15 }, // Trial Date
-          { wch: 30 }, // Trial Name
-          { wch: 20 }, // Judge
-          { wch: 10 }, // Result
-        ];
-
-        // Sanitize sheet name (Excel sheet names can't contain certain characters)
-        const sheetName = classData.class_name
-          .replace(/[:\\/?*\[\]]/g, '') // Remove invalid characters
-          .substring(0, 31); // Excel limit is 31 characters
-
-        XLSX.utils.book_append_sheet(workbook, classSheet, sheetName);
-      });
-
-      // Generate filename
-      const dogName = performanceData.dog_info.dog_call_name.replace(/[^a-zA-Z0-9]/g, '_');
-      const cwagsNum = performanceData.dog_info.cwags_number.replace(/[^a-zA-Z0-9]/g, '_');
-      const date = new Date().toISOString().split('T')[0];
-      const filename = `Dog_Performance_${dogName}_${cwagsNum}_${date}.xlsx`;
-
-      // Write and download
-      XLSX.writeFile(workbook, filename);
-      console.log('✅ Excel file generated:', filename);
-    } catch (err) {
-      console.error('Error generating Excel export:', err);
-      alert('Failed to generate Excel file');
-    }
+      const sheet = XLSX.utils.aoa_to_sheet(rows);
+      sheet['!cols'] = [{ wch: 15 }, { wch: 30 }, { wch: 22 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(
+        workbook,
+        sheet,
+        item.class_name.replace(/[:\/?*\[\]]/g, '').substring(0, 31)
+      );
+    });
+    const dog = performanceData.dog_info.dog_call_name.replace(/[^a-zA-Z0-9]/g, '_');
+    const number = performanceData.dog_info.cwags_number.replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(workbook, `Dog_Performance_${dog}_${number}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
     <div className="space-y-6">
-      {/* Search Section */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="border-blue-200 bg-blue-50">
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Trophy className="h-5 w-5 text-blue-600" />
-            <span>Dog Performance History</span>
-          </CardTitle>
-          <CardDescription>
-            Search for a dog's performance across all trials in the database
-          </CardDescription>
+          <CardTitle className="flex items-center gap-2"><Trophy className="h-5 w-5 text-blue-600" />Dog Performance History</CardTitle>
+          <CardDescription>Search for a dog&apos;s performance across all trials in the database</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Input
-              type="text"
-              placeholder="Enter C-WAGS Registration Number (e.g., 12-3456-78)"
               value={cwagsNumber}
-              onChange={(e) => setCwagsNumber(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  searchDogHistory();
-                }
-              }}
-              className="flex-1"
+              onChange={(event) => setCwagsNumber(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && void searchDogHistory()}
+              placeholder="C-WAGS number (for example 12-3456-78)"
+              className="bg-white"
             />
-            <Button
-              onClick={searchDogHistory}
-              disabled={loading || !cwagsNumber.trim()}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              {loading ? 'Searching...' : 'Search'}
+            <Button onClick={() => void searchDogHistory()} disabled={loading}>
+              <Search className="mr-2 h-4 w-4" />{loading ? 'Searching...' : 'Search'}
             </Button>
           </div>
-          {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         </CardContent>
       </Card>
 
-      {/* Results Section */}
       {performanceData && (
         <>
-          {/* Dog Info Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">{performanceData.dog_info.dog_call_name}</CardTitle>
-              <CardDescription>
-                Handler: {performanceData.dog_info.handler_name} • C-WAGS #
-                {performanceData.dog_info.cwags_number}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-3 bg-gray-50 p-4 rounded-lg">
-                  <Calendar className="h-5 w-5 text-gray-600" />
-                  <div>
-                    <div className="text-sm text-gray-600">Date Range</div>
-                    <div className="font-semibold">
-                      {formatDate(performanceData.date_range.earliest)} -{' '}
-                      {formatDate(performanceData.date_range.latest)}
-                    </div>
-                  </div>
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                <div>
+                  <CardTitle>{performanceData.dog_info.dog_call_name}</CardTitle>
+                  <CardDescription>
+                    {performanceData.dog_info.cwags_number} • Handler: {performanceData.dog_info.handler_name}
+                  </CardDescription>
                 </div>
-                <div className="flex items-center space-x-3 bg-gray-50 p-4 rounded-lg">
-                  <Trophy className="h-5 w-5 text-gray-600" />
-                  <div>
-                    <div className="text-sm text-gray-600">Trials</div>
-                    <div className="font-semibold text-2xl">{performanceData.trial_count}</div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 bg-gray-50 p-4 rounded-lg">
-                  <MapPin className="h-5 w-5 text-gray-600" />
-                  <div>
-                    <div className="text-sm text-gray-600">Clubs</div>
-                    <div className="font-semibold text-2xl">{performanceData.club_count}</div>
-                  </div>
-                </div>
-              </div>
-              {/* Export Button */}
-              <div className="mt-6 flex justify-end">
                 <Button onClick={exportToExcel} className="bg-green-600 hover:bg-green-700">
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Export to Excel
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />Export Excel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Performance Table */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Class Performance</CardTitle>
-              <CardDescription>
-                Performance statistics by class (C-WAGS order) • Click class name to see run details
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border border-gray-300 px-4 py-3 text-left font-semibold">
-                        Class Name
-                      </th>
-                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                        Total Runs
-                      </th>
-                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                        Passes
-                      </th>
-                      <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                        Pass Rate
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {performanceData.class_stats.map((classData, index) => (
-                      <React.Fragment key={index}>
-                        {/* Main Class Row - Clickable */}
-                        <tr
-                          className="hover:bg-gray-50 cursor-pointer transition-colors"
-                          onClick={() =>
-                            setExpandedClass(
-                              expandedClass === classData.class_name ? null : classData.class_name
-                            )
-                          }
-                        >
-                          <td className="border border-gray-300 px-4 py-3">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium">{classData.class_name}</span>
-                              {expandedClass === classData.class_name ? (
-                                <ChevronUp className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="border border-gray-300 px-4 py-3 text-center font-mono">
-                            {classData.total_runs}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-3 text-center font-mono">
-                            {classData.passes}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-3 text-center">
-                            <span
-                              className={`font-semibold ${
-                                classData.pass_rate >= 80
-                                  ? 'text-green-600'
-                                  : classData.pass_rate >= 60
-                                    ? 'text-yellow-600'
-                                    : 'text-red-600'
-                              }`}
-                            >
-                              {classData.pass_rate.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-
-                        {/* Expanded Detail Row */}
-                        {expandedClass === classData.class_name && (
-                          <tr>
-                            <td colSpan={4} className="border border-gray-300 p-0">
-                              <div className="bg-blue-50 p-4">
-                                <h4 className="font-semibold text-sm text-gray-700 mb-3">
-                                  Run-by-Run Breakdown for {classData.class_name}
-                                </h4>
-                                <div className="bg-white rounded-md border border-gray-200 overflow-hidden">
-                                  <table className="w-full">
-                                    <thead>
-                                      <tr className="bg-gray-100 text-xs">
-                                        <th className="px-3 py-2 text-left font-semibold">
-                                          Trial Date
-                                        </th>
-                                        <th className="px-3 py-2 text-left font-semibold">
-                                          Trial Name
-                                        </th>
-                                        <th className="px-3 py-2 text-left font-semibold">Judge</th>
-                                        <th className="px-3 py-2 text-center font-semibold">
-                                          Result
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {classData.run_details.map((run, runIndex) => (
-                                        <tr
-                                          key={runIndex}
-                                          className="border-t border-gray-100 hover:bg-gray-50"
-                                        >
-                                          <td className="px-3 py-2 text-sm">
-                                            {formatDate(run.trial_date)}
-                                          </td>
-                                          <td className="px-3 py-2 text-sm">{run.trial_name}</td>
-                                          <td className="px-3 py-2 text-sm">{run.judge_name}</td>
-                                          <td className="px-3 py-2 text-center">
-                                            <span
-                                              className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                                                run.result === 'Pass'
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : run.result === 'Fail'
-                                                    ? 'bg-red-100 text-red-800'
-                                                    : 'bg-gray-100 text-gray-800'
-                                              }`}
-                                            >
-                                              {run.result}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+                <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-blue-600" />{formatDate(performanceData.date_range.earliest)} – {formatDate(performanceData.date_range.latest)}</div>
+                <div className="flex items-center gap-2"><Trophy className="h-4 w-4 text-orange-600" />{performanceData.trial_count} trials</div>
+                <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-green-600" />{performanceData.club_count} clubs</div>
               </div>
-              {performanceData.class_stats.length === 0 && (
-                <p className="text-center text-gray-500 py-8">No scored runs found for this dog</p>
-              )}
             </CardContent>
           </Card>
+
+          <div className="space-y-3">
+            {performanceData.class_stats.map((item) => {
+              const expanded = expandedClass === item.class_name;
+              return (
+                <Card key={item.class_name}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedClass(expanded ? null : item.class_name)}
+                    className="flex w-full items-center justify-between p-5 text-left"
+                  >
+                    <div>
+                      <h3 className="font-semibold">{item.class_name}</h3>
+                      <p className="text-sm text-gray-600">{item.total_runs} runs • {item.passes} passes • {item.pass_rate.toFixed(1)}%</p>
+                    </div>
+                    {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </button>
+                  {expanded && (
+                    <CardContent className="border-t pt-4">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead><tr className="text-left text-gray-600"><th className="py-2">Date</th><th>Trial</th><th>Judge</th><th>Result</th></tr></thead>
+                          <tbody>{item.run_details.map((run, index) => (
+                            <tr key={`${run.trial_date}-${run.trial_name}-${index}`} className="border-t">
+                              <td className="py-2">{formatDate(run.trial_date)}</td><td>{run.trial_name}</td><td>{run.judge_name}</td><td>{run.result}</td>
+                            </tr>
+                          ))}</tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
         </>
       )}
     </div>

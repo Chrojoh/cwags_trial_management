@@ -23,7 +23,7 @@ interface ScoreRow extends ResultLike {
 }
 interface RoundRow { id: string; judge_name: string | null; trial_class_id: string }
 interface SelectionRow { id: string; entry_type: string | null; entry_status: string | null }
-interface ClassRow { id: string; class_name: string; trial_day_id: string }
+interface ClassRow { id: string; class_name: string; class_type: string | null; trial_day_id: string }
 interface DayRow { id: string; trial_id: string }
 interface TrialRow { id: string; club_name: string | null }
 
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
     const classes = await fetchInBatches<ClassRow>(classIds, (ids, from, to) =>
       db
         .from('trial_classes')
-        .select('id, class_name, trial_day_id')
+        .select('id, class_name, class_type, trial_day_id')
         .in('id', ids)
         .order('id')
         .range(from, to)
@@ -79,9 +79,8 @@ export async function GET(request: NextRequest) {
     const days = await fetchInBatches<DayRow>(dayIds, (ids, from, to) =>
       db.from('trial_days').select('id, trial_id').in('id', ids).order('id').range(from, to)
     );
-    const trialIds = uniqueIds(days.map((day) => day.trial_id));
-    const trials = await fetchInBatches<TrialRow>(trialIds, (ids, from, to) =>
-      db.from('trials').select('id, club_name').in('id', ids).order('id').range(from, to)
+    const trials = await fetchAllPages<TrialRow>((from, to) =>
+      db.from('trials').select('id, club_name').order('id').range(from, to)
     );
 
     const selectionsById = new Map(selections.map((selection) => [selection.id, selection]));
@@ -90,6 +89,10 @@ export async function GET(request: NextRequest) {
     const daysById = new Map(days.map((day) => [day.id, day]));
     const trialsById = new Map(trials.map((trial) => [trial.id, trial]));
     const totals = new Map<string, Map<string, { runs: number; passes: number; rounds: Set<string> }>>();
+    const classTotals = new Map<
+      string,
+      { class_type: string; runs: number; passes: number; fails: number }
+    >();
 
     for (const score of scores) {
       if (!score.entry_selection_id || !score.trial_round_id) continue;
@@ -101,7 +104,22 @@ export async function GET(request: NextRequest) {
       if (!selection || !round || !trialClass || !trial) continue;
       if (clubName && trial.club_name !== clubName) continue;
       if (selection.entry_type !== 'regular' || !isActiveSelection(selection.entry_status)) continue;
-      if (isAbsentResult(score) || !hasRecordedResult(score) || !round.judge_name) continue;
+      if (isAbsentResult(score) || !hasRecordedResult(score)) continue;
+
+      if (!classTotals.has(trialClass.class_name)) {
+        classTotals.set(trialClass.class_name, {
+          class_type: trialClass.class_type || 'unknown',
+          runs: 0,
+          passes: 0,
+          fails: 0,
+        });
+      }
+      const classTotal = classTotals.get(trialClass.class_name)!;
+      classTotal.runs += 1;
+      if (isPassingResult(score)) classTotal.passes += 1;
+      else classTotal.fails += 1;
+
+      if (!round.judge_name) continue;
 
       if (!totals.has(trialClass.class_name)) totals.set(trialClass.class_name, new Map());
       const judges = totals.get(trialClass.class_name)!;
@@ -127,10 +145,41 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => String(a.judge_name).localeCompare(String(b.judge_name)));
     }
 
-    const availableClasses = Object.keys(statistics).sort(
+    const availableClasses = [...classTotals.keys()].sort(
       (a, b) => getClassOrder(a) - getClassOrder(b)
     );
-    return NextResponse.json({ classes: availableClasses, statistics });
+    const aggregates = availableClasses.map((className) => {
+      const value = classTotals.get(className)!;
+      return {
+        class_name: className,
+        class_type: value.class_type,
+        regular_runs: value.runs,
+        pass_count: value.passes,
+        fail_count: value.fails,
+        pass_rate: calculatePassRate(value.passes, value.fails),
+      };
+    });
+    const totalPasses = aggregates.reduce((sum, value) => sum + value.pass_count, 0);
+    const totalFails = aggregates.reduce((sum, value) => sum + value.fail_count, 0);
+    const clubs = [...trials.reduce((counts, trial) => {
+      if (trial.club_name) counts.set(trial.club_name, (counts.get(trial.club_name) || 0) + 1);
+      return counts;
+    }, new Map<string, number>())]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return NextResponse.json({
+      classes: availableClasses,
+      statistics,
+      aggregates,
+      clubs,
+      overall: {
+        total_classes: aggregates.length,
+        total_regular_runs: aggregates.reduce((sum, value) => sum + value.regular_runs, 0),
+        total_passes: totalPasses,
+        overall_pass_rate: calculatePassRate(totalPasses, totalFails),
+      },
+    });
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
