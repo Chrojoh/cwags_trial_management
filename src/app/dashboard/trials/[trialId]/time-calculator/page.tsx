@@ -24,6 +24,13 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { isRunningOrderSelection } from '@/lib/selectionStatus';
 import { getDefaultTimeConfigurations, DEFAULT_DAILY_ALLOTMENT } from '@/lib/trialTimeDefaults';
 
+async function getTimeCalculatorHeaders() {
+  const { data, error } = await getSupabaseBrowser().auth.getSession();
+  const token = data.session?.access_token;
+  if (error || !token) throw new Error('Your session has expired');
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
 interface TimeConfig {
   id?: string;
   class_name: string;
@@ -69,11 +76,38 @@ export default function TrialTimeCalculatorPage() {
   const [editingMinutes, setEditingMinutes] = useState<Record<string, number>>({});
   useEffect(() => {
     if (trialId && user) {
-      loadData();
+      loadDataFromApi();
     }
   }, [trialId, user]);
 
-  const loadData = async () => {
+  const loadDataFromApi = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch(`/api/trials/${trialId}/time-calculator`, {
+        headers: await getTimeCalculatorHeaders(),
+        cache: 'no-store',
+      });
+      // During a rolling deployment the page bundle can arrive before its API route.
+      // Keep the prior RLS-protected reader only for that temporary 404 window.
+      if (response.status === 404) {
+        await loadDataLegacy();
+        return;
+      }
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to load time calculator');
+      setTrial(payload.trial);
+      setDaysData(payload.days || []);
+      setHasInitialized(true);
+    } catch (err) {
+      console.error('Error loading time calculator data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDataLegacy = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -110,7 +144,7 @@ export default function TrialTimeCalculatorPage() {
         await initializeDefaults();
         setHasInitialized(true);
         // Reload after initialization
-        await loadData();
+        await loadDataLegacy();
         return;
       }
 
@@ -283,19 +317,14 @@ export default function TrialTimeCalculatorPage() {
   const updateMinutesPerRun = async (configId: string, newMinutes: number) => {
     try {
       setSaving(true);
-
-      const { error: updateError } = await supabase
-        .from('trial_time_configurations')
-        .update({
-          minutes_per_run: newMinutes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', configId);
-
-      if (updateError) throw updateError;
-
-      // Reload to show updated calculations
-      await loadData();
+      const response = await fetch(`/api/trials/${trialId}/time-calculator`, {
+        method: 'PATCH',
+        headers: await getTimeCalculatorHeaders(),
+        body: JSON.stringify({ type: 'config', configId, minutes: newMinutes }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to update time configuration');
+      await loadDataFromApi();
     } catch (err) {
       console.error('Error updating minutes per run:', err);
       setError('Failed to update time configuration');
@@ -307,22 +336,14 @@ export default function TrialTimeCalculatorPage() {
   const updateDailyAllotment = async (dayId: string, minutes: number) => {
     try {
       setSaving(true);
-
-      const { error: upsertError } = await supabase.from('trial_daily_allotments').upsert(
-        {
-          trial_day_id: dayId,
-          allotted_minutes: minutes,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'trial_day_id',
-        }
-      );
-
-      if (upsertError) throw upsertError;
-
-      // Reload to show updated calculations
-      await loadData();
+      const response = await fetch(`/api/trials/${trialId}/time-calculator`, {
+        method: 'PATCH',
+        headers: await getTimeCalculatorHeaders(),
+        body: JSON.stringify({ type: 'allotment', dayId, minutes }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Failed to update daily allotment');
+      await loadDataFromApi();
     } catch (err) {
       console.error('Error updating daily allotment:', err);
       setError('Failed to update daily allotment');
@@ -434,7 +455,7 @@ export default function TrialTimeCalculatorPage() {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Trial
             </Button>
-            <Button variant="outline" onClick={loadData} disabled={loading}>
+            <Button variant="outline" onClick={loadDataFromApi} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>

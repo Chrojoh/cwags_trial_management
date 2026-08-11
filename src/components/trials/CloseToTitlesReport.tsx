@@ -31,6 +31,7 @@ import {
   formatTitleName,
 } from '@/lib/closeToTitlesAnalyzer';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 interface CloseToTitlesReportProps {
   trialId: string;
@@ -54,7 +55,16 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
     try {
       setLoading(true);
       setError(null);
-      const data = await generateCloseToTitlesReport(trialId);
+      const { data: sessionData } = await getSupabaseBrowser().auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Your session has expired');
+      const response = await fetch(`/api/trials/${trialId}/close-to-titles`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const source = await response.json();
+      if (!response.ok) throw new Error(source.error || 'Failed to load report data');
+      const data = await generateCloseToTitlesReport(trialId, source);
       setReport(data);
     } catch (err) {
       console.error('Error loading close to titles report:', err);

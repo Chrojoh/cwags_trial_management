@@ -106,6 +106,11 @@ export interface CloseToTitlesReport {
   generatedAt: string;
 }
 
+export interface CloseToTitlesSource {
+  trialName: string;
+  entries: any[];
+}
+
 // ============================================================
 // Helper: Extract game types from tracker history game field
 // ============================================================
@@ -382,7 +387,10 @@ async function checkMasterScentProgress(
 // ============================================================
 // Main export: Generate "Close to Titles" report for a trial
 // ============================================================
-export async function generateCloseToTitlesReport(trialId: string): Promise<CloseToTitlesReport> {
+export async function generateCloseToTitlesReport(
+  trialId: string,
+  source?: CloseToTitlesSource
+): Promise<CloseToTitlesReport> {
   console.log('🔍 Generating Close to Titles report for trial:', trialId);
 
   const report: CloseToTitlesReport = {
@@ -399,20 +407,21 @@ export async function generateCloseToTitlesReport(trialId: string): Promise<Clos
     // -------------------------------------------------------
     // Step 1: Get trial name
     // -------------------------------------------------------
-    const { data: trial, error: trialError } = await supabase
-      .from('trials')
-      .select('trial_name')
-      .eq('id', trialId)
-      .single();
-
-    if (trialError) throw trialError;
-
-    if (trial) report.trialName = trial.trial_name;
+    if (source) report.trialName = source.trialName;
+    else {
+      const { data: trial, error: trialError } = await supabase
+        .from('trials')
+        .select('trial_name')
+        .eq('id', trialId)
+        .single();
+      if (trialError) throw trialError;
+      if (trial) report.trialName = trial.trial_name;
+    }
 
     // -------------------------------------------------------
     // Step 2: Get all entries for this trial with their classes
     // -------------------------------------------------------
-    const entries = await fetchAllPages<any>((from, to) =>
+    const entries = source?.entries || await fetchAllPages<any>((from, to) =>
       supabase
         .from('entries')
         .select(
