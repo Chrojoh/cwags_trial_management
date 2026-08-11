@@ -16,6 +16,7 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { calculatePassRate, hasRecordedResult, isAbsentResult, isPassingResult } from '@/lib/resultMetrics';
 import { isActiveSelection } from '@/lib/selectionStatus';
 import { getClassOrder } from '@/lib/cwagsClassNames';
+import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 
 interface JudgeClassStats {
   judge_name: string;
@@ -30,9 +31,6 @@ interface ClassJudgeStatisticsProps {
   preSelectedClass?: string; // If provided, auto-select this class and hide dropdown
 }
 
-const PAGE_SIZE = 1000;
-const ID_BATCH_SIZE = 75;
-
 export default function ClassJudgeStatistics({
   clubName,
   preSelectedClass,
@@ -40,6 +38,7 @@ export default function ClassJudgeStatistics({
   const [selectedClass, setSelectedClass] = useState<string>(preSelectedClass || '');
   const [judgeStats, setJudgeStats] = useState<JudgeClassStats[]>([]);
   const [loading, setLoading] = useState(false);
+  const [classesLoading, setClassesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [availableClasses, setAvailableClasses] = useState<string[]>([]);
 
@@ -57,19 +56,17 @@ export default function ClassJudgeStatistics({
 
   const loadAvailableClasses = async () => {
     try {
+      setClassesLoading(true);
+      setError(null);
       const supabase = getSupabaseBrowser();
 
       // STEP 1: Get all trial_class_ids that have scores
-      const scoresData: Array<{ trial_round_id: string }> = [];
-      for (let from = 0; ; from += PAGE_SIZE) {
-        const { data, error: scoresError } = await supabase
+      const scoresData = await fetchAllPages<{ trial_round_id: string }>((from, to) =>
+        supabase
           .from('scores')
           .select('trial_round_id')
-          .range(from, from + PAGE_SIZE - 1);
-        if (scoresError) throw scoresError;
-        scoresData.push(...(data || []));
-        if (!data || data.length < PAGE_SIZE) break;
-      }
+          .range(from, to)
+      );
 
       // Get unique trial_round_ids
       const roundIdsWithScores = new Set(scoresData?.map((s) => s.trial_round_id) || []);
@@ -81,45 +78,44 @@ export default function ClassJudgeStatistics({
         return;
       }
 
-      // STEP 2: Get class info for those rounds
-      const data: Array<{ id: string; trial_classes: unknown }> = [];
+      // STEP 2: Load each hierarchy level separately. Deep embedded joins can
+      // return no rows once every related table applies its own trial-role RLS.
       const scoredRoundIds = Array.from(roundIdsWithScores);
-      for (let index = 0; index < scoredRoundIds.length; index += ID_BATCH_SIZE) {
-        let query = supabase
+      const rounds = await fetchInBatches<any>(scoredRoundIds, (ids, from, to) =>
+        supabase
           .from('trial_rounds')
-          .select(
-            `
-            id,
-            trial_classes!inner(
-              class_name,
-              trial_days!inner(
-                trials!inner(
-                  club_name
-                )
-              )
-            )
-          `
-          )
-          .in('id', scoredRoundIds.slice(index, index + ID_BATCH_SIZE));
+          .select('id, trial_class_id')
+          .in('id', ids)
+          .range(from, to)
+      );
+      const classIds = [...new Set(rounds.map((round) => round.trial_class_id))];
+      const classes = await fetchInBatches<any>(classIds, (ids, from, to) =>
+        supabase
+          .from('trial_classes')
+          .select('id, class_name, trial_day_id')
+          .in('id', ids)
+          .range(from, to)
+      );
+      const dayIds = [...new Set(classes.map((trialClass) => trialClass.trial_day_id))];
+      const days = await fetchInBatches<any>(dayIds, (ids, from, to) =>
+        supabase.from('trial_days').select('id, trial_id').in('id', ids).range(from, to)
+      );
+      const trialIds = [...new Set(days.map((day) => day.trial_id))];
+      const trials = await fetchInBatches<any>(trialIds, (ids, from, to) =>
+        supabase.from('trials').select('id, club_name').in('id', ids).range(from, to)
+      );
+      const trialsById = new Map(trials.map((trial) => [trial.id, trial]));
+      const daysById = new Map(days.map((day) => [day.id, day]));
 
-        if (clubName) {
-          query = query.eq('trial_classes.trial_days.trials.club_name', clubName);
-        }
-        const { data: batch, error } = await query;
-        if (error) throw error;
-        data.push(...(batch || []));
-      }
-
-      console.log(`Found ${data?.length || 0} rounds with class info`);
+      console.log(`Found ${rounds.length} scored rounds with class info`);
 
       // Get unique class names
       const classNames = new Set<string>();
-      data?.forEach((round) => {
-        const trialClasses = round.trial_classes as any;
-        const className = trialClasses?.class_name;
-
-        if (className) {
-          classNames.add(className);
+      classes.forEach((trialClass) => {
+        const day = daysById.get(trialClass.trial_day_id);
+        const trial = day ? trialsById.get(day.trial_id) : null;
+        if ((!clubName || trial?.club_name === clubName) && trialClass.class_name) {
+          classNames.add(trialClass.class_name);
         }
       });
 
@@ -141,6 +137,9 @@ export default function ClassJudgeStatistics({
       }
     } catch (err) {
       console.error('Error loading available classes:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load available classes');
+    } finally {
+      setClassesLoading(false);
     }
   };
 
@@ -154,33 +153,40 @@ export default function ClassJudgeStatistics({
 
       console.log('Loading judge statistics for class:', selectedClass);
 
-      // STEP 1: Get all rounds for this class (query with both normalized and original names)
-      let roundsQuery = supabase
-        .from('trial_rounds')
-        .select(
-          `
-          id,
-          judge_name,
-          trial_classes!inner(
-            class_name,
-            trial_days!inner(
-              trials!inner(
-                id,
-                club_name
-              )
-            )
-          )
-        `
-        )
-        .eq('trial_classes.class_name', selectedClass);
-
+      // STEP 1: Resolve the class hierarchy table by table so each RLS policy
+      // evaluates directly and large result sets remain paginated.
+      const matchingClasses = await fetchAllPages<any>((from, to) =>
+        supabase
+          .from('trial_classes')
+          .select('id, trial_day_id')
+          .eq('class_name', selectedClass)
+          .range(from, to)
+      );
+      const dayIds = [...new Set(matchingClasses.map((trialClass) => trialClass.trial_day_id))];
+      const days = await fetchInBatches<any>(dayIds, (ids, from, to) =>
+        supabase.from('trial_days').select('id, trial_id').in('id', ids).range(from, to)
+      );
+      let allowedDayIds = new Set(days.map((day) => day.id));
       if (clubName) {
-        roundsQuery = roundsQuery.eq('trial_classes.trial_days.trials.club_name', clubName);
+        const trialIds = [...new Set(days.map((day) => day.trial_id))];
+        const trials = await fetchInBatches<any>(trialIds, (ids, from, to) =>
+          supabase.from('trials').select('id, club_name').in('id', ids).range(from, to)
+        );
+        const allowedTrials = new Set(
+          trials.filter((trial) => trial.club_name === clubName).map((trial) => trial.id)
+        );
+        allowedDayIds = new Set(days.filter((day) => allowedTrials.has(day.trial_id)).map((day) => day.id));
       }
-
-      const { data: rounds, error: roundsError } = await roundsQuery;
-
-      if (roundsError) throw roundsError;
+      const classIds = matchingClasses
+        .filter((trialClass) => allowedDayIds.has(trialClass.trial_day_id))
+        .map((trialClass) => trialClass.id);
+      const rounds = await fetchInBatches<any>(classIds, (ids, from, to) =>
+        supabase
+          .from('trial_rounds')
+          .select('id, judge_name, trial_class_id')
+          .in('trial_class_id', ids)
+          .range(from, to)
+      );
 
       if (!rounds || rounds.length === 0) {
         console.log('No rounds found for this class');
@@ -194,11 +200,8 @@ export default function ClassJudgeStatistics({
       // STEP 2: Get all scores for these rounds
       const roundIds = rounds.map((r) => r.id);
 
-      const scores: unknown[] = [];
-      for (let index = 0; index < roundIds.length; index += ID_BATCH_SIZE) {
-        const idsForRequest = roundIds.slice(index, index + ID_BATCH_SIZE);
-        for (let from = 0; ; from += PAGE_SIZE) {
-          const { data: page, error: scoresError } = await supabase
+      const scores = await fetchInBatches<any>(roundIds, (ids, from, to) =>
+        supabase
             .from('scores')
             .select(
               `
@@ -211,13 +214,9 @@ export default function ClassJudgeStatistics({
               )
             `
             )
-            .in('trial_round_id', idsForRequest)
-            .range(from, from + PAGE_SIZE - 1);
-          if (scoresError) throw scoresError;
-          scores.push(...(page || []));
-          if (!page || page.length < PAGE_SIZE) break;
-        }
-      }
+            .in('trial_round_id', ids)
+            .range(from, to)
+      );
 
       console.log(`Loaded ${scores?.length || 0} scores`);
 
@@ -308,7 +307,7 @@ export default function ClassJudgeStatistics({
     return 'bg-red-100 text-red-800 border-red-300';
   };
 
-  if (!availableClasses.length) {
+  if (classesLoading || !availableClasses.length) {
     return (
       <Card>
         <CardHeader>
@@ -318,7 +317,16 @@ export default function ClassJudgeStatistics({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-500">No classes with scores available</p>
+          {classesLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading classes with scores...
+            </div>
+          ) : error ? (
+            <p className="text-sm text-red-600">{error}</p>
+          ) : (
+            <p className="text-sm text-gray-500">No classes with scores available</p>
+          )}
         </CardContent>
       </Card>
     );
