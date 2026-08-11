@@ -2208,7 +2208,7 @@ export default function PublicEntryForm() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <Input
-                placeholder="C-WAGS-XXXX"
+                placeholder="12-3456-78"
                 value={cwagsInputValue}
                 onChange={(e) => {
                   setCwagsInputValue(e.target.value.toUpperCase());
@@ -2344,33 +2344,6 @@ export default function PublicEntryForm() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>C-WAGS Number *</Label>
-                <Input
-                  value={formData.cwags_number}
-                  onChange={(e) => {
-                    const nextValue = e.target.value.toUpperCase();
-                    setFormData((prev) => ({
-                      ...prev,
-                      cwags_number: nextValue,
-                    }));
-                    setCwagsInputValue(nextValue);
-                    setRegistryVerification(null);
-                    setExistingEntry(null);
-                  }}
-                  onBlur={(e) => {
-                    if (e.target.value.trim()) {
-                      const formattedNumber = formatCwagsNumber(e.target.value);
-                      setFormData((prev) => ({
-                        ...prev,
-                        cwags_number: formattedNumber,
-                      }));
-                      setCwagsInputValue(formattedNumber);
-                    }
-                  }}
-                  required
-                />
-              </div>
               <div>
                 <Label>Dog Call Name *</Label>
                 <Input
