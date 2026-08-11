@@ -89,6 +89,21 @@ interface TrialMetrics {
   } | null;
 }
 
+const EMPTY_TRIAL_METRICS: TrialMetrics = {
+  totalEntries: 0,
+  pendingPayment: 0,
+  waitlisted: 0,
+  confirmed: 0,
+  expectedRevenue: 0,
+  collected: 0,
+  outstanding: 0,
+  daysUntilStart: 0,
+  runningOrderPublished: false,
+  classesSetUp: { total: 0, configured: 0 },
+  judgesAssigned: { total: 0, assigned: 0 },
+  breakEvenAnalysis: null,
+};
+
 interface ActionItem {
   type: 'warning' | 'info';
   message: string;
@@ -139,7 +154,17 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
 
   // Select default trial (most important one)
   useEffect(() => {
-    if (userTrials.length > 0 && !selectedTrialId) {
+    if (userTrials.length === 0) {
+      setSelectedTrialId('');
+      setMetrics(EMPTY_TRIAL_METRICS);
+      setActionItems([]);
+      setOutstandingEntries([]);
+      setRecentActivity([]);
+      setLoading(false);
+      return;
+    }
+
+    if (!selectedTrialId || !userTrials.some((trial) => trial.id === selectedTrialId)) {
       // Priority: active > published > upcoming > draft
       const activeTrial = userTrials.find((t) => t.trial_status === 'active');
       const publishedTrial = userTrials.find((t) => t.trial_status === 'published');
@@ -982,9 +1007,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-700 mb-2 block">Select Trial</label>
-              <Select value={selectedTrialId} onValueChange={setSelectedTrialId}>
+              <Select
+                value={selectedTrialId || undefined}
+                onValueChange={setSelectedTrialId}
+                disabled={userTrials.length === 0}
+              >
                 <SelectTrigger className="w-full max-w-md">
-                  <SelectValue />
+                  <SelectValue placeholder="No trials created or assigned" />
                 </SelectTrigger>
                 <SelectContent className="bg-white">
                   {userTrials.map((trial) => (
@@ -1356,7 +1385,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/live-event`)}
+                  onClick={() =>
+                    selectedTrialId && router.push(`/dashboard/trials/${selectedTrialId}/live-event`)
+                  }
+                  disabled={!selectedTrialId}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Running Order
@@ -1377,7 +1409,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/financials`)}
+                  onClick={() =>
+                    selectedTrialId && router.push(`/dashboard/trials/${selectedTrialId}/financials`)
+                  }
+                  disabled={!selectedTrialId}
                 >
                   <DollarSign className="h-4 w-4 mr-2" />
                   Financial Summary
@@ -1386,7 +1421,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 <Button
                   variant="outline"
                   className="w-full justify-start"
-                  onClick={() => router.push(`/dashboard/trials/${selectedTrialId}/journal`)}
+                  onClick={() =>
+                    selectedTrialId && router.push(`/dashboard/trials/${selectedTrialId}/journal`)
+                  }
+                  disabled={!selectedTrialId}
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Activity Journal
