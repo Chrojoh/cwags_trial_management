@@ -151,6 +151,13 @@ export default function TrialJournalPage() {
         const snapshot = activity.snapshot_data || {};
 
         if (activity.activity_type === 'entry_submitted') {
+          const submittedRounds = (snapshot.classes || [])
+            .map((selection: any) => {
+              const day = selection.day_number ? `, Day ${selection.day_number}` : '';
+              const type = String(selection.entry_type || 'regular').toUpperCase();
+              return `${selection.name || 'Unknown class'} (Round ${selection.round || 1}${day}, ${type})`;
+            })
+            .join('; ');
           entries.push({
             id: activity.id,
             timestamp: activity.created_at,
@@ -158,7 +165,7 @@ export default function TrialJournalPage() {
             handler_name: snapshot.handler_name || activity.user_name || 'Unknown',
             dog_call_name: snapshot.dog_call_name || 'Unknown',
             cwags_number: snapshot.cwags_number || 'Unknown',
-            description: `Entry submitted for ${snapshot.dog_call_name} with ${snapshot.class_count || 0} class${(snapshot.class_count || 0) !== 1 ? 'es' : ''}`,
+            description: `Entry submitted for ${snapshot.dog_call_name} with ${snapshot.class_count || 0} class${(snapshot.class_count || 0) !== 1 ? 'es' : ''}${submittedRounds ? `\nRounds: ${submittedRounds}` : ''}`,
             amount: snapshot.total_fee || 0,
             entry_id: activity.entry_id,
             snapshot: snapshot, // Store snapshot for modal
