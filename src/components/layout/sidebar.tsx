@@ -26,6 +26,13 @@ import {
 } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { compareDateOnly } from '@/lib/dateOnly';
+import {
+  hasTrialPermission,
+  isTrialCollaboratorRole,
+  type EffectiveTrialRole,
+  type TrialPermission,
+} from '@/lib/trialPermissions';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Trial {
   id: string;
@@ -33,6 +40,8 @@ interface Trial {
   start_date: string;
   end_date: string;
   trial_status: string;
+  ownership?: 'owned';
+  shared_role?: string;
 }
 
 interface SidebarProps {
@@ -47,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
 }) => {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [trials, setTrials] = useState<Trial[]>([]);
   const [expandedTrials, setExpandedTrials] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -69,8 +79,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       if (result.success && result.data) {
         // Sort by start_date (most recent first) and take 5 most recent
-        const allTrials = [...result.data].sort(
-          (a: Trial, b: Trial) => compareDateOnly(b.start_date, a.start_date)
+        const allTrials = [...result.data].sort((a: Trial, b: Trial) =>
+          compareDateOnly(b.start_date, a.start_date)
         );
         const sorted = allTrials.slice(0, 5);
 
@@ -133,68 +143,89 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return pathname.includes(`/trials/${trialId}`);
   };
 
-  const trialMenuItems = (trialId: string): Array<{
+  const effectiveRoleForTrial = (trial: Trial): EffectiveTrialRole => {
+    if (user?.role === 'administrator') return 'administrator';
+    if (trial.ownership === 'owned') return 'owner';
+    if (isTrialCollaboratorRole(trial.shared_role)) return trial.shared_role;
+    return 'legacy_secretary';
+  };
+
+  const trialMenuItems = (
+    trial: Trial
+  ): Array<{
     label: string;
     href?: string;
     icon: React.ComponentType<{ className?: string }>;
     onClick?: () => void;
+    permission: TrialPermission;
   }> => [
     {
       label: 'Trial Details',
-      href: `/dashboard/trials/${trialId}`,
+      href: `/dashboard/trials/${trial.id}`,
       icon: Info,
+      permission: 'view_trial',
     },
     {
       label: 'Trial Application',
-      href: `/dashboard/trials/${trialId}/trial-application`,
+      href: `/dashboard/trials/${trial.id}/trial-application`,
       icon: ClipboardCheck,
+      permission: 'generate_trial_application',
     },
     {
       label: 'Activity Journal',
-      href: `/dashboard/trials/${trialId}/journal`,
+      href: `/dashboard/trials/${trial.id}/journal`,
       icon: BookOpen,
+      permission: 'view_trial',
     },
     {
       label: 'Trial Collaborators',
-      href: `/dashboard/trials/${trialId}/collaborators`,
+      href: `/dashboard/trials/${trial.id}/collaborators`,
       icon: Link2,
+      permission: 'manage_collaborators',
     },
     {
       label: 'Entries',
-      href: `/dashboard/trials/${trialId}/entries`,
+      href: `/dashboard/trials/${trial.id}/entries`,
       icon: Users,
+      permission: 'manage_entries',
     },
     {
       label: 'Copy Entry Link',
-      onClick: () => copyEntryLink(trialId),
+      onClick: () => copyEntryLink(trial.id),
       icon: Copy,
+      permission: 'manage_entries',
     },
 
     {
       label: 'Close to Titles',
-      href: `/dashboard/trials/${trialId}/close-to-titles`,
+      href: `/dashboard/trials/${trial.id}/close-to-titles`,
       icon: Trophy,
+      permission: 'generate_reports',
     },
 
     {
       label: 'Time Calculator',
-      href: `/dashboard/trials/${trialId}/time-calculator`,
+      href: `/dashboard/trials/${trial.id}/time-calculator`,
       icon: Clock,
+      permission: 'manage_financials',
     },
     {
       label: 'Running Order & Score Entry',
-      href: `/dashboard/trials/${trialId}/live-event`,
+      href: `/dashboard/trials/${trial.id}/live-event`,
       icon: PlayCircle,
+      permission: 'manage_running_order',
     },
     {
       label: 'Summary',
-      href: `/dashboard/trials/${trialId}/summary`,
+      href: `/dashboard/trials/${trial.id}/summary`,
       icon: FileText,
+      permission: 'generate_reports',
     },
     {
       label: 'Financial Summary',
-      href: `/dashboard/trials/${trialId}/financials`,
+      href: `/dashboard/trials/${trial.id}/financials`,
       icon: DollarSign,
+      permission: 'manage_financials',
     },
   ];
 
@@ -284,43 +315,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       {/* Trial Submenu */}
                       {isExpanded && (
                         <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-2">
-                          {trialMenuItems(trial.id).map((item) => {
-                            const Icon = item.icon;
+                          {trialMenuItems(trial)
+                            .filter((item) =>
+                              hasTrialPermission(effectiveRoleForTrial(trial), item.permission)
+                            )
+                            .map((item) => {
+                              const Icon = item.icon;
 
-                            if (item.onClick) {
-                              const isCopied = copiedLink === trial.id;
+                              if (item.onClick) {
+                                const isCopied = copiedLink === trial.id;
+                                return (
+                                  <button
+                                    key={item.label}
+                                    onClick={item.onClick}
+                                    className="flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors w-full text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                  >
+                                    {isCopied ? (
+                                      <Check className="h-4 w-4 flex-shrink-0 text-green-600" />
+                                    ) : (
+                                      <Icon className="h-4 w-4 flex-shrink-0" />
+                                    )}
+                                    <span className={isCopied ? 'text-green-600' : ''}>
+                                      {isCopied ? 'Copied!' : item.label}
+                                    </span>
+                                  </button>
+                                );
+                              }
+
+                              const isItemActive = isActivePage(item.href!);
                               return (
-                                <button
+                                <Link
                                   key={item.label}
-                                  onClick={item.onClick}
-                                  className="flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors w-full text-left text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                  href={item.href!}
+                                  className={`flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                                    isItemActive
+                                      ? 'bg-orange-100 text-orange-900'
+                                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                  }`}
                                 >
-                                  {isCopied
-                                    ? <Check className="h-4 w-4 flex-shrink-0 text-green-600" />
-                                    : <Icon className="h-4 w-4 flex-shrink-0" />}
-                                  <span className={isCopied ? 'text-green-600' : ''}>
-                                    {isCopied ? 'Copied!' : item.label}
-                                  </span>
-                                </button>
+                                  <Icon className="h-4 w-4 flex-shrink-0" />
+                                  <span>{item.label}</span>
+                                </Link>
                               );
-                            }
-
-                            const isItemActive = isActivePage(item.href!);
-                            return (
-                              <Link
-                                key={item.label}
-                                href={item.href!}
-                                className={`flex items-center space-x-2 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                                  isItemActive
-                                    ? 'bg-orange-100 text-orange-900'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                }`}
-                              >
-                                <Icon className="h-4 w-4 flex-shrink-0" />
-                                <span>{item.label}</span>
-                              </Link>
-                            );
-                          })}
+                            })}
                         </div>
                       )}
                     </div>

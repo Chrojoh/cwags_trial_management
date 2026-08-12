@@ -33,6 +33,7 @@ import {
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import EntryControlPanel from '@/components/trial/EntryControlPanel';
+import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 
 interface TrialData {
   id: string;
@@ -104,12 +105,30 @@ export default function TrialDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<TrialData>>({});
+  const [canEditTrial, setCanEditTrial] = useState(false);
 
   useEffect(() => {
     if (trialId) {
       loadTrialData();
+      loadTrialAccess();
     }
   }, [trialId]);
+
+  const loadTrialAccess = async () => {
+    try {
+      const { data } = await getSupabaseBrowser().auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return setCanEditTrial(false);
+      const response = await fetch(`/api/trials/${trialId}/access`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const access = await response.json().catch(() => ({}));
+      setCanEditTrial(response.ok && access.permissions?.includes('edit_trial'));
+    } catch (accessError) {
+      console.error('Unable to load trial edit permission:', accessError);
+      setCanEditTrial(false);
+    }
+  };
 
   const loadTrialData = async () => {
     try {
@@ -371,49 +390,59 @@ export default function TrialDetailPage() {
         )}
 
         {/* Entry Control Panel */}
-        <EntryControlPanel trialId={trialId} currentStatus={trial.entry_status || 'draft'} />
+        {canEditTrial && (
+          <EntryControlPanel trialId={trialId} currentStatus={trial.entry_status || 'draft'} />
+        )}
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="w-full flex overflow-x-auto md:grid md:grid-cols-5 gap-1">
+          <TabsList
+            className={`w-full flex overflow-x-auto md:grid ${canEditTrial ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-1`}
+          >
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="days" className="relative group">
               <span>Days ({trialDays.length})</span>
-              <span
-                className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditNavigation('days');
-                }}
-              >
-                <Edit className="h-3 w-3" />
-              </span>
+              {canEditTrial && (
+                <span
+                  className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditNavigation('days');
+                  }}
+                >
+                  <Edit className="h-3 w-3" />
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="classes" className="relative group">
               <span>Classes ({trialClasses.length})</span>
-              <span
-                className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditNavigation('classes');
-                }}
-              >
-                <Edit className="h-3 w-3" />
-              </span>
+              {canEditTrial && (
+                <span
+                  className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditNavigation('classes');
+                  }}
+                >
+                  <Edit className="h-3 w-3" />
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="rounds" className="relative group">
               <span>Rounds ({trialRounds.length})</span>
-              <span
-                className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEditNavigation('rounds');
-                }}
-              >
-                <Edit className="h-3 w-3" />
-              </span>
+              {canEditTrial && (
+                <span
+                  className="ml-2 opacity-40 group-hover:opacity-80 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEditNavigation('rounds');
+                  }}
+                >
+                  <Edit className="h-3 w-3" />
+                </span>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
+            {canEditTrial && <TabsTrigger value="settings">Settings</TabsTrigger>}
           </TabsList>
 
           {/* Basic Information Tab */}
@@ -428,39 +457,41 @@ export default function TrialDetailPage() {
 
                   <div className="flex items-center space-x-2">
                     {/* Show Publish button if trial is in draft status */}
-                    {trial.trial_status === 'draft' && editingSection !== 'basic' && (
-                      <Button
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                        onClick={async () => {
-                          if (
-                            confirm(
-                              'Are you sure you want to publish this trial? This will make it visible to the public.'
-                            )
-                          ) {
-                            try {
-                              const result = await simpleTrialOperations.publishTrial(trialId);
-                              if (result.success) {
-                                alert('Trial published successfully!');
-                                loadTrialData();
-                              } else {
-                                alert(
-                                  'Failed to publish trial: ' + (result.error || 'Unknown error')
-                                );
+                    {canEditTrial &&
+                      trial.trial_status === 'draft' &&
+                      editingSection !== 'basic' && (
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          onClick={async () => {
+                            if (
+                              confirm(
+                                'Are you sure you want to publish this trial? This will make it visible to the public.'
+                              )
+                            ) {
+                              try {
+                                const result = await simpleTrialOperations.publishTrial(trialId);
+                                if (result.success) {
+                                  alert('Trial published successfully!');
+                                  loadTrialData();
+                                } else {
+                                  alert(
+                                    'Failed to publish trial: ' + (result.error || 'Unknown error')
+                                  );
+                                }
+                              } catch (error) {
+                                console.error('Error publishing trial:', error);
+                                alert('Failed to publish trial');
                               }
-                            } catch (error) {
-                              console.error('Error publishing trial:', error);
-                              alert('Failed to publish trial');
                             }
-                          }
-                        }}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Publish Trial
-                      </Button>
-                    )}
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Publish Trial
+                        </Button>
+                      )}
 
                     {/* Edit button - always show when not editing */}
-                    {editingSection !== 'basic' && (
+                    {canEditTrial && editingSection !== 'basic' && (
                       <Button
                         variant="outline"
                         onClick={() => startEditing('basic', trial)}
@@ -789,192 +820,200 @@ export default function TrialDetailPage() {
           </TabsContent>
 
           {/* Settings Tab */}
-          <TabsContent value="settings">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Settings className="h-5 w-5 text-orange-600" />
-                  <span>Trial Settings & Actions</span>
-                </CardTitle>
-                <CardDescription>Manage trial status and edit trial components</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-600">Current Status</Label>
-                    <div className="mt-2 flex items-center gap-3">
-                      <Badge
-                        className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}
-                      >
-                        {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
-                      </Badge>
-
-                      {/* Draft → Published */}
-                      {trial.trial_status === 'draft' && (
-                        <Button
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          onClick={async () => {
-                            const result = await simpleTrialOperations.publishTrial(trialId);
-                            if (result.success) {
-                              alert('Trial published successfully!');
-                              loadTrialData();
-                            }
-                          }}
+          {canEditTrial && (
+            <TabsContent value="settings">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Settings className="h-5 w-5 text-orange-600" />
+                    <span>Trial Settings & Actions</span>
+                  </CardTitle>
+                  <CardDescription>Manage trial status and edit trial components</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div>
+                      <Label className="text-sm font-medium text-gray-600">Current Status</Label>
+                      <div className="mt-2 flex items-center gap-3">
+                        <Badge
+                          className={`${getStatusColor(trial.trial_status)} text-base px-4 py-2`}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Publish Trial
-                        </Button>
-                      )}
+                          {trial.trial_status.charAt(0).toUpperCase() + trial.trial_status.slice(1)}
+                        </Badge>
 
-                      {/* Published → Active */}
-                      {trial.trial_status === 'published' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-green-600 border-green-600 hover:bg-green-50"
-                          onClick={async () => {
-                            if (confirm('Mark this trial as Active?')) {
-                              const result = await simpleTrialOperations.updateTrialStatus(
-                                trialId,
-                                'active'
-                              );
+                        {/* Draft → Published */}
+                        {trial.trial_status === 'draft' && (
+                          <Button
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={async () => {
+                              const result = await simpleTrialOperations.publishTrial(trialId);
                               if (result.success) {
-                                alert('Trial marked as Active!');
+                                alert('Trial published successfully!');
                                 loadTrialData();
-                              } else {
-                                alert('Error updating status');
                               }
-                            }
-                          }}
-                        >
-                          Mark Active
-                        </Button>
-                      )}
+                            }}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Publish Trial
+                          </Button>
+                        )}
 
-                      {/* Active → Completed */}
-                      {trial.trial_status === 'active' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                          onClick={async () => {
-                            if (confirm('Mark this trial as Completed?')) {
-                              const result = await simpleTrialOperations.updateTrialStatus(
-                                trialId,
-                                'completed'
-                              );
-                              if (result.success) {
-                                alert('Trial marked as Completed!');
-                                loadTrialData();
-                              } else {
-                                alert('Error updating status');
+                        {/* Published → Active */}
+                        {trial.trial_status === 'published' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-green-600 border-green-600 hover:bg-green-50"
+                            onClick={async () => {
+                              if (confirm('Mark this trial as Active?')) {
+                                const result = await simpleTrialOperations.updateTrialStatus(
+                                  trialId,
+                                  'active'
+                                );
+                                if (result.success) {
+                                  alert('Trial marked as Active!');
+                                  loadTrialData();
+                                } else {
+                                  alert('Error updating status');
+                                }
                               }
-                            }
-                          }}
-                        >
-                          Mark Completed
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                            }}
+                          >
+                            Mark Active
+                          </Button>
+                        )}
 
-                  {/* Entry Management Section */}
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4">Entry Management</h3>
-                    <div className="space-y-3">
-                      <Button
-                        variant="default"
-                        className="w-full justify-start bg-green-600 hover:bg-green-700"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/entries`)}
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        Manage Entries (0 entries)
-                      </Button>
-                      <div className="mt-4 mb-4">
-                        <ShareableEntryLink
-                          trialId={trialId}
-                          trialName={trial?.trial_name || 'Trial'}
-                        />
+                        {/* Active → Completed */}
+                        {trial.trial_status === 'active' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                            onClick={async () => {
+                              if (confirm('Mark this trial as Completed?')) {
+                                const result = await simpleTrialOperations.updateTrialStatus(
+                                  trialId,
+                                  'completed'
+                                );
+                                if (result.success) {
+                                  alert('Trial marked as Completed!');
+                                  loadTrialData();
+                                } else {
+                                  alert('Error updating status');
+                                }
+                              }
+                            }}
+                          >
+                            Mark Completed
+                          </Button>
+                        )}
                       </div>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/time-calculator`)}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Trial Time Calculator
-                      </Button>
+                    </div>
 
-                      {/* NEW: Close to Titles Report Button */}
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/close-to-titles`)}
-                      >
-                        <Trophy className="h-4 w-4 mr-2" />
-                        Close to Titles Report
-                      </Button>
-                      <Button
-                        variant="default"
-                        className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/live-event`)}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Live Event Management / Customizable Running Order and Score Sheets/Score
-                        Entry
-                      </Button>
-                      <Button
-                        variant="default"
-                        className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/summary`)}
-                      >
-                        <BarChart3 className="h-4 w-4 mr-2" />
-                        Class Summary Sheet and Excel Export
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start border-blue-600 text-blue-700 hover:bg-blue-50"
-                        onClick={() => router.push(`/dashboard/trials/${trialId}/trial-application`)}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Generate Trial Application
-                      </Button>
+                    {/* Entry Management Section */}
+                    <div className="pt-4 border-t">
+                      <h3 className="text-lg font-medium mb-4">Entry Management</h3>
+                      <div className="space-y-3">
+                        <Button
+                          variant="default"
+                          className="w-full justify-start bg-green-600 hover:bg-green-700"
+                          onClick={() => router.push(`/dashboard/trials/${trialId}/entries`)}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Manage Entries (0 entries)
+                        </Button>
+                        <div className="mt-4 mb-4">
+                          <ShareableEntryLink
+                            trialId={trialId}
+                            trialName={trial?.trial_name || 'Trial'}
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() =>
+                            router.push(`/dashboard/trials/${trialId}/time-calculator`)
+                          }
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          Trial Time Calculator
+                        </Button>
+
+                        {/* NEW: Close to Titles Report Button */}
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+                          onClick={() =>
+                            router.push(`/dashboard/trials/${trialId}/close-to-titles`)
+                          }
+                        >
+                          <Trophy className="h-4 w-4 mr-2" />
+                          Close to Titles Report
+                        </Button>
+                        <Button
+                          variant="default"
+                          className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
+                          onClick={() => router.push(`/dashboard/trials/${trialId}/live-event`)}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Live Event Management / Customizable Running Order and Score Sheets/Score
+                          Entry
+                        </Button>
+                        <Button
+                          variant="default"
+                          className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
+                          onClick={() => router.push(`/dashboard/trials/${trialId}/summary`)}
+                        >
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Class Summary Sheet and Excel Export
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start border-blue-600 text-blue-700 hover:bg-blue-50"
+                          onClick={() =>
+                            router.push(`/dashboard/trials/${trialId}/trial-application`)
+                          }
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Generate Trial Application
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t">
+                      <h3 className="text-lg font-medium mb-4">Edit Trial Components</h3>
+                      <div className="space-y-3">
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => handleEditNavigation('days')}
+                        >
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Edit Days ({trialDays.length} configured)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => handleEditNavigation('classes')}
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Edit Classes & Levels ({trialClasses.length} configured)
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => handleEditNavigation('rounds')}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          Edit Rounds & Judges ({trialRounds.length} configured)
+                        </Button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4">Edit Trial Components</h3>
-                    <div className="space-y-3">
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => handleEditNavigation('days')}
-                      >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Edit Days ({trialDays.length} configured)
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => handleEditNavigation('classes')}
-                      >
-                        <Users className="h-4 w-4 mr-2" />
-                        Edit Classes & Levels ({trialClasses.length} configured)
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start"
-                        onClick={() => handleEditNavigation('rounds')}
-                      >
-                        <Clock className="h-4 w-4 mr-2" />
-                        Edit Rounds & Judges ({trialRounds.length} configured)
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </MainLayout>

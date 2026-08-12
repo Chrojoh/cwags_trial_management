@@ -32,11 +32,7 @@ import {
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { buildLeagueResultsWorkbook } from '@/lib/leagueResultsWorkbook';
-import {
-  isAbsentSelection,
-  isActiveSelection,
-  isScorableSelection,
-} from '@/lib/selectionStatus';
+import { isAbsentSelection, isActiveSelection, isScorableSelection } from '@/lib/selectionStatus';
 
 interface Trial {
   id: string;
@@ -109,7 +105,7 @@ export default function ClassSummaryPage() {
 
   useEffect(() => {
     if (trialId) {
-      loadSummaryData();
+      loadSummaryDataForAuthorizedUser();
     }
   }, [trialId]);
 
@@ -123,6 +119,33 @@ export default function ClassSummaryPage() {
       setClassDisplayData(null);
     }
   }, [selectedClassId, summaryData]);
+
+  const loadSummaryDataForAuthorizedUser = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Please sign in again to view this report.');
+
+      const response = await fetch(`/api/trials/${trialId}/access`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const access = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(access.error || 'Unable to verify trial access.');
+      if (!access.permissions?.includes('generate_reports')) {
+        throw new Error('Secretary report access is required to view this page.');
+      }
+
+      await loadSummaryData();
+    } catch (accessError) {
+      console.error('Unable to authorize summary report:', accessError);
+      setError(
+        accessError instanceof Error ? accessError.message : 'Unable to verify report access.'
+      );
+      setLoading(false);
+    }
+  };
 
   const loadSummaryData = async () => {
     try {
@@ -294,10 +317,7 @@ export default function ClassSummaryPage() {
           const score = scoresMap.get(selection.id);
           let result = '-';
 
-          if (
-            isAbsentSelection(selection.entry_status) ||
-            isAbsentSelection(score?.entry_status)
-          ) {
+          if (isAbsentSelection(selection.entry_status) || isAbsentSelection(score?.entry_status)) {
             result = 'Abs';
           } else if (score) {
             if (['GB', 'BJ', 'T', 'P', 'C'].includes(score.pass_fail || '')) {
@@ -505,10 +525,7 @@ export default function ClassSummaryPage() {
           const score = scoresMap.get(selection.id);
           let result: string | number = '-';
 
-          if (
-            isAbsentSelection(selection.entry_status) ||
-            isAbsentSelection(score?.entry_status)
-          ) {
+          if (isAbsentSelection(selection.entry_status) || isAbsentSelection(score?.entry_status)) {
             result = 'Abs';
             targetClassData.totalRuns++;
           } else if (
@@ -619,7 +636,6 @@ export default function ClassSummaryPage() {
         console.log('League results workbook generated successfully');
         return;
       }
-
     } catch (error) {
       console.error('Error generating Excel report:', error);
       setError(
@@ -792,7 +808,7 @@ export default function ClassSummaryPage() {
                         Patrol: 'Patrol 1',
                         Detective: 'Detective 2',
                         Investigator: 'Investigator 3',
-                        'Super Sleuth': 'Super Sleuth 4', 
+                        'Super Sleuth': 'Super Sleuth 4',
                         'Private Inv': 'Private Investigator',
                         'Det Diversions': 'Detective Diversions',
                       };
@@ -952,8 +968,13 @@ export default function ClassSummaryPage() {
                 <CardContent className="text-center p-4">
                   <div className="text-2xl font-bold text-purple-600">
                     {summaryData.statistics.total_completed > 0
-                      ? Math.round((summaryData.statistics.total_passes / summaryData.statistics.total_completed) * 100)
-                      : 0}%
+                      ? Math.round(
+                          (summaryData.statistics.total_passes /
+                            summaryData.statistics.total_completed) *
+                            100
+                        )
+                      : 0}
+                    %
                   </div>
                   <div className="text-sm text-gray-600">Pass Rate</div>
                 </CardContent>

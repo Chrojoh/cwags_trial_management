@@ -15,8 +15,17 @@ test('secretary has operational and financial access but cannot manage collabora
 });
 
 test('assistant and read-only roles remain constrained', () => {
+  assert.equal(hasTrialPermission('assistant', 'view_trial'), true);
+  assert.equal(hasTrialPermission('assistant', 'manage_entries'), true);
+  assert.equal(hasTrialPermission('assistant', 'manage_waitlist'), true);
+  assert.equal(hasTrialPermission('assistant', 'manage_running_order'), true);
   assert.equal(hasTrialPermission('assistant', 'score_entries'), true);
+  assert.equal(hasTrialPermission('assistant', 'edit_trial'), false);
   assert.equal(hasTrialPermission('assistant', 'manage_financials'), false);
+  assert.equal(hasTrialPermission('assistant', 'generate_reports'), false);
+  assert.equal(hasTrialPermission('assistant', 'generate_trial_application'), false);
+  assert.equal(hasTrialPermission('assistant', 'manage_collaborators'), false);
+  assert.equal(hasTrialPermission('assistant', 'delete_trial'), false);
   assert.equal(hasTrialPermission('read_only', 'view_trial'), true);
   assert.equal(hasTrialPermission('read_only', 'edit_trial'), false);
 });
