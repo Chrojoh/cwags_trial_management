@@ -104,6 +104,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     loadRecentTrials();
   }, [loadRecentTrials]);
 
+  useEffect(() => {
+    const refreshTrials = () => void loadRecentTrials();
+    window.addEventListener('trial-access-changed', refreshTrials);
+    return () => window.removeEventListener('trial-access-changed', refreshTrials);
+  }, [loadRecentTrials]);
+
   const toggleTrial = (trialId: string) => {
     setExpandedTrials((prev) => {
       const newSet = new Set(prev);

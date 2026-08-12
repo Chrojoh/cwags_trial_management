@@ -35,6 +35,11 @@ import { derivePaymentStatus } from '@/lib/financialRules';
 import { compareDateOnly, localDateOnly, parseDateOnly } from '@/lib/dateOnly';
 import { isActiveSelection } from '@/lib/selectionStatus';
 import type { CompetitorFinancial } from '@/lib/financialOperations';
+import {
+  hasTrialPermission,
+  isTrialCollaboratorRole,
+  type EffectiveTrialRole,
+} from '@/lib/trialPermissions';
 
 async function getDashboardApiHeaders() {
   const { data, error } = await getSupabaseBrowser().auth.getSession();
@@ -49,6 +54,15 @@ interface Trial {
   start_date: string;
   end_date: string;
   trial_status: string;
+  ownership?: 'owned';
+  shared_role?: string;
+}
+
+function getTrialRole(trial: Trial | undefined): EffectiveTrialRole | null {
+  if (!trial) return null;
+  if (trial.ownership === 'owned') return 'owner';
+  if (isTrialCollaboratorRole(trial.shared_role)) return trial.shared_role;
+  return 'legacy_secretary';
 }
 
 interface TrialMetrics {
@@ -188,6 +202,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
   const loadTrialMetrics = async (trialId: string) => {
     try {
       setLoading(true);
+      setMetrics(null);
+
+      const trialRole = getTrialRole(userTrials.find((trial) => trial.id === trialId));
+      const canManageFinancials = hasTrialPermission(trialRole, 'manage_financials');
 
       // Get trial info for days calculation
       const { data: trialData } = await supabase
@@ -226,14 +244,20 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const waitlisted = nonFeoEntries.filter((e) => e.entry_status === 'waitlisted').length;
       const confirmed = nonFeoEntries.filter((e) => e.entry_status === 'confirmed').length;
 
-      // Get financial metrics using the SAME function as the Financial Summary page
-      const financialResponse = await fetch(`/api/trials/${trialId}/financials/summary`, {
-        headers: await getDashboardApiHeaders(),
-        cache: 'no-store',
-      });
-      const financialPayload = await financialResponse.json();
-      if (!financialResponse.ok) throw new Error(financialPayload.error || 'Failed to load financial data');
-      const competitors: CompetitorFinancial[] = financialPayload.competitors || [];
+      // Financial information is deliberately unavailable to assistants. Do not let
+      // that restricted request prevent their operational dashboard from loading.
+      let competitors: CompetitorFinancial[] = [];
+      if (canManageFinancials) {
+        const financialResponse = await fetch(`/api/trials/${trialId}/financials/summary`, {
+          headers: await getDashboardApiHeaders(),
+          cache: 'no-store',
+        });
+        const financialPayload = await financialResponse.json();
+        if (!financialResponse.ok) {
+          throw new Error(financialPayload.error || 'Failed to load financial data');
+        }
+        competitors = financialPayload.competitors || [];
+      }
       const competitorsWithOutstandingBalances = competitors.filter(
         (competitor) =>
           derivePaymentStatus(
@@ -308,11 +332,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const uniqueJudges = new Set(roundsWithJudges.map((r) => r.judge_name)).size;
 
       // Load break-even analysis (full analysis like financials page)
-      const { data: breakEvenConfig } = await supabase
-        .from('trial_break_even_config')
-        .select('*')
-        .eq('trial_id', trialId)
-        .single();
+      const { data: breakEvenConfig } = canManageFinancials
+        ? await supabase
+            .from('trial_break_even_config')
+            .select('*')
+            .eq('trial_id', trialId)
+            .single()
+        : { data: null };
 
       let breakEvenAnalysis = null;
 
@@ -679,6 +705,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
   };
 
   const selectedTrial = userTrials.find((t) => t.id === selectedTrialId);
+  const selectedTrialRole = getTrialRole(selectedTrial);
+  const canManageFinancials = hasTrialPermission(selectedTrialRole, 'manage_financials');
+  const canGenerateReports = hasTrialPermission(selectedTrialRole, 'generate_reports');
 
   const exportToExcel = async () => {
     if (!selectedTrialId) return;
@@ -1090,7 +1119,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           </div>
 
           {/* Financial Stats */}
-          <div>
+          {canManageFinancials && <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">💰 Financials</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
@@ -1120,10 +1149,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                 </CardContent>
               </Card>
             </div>
-          </div>
+          </div>}
 
           {/* Outstanding Balances */}
-          <Card className="border-orange-200 bg-orange-50">
+          {canManageFinancials && <Card className="border-orange-200 bg-orange-50">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center space-x-2">
@@ -1191,7 +1220,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card>}
 
           {/* Other Action Items */}
           {actionItems.length > 0 && (
@@ -1394,29 +1423,34 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   Running Order
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
-                  onClick={() =>
-                    router.push(`/dashboard/trials/${selectedTrialId}/close-to-titles`)
-                  }
-                  disabled={!selectedTrialId}
-                >
-                  <Trophy className="h-4 w-4 mr-2" />
-                  Close to Titles Report
-                </Button>
+                {canGenerateReports && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start border-purple-600 text-purple-600 hover:bg-purple-50"
+                    onClick={() =>
+                      router.push(`/dashboard/trials/${selectedTrialId}/close-to-titles`)
+                    }
+                    disabled={!selectedTrialId}
+                  >
+                    <Trophy className="h-4 w-4 mr-2" />
+                    Close to Titles Report
+                  </Button>
+                )}
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() =>
-                    selectedTrialId && router.push(`/dashboard/trials/${selectedTrialId}/financials`)
-                  }
-                  disabled={!selectedTrialId}
-                >
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Financial Summary
-                </Button>
+                {canManageFinancials && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() =>
+                      selectedTrialId &&
+                      router.push(`/dashboard/trials/${selectedTrialId}/financials`)
+                    }
+                    disabled={!selectedTrialId}
+                  >
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Financial Summary
+                  </Button>
+                )}
 
                 <Button
                   variant="outline"
@@ -1430,15 +1464,17 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   Activity Journal
                 </Button>
 
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={exportToExcel}
-                  disabled={!selectedTrialId}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Entries Excel
-                </Button>
+                {canManageFinancials && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={exportToExcel}
+                    disabled={!selectedTrialId}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Entries Excel
+                  </Button>
+                )}
 
                 <Button
                   onClick={() => router.push('/dashboard/trials/create')}

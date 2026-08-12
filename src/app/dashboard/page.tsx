@@ -269,10 +269,10 @@ export default function DashboardPage() {
 
     // Combine all sources of trials
     const allSecretaryTrials = [
-      ...(createdTrials || []),
       ...(assignedFromSecretaries?.map((at: any) => at.trials).filter(Boolean) || []),
       ...(assignedFromAssignments?.map((at: any) => at.trials).filter(Boolean) || []),
       ...collaboratedTrials,
+      ...(createdTrials || []).map((trial: any) => ({ ...trial, ownership: 'owned' as const })),
     ];
 
     // Remove duplicates by trial id and sort by start date

@@ -42,6 +42,7 @@ export default function PendingTrialInvitations({ onAccepted }: { onAccepted?: (
       await load();
       if (action === 'accept') {
         setMessage('Invitation accepted. The trial is now available in your sidebar.');
+        window.dispatchEvent(new Event('trial-access-changed'));
         onAccepted?.();
       }
     } catch (error) {
