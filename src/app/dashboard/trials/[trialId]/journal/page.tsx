@@ -51,6 +51,7 @@ interface JournalEntry {
   amount?: number;
   payment_method?: string;
   payment_received_by?: string;
+  recorded_by?: string;
   notes?: string;
   changed_fields?: string[];
   entry_id?: string;
@@ -139,6 +140,7 @@ export default function TrialJournalPage() {
             'running_order_changed',
             'fees_recalculated',
             'score_corrected',
+            'payment_received',
           ])
           .order('created_at', { ascending: false })
           .range(from, to)
@@ -223,6 +225,23 @@ export default function TrialJournalPage() {
             amount: feeAfter,
             entry_id: activity.entry_id,
             snapshot: snapshot,
+          });
+        } else if (activity.activity_type === 'payment_received') {
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'payment_received',
+            handler_name: snapshot.handler_name || 'Unknown',
+            dog_call_name: snapshot.dog_call_name || 'Unknown',
+            cwags_number: snapshot.cwags_number || 'Unknown',
+            description: `Payment received: $${Number(snapshot.amount || 0).toFixed(2)}`,
+            amount: Number(snapshot.amount || 0),
+            payment_method: snapshot.payment_method,
+            payment_received_by: snapshot.payment_received_by,
+            recorded_by: activity.user_name || 'Administrator',
+            notes: snapshot.notes,
+            entry_id: activity.entry_id,
+            snapshot,
           });
         } else if (activity.activity_type === 'entry_status_changed') {
           entries.push({
@@ -441,6 +460,18 @@ export default function TrialJournalPage() {
 
       const entryIds = (entriesData || []).map((e) => e.id);
 
+      // Payment audit snapshots intentionally contain financial facts, while
+      // the entry table remains the source for the registration number.
+      entries.forEach((journalEntry) => {
+        if (journalEntry.type !== 'payment_received') return;
+        const matchingEntry = entriesData?.find((entry) => entry.id === journalEntry.entry_id);
+        if (matchingEntry) {
+          journalEntry.handler_name = matchingEntry.handler_name || journalEntry.handler_name;
+          journalEntry.dog_call_name = matchingEntry.dog_call_name || journalEntry.dog_call_name;
+          journalEntry.cwags_number = matchingEntry.cwags_number || journalEntry.cwags_number;
+        }
+      });
+
       if (entryIds.length > 0) {
         const { data: paymentsData, error: paymentsError } = await supabase
           .from('entry_payment_transactions')
@@ -450,13 +481,23 @@ export default function TrialJournalPage() {
 
         if (paymentsError) throw paymentsError;
 
-        // Add payments to journal entries
+        const auditedTransactionIds = new Set(
+          entries
+            .filter((entry) => entry.type === 'payment_received')
+            .map((entry) => entry.snapshot?.transaction_id)
+            .filter(Boolean),
+        );
+
+        // Add legacy payments that predate atomic activity records. Use the
+        // transaction creation time for journal chronology; payment_date is a
+        // date-of-payment field, not the time the secretary recorded it.
         (paymentsData || []).forEach((payment: any) => {
+          if (auditedTransactionIds.has(payment.id)) return;
           const entry = entriesData?.find((e) => e.id === payment.entry_id);
 
           entries.push({
             id: `payment-${payment.id}`,
-            timestamp: payment.payment_date || payment.created_at,
+            timestamp: payment.created_at || payment.payment_date,
             type: 'payment_received',
             handler_name: entry?.handler_name || 'Unknown',
             dog_call_name: entry?.dog_call_name || 'Unknown',
@@ -465,6 +506,7 @@ export default function TrialJournalPage() {
             amount: payment.amount || 0,
             payment_method: payment.payment_method,
             payment_received_by: payment.payment_received_by,
+            recorded_by: 'Legacy record',
             notes: payment.notes,
             entry_id: payment.entry_id,
           });
@@ -969,6 +1011,12 @@ export default function TrialJournalPage() {
                             {entry.payment_received_by}
                           </>
                         )}
+                      </div>
+                    )}
+
+                    {entry.type === 'payment_received' && entry.recorded_by && (
+                      <div className="mt-1 text-sm text-gray-600">
+                        <span className="font-medium">Recorded by:</span> {entry.recorded_by}
                       </div>
                     )}
 
