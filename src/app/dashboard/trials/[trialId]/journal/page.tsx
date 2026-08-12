@@ -1149,6 +1149,17 @@ export default function TrialJournalPage() {
                                           Day {classData.day_number}
                                         </span>
                                       )}
+                                      <div className="mt-1 flex flex-wrap gap-x-3 text-gray-700">
+                                        <span className="font-medium uppercase">
+                                          {classData.entry_type === 'feo' ? 'FEO' : 'Regular'}
+                                        </span>
+                                        <span>${Number(classData.fee || 0).toFixed(2)}</span>
+                                        {classData.entry_status && (
+                                          <span className="capitalize text-gray-500">
+                                            {String(classData.entry_status).replace(/_/g, ' ')}
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   ))
                                 ) : (

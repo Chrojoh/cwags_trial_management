@@ -43,6 +43,26 @@ const mapSnapshotClasses = (selections: any[]) =>
     };
   });
 
+const snapshotClassSignature = (classes: any[]) =>
+  JSON.stringify(
+    classes
+      .map((selection) => ({
+        name: selection.name,
+        round: selection.round,
+        day_number: selection.day_number,
+        entry_type: selection.entry_type,
+        fee: Number(selection.fee || 0),
+        entry_status: selection.entry_status,
+        division: selection.division,
+        jump_height: selection.jump_height,
+      }))
+      .sort((a, b) =>
+        `${a.day_number}|${a.name}|${a.round}`.localeCompare(
+          `${b.day_number}|${b.name}|${b.round}`,
+        ),
+      ),
+  );
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ trialId: string }> }
@@ -549,7 +569,8 @@ export async function POST(
       });
     } else if (
       Number(beforeSnapshot.total_fee) !== totalFee ||
-      Number(beforeSnapshot.class_count) !== classes.length
+      Number(beforeSnapshot.class_count) !== classes.length ||
+      snapshotClassSignature(beforeSnapshot.classes as any[]) !== snapshotClassSignature(classes)
     ) {
       await db.from('trial_activity_log').insert({
         trial_id: trialId,
