@@ -2255,6 +2255,11 @@ export default function PublicEntryForm() {
             <p className="text-xs text-gray-500 mt-1">
               Existing entries are shown only when the registration number and email match.
             </p>
+            <p className="text-xs text-gray-500 mt-1">
+              For privacy, repeated unsuccessful verification attempts temporarily pause lookup
+              for that C-WAGS number from your current network. This does not lock your account
+              or affect account login.
+            </p>
             {existingEntry && (
               <Alert className="mt-4">
                 <Edit className="h-4 w-4" />

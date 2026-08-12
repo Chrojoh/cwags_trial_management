@@ -65,7 +65,10 @@ export async function GET(
     if (limitError) throw limitError;
     if (limit?.blocked_until && new Date(limit.blocked_until).getTime() > Date.now()) {
       return NextResponse.json(
-        { error: 'Too many unsuccessful attempts. Please try again later.' },
+        {
+          error:
+            'Entry lookup is temporarily paused for this C-WAGS number from your current network after repeated unsuccessful verification attempts. Please try again later. Your account login is not affected.',
+        },
         { status: 429 }
       );
     }
