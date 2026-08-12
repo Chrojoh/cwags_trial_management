@@ -143,14 +143,24 @@ export async function GET(
     const { data: selections, error: selectionsError } = entryIds.length
       ? await db
           .from('entry_selections')
-          .select('trial_round_id,entry_type,division,entry_id,jump_height')
+          .select('id,trial_round_id,entry_type,division,entry_id,jump_height')
           .in('entry_id', entryIds)
       : { data: [], error: null };
     if (selectionsError) throw selectionsError;
 
+    const selectionIds = (selections || []).map((selection) => selection.id);
+    const { data: scoreRows, error: scoreError } = selectionIds.length
+      ? await db.from('scores').select('entry_selection_id').in('entry_selection_id', selectionIds)
+      : { data: [], error: null };
+    if (scoreError) throw scoreError;
+    const scoredIds = new Set((scoreRows || []).map((score) => score.entry_selection_id));
+
     return NextResponse.json({
       entries: verifiedEntries,
-      selections: selections || [],
+      selections: (selections || []).map((selection) => ({
+        ...selection,
+        has_score: scoredIds.has(selection.id),
+      })),
       registry: registry
         ? {
             handler_name: registry.handler_name,
@@ -307,6 +317,36 @@ export async function POST(
       division: text(body.division_selections?.[round.id], 32) || null,
       jumpHeight: text(body.jump_height_selections?.[round.id], 32) || null,
     }));
+    const desiredIds = new Set(requested.map((selection) => selection.roundId));
+    const relatedIds = (existingEntries || []).map((entry) => entry.id);
+    const { data: existingSelections, error: selectionsError } = relatedIds.length
+      ? await db
+          .from('entry_selections')
+          .select('id,entry_id,trial_round_id,entry_status,running_position,created_at')
+          .in('entry_id', relatedIds)
+      : { data: [], error: null };
+    if (selectionsError) throw selectionsError;
+    const selectionIds = (existingSelections || []).map((selection) => selection.id);
+    const { data: scoreRows, error: scoreError } = selectionIds.length
+      ? await db.from('scores').select('entry_selection_id').in('entry_selection_id', selectionIds)
+      : { data: [], error: null };
+    if (scoreError) throw scoreError;
+    const scoredIds = new Set((scoreRows || []).map((score) => score.entry_selection_id));
+    const protectedRoundIds = (existingSelections || [])
+      .filter(
+        (selection) => scoredIds.has(selection.id) && !desiredIds.has(selection.trial_round_id),
+      )
+      .map((selection) => selection.trial_round_id);
+    if (protectedRoundIds.length) {
+      return NextResponse.json(
+        {
+          error:
+            'Rounds with recorded scores cannot be removed. Refresh the form before making other changes.',
+          protectedRoundIds,
+        },
+        { status: 409 },
+      );
+    }
 
     const conflictIds = new Set<string>();
     const conflicts: Array<Record<string, unknown>> = [];
@@ -378,23 +418,14 @@ export async function POST(
       entryId = inserted.id;
     }
 
-    const relatedIds = (existingEntries || []).map((entry) => entry.id);
     if (!relatedIds.includes(entryId)) relatedIds.push(entryId);
-    const { data: existingSelections, error: selectionsError } = await db
-      .from('entry_selections')
-      .select('id,entry_id,trial_round_id,entry_status,running_position,created_at')
-      .in('entry_id', relatedIds);
-    if (selectionsError) throw selectionsError;
-    const selectionIds = (existingSelections || []).map((selection) => selection.id);
-    const { data: scoreRows, error: scoreError } = selectionIds.length
-      ? await db.from('scores').select('entry_selection_id').in('entry_selection_id', selectionIds)
-      : { data: [], error: null };
-    if (scoreError) throw scoreError;
-    const scoredIds = new Set((scoreRows || []).map((score) => score.entry_selection_id));
-    const desiredIds = new Set(requested.map((selection) => selection.roundId));
     const deletions = (existingSelections || [])
       .filter((selection) => !scoredIds.has(selection.id) && !desiredIds.has(selection.trial_round_id))
       .map((selection) => selection.id);
+    const roundsToNormalize = new Set<string>(requested.map((selection) => selection.roundId));
+    (existingSelections || [])
+      .filter((selection) => deletions.includes(selection.id))
+      .forEach((selection) => roundsToNormalize.add(selection.trial_round_id));
     if (deletions.length) {
       const { error } = await db.from('entry_selections').delete().in('id', deletions);
       if (error) throw error;
@@ -450,6 +481,31 @@ export async function POST(
         jump_height: desired.jumpHeight,
       });
       if (error) throw error;
+    }
+
+    // Removing a selection must close the gap it leaves behind. Normalize all
+    // touched rounds so the displayed position is the actual active ordinal,
+    // not a historical maximum such as 6 when only three dogs remain.
+    for (const roundId of roundsToNormalize) {
+      const { data: activeSelections, error: activeError } = await db
+        .from('entry_selections')
+        .select('id,running_position,created_at')
+        .eq('trial_round_id', roundId)
+        .not('entry_status', 'in', '("waitlisted","withdrawn")')
+        .order('running_position', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+      if (activeError) throw activeError;
+
+      for (const [index, selection] of (activeSelections || []).entries()) {
+        const contiguousPosition = index + 1;
+        if (selection.running_position === contiguousPosition) continue;
+        const { error: positionError } = await db
+          .from('entry_selections')
+          .update({ running_position: contiguousPosition })
+          .eq('id', selection.id);
+        if (positionError) throw positionError;
+      }
     }
 
     const { data: finalSelections, error: finalError } = await db

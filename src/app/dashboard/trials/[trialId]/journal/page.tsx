@@ -586,6 +586,7 @@ export default function TrialJournalPage() {
           },
           selections: selections,
           payments: paymentsData || [],
+          audit: entry.type === 'entry_modified' ? snapshot : null,
         });
       }
       // For payments, fetch current entry details
@@ -1109,6 +1110,56 @@ export default function TrialJournalPage() {
                 </div>
               ) : entryDetails ? (
                 <div className="space-y-6">
+                  {selectedEntry.type === 'entry_modified' &&
+                    entryDetails.audit?.before &&
+                    entryDetails.audit?.after && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Entry Selection Changes
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {[
+                            { title: 'Before', state: entryDetails.audit.before },
+                            { title: 'After', state: entryDetails.audit.after },
+                          ].map(({ title, state }) => (
+                            <div
+                              key={title}
+                              className="rounded-lg border border-blue-200 bg-blue-50 p-4"
+                            >
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <h4 className="font-semibold text-gray-900">{title}</h4>
+                                <span className="text-sm text-gray-700">
+                                  {Number(state.class_count || 0)} classes · $
+                                  {Number(state.total_fee || 0).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                {(state.classes || []).length > 0 ? (
+                                  (state.classes || []).map((classData: any, index: number) => (
+                                    <div
+                                      key={`${classData.name}-${classData.round}-${classData.day_number}-${index}`}
+                                      className="rounded border border-blue-100 bg-white px-3 py-2 text-sm"
+                                    >
+                                      <span className="font-medium text-gray-900">
+                                        {classData.name || 'Unknown Class'} — Round{' '}
+                                        {classData.round || 1}
+                                      </span>
+                                      {classData.day_number && (
+                                        <span className="ml-2 text-gray-600">
+                                          Day {classData.day_number}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-gray-600">No class selections</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   {selectedEntry.type === 'entry_edited' &&
                     entryDetails.edit_changes?.length > 0 && (
                       <div>

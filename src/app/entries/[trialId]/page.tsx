@@ -221,6 +221,7 @@ export default function PublicEntryForm() {
   const [registryLoading, setRegistryLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [existingEntry, setExistingEntry] = useState<any>(null);
+  const [scoredRoundIds, setScoredRoundIds] = useState<Set<string>>(new Set());
   const [cwagsInputValue, setCwagsInputValue] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
   const [editModeLoading, setEditModeLoading] = useState(false);
@@ -412,6 +413,13 @@ export default function PublicEntryForm() {
               jump_height: selection.jump_height, // ✅ ADD THIS LINE
             });
           });
+          setScoredRoundIds(
+            new Set(
+              allEntrySelections
+                .filter((selection: any) => selection.has_score)
+                .map((selection: any) => selection.trial_round_id),
+            ),
+          );
 
           selectedRoundIds = Array.from(uniqueSelections.keys());
           feoRoundIds = Array.from(uniqueSelections.entries())
@@ -466,6 +474,7 @@ export default function PublicEntryForm() {
       } else {
         console.log("No existing entry found, checking C-WAGS registry...");
         setExistingEntry(null);
+        setScoredRoundIds(new Set());
 
         try {
           const registryData = lookupResult.registry;
@@ -743,6 +752,10 @@ export default function PublicEntryForm() {
   };
 
   const handleRoundSelection = (roundId: string, type: "regular" | "feo") => {
+    if (scoredRoundIds.has(roundId)) {
+      setError("A round with a recorded score cannot be removed or changed.");
+      return;
+    }
     setFormData((prev) => {
       const isCurrentlySelected = prev.selected_rounds.includes(roundId);
       const isCurrentlyFeo = prev.feo_selections.includes(roundId);
@@ -2577,6 +2590,7 @@ export default function PublicEntryForm() {
                               const isFeo = formData.feo_selections.includes(
                                 round.id,
                               );
+                              const isScored = scoredRoundIds.has(round.id);
                               const regularFee =
                                 round.trial_classes?.entry_fee || 0;
                               const feoFee =
@@ -2657,6 +2671,7 @@ export default function PublicEntryForm() {
                                               "regular",
                                             )
                                           }
+                                          disabled={isScored}
                                           className={`
                                           relative min-w-[140px] font-semibold transition-all duration-200
                                           ${
@@ -2681,7 +2696,7 @@ export default function PublicEntryForm() {
                                               </svg>
                                             )}
                                             <span>
-                                              Regular ${regularFee.toFixed(2)}
+                                              {isScored ? "Scored — " : ""}Regular ${regularFee.toFixed(2)}
                                             </span>
                                           </div>
                                         </Button>
@@ -2697,6 +2712,7 @@ export default function PublicEntryForm() {
                                                 "feo",
                                               )
                                             }
+                                            disabled={isScored}
                                             className={`
                                             relative min-w-[140px] font-semibold transition-all duration-200
                                             ${
@@ -2721,12 +2737,17 @@ export default function PublicEntryForm() {
                                                 </svg>
                                               )}
                                               <span>
-                                                FEO ${feoFee.toFixed(2)}
+                                                {isScored ? "Scored — " : ""}FEO ${feoFee.toFixed(2)}
                                               </span>
                                             </div>
                                           </Button>
                                         )}
                                       </div>
+                                      {isScored && (
+                                        <p className="mt-2 text-sm font-medium text-blue-700">
+                                          Recorded score — this round cannot be removed or changed.
+                                        </p>
+                                      )}
 
                                       {/* Jump Height Selector - Rally, Obedience, Games Only */}
                                       {(() => {
