@@ -160,7 +160,7 @@ export async function loadTrialFinancialReadModel(
   const competitors = [...groups.values()].map<CompetitorFinancial>((group) => {
     group.payment_history.sort(
       (a, b) =>
-        new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime()
+        String(b.payment_date || '').localeCompare(String(a.payment_date || ''))
     );
     return {
       entry_id: group.entry_ids[0],

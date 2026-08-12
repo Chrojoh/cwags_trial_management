@@ -655,15 +655,15 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           `
           )
           .in('entry_id', entryIds)
-          .gte('payment_date', twoDaysAgoISO)
-          .order('payment_date', { ascending: false });
+          .gte('created_at', twoDaysAgoISO)
+          .order('created_at', { ascending: false });
 
         (paymentsData || []).forEach((payment: any) => {
           activity.push({
             id: `payment-${payment.id}`,
             type: 'payment_received',
             message: `Payment: ${payment.entries.handler_name} - $${payment.amount}`,
-            timestamp: payment.payment_date || payment.created_at,
+            timestamp: payment.created_at,
           });
         });
       }
@@ -783,7 +783,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Entries');
 
-      const filename = `${selectedTrial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filename = `${selectedTrial?.trial_name || 'trial'}_entries_${localDateOnly()}.xlsx`;
       XLSX.writeFile(workbook, filename);
     } catch (error) {
       console.error('Error exporting to Excel:', error);
@@ -842,7 +842,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       link.setAttribute('href', url);
       link.setAttribute(
         'download',
-        `${selectedTrial?.trial_name || 'trial'}_possible_titles_${new Date().toISOString().split('T')[0]}.csv`
+        `${selectedTrial?.trial_name || 'trial'}_possible_titles_${localDateOnly()}.csv`
       );
       link.style.visibility = 'hidden';
 
@@ -955,7 +955,7 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       link.setAttribute('href', url);
       link.setAttribute(
         'download',
-        `${selectedTrial?.trial_name || 'trial'}_volunteers_${new Date().toISOString().split('T')[0]}.csv`
+        `${selectedTrial?.trial_name || 'trial'}_volunteers_${localDateOnly()}.csv`
       );
       link.style.visibility = 'hidden';
 

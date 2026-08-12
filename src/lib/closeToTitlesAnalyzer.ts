@@ -15,6 +15,7 @@ import { getDogTrialHistory } from './registryOperations';
 import { getSupabaseBrowser } from './supabaseBrowser';
 import { isScorableSelection } from './selectionStatus';
 import { fetchAllPages } from './supabasePagination';
+import { parseDateOnly } from './dateOnly';
 import {
   getTitleRequirements,
   getTitleAbbreviation,
@@ -170,8 +171,8 @@ function analyzeTrackerHistory(history: any[], className: string) {
   if (hasTitle) {
     // Sort records by date
     const sorted = [...levelRecords].sort((a, b) => {
-      const dateA = new Date(a.date || 0);
-      const dateB = new Date(b.date || 0);
+      const dateA = parseDateOnly(a.date);
+      const dateB = parseDateOnly(b.date);
       return dateA.getTime() - dateB.getTime();
     });
 
@@ -211,7 +212,7 @@ function analyzeTrackerHistory(history: any[], className: string) {
 
       if (nowHasTitle && !previouslyHadTitle) {
         // Title earned with this record
-        titleDate = new Date(record.date || 0);
+        titleDate = parseDateOnly(record.date);
 
         // Calculate how many Q's from this record went toward title
         let qsTowardTitle = record.qs;

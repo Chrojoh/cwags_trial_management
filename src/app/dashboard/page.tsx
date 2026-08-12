@@ -13,7 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import PendingTrialInvitations from '@/components/dashboard/PendingTrialInvitations';
-import { compareDateOnly, localDateOnly } from '@/lib/dateOnly';
+import { compareDateOnly, dateOnlyValue, localDateOnly, parseDateOnly } from '@/lib/dateOnly';
 
 interface Trial {
   id: string;
@@ -161,7 +161,7 @@ export default function DashboardPage() {
         return false;
       }
 
-      const closeDate = new Date(t.entries_close_date);
+      const closeDate = parseDateOnly(dateOnlyValue(t.entries_close_date));
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       closeDate.setHours(0, 0, 0, 0);
@@ -172,14 +172,14 @@ export default function DashboardPage() {
 
     // Sort by closing date (soonest first)
     closingSoon.sort((a: Trial, b: Trial) => {
-      const dateA = new Date(a.entries_close_date!).getTime();
-      const dateB = new Date(b.entries_close_date!).getTime();
+      const dateA = parseDateOnly(dateOnlyValue(a.entries_close_date)).getTime();
+      const dateB = parseDateOnly(dateOnlyValue(b.entries_close_date)).getTime();
       return dateA - dateB;
     });
 
     // Create individual alerts for each trial closing soon
     closingSoon.forEach((trial: Trial) => {
-      const closeDate = new Date(trial.entries_close_date!);
+      const closeDate = parseDateOnly(dateOnlyValue(trial.entries_close_date));
       const todayDate = new Date();
       todayDate.setHours(0, 0, 0, 0);
       closeDate.setHours(0, 0, 0, 0);

@@ -235,10 +235,10 @@ export async function GET(
       } else if (item.activity_type === 'dog_substituted') recentActivity.push({ id: item.id, type: 'dog_substituted', message: `Dog substitution: ${snapshot.substitute?.dog_call_name} replaced ${snapshot.original?.dog_call_name}`, timestamp: item.created_at });
       else if (item.activity_type === 'fees_waived') recentActivity.push({ id: item.id, type: 'fees_waived', message: `Fees waived: ${snapshot.dog_call_name} ($${snapshot.amount_waived || 0})`, timestamp: item.created_at });
     });
-    payments.filter((payment) => new Date(payment.payment_date || 0) >= twoDaysAgo).forEach((payment) => recentActivity.push({
+    payments.filter((payment) => new Date(payment.created_at || 0) >= twoDaysAgo).forEach((payment) => recentActivity.push({
       id: `payment-${payment.id}`, type: 'payment_received',
       message: `Payment: ${payment.handler_name} - $${payment.amount}`,
-      timestamp: payment.payment_date || '',
+      timestamp: payment.created_at || '',
     }));
     recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 

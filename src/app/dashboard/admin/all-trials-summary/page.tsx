@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { localDateOnly } from '@/lib/dateOnly';
 
 interface ClassAggregate {
   class_name: string;
@@ -96,7 +97,7 @@ export default function AllTrialsSummaryPage() {
     );
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, sheet, 'Class Summary');
-    const date = new Date().toISOString().split('T')[0];
+    const date = localDateOnly();
     const clubSuffix =
       selectedClub !== 'all' ? `_${selectedClub.replace(/[^a-zA-Z0-9]/g, '_')}` : '';
     XLSX.writeFile(workbook, `All_Trials_Class_Summary${clubSuffix}_${date}.xlsx`);

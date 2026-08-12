@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { hasPermission } from '@/lib/permissions';
 import { PERMISSIONS } from '@/lib/constants';
+import { parseDateOnly } from '@/lib/dateOnly';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -473,7 +474,9 @@ function CreateRoundsPageContent() {
     if (!trial?.end_date) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return new Date(`${trial.end_date}T23:59:59`).getTime() < today.getTime();
+    const endDate = parseDateOnly(trial.end_date);
+    endDate.setHours(23, 59, 59, 999);
+    return endDate.getTime() < today.getTime();
   };
 
   const assignmentError = (status: ReturnType<typeof getJudgeAssignmentStatus>): string => {

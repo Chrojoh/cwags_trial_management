@@ -49,7 +49,7 @@ import {
 } from '@/lib/financialOperations';
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { localDateOnly } from '@/lib/dateOnly';
+import { dateOnlyValue, formatDateOnly, localDateOnly } from '@/lib/dateOnly';
 
 const supabase = getSupabaseBrowser();
 
@@ -336,7 +336,7 @@ export default function TrialFinancialsPage() {
     setEditPaymentAmount(payment.amount.toString());
     setEditPaymentMethod(payment.payment_method || '');
     setEditPaymentReceivedBy(payment.payment_received_by || '');
-    setEditPaymentDate(payment.payment_date || localDateOnly());
+    setEditPaymentDate(dateOnlyValue(payment.payment_date) || localDateOnly());
     setEditPaymentNotes(payment.notes || '');
     setShowEditPaymentModal(true);
   };
@@ -1548,7 +1548,7 @@ End of Report
                                     {payment.payment_received_by || '-'}
                                   </td>
                                   <td className="p-2 text-sm">
-                                    {new Date(payment.payment_date || '').toLocaleDateString()}
+                                    {formatDateOnly(payment.payment_date) || '-'}
                                   </td>
                                   <td
                                     className={`p-2 text-right font-mono ${isRefund ? 'text-purple-600' : 'text-green-600'}`}
@@ -2062,7 +2062,7 @@ End of Report
                     {selectedCompetitor.payment_history.map((payment, idx) => (
                       <div key={idx} className="text-xs text-gray-600 mb-1">
                         ${payment.amount.toFixed(2)} - {payment.payment_method} -{' '}
-                        {new Date(payment.payment_date || '').toLocaleDateString()}
+                        {formatDateOnly(payment.payment_date) || '-'}
                         {payment.payment_received_by && ` (by ${payment.payment_received_by})`}
                       </div>
                     ))}

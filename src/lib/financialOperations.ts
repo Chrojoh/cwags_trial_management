@@ -26,6 +26,7 @@ export interface TrialExpense {
 export interface PaymentTransaction {
   id?: string;
   entry_id: string;
+  created_at?: string;
   amount: number;
   payment_method?: string;
   payment_received_by?: string;
@@ -282,7 +283,7 @@ export const financialOperations = {
           // Sort payment history by date (newest first)
           group.payment_history.sort(
             (a: any, b: any) =>
-              new Date(b.payment_date || 0).getTime() - new Date(a.payment_date || 0).getTime()
+              String(b.payment_date || '').localeCompare(String(a.payment_date || ''))
           );
 
           return {

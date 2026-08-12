@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { localDateOnly } from '@/lib/dateOnly';
 import * as XLSX from 'xlsx';
 import {
   generateCloseToTitlesReport,
@@ -282,7 +283,7 @@ export default function CloseToTitlesReport({ trialId, trialName }: CloseToTitle
       }
 
       // Generate filename with date
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = localDateOnly();
       const filename = `Close-to-Titles-${report.trialName.replace(/[^a-z0-9]/gi, '-')}-${dateStr}.xlsx`;
 
       XLSX.writeFile(wb, filename);

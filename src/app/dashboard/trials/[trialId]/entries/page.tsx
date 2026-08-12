@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { financialOperations } from '@/lib/financialOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getDivisionColor } from '@/lib/divisionUtils';
+import { localDateOnly } from '@/lib/dateOnly';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -675,7 +676,7 @@ export default function TrialEntriesPage() {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Entries');
 
-      const filename = `${trial?.trial_name || 'trial'}_entries_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const filename = `${trial?.trial_name || 'trial'}_entries_${localDateOnly()}.xlsx`;
       XLSX.writeFile(workbook, filename);
     } catch (error) {
       console.error('Error exporting to Excel:', error);

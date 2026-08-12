@@ -257,9 +257,7 @@ export async function getDogTrialHistory(regNumber: string): Promise<TrialRecord
       .sort((a, b) => {
         // Sort by date descending (newest first)
         try {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
-          return dateB - dateA;
+          return String(b.date || '').localeCompare(String(a.date || ''));
         } catch {
           return 0;
         }
@@ -310,9 +308,7 @@ export function calculateTitleProgress(records: TrialRecord[]): TitleProgress[] 
     // Sort records by date (oldest first for calculation)
     const sortedRecords = [...levelRecords].sort((a, b) => {
       try {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return dateA - dateB;
+        return String(a.date || '').localeCompare(String(b.date || ''));
       } catch {
         return 0;
       }

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { formatCwagsNumber } from '@/lib/utils';
+import { localDateOnly } from '@/lib/dateOnly';
 
 interface RunDetail {
   trial_date: string;
@@ -113,7 +114,7 @@ export default function DogPerformanceHistory() {
     });
     const dog = performanceData.dog_info.dog_call_name.replace(/[^a-zA-Z0-9]/g, '_');
     const number = performanceData.dog_info.cwags_number.replace(/[^a-zA-Z0-9]/g, '_');
-    XLSX.writeFile(workbook, `Dog_Performance_${dog}_${number}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(workbook, `Dog_Performance_${dog}_${number}_${localDateOnly()}.xlsx`);
   };
 
   return (
