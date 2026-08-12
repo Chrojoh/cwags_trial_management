@@ -219,6 +219,7 @@ export default function PublicEntryForm() {
   });
 
   const [registryLoading, setRegistryLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [existingEntry, setExistingEntry] = useState<any>(null);
   const [cwagsInputValue, setCwagsInputValue] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
@@ -318,9 +319,10 @@ export default function PublicEntryForm() {
       // Perform the lookup
       await handleCwagsLookup(cleanedNumber);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Invalid C-WAGS number format",
-      );
+      const message =
+        err instanceof Error ? err.message : "Invalid C-WAGS number format";
+      setError(message);
+      setLookupError(message);
     }
   };
 
@@ -331,6 +333,7 @@ export default function PublicEntryForm() {
     setEditModeLoading(true);
     setRegistryVerification(null);
     setError(null);
+    setLookupError(null);
 
     try {
       console.log("Starting C-WAGS lookup for:", cwagsNumber);
@@ -540,11 +543,12 @@ export default function PublicEntryForm() {
       }
     } catch (error) {
       console.error("Error in C-WAGS lookup:", error);
-      setError(
+      const message =
         error instanceof Error
           ? error.message
-          : "Failed to lookup C-WAGS information",
-      );
+          : "Failed to lookup C-WAGS information";
+      setError(message);
+      setLookupError(message);
     } finally {
       setRegistryLoading(false);
       setEditModeLoading(false);
@@ -2212,6 +2216,7 @@ export default function PublicEntryForm() {
                 value={cwagsInputValue}
                 onChange={(e) => {
                   setCwagsInputValue(e.target.value.toUpperCase());
+                  setLookupError(null);
                   setRegistryVerification(null);
                   setExistingEntry(null);
                 }}
@@ -2228,6 +2233,7 @@ export default function PublicEntryForm() {
                 value={lookupEmail}
                 onChange={(e) => {
                   setLookupEmail(e.target.value);
+                  setLookupError(null);
                   setFormData((prev) => ({ ...prev, handler_email: e.target.value }));
                   setRegistryVerification(null);
                   setExistingEntry(null);
@@ -2239,19 +2245,24 @@ export default function PublicEntryForm() {
               <Button
                 onClick={handleCwagsSubmit}
                 disabled={registryLoading || !cwagsInputValue || !lookupEmail.trim()}
-                className="border-2 border-purple
-
--600 hover:bg-purple
-
--600 hover:text-white transition-colors"
+                className="border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 hover:text-white transition-colors disabled:opacity-70"
               >
                 {registryLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking...
+                  </span>
                 ) : (
                   "Lookup"
                 )}
               </Button>
             </div>
+            {lookupError && (
+              <Alert variant="destructive" className="mt-3">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{lookupError}</AlertDescription>
+              </Alert>
+            )}
             <p className="text-xs text-gray-500 mt-1">
               Existing entries are shown only when the registration number and email match.
             </p>
