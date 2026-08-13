@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/apiAuth';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 
 const inactive = new Set(['waitlisted', 'withdrawn']);
 const text = (value: unknown, max: number) =>
   typeof value === 'string' ? value.trim().slice(0, max) : '';
 const nameKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+const phoneKey = (value: string) => value.replace(/\D/g, '');
 const VERIFY_WINDOW_MS = 15 * 60 * 1000;
 const MAX_VERIFY_FAILURES = 5;
 
@@ -69,14 +70,17 @@ export async function GET(
 ) {
   try {
     const { trialId } = await params;
-    const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 32);
+    const pendingRegistration = request.nextUrl.searchParams.get('pending') === 'true';
+    const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 64);
     const submittedEmail = text(request.nextUrl.searchParams.get('email'), 254).toLowerCase();
-    if (!cwagsNumber || !submittedEmail) {
-      return NextResponse.json({ error: 'A registration number and email are required.' }, { status: 400 });
+    const submittedPhone = phoneKey(text(request.nextUrl.searchParams.get('phone'), 64));
+    const submittedDog = nameKey(text(request.nextUrl.searchParams.get('dog'), 120));
+    if ((!pendingRegistration && !cwagsNumber) || !submittedEmail || (pendingRegistration && (!submittedPhone || !submittedDog))) {
+      return NextResponse.json({ error: pendingRegistration ? 'Email, phone number, and dog name are required.' : 'A registration number and email are required.' }, { status: 400 });
     }
 
     const db = getServiceRoleClient();
-    const keyHash = verificationKey(request, trialId, cwagsNumber);
+    const keyHash = verificationKey(request, trialId, pendingRegistration ? `pending:${submittedEmail}` : cwagsNumber);
     const { data: limit, error: limitError } = await db
       .from('public_entry_verification_limits')
       .select('failed_attempts,window_started_at,blocked_until')
@@ -103,32 +107,35 @@ export async function GET(
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
-    const { data: entries, error: entryError } = await db
+    let entryQuery = db
       .from('entries')
       .select(`id,handler_name,dog_call_name,cwags_number,dog_breed,dog_sex,
         handler_email,handler_phone,emergency_contact,is_junior_handler,
-        waiver_accepted,close_to_titles,volunteer_preferences,entry_status,submitted_at`)
-      .eq('trial_id', trialId)
-      .eq('cwags_number', cwagsNumber)
-      .order('submitted_at', { ascending: false });
+        waiver_accepted,close_to_titles,volunteer_preferences,entry_status,submitted_at,registration_pending`)
+      .eq('trial_id', trialId);
+    entryQuery = pendingRegistration
+      ? entryQuery.eq('registration_pending', true)
+      : entryQuery.eq('cwags_number', cwagsNumber);
+    const { data: entries, error: entryError } = await entryQuery.order('submitted_at', { ascending: false });
     if (entryError) throw entryError;
 
-    const { data: registry, error: registryError } = await db
-      .from('cwags_registry')
-      .select('handler_name,dog_call_name,handler_email')
-      .eq('cwags_number', cwagsNumber)
-      .maybeSingle();
+    const { data: registry, error: registryError } = pendingRegistration
+      ? { data: null, error: null }
+      : await db.from('cwags_registry').select('handler_name,dog_call_name,handler_email').eq('cwags_number', cwagsNumber).maybeSingle();
     if (registryError) throw registryError;
 
     const registryEmailMatches =
       Boolean(submittedEmail) &&
       String(registry?.handler_email || '').trim().toLowerCase() === submittedEmail;
-    const verifiedEntries = (entries || []).filter(
-      (entry) =>
-        String(entry.handler_email || '').trim().toLowerCase() === submittedEmail ||
-        registryEmailMatches
-    );
-    if ((entries || []).length > 0 && verifiedEntries.length === 0) {
+    const candidateEntries = pendingRegistration
+      ? (entries || []).filter((entry) => nameKey(String(entry.dog_call_name || '')) === submittedDog)
+      : (entries || []);
+    const verifiedEntries = candidateEntries.filter((entry) => pendingRegistration
+      ? String(entry.handler_email || '').trim().toLowerCase() === submittedEmail &&
+        phoneKey(String(entry.handler_phone || '')) === submittedPhone &&
+        nameKey(String(entry.dog_call_name || '')) === submittedDog
+      : String(entry.handler_email || '').trim().toLowerCase() === submittedEmail || registryEmailMatches);
+    if (candidateEntries.length > 0 && verifiedEntries.length === 0) {
       const windowStart = limit?.window_started_at
         ? new Date(limit.window_started_at).getTime()
         : 0;
@@ -151,7 +158,7 @@ export async function GET(
         });
       if (recordError) throw recordError;
       return NextResponse.json(
-        { error: 'The registration number and email could not be verified.' },
+        { error: pendingRegistration ? 'The email, phone number, and dog name could not be verified.' : 'The registration number and email could not be verified.' },
         { status: 403 }
       );
     }
@@ -203,7 +210,11 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const cwagsNumber = text(body.cwags_number, 32);
+    const pendingRegistration = body.registration_pending === true;
+    const suppliedCwagsNumber = text(body.cwags_number, 64);
+    const cwagsNumber = pendingRegistration
+      ? (/^PENDING-[0-9a-f-]{36}$/i.test(suppliedCwagsNumber) ? suppliedCwagsNumber : `PENDING-${randomUUID()}`)
+      : suppliedCwagsNumber;
     const submittedHandler = text(body.handler_name, 160);
     const submittedDog = text(body.dog_call_name, 120);
     const roundIds = Array.isArray(body.selected_rounds)
@@ -233,11 +244,14 @@ export async function POST(
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
-    const { data: registry, error: registryError } = await db
-      .from('cwags_registry')
-      .select('handler_name,dog_call_name,handler_email')
-      .eq('cwags_number', cwagsNumber)
-      .maybeSingle();
+    const handlerEmail = text(body.handler_email, 254).toLowerCase();
+    const handlerPhone = text(body.handler_phone, 64);
+    if (pendingRegistration && (!handlerEmail || phoneKey(handlerPhone).length < 7)) {
+      return NextResponse.json({ error: 'Email and phone number are required while waiting for a C-WAGS number.' }, { status: 400 });
+    }
+    const { data: registry, error: registryError } = pendingRegistration
+      ? { data: null, error: null }
+      : await db.from('cwags_registry').select('handler_name,dog_call_name,handler_email').eq('cwags_number', cwagsNumber).maybeSingle();
     if (registryError) throw registryError;
     if (
       registry &&
@@ -267,12 +281,14 @@ export async function POST(
       return NextResponse.json({ error: 'One or more selected rounds are invalid.' }, { status: 400 });
     }
 
-    const { data: existingEntries, error: entryLookupError } = await db
+    let existingEntryQuery = db
       .from('entries')
       .select('id,entry_status,fees_waived,amount_paid,submitted_at,handler_email')
-      .eq('trial_id', trialId)
-      .eq('cwags_number', cwagsNumber)
-      .order('submitted_at', { ascending: true });
+      .eq('trial_id', trialId);
+    existingEntryQuery = pendingRegistration
+      ? existingEntryQuery.eq('registration_pending', true).eq('cwags_number', cwagsNumber)
+      : existingEntryQuery.eq('cwags_number', cwagsNumber);
+    const { data: existingEntries, error: entryLookupError } = await existingEntryQuery.order('submitted_at', { ascending: true });
     if (entryLookupError) throw entryLookupError;
     const primary = existingEntries?.[0] || null;
     const verificationEmail = text(body.verification_email, 254).toLowerCase();
@@ -283,11 +299,17 @@ export async function POST(
     const registryEmailMatches =
       Boolean(verificationEmail) &&
       String(registry?.handler_email || '').trim().toLowerCase() === verificationEmail;
-    if (
-      primary &&
-      !entryEmailMatches &&
-      !registryEmailMatches
-    ) {
+    if (primary && pendingRegistration) {
+      const { data: pendingIdentity, error: pendingIdentityError } = await db
+        .from('entries').select('handler_email,handler_phone,dog_call_name').eq('id', primary.id).single();
+      if (pendingIdentityError) throw pendingIdentityError;
+      const pendingVerified = String(pendingIdentity.handler_email || '').trim().toLowerCase() === verificationEmail &&
+        phoneKey(String(pendingIdentity.handler_phone || '')) === phoneKey(text(body.verification_phone, 64)) &&
+        nameKey(String(pendingIdentity.dog_call_name || '')) === nameKey(submittedDog);
+      if (!pendingVerified) {
+        return NextResponse.json({ error: 'The email, phone number, and dog name could not be verified.' }, { status: 403 });
+      }
+    } else if (primary && !entryEmailMatches && !registryEmailMatches) {
       return NextResponse.json(
         { error: 'The registration number and email could not be verified.' },
         { status: 403 }
@@ -412,6 +434,7 @@ export async function POST(
       // Waitlisting is tracked per round selection. The parent entry remains a
       // valid submitted entry even when every requested round is waitlisted.
       entry_status: 'submitted',
+      registration_pending: pendingRegistration,
     };
 
     let entryId: string;
@@ -596,6 +619,8 @@ export async function POST(
       waitlistedRoundIds: [...conflictIds],
       authoritativeHandlerName: handlerName,
       authoritativeDogCallName: dogCallName,
+      cwagsNumber,
+      registrationPending: pendingRegistration,
     });
   } catch (error) {
     console.error('Public entry transaction failed:', error);

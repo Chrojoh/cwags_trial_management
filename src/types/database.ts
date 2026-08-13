@@ -246,6 +246,7 @@ export interface Database {
           handler_name: string;
           dog_call_name: string;
           cwags_number: string | null;
+          registration_pending: boolean;
           dog_breed: string | null;
           dog_sex: string | null;
           handler_email: string;
@@ -270,6 +271,7 @@ export interface Database {
           handler_name: string;
           dog_call_name: string;
           cwags_number?: string | null;
+          registration_pending?: boolean;
           dog_breed?: string | null;
           dog_sex?: string | null;
           handler_email: string;
@@ -294,6 +296,7 @@ export interface Database {
           handler_name?: string;
           dog_call_name?: string;
           cwags_number?: string | null;
+          registration_pending?: boolean;
           dog_breed?: string | null;
           dog_sex?: string | null;
           handler_email?: string;

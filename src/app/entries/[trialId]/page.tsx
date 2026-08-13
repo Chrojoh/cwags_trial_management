@@ -224,6 +224,10 @@ export default function PublicEntryForm() {
   const [scoredRoundIds, setScoredRoundIds] = useState<Set<string>>(new Set());
   const [cwagsInputValue, setCwagsInputValue] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
+  const [registrationPending, setRegistrationPending] = useState(false);
+  const [pendingLookupPhone, setPendingLookupPhone] = useState("");
+  const [pendingLookupDog, setPendingLookupDog] = useState("");
+  const [receivedCwagsNumber, setReceivedCwagsNumber] = useState("");
   const [editModeLoading, setEditModeLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
@@ -564,7 +568,95 @@ export default function PublicEntryForm() {
     }
   };
 
+  const handlePendingRegistrationLookup = async () => {
+    if (!lookupEmail.trim() || !pendingLookupPhone.trim() || !pendingLookupDog.trim()) {
+      setLookupError("Enter your email, phone number, and dog's call name.");
+      return;
+    }
+    setRegistryLoading(true);
+    setEditModeLoading(true);
+    setError(null);
+    setLookupError(null);
+    try {
+      const response = await fetch(
+        `/api/public/trials/${trialId}/entries?pending=true&email=${encodeURIComponent(lookupEmail.trim())}&phone=${encodeURIComponent(pendingLookupPhone.trim())}&dog=${encodeURIComponent(pendingLookupDog.trim())}`,
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Pending entry lookup failed");
+      const entry = result.entries?.[0];
+      if (!entry) {
+        const pendingReference = `PENDING-${crypto.randomUUID()}`;
+        setExistingEntry(null);
+        setOriginalFormData(null);
+        setScoredRoundIds(new Set());
+        setRegistryVerification({ cwags_number: pendingReference, status: "new" });
+        setFormData((prev) => ({
+          ...prev,
+          cwags_number: pendingReference,
+          handler_email: lookupEmail.trim(),
+          handler_phone: pendingLookupPhone.trim(),
+          dog_call_name: pendingLookupDog.trim(),
+          selected_rounds: [], feo_selections: [], division_selections: {}, jump_height_selections: {},
+        }));
+        return;
+      }
+
+      setExistingEntry(entry);
+      const selections = result.selections || [];
+      const selectedRounds = selections.map((selection: any) => selection.trial_round_id);
+      const feoRounds = selections.filter((selection: any) => selection.entry_type === "feo").map((selection: any) => selection.trial_round_id);
+      const divisions: Record<string, string> = {};
+      const jumpHeights: Record<string, string> = {};
+      selections.forEach((selection: any) => {
+        if (selection.division) divisions[selection.trial_round_id] = selection.division;
+        if (selection.jump_height) jumpHeights[selection.trial_round_id] = selection.jump_height;
+      });
+      setScoredRoundIds(new Set(selections.filter((selection: any) => selection.has_score).map((selection: any) => selection.trial_round_id)));
+      setRegistryVerification({ cwags_number: entry.cwags_number, status: "existing", handler_name: entry.handler_name, dog_call_name: entry.dog_call_name });
+      const loaded: EntryFormData = {
+        handler_name: entry.handler_name || "", handler_email: entry.handler_email || lookupEmail.trim(),
+        handler_phone: entry.handler_phone || pendingLookupPhone.trim(), emergency_contact: entry.emergency_contact || "",
+        cwags_number: entry.cwags_number, dog_call_name: entry.dog_call_name || pendingLookupDog.trim(), dog_breed: entry.dog_breed || "",
+        dog_sex: entry.dog_sex || "", dog_dob: entry.dog_dob || "", is_junior_handler: entry.is_junior_handler || false,
+        selected_rounds: selectedRounds, feo_selections: feoRounds, division_selections: divisions,
+        waiver_accepted: true, jump_height_selections: jumpHeights, close_to_titles: entry.close_to_titles || "",
+        volunteer_preferences: entry.volunteer_preferences || {},
+      };
+      setOriginalFormData(loaded);
+      setFormData(loaded);
+    } catch (lookupFailure) {
+      const message = lookupFailure instanceof Error ? lookupFailure.message : "Unable to look up the entry";
+      setLookupError(message);
+      setError(message);
+    } finally {
+      setRegistryLoading(false);
+      setEditModeLoading(false);
+    }
+  };
+
+  const handleAssignOfficialNumber = async () => {
+    try {
+      const officialNumber = cleanCwagsNumber(receivedCwagsNumber);
+      const response = await fetch(`/api/public/trials/${trialId}/entries/pending-number`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pending_cwags_number: formData.cwags_number, official_cwags_number: officialNumber, email: lookupEmail, phone: pendingLookupPhone, dog_name: pendingLookupDog }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to save the C-WAGS number");
+      setRegistrationPending(false);
+      setCwagsInputValue(officialNumber);
+      setFormData((prev) => ({ ...prev, cwags_number: officialNumber }));
+      setRegistryVerification({ cwags_number: officialNumber, status: "existing", handler_name: formData.handler_name, dog_call_name: formData.dog_call_name });
+      setReceivedCwagsNumber("");
+      setLookupError(null);
+    } catch (assignError) {
+      const message = assignError instanceof Error ? assignError.message : "Unable to save the C-WAGS number";
+      setLookupError(message); setError(message);
+    }
+  };
+
   const saveToRegistry = async () => {
+    if (registrationPending) return;
     if (
       !formData.cwags_number ||
       !formData.handler_name ||
@@ -828,6 +920,17 @@ export default function PublicEntryForm() {
   };
 
   const validateRegistryIdentityBeforeSubmit = (): boolean => {
+    if (registrationPending) {
+      if (!registryVerification?.cwags_number?.startsWith("PENDING-")) {
+        setError("Use the Waiting for C-WAGS Number section before submitting.");
+        return false;
+      }
+      if (!formData.handler_name.trim() || !formData.dog_call_name.trim() || !formData.handler_email.trim() || !formData.handler_phone.trim()) {
+        setError("Handler name, dog name, email, and phone number are required.");
+        return false;
+      }
+      return true;
+    }
     let formattedNumber: string;
 
     try {
@@ -955,6 +1058,8 @@ export default function PublicEntryForm() {
         body: JSON.stringify({
           ...formData,
           verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
+          verification_phone: pendingLookupPhone.trim(),
+          registration_pending: registrationPending,
           handler_name: authoritativeHandlerName,
           dog_call_name: authoritativeDogCallName,
         }),
@@ -984,7 +1089,7 @@ export default function PublicEntryForm() {
 
       setFormData((prev) => ({
         ...prev,
-        cwags_number: registryVerification?.cwags_number || prev.cwags_number,
+        cwags_number: entryResult.cwagsNumber || registryVerification?.cwags_number || prev.cwags_number,
         handler_name: entryResult.authoritativeHandlerName || authoritativeHandlerName,
         dog_call_name: entryResult.authoritativeDogCallName || authoritativeDogCallName,
       }));
@@ -1747,7 +1852,7 @@ export default function PublicEntryForm() {
                   <strong>Dog:</strong> {formData.dog_call_name}
                 </div>
                 <div>
-                  <strong>C-WAGS Number:</strong> {formData.cwags_number}
+                  <strong>C-WAGS Number:</strong> {registrationPending ? "Waiting for number" : formData.cwags_number}
                 </div>
                 <div>
                   <strong>Total Classes:</strong>{" "}
@@ -2219,11 +2324,35 @@ export default function PublicEntryForm() {
               C-WAGS Number Lookup
             </CardTitle>
             <CardDescription>
-              Enter your C-WAGS number and the entry email to look up or edit an entry.
+              Start here. Use your official number, or choose the waiting option if C-WAGS has not issued it yet.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-blue-50 p-4 text-sm text-blue-950">
+              <p className="font-semibold">How to begin</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>If you have a C-WAGS number, enter it with the email previously used for that dog, then select <strong>Lookup</strong>.</li>
+                <li>If the number has not arrived, check <strong>Waiting for C-WAGS Number</strong>. Use the same email, phone number, and dog name whenever you return to edit this entry.</li>
+                <li>After lookup, complete the form, choose the rounds, accept the waiver, and submit.</li>
+              </ol>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border p-4">
+              <Checkbox
+                id="registration-pending"
+                checked={registrationPending}
+                onCheckedChange={(checked) => {
+                  const pending = checked === true;
+                  setRegistrationPending(pending);
+                  setLookupError(null); setError(null); setExistingEntry(null); setOriginalFormData(null); setRegistryVerification(null);
+                  setFormData((prev) => ({ ...prev, cwags_number: "", selected_rounds: [], feo_selections: [], division_selections: {}, jump_height_selections: {} }));
+                }}
+              />
+              <div>
+                <Label htmlFor="registration-pending" className="font-semibold">Waiting for C-WAGS Number</Label>
+                <p className="mt-1 text-xs text-gray-600">Choose this only if registration has been requested but the official number has not yet been issued.</p>
+              </div>
+            </div>
+            {!registrationPending ? <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <Input
                 placeholder="12-3456-78"
                 value={cwagsInputValue}
@@ -2269,16 +2398,26 @@ export default function PublicEntryForm() {
                   "Lookup"
                 )}
               </Button>
-            </div>
+            </div> : <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input type="email" placeholder="Email address" value={lookupEmail} onChange={(e) => { setLookupEmail(e.target.value); setFormData((prev) => ({ ...prev, handler_email: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
+                <Input type="tel" placeholder="Phone number" value={pendingLookupPhone} onChange={(e) => { setPendingLookupPhone(e.target.value); setFormData((prev) => ({ ...prev, handler_phone: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
+                <Input placeholder="Dog's call name" value={pendingLookupDog} onChange={(e) => { setPendingLookupDog(e.target.value); setFormData((prev) => ({ ...prev, dog_call_name: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
+              </div>
+              <Button onClick={handlePendingRegistrationLookup} disabled={registryLoading || !lookupEmail.trim() || !pendingLookupPhone.trim() || !pendingLookupDog.trim()} className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-70">
+                {registryLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Checking...</span> : "Continue or Find My Entry"}
+              </Button>
+              <p className="text-xs text-gray-600">For your privacy, email and phone must both match. Dog name helps select the right entry. Your temporary record is not added to the official C-WAGS registry.</p>
+            </div>}
             {lookupError && (
               <Alert variant="destructive" className="mt-3">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{lookupError}</AlertDescription>
               </Alert>
             )}
-            <p className="text-xs text-gray-500 mt-1">
+            {!registrationPending && <p className="text-xs text-gray-500 mt-1">
               Existing entries are shown only when the registration number and email match.
-            </p>
+            </p>}
             <p className="text-xs text-gray-500 mt-1">
               For privacy, repeated unsuccessful verification attempts temporarily pause lookup
               for that C-WAGS number from your current network. This does not lock your account
@@ -2292,6 +2431,16 @@ export default function PublicEntryForm() {
                   {existingEntry.dog_call_name}
                 </AlertDescription>
               </Alert>
+            )}
+            {registrationPending && existingEntry && (
+              <div className="rounded-lg border border-green-300 bg-green-50 p-4">
+                <p className="font-semibold text-green-900">Did your official number arrive?</p>
+                <p className="mt-1 text-xs text-green-900">Enter it here. This changes the existing entry; it does not create a second entry.</p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <Input placeholder="12-3456-78" value={receivedCwagsNumber} onChange={(e) => setReceivedCwagsNumber(e.target.value.toUpperCase())} />
+                  <Button type="button" variant="outline" onClick={handleAssignOfficialNumber} disabled={!receivedCwagsNumber.trim()}>Save Official Number</Button>
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
