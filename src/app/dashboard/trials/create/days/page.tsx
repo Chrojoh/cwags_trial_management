@@ -28,6 +28,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 
 interface TrialDay {
+  id?: string;
   trial_date: string;
   selected: boolean;
   max_entries: number;
@@ -50,6 +51,8 @@ function TrialDaysPageContent() {
   const [saving, setSaving] = useState(false);
   const [showAddDay, setShowAddDay] = useState(false);
   const [newDayDate, setNewDayDate] = useState('');
+  const [dateRange, setDateRange] = useState({ start_date: '', end_date: '' });
+  const [savingDateRange, setSavingDateRange] = useState(false);
 
   // Helper function to format dates WITHOUT timezone shift
   const formatDateForDisplay = (dateString: string): string => {
@@ -134,6 +137,7 @@ function TrialDaysPageContent() {
                 (existing: { trial_date: string }) => existing.trial_date === day.trial_date
               );
               if (existingDay) {
+                day.id = existingDay.id;
                 day.selected = true;
                 day.notes = existingDay.notes || '';
                 console.log(`Restored selection for ${day.trial_date}`);
@@ -145,6 +149,7 @@ function TrialDaysPageContent() {
               const existsInGenerated = days.find((d) => d.trial_date === existing.trial_date);
               if (!existsInGenerated) {
                 days.push({
+                  id: existing.id,
                   trial_date: existing.trial_date,
                   selected: true,
                   max_entries: trialData.max_entries_per_day || 50,
@@ -188,6 +193,10 @@ function TrialDaysPageContent() {
       if (result.success && result.data) {
         console.log('Trial data loaded:', result.data);
         setTrial(result.data);
+        setDateRange({
+          start_date: result.data.start_date || '',
+          end_date: result.data.end_date || '',
+        });
         await generateAvailableDays(result.data);
       } else {
         console.error('Failed to load trial:', result.error);
@@ -206,6 +215,45 @@ function TrialDaysPageContent() {
     loadTrialData();
   }, [loadTrialData]);
 
+  const handleDateRangeSave = async () => {
+    if (!trialId || !dateRange.start_date || !dateRange.end_date) {
+      setErrors(['Choose both a start date and an end date.']);
+      return;
+    }
+    if (dateRange.start_date > dateRange.end_date) {
+      setErrors(['The end date must be on or after the start date.']);
+      return;
+    }
+
+    try {
+      setSavingDateRange(true);
+      setErrors([]);
+      const { error } = await supabase
+        .from('trials')
+        .update({ start_date: dateRange.start_date, end_date: dateRange.end_date })
+        .eq('id', trialId);
+
+      if (error) throw new Error(error.message);
+
+      const updatedTrial = {
+        ...trial,
+        start_date: dateRange.start_date,
+        end_date: dateRange.end_date,
+      };
+      setTrial(updatedTrial);
+      await generateAvailableDays(updatedTrial);
+
+      const [year, month] = dateRange.start_date.split('-').map(Number);
+      setCurrentMonth(new Date(year, month - 1, 1, 12, 0, 0));
+    } catch (error) {
+      setErrors([
+        error instanceof Error ? error.message : 'Failed to update the trial date range.',
+      ]);
+    } finally {
+      setSavingDateRange(false);
+    }
+  };
+
   const handleDayToggle = (dayIndex: number) => {
     setTrialDays((prev) =>
       prev.map((day, index) => (index === dayIndex ? { ...day, selected: !day.selected } : day))
@@ -214,6 +262,22 @@ function TrialDaysPageContent() {
     if (errors.length > 0) {
       setErrors([]);
     }
+  };
+
+  const handleTrialDayDateChange = (dayIndex: number, trialDate: string) => {
+    if (trialDays.some((day, index) => index !== dayIndex && day.trial_date === trialDate)) {
+      setErrors(['Each trial day must have a unique date.']);
+      return;
+    }
+    setErrors([]);
+    setTrialDays((current) =>
+      current
+        .map((day, index) =>
+          index === dayIndex ? { ...day, trial_date: trialDate, isCustom: false } : day
+        )
+        .sort((left, right) => left.trial_date.localeCompare(right.trial_date))
+        .map((day, index) => ({ ...day, day_number: index + 1 }))
+    );
   };
 
   // NEW CALENDAR FUNCTIONS - ADD THESE
@@ -487,13 +551,12 @@ function TrialDaysPageContent() {
         throw new Error('Failed to fetch existing trial days');
       }
 
-      // Both CREATE and EDIT modes now use the same smart logic
-      const existingDayDates = new Set(existingDays?.map((d) => d.trial_date) || []);
-      const selectedDayDates = new Set(selectedDays.map((d) => d.trial_date));
-
-      const daysToAdd = selectedDays.filter((d) => !existingDayDates.has(d.trial_date));
-      const daysToRemove = existingDays?.filter((d) => !selectedDayDates.has(d.trial_date)) || [];
-      const daysToUpdate = selectedDays.filter((d) => existingDayDates.has(d.trial_date));
+      // Existing days retain their IDs when their dates change so linked classes,
+      // rounds, selections, scores, and entries stay attached.
+      const selectedExistingIds = new Set(selectedDays.flatMap((day) => (day.id ? [day.id] : [])));
+      const daysToAdd = selectedDays.filter((day) => !day.id);
+      const daysToRemove = existingDays?.filter((day) => !selectedExistingIds.has(day.id)) || [];
+      const daysToUpdate = selectedDays.filter((day) => day.id);
 
       console.log('Days to add:', daysToAdd.length);
       console.log('Days to remove:', daysToRemove.length);
@@ -541,15 +604,15 @@ function TrialDaysPageContent() {
         }
       }
 
-      // Update existing days (notes only, preserve day_number)
+      // Update existing days in place, including postponed dates.
       if (daysToUpdate.length > 0) {
         for (const day of daysToUpdate) {
-          const existing = existingDays?.find((d) => d.trial_date === day.trial_date);
+          const existing = existingDays?.find((d) => d.id === day.id);
           if (!existing) continue;
 
           const { error: updateError } = await supabase
             .from('trial_days')
-            .update({ notes: day.notes || '' })
+            .update({ trial_date: day.trial_date, notes: day.notes || '' })
             .eq('id', existing.id);
 
           if (updateError) {
@@ -683,6 +746,62 @@ function TrialDaysPageContent() {
             </div>
           </CardContent>
         </Card>
+
+        {isEditMode && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Edit Trial Date Range</CardTitle>
+              <CardDescription>
+                Expand or move the range for a postponed trial. Existing trial days, classes,
+                rounds, and entries stay attached.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="trial-start-date">Start Date</Label>
+                  <Input
+                    id="trial-start-date"
+                    type="date"
+                    value={dateRange.start_date}
+                    onChange={(event) =>
+                      setDateRange((current) => ({
+                        ...current,
+                        start_date: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="trial-end-date">End Date</Label>
+                  <Input
+                    id="trial-end-date"
+                    type="date"
+                    value={dateRange.end_date}
+                    onChange={(event) =>
+                      setDateRange((current) => ({
+                        ...current,
+                        end_date: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleDateRangeSave()}
+                disabled={
+                  savingDateRange ||
+                  (dateRange.start_date === trial.start_date &&
+                    dateRange.end_date === trial.end_date)
+                }
+              >
+                {savingDateRange ? 'Updating Range...' : 'Update Date Range'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Error Display */}
         {errors.length > 0 && (
@@ -844,6 +963,26 @@ function TrialDaysPageContent() {
                             </div>
 
                             <div className="space-y-2">
+                              {isEditMode && day.id && (
+                                <div>
+                                  <Label className="text-xs font-medium text-gray-700">
+                                    Trial day date
+                                  </Label>
+                                  <Input
+                                    type="date"
+                                    min={trial.start_date}
+                                    max={trial.end_date}
+                                    value={day.trial_date}
+                                    onChange={(event) =>
+                                      handleTrialDayDateChange(dayIndex, event.target.value)
+                                    }
+                                    className="mt-1"
+                                  />
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    Changing this keeps its entries, classes, and rounds attached.
+                                  </p>
+                                </div>
+                              )}
                               <div>
                                 <Label className="text-xs font-medium text-gray-700">
                                   Notes (optional)
