@@ -265,15 +265,23 @@ function TrialDaysPageContent() {
   };
 
   const handleTrialDayDateChange = (dayId: string, trialDate: string) => {
-    if (trialDays.some((day) => day.id !== dayId && day.trial_date === trialDate)) {
+    if (
+      trialDays.some(
+        (day) => day.selected && day.id !== dayId && day.trial_date === trialDate
+      )
+    ) {
       setErrors(['Each trial day must have a unique date.']);
       return;
     }
     setErrors([]);
     setTrialDays((current) =>
-      current.map((day) =>
-        day.id === dayId ? { ...day, trial_date: trialDate, isCustom: false } : day
-      )
+      current
+        .filter(
+          (day) => day.id || day.selected || day.trial_date !== trialDate
+        )
+        .map((day) =>
+          day.id === dayId ? { ...day, trial_date: trialDate, isCustom: false } : day
+        )
     );
   };
 
