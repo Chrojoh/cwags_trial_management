@@ -287,6 +287,8 @@ export default function PublicEntryForm() {
         }
       });
       setDayAcceptingStatus(dayStatus);
+      const firstAcceptingDay = Object.entries(dayStatus).find(([, accepting]) => accepting)?.[0];
+      if (firstAcceptingDay) setSelectedDayTab(firstAcceptingDay);
       console.log("Day accepting status:", dayStatus);
     } catch (err) {
       console.error("Error loading trial data:", err);
@@ -2730,7 +2732,9 @@ export default function PublicEntryForm() {
                   <div className="max-h-[600px] overflow-y-auto pr-2">
                     {Object.keys(roundsByDay)
                       .sort()
-                      .map((day) => (
+                      .map((day) => {
+                        const isDayAccepting = dayAcceptingStatus[parseInt(day)] ?? true;
+                        return (
                         <TabsContent key={day} value={day} className="mt-0">
                           <div className="space-y-3">
                             {roundsByDay[parseInt(day)].map((round) => {
@@ -2820,7 +2824,7 @@ export default function PublicEntryForm() {
                                               "regular",
                                             )
                                           }
-                                          disabled={isScored}
+                                          disabled={isScored || (!isDayAccepting && !isSelected)}
                                           className={`
                                           relative min-w-[140px] font-semibold transition-all duration-200
                                           ${
@@ -2861,7 +2865,10 @@ export default function PublicEntryForm() {
                                                 "feo",
                                               )
                                             }
-                                            disabled={isScored}
+                                            disabled={
+                                              isScored ||
+                                              (!isDayAccepting && !isSelected)
+                                            }
                                             className={`
                                             relative min-w-[140px] font-semibold transition-all duration-200
                                             ${
@@ -3019,7 +3026,8 @@ export default function PublicEntryForm() {
                             })}
                           </div>
                         </TabsContent>
-                      ))}
+                        );
+                      })}
                   </div>
                 </CardContent>
               </Card>

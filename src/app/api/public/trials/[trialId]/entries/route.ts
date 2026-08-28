@@ -267,7 +267,7 @@ export async function POST(
       .from('trial_rounds')
       .select(`id,round_number,max_entries,trial_classes!inner(
         class_name,entry_fee,feo_price,max_entries,games_subclass,
-        trial_days!inner(trial_id,day_number,trial_date)
+        trial_days!inner(trial_id,day_number,trial_date,is_accepting_entries)
       )`)
       .in('id', roundIds);
     if (roundsError) throw roundsError;
@@ -368,6 +368,29 @@ export async function POST(
           .in('entry_id', relatedIds)
       : { data: [], error: null };
     if (selectionsError) throw selectionsError;
+    const existingRoundIds = new Set(
+      (existingSelections || []).map((selection) => selection.trial_round_id),
+    );
+    const newlySelectedClosedRoundIds = validRounds
+      .filter((round) => {
+        const cls = Array.isArray(round.trial_classes)
+          ? round.trial_classes[0]
+          : round.trial_classes;
+        const day = Array.isArray(cls?.trial_days)
+          ? cls.trial_days[0]
+          : cls?.trial_days;
+        return day?.is_accepting_entries === false && !existingRoundIds.has(round.id);
+      })
+      .map((round) => round.id);
+    if (newlySelectedClosedRoundIds.length) {
+      return NextResponse.json(
+        {
+          error:
+            'Entries are closed for one or more selected trial days. Refresh the form and choose an open day.',
+        },
+        { status: 403 },
+      );
+    }
     const selectionIds = (existingSelections || []).map((selection) => selection.id);
     const { data: scoreRows, error: scoreError } = selectionIds.length
       ? await db.from('scores').select('entry_selection_id').in('entry_selection_id', selectionIds)
