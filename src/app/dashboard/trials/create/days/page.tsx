@@ -264,19 +264,16 @@ function TrialDaysPageContent() {
     }
   };
 
-  const handleTrialDayDateChange = (dayIndex: number, trialDate: string) => {
-    if (trialDays.some((day, index) => index !== dayIndex && day.trial_date === trialDate)) {
+  const handleTrialDayDateChange = (dayId: string, trialDate: string) => {
+    if (trialDays.some((day) => day.id !== dayId && day.trial_date === trialDate)) {
       setErrors(['Each trial day must have a unique date.']);
       return;
     }
     setErrors([]);
     setTrialDays((current) =>
-      current
-        .map((day, index) =>
-          index === dayIndex ? { ...day, trial_date: trialDate, isCustom: false } : day
-        )
-        .sort((left, right) => left.trial_date.localeCompare(right.trial_date))
-        .map((day, index) => ({ ...day, day_number: index + 1 }))
+      current.map((day) =>
+        day.id === dayId ? { ...day, trial_date: trialDate, isCustom: false } : day
+      )
     );
   };
 
@@ -941,7 +938,7 @@ function TrialDaysPageContent() {
                         );
                         return (
                           <div
-                            key={day.trial_date}
+                            key={day.id || day.trial_date}
                             className="border border-gray-200 rounded-lg p-3 hover:border-orange-300 transition-colors"
                           >
                             <div className="flex items-start justify-between mb-2">
@@ -974,7 +971,7 @@ function TrialDaysPageContent() {
                                     max={trial.end_date}
                                     value={day.trial_date}
                                     onChange={(event) =>
-                                      handleTrialDayDateChange(dayIndex, event.target.value)
+                                      handleTrialDayDateChange(day.id!, event.target.value)
                                     }
                                     className="mt-1"
                                   />
