@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getDivisionColor } from '@/lib/divisionUtils';
@@ -16,6 +16,7 @@ import {
 import { Save, Check } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { isAbsentSelection, isScorableSelection } from '@/lib/selectionStatus';
+import { calculatePlacements, validateManualPlacements } from '@/lib/placementUtils';
 
 interface ScoreEntryPageProps {
   selectedClass: any;
@@ -41,6 +42,7 @@ interface EntryScore {
   time_seconds: string;
   // Rally/Obedience fields
   numerical_score: string;
+  manual_placement: string;
   // Common
   pass_fail: string;
 }
@@ -73,6 +75,30 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
   const [saved, setSaved] = useState(false);
   const [scoreSheetType, setScoreSheetType] = useState<'scent' | 'rally_obedience' | 'games'>(
     'scent'
+  );
+
+  const placementDiscipline = useMemo<'rally' | 'obedience'>(() => {
+    const className = selectedClass?.class_name?.toLowerCase() || '';
+    const classType = selectedClass?.class_type?.toLowerCase() || '';
+    return classType === 'rally' || (!className.includes('obedience') && classType !== 'obedience')
+      ? 'rally'
+      : 'obedience';
+  }, [selectedClass]);
+
+  const placements = useMemo(
+    () =>
+      calculatePlacements(
+        entries.map((entry) => ({
+          id: entry.id,
+          division: entry.division,
+          entryType: entry.entry_type,
+          entryStatus: entry.entry_status,
+          passFail: entry.pass_fail,
+          numericalScore: entry.numerical_score,
+          tieBreakValue: entry.time_seconds ? displayToSeconds(entry.time_seconds) : null,
+        })),
+      ),
+    [entries],
   );
 
   useEffect(() => {
@@ -195,6 +221,12 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                 score.numerical_score !== null && score.numerical_score !== undefined
                   ? String(score.numerical_score)
                   : '',
+              manual_placement:
+                (selectedClass.class_type?.toLowerCase() === 'games' ||
+                  selectedClass.class_name?.toLowerCase().includes('games')) &&
+                score.numerical_score
+                  ? String(score.numerical_score)
+                  : '',
               pass_fail: passFail,
             });
           }
@@ -249,6 +281,21 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
     try {
       setSaving(true);
 
+      if (scoreSheetType === 'games') {
+        const placementError = validateManualPlacements(
+          entries.map((entry) => ({
+            id: entry.id,
+            placement: entry.manual_placement,
+            entryType: entry.entry_type,
+            division: entry.division,
+          })),
+        );
+        if (placementError) {
+          alert(placementError);
+          return;
+        }
+      }
+
       for (const entry of entries) {
         let scoreData: any = {};
 
@@ -273,6 +320,10 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
               : null;
           scoreData = {
             numerical_score: numScore,
+            time_seconds: (() => {
+              const raw = displayToSeconds(entry.time_seconds);
+              return raw && !isNaN(parseFloat(raw)) ? parseFloat(raw) : null;
+            })(),
             pass_fail: entry.pass_fail || null,
           };
         } else if (scoreSheetType === 'games') {
@@ -282,6 +333,9 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           }
           scoreData = {
             pass_fail: passFail,
+            numerical_score: entry.manual_placement
+              ? Number(entry.manual_placement)
+              : null,
           };
         }
 
@@ -345,11 +399,28 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             {selectedClass?.judge_name}
           </h2>
 
-          <p className="text-sm text-black-600 mb-5 italic">
-            The boxes for Scents, faults and time are provided for those who like to record
-            everything — the only field we <strong>need</strong> filled in is{' '}
-            <strong>Pass/Fail</strong>.
-          </p>
+          {scoreSheetType === 'scent' && (
+            <p className="text-sm text-black-600 mb-5 italic">
+              The boxes for Scents, faults and time are provided for those who like to record
+              everything — the only field we <strong>need</strong> filled in is{' '}
+              <strong>Pass/Fail</strong>.
+            </p>
+          )}
+          {scoreSheetType === 'rally_obedience' && (
+            <p className="text-sm text-gray-700 mb-5">
+              Placements are calculated separately for A, B, and Junior divisions. TO and FEO
+              entries are excluded.{' '}
+              {placementDiscipline === 'rally'
+                ? 'Enter course time to resolve equal scores; the fastest time places first.'
+                : 'When scores tie, run the level-specific tie-break exercise and enter 1 for the winner, 2 for the next team, and so on in Tie-break order.'}
+            </p>
+          )}
+          {scoreSheetType === 'games' && (
+            <p className="text-sm text-gray-700 mb-5">
+              Games are reported as Pass/Fail. If the premium offered placements, assign the
+              optional 1st–4th places using the host&apos;s published criteria.
+            </p>
+          )}
 
           <div className="border border-gray-300 overflow-x-auto">
             {scoreSheetType === 'scent' && (
@@ -493,7 +564,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                     <th className="border p-2 text-sm">C-WAGS #</th>
                     <th className="border p-2 text-sm">Dog / Handler</th>
                     <th className="border p-2 text-sm w-32">Score</th>
+                    <th className="border p-2 text-sm w-28">
+                      {placementDiscipline === 'rally' ? 'Time' : 'Tie-break order'}
+                    </th>
                     <th className="border p-2 text-sm w-24">Result</th>
+                    <th className="border p-2 text-sm w-24">Placement</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -565,10 +640,28 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                             disabled={entry.entry_type === 'feo' || isAbsent}
                           />
                         </td>
+                        <td className="border p-1 w-28">
+                          <Input
+                            value={entry.time_seconds}
+                            onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
+                            type={placementDiscipline === 'rally' ? 'text' : 'number'}
+                            min={placementDiscipline === 'obedience' ? 1 : undefined}
+                            className="w-full h-8 text-center text-sm"
+                            placeholder={placementDiscipline === 'rally' ? 'm:ss.cc' : 'Only for ties'}
+                            disabled={entry.entry_type === 'feo' || isAbsent}
+                          />
+                        </td>
                         <td className="border p-1 w-24">
                           <div className="h-8 flex items-center justify-center font-semibold">
                             {entry.pass_fail || '-'}
                           </div>
+                        </td>
+                        <td className="border p-1 w-24 text-center font-semibold">
+                          {placements.get(entry.id)?.tieUnresolved
+                            ? 'Tie'
+                            : placements.get(entry.id)?.placement
+                              ? `${placements.get(entry.id)?.placement}`
+                              : '—'}
                         </td>
                       </tr>
                     );
@@ -584,6 +677,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                     <th className="border p-2 text-sm">C-WAGS #</th>
                     <th className="border p-2 text-sm">Dog / Handler</th>
                     <th className="border p-2 text-sm w-32">Result</th>
+                    <th className="border p-2 text-sm w-28">Placement</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -658,6 +752,26 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                               </SelectContent>
                             </Select>
                           )}
+                        </td>
+                        <td className="border p-1 w-28">
+                          <Select
+                            value={entry.manual_placement || 'none'}
+                            onValueChange={(value) =>
+                              updateEntry(idx, 'manual_placement', value === 'none' ? '' : value)
+                            }
+                            disabled={entry.entry_type === 'feo' || entry.division === 'TO' || isAbsent}
+                          >
+                            <SelectTrigger className="h-8 bg-white">
+                              <SelectValue placeholder="Optional" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white">
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="1">1st</SelectItem>
+                              <SelectItem value="2">2nd</SelectItem>
+                              <SelectItem value="3">3rd</SelectItem>
+                              <SelectItem value="4">4th</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </td>
                       </tr>
                     );
