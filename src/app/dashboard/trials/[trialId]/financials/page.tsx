@@ -1862,10 +1862,10 @@ End of Report
               <CardContent>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <Label>Estimated Waived Regular Runs</Label>
+                    <Label>Estimated Number of Waived Regular Runs</Label>
                     <p className="text-xs text-gray-500 mb-1">
-                      Each waived run costs ${breakEvenData.regular_cwags_fee.toFixed(2)} in C-WAGS
-                      fees with no revenue
+                      Enter the number of runs only. The program calculates the dollar values using
+                      the regular entry fee and C-WAGS fee entered above.
                     </p>
                     <Input
                       type="number"
@@ -1881,13 +1881,32 @@ End of Report
                       placeholder="e.g. 10"
                     />
                     {(breakEvenData.waived_entry_fee || 0) > 0 && (
-                      <p className="text-xs text-red-600 mt-1">
-                        = $
-                        {(
-                          (breakEvenData.waived_entry_fee || 0) * breakEvenData.regular_cwags_fee
-                        ).toFixed(2)}{' '}
-                        C-WAGS burden with no revenue
-                      </p>
+                      <div className="mt-2 space-y-1 text-xs">
+                        <p className="text-gray-700">
+                          Entry fees waived:{' '}
+                          <strong>
+                            $
+                            {(
+                              (breakEvenData.waived_entry_fee || 0) *
+                              breakEvenData.regular_entry_fee
+                            ).toFixed(2)}
+                          </strong>{' '}
+                          ({breakEvenData.waived_entry_fee || 0} runs × $
+                          {breakEvenData.regular_entry_fee.toFixed(2)})
+                        </p>
+                        <p className="text-red-600">
+                          C-WAGS fees still owed:{' '}
+                          <strong>
+                            $
+                            {(
+                              (breakEvenData.waived_entry_fee || 0) *
+                              breakEvenData.regular_cwags_fee
+                            ).toFixed(2)}
+                          </strong>{' '}
+                          ({breakEvenData.waived_entry_fee || 0} runs × $
+                          {breakEvenData.regular_cwags_fee.toFixed(2)})
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
