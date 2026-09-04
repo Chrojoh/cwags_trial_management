@@ -60,6 +60,12 @@ export default function CloseToTitlesPage() {
           </Button>
         </div>
 
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <strong>Ribbon-planning guide only.</strong> This report estimates dogs close to titles from
+          the results currently available here. Results from other recent trials may not have arrived,
+          so it does not confirm eligibility or prevent an entry.
+        </div>
+
         {/* Report Component */}
         <CloseToTitlesReport trialId={trialId} trialName={trialName} />
       </div>

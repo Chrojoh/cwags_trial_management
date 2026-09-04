@@ -100,6 +100,7 @@ export default function TrialDetailPage() {
   const [trialDays, setTrialDays] = useState<TrialDay[]>([]);
   const [trialClasses, setTrialClasses] = useState<TrialClass[]>([]);
   const [trialRounds, setTrialRounds] = useState<TrialRound[]>([]);
+  const [entryCount, setEntryCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +162,11 @@ export default function TrialDetailPage() {
         console.warn('Failed to load trial rounds:', roundsResult.error);
       }
 
+      const entriesResult = await simpleTrialOperations.getTrialEntries(trialId);
+      if (!entriesResult.success) {
+        console.warn('Failed to load trial entry count:', entriesResult.error);
+      }
+
       setTrial(trialResult.data);
       setTrialDays(daysResult.data || []);
       const sortedClasses = (classesResult.data || []).sort((a: any, b: any) => {
@@ -175,6 +181,7 @@ export default function TrialDetailPage() {
 
       setTrialClasses(sortedClasses);
       setTrialRounds(roundsResult.data || []);
+      setEntryCount(entriesResult.success ? (entriesResult.data || []).length : 0);
 
       console.log('Trial data loaded successfully');
     } catch (err) {
@@ -239,6 +246,34 @@ export default function TrialDetailPage() {
     if (routes[editType as keyof typeof routes]) {
       router.push(routes[editType as keyof typeof routes]);
     }
+  };
+
+  const completeTrialWithReadinessCheck = async () => {
+    try {
+      const { data } = await getSupabaseBrowser().auth.getSession();
+      const token = data.session?.access_token || '';
+      const readinessResponse = await fetch(`/api/trials/${trialId}/closing-readiness`, { headers: { Authorization: `Bearer ${token}` } });
+      const readiness = await readinessResponse.json();
+      if (!readinessResponse.ok) throw new Error(readiness.error || 'Could not check closing readiness');
+      const issueText = [
+        `${readiness.issues.pendingRegistration} pending registration number(s)`,
+        `${readiness.issues.placeholderJudges} TBA/unassigned judge(s)`,
+        `${readiness.issues.missingScores} missing score(s)`,
+        `${readiness.issues.outstandingBalances} outstanding balance(s)`,
+      ].join('\n');
+      let overrideReason = '';
+      if (!readiness.ready) {
+        overrideReason = prompt(`Closing checklist:\n${issueText}\n\nItems remain. Enter the reason for overriding the checklist:`) || '';
+        if (!overrideReason.trim()) return;
+      } else if (!confirm(`Closing checklist is clear:\n${issueText}\n\nMark this trial as Completed?`)) return;
+      const response = await fetch(`/api/trials/${trialId}/closing-readiness`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ overrideReason }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Failed to complete trial');
+      alert('Trial marked as Completed. The closing checklist was saved in the Activity Journal.');
+      loadTrialData();
+    } catch (error) { alert(error instanceof Error ? error.message : 'Failed to complete trial'); }
   };
 
   const getStatusColor = (status: string) => {
@@ -889,20 +924,7 @@ export default function TrialDetailPage() {
                             size="sm"
                             variant="outline"
                             className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                            onClick={async () => {
-                              if (confirm('Mark this trial as Completed?')) {
-                                const result = await simpleTrialOperations.updateTrialStatus(
-                                  trialId,
-                                  'completed'
-                                );
-                                if (result.success) {
-                                  alert('Trial marked as Completed!');
-                                  loadTrialData();
-                                } else {
-                                  alert('Error updating status');
-                                }
-                              }
-                            }}
+                            onClick={completeTrialWithReadinessCheck}
                           >
                             Mark Completed
                           </Button>
@@ -920,7 +942,7 @@ export default function TrialDetailPage() {
                           onClick={() => router.push(`/dashboard/trials/${trialId}/entries`)}
                         >
                           <Users className="h-4 w-4 mr-2" />
-                          Manage Entries (0 entries)
+                          Manage Entries ({entryCount} {entryCount === 1 ? 'entry' : 'entries'})
                         </Button>
                         <div className="mt-4 mb-4">
                           <ShareableEntryLink

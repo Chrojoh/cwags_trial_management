@@ -98,6 +98,7 @@ interface TrialMetrics {
     currentNetIncome: number;
     breakEvenRuns: number;
     paidRunsNeeded: number;
+    isConfigured: boolean;
     isProfitable: boolean;
     progressPercent: number;
   } | null;
@@ -389,6 +390,10 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
         const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
 
+        const isConfigured =
+          Number(breakEvenConfig.regular_entry_fee) > 0 &&
+          Number(breakEvenConfig.regular_cwags_fee) > 0;
+
         breakEvenAnalysis = {
           totalFixedCosts,
           cwagsExpense, // Track C-WAGS separately for display
@@ -404,7 +409,8 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           currentNetIncome,
           breakEvenRuns,
           paidRunsNeeded,
-          isProfitable: currentNetIncome >= 0,
+          isConfigured,
+          isProfitable: isConfigured && currentNetIncome >= 0,
           progressPercent:
             breakEvenRuns > 0
               ? Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))
@@ -1251,7 +1257,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           {metrics.breakEvenAnalysis && (
             <Card
               className={
-                metrics.breakEvenAnalysis.isProfitable
+                !metrics.breakEvenAnalysis.isConfigured
+                  ? 'border-gray-300 bg-gray-50'
+                  : metrics.breakEvenAnalysis.isProfitable
                   ? 'border-green-300 bg-green-50'
                   : 'border-orange-300 bg-orange-50'
               }
@@ -1273,7 +1281,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                     <p
                       className={`font-semibold ${metrics.breakEvenAnalysis.isProfitable ? 'text-green-800' : 'text-orange-800'}`}
                     >
-                      {metrics.breakEvenAnalysis.isProfitable ? (
+                      {!metrics.breakEvenAnalysis.isConfigured ? (
+                        <>Not configured — enter the regular entry fee and C-WAGS fee.</>
+                      ) : metrics.breakEvenAnalysis.isProfitable ? (
                         <>
                           ✓ Profitable! $
                           {Math.abs(metrics.breakEvenAnalysis.currentNetIncome).toFixed(2)} above

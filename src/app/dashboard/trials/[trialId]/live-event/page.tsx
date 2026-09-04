@@ -998,6 +998,27 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
   };
 
   const updateEntryField = async (entryId: string, field: string, value: string | number) => {
+    if (field === 'entry_type') {
+      try {
+        setSaving(true);
+        const { data } = await supabase.auth.getSession();
+        const response = await fetch(`/api/trials/${trialId}/entry-operations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token || ''}` },
+          body: JSON.stringify({ operation: 'entry_type', selectionId: entryId, entryType: value }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to change entry type');
+        await loadClassEntries();
+        return;
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Failed to change entry type');
+        await loadClassEntries();
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
     // Update local state immediately
     setClassEntries((prev) =>
       prev.map((entry) => (entry.id === entryId ? { ...entry, [field]: value } : entry))
@@ -1140,6 +1161,31 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       }
     }
 
+    try {
+      setSaving(true);
+      const { data } = await supabase.auth.getSession();
+      const response = await fetch(`/api/trials/${trialId}/entry-operations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session?.access_token || ''}` },
+        body: JSON.stringify({ operation: 'substitute', selectionId: entrySelectionId, cwagsNumber: formattedNewCwags }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || 'Failed to substitute dog');
+      await loadClassEntries();
+      await loadAllClassCounts();
+      setSubstitutingEntryId(null);
+      setNewCwagsNumber('');
+      alert(`Substitution complete. The round now belongs to ${payload.result?.dogName || formattedNewCwags}.`);
+      return;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to substitute dog');
+      alert('Error: ' + (error instanceof Error ? error.message : 'Failed to substitute dog'));
+      return;
+    } finally {
+      setSaving(false);
+    }
+
+    /* Legacy multi-write implementation retained temporarily for rollback reference.
     try {
       setSaving(true);
       console.log('🔄 Starting dog substitution...');
@@ -1499,9 +1545,16 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
     } finally {
       setSaving(false);
     }
+    */
   };
   const saveScore = async (entrySelectionId: string) => {
     if (!selectedClass) return;
+
+    const judgeName = selectedClass.judge_name?.trim();
+    if (!judgeName || ['TBA', 'TBD', 'NO JUDGE ASSIGNED'].includes(judgeName.toUpperCase())) {
+      setError('Assign the confirmed judge before entering scores for this round.');
+      return;
+    }
 
     try {
       setSavingScore(true);
@@ -1866,6 +1919,12 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
 
   const saveAllScores = async () => {
     if (!selectedClass) return;
+
+    const judgeName = selectedClass.judge_name?.trim();
+    if (!judgeName || ['TBA', 'TBD', 'NO JUDGE ASSIGNED'].includes(judgeName.toUpperCase())) {
+      setError('Assign the confirmed judge before entering scores for this round.');
+      return;
+    }
 
     try {
       setSaving(true);

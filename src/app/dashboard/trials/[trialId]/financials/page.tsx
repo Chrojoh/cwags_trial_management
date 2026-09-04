@@ -1929,7 +1929,10 @@ End of Report
                   );
                   const currentRevenue = totalPaidRuns * netPerRun;
                   const currentNetIncome = currentRevenue - totalTocover;
-                  const isProfitable = currentNetIncome >= 0;
+                  const isConfigured =
+                    Number(breakEvenData.regular_entry_fee) > 0 &&
+                    Number(breakEvenData.regular_cwags_fee) > 0;
+                  const isProfitable = isConfigured && currentNetIncome >= 0;
 
                   return (
                     <div className="space-y-4">
@@ -1997,7 +2000,9 @@ End of Report
                             : 'border-orange-300 bg-orange-50'
                         }
                       >
-                        {isProfitable ? (
+                        {!isConfigured ? (
+                          <AlertCircle className="h-4 w-4 text-gray-600" />
+                        ) : isProfitable ? (
                           <CheckCircle className="h-4 w-4 text-green-600" />
                         ) : (
                           <AlertCircle className="h-4 w-4 text-orange-600" />
@@ -2005,7 +2010,11 @@ End of Report
                         <AlertDescription
                           className={isProfitable ? 'text-green-800' : 'text-orange-800'}
                         >
-                          {isProfitable ? (
+                          {!isConfigured ? (
+                            <span className="font-semibold">
+                              Not configured — enter the regular entry fee and C-WAGS fee.
+                            </span>
+                          ) : isProfitable ? (
                             <span className="font-semibold">
                               ✓ Profitable! You are ${currentNetIncome.toFixed(2)} above break-even
                               with {totalPaidRuns} paid runs.
