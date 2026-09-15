@@ -19,9 +19,27 @@ export async function POST(
       return NextResponse.json({ error: 'Deletion confirmation and at least one entry are required.' }, { status: 400 });
     }
 
-    const { data, error } = await getServiceRoleClient().rpc('delete_trial_entries_atomic', {
+    const service = getServiceRoleClient();
+    const { data: existingEntries, error: lookupError } = await service
+      .from('entries')
+      .select('id')
+      .eq('trial_id', trialId)
+      .in('id', entryIds);
+    if (lookupError) throw lookupError;
+
+    const existingEntryIds = (existingEntries || []).map((entry) => entry.id);
+    // Treat a repeated request as success. This can happen if a user double-clicks
+    // while the first request is completing, and deletion is already complete.
+    if (existingEntryIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        result: { deleted_entries: 0, already_deleted: true },
+      });
+    }
+
+    const { data, error } = await service.rpc('delete_trial_entries_atomic', {
       p_trial_id: trialId,
-      p_entry_ids: entryIds,
+      p_entry_ids: existingEntryIds,
       p_changed_by: auth.userId,
     });
     if (error?.message.includes('ENTRY_NOT_FOUND')) {

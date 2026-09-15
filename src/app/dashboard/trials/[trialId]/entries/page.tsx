@@ -3,7 +3,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import MainLayout from '@/components/layout/mainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -191,6 +191,7 @@ export default function TrialEntriesPage() {
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingEntry, setDeletingEntry] = useState(false);
+  const deleteRequestInFlight = useRef(false);
 
   // NEW: State for tracking expanded entries
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -230,8 +231,9 @@ export default function TrialEntriesPage() {
   };
 
   const deleteEntryPermanently = async () => {
-    if (!deleteTarget || deleteConfirmation !== 'DELETE') return;
+    if (!deleteTarget || deleteConfirmation !== 'DELETE' || deleteRequestInFlight.current) return;
     try {
+      deleteRequestInFlight.current = true;
       setDeletingEntry(true);
       const { data, error: sessionError } = await supabase.auth.getSession();
       const token = data.session?.access_token;
@@ -255,6 +257,7 @@ export default function TrialEntriesPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete entry.');
     } finally {
+      deleteRequestInFlight.current = false;
       setDeletingEntry(false);
     }
   };
@@ -1201,7 +1204,7 @@ export default function TrialEntriesPage() {
         </Card>
 
         <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && closeDeleteDialog()}>
-          <DialogContent>
+          <DialogContent className="bg-white">
             <DialogHeader>
               <DialogTitle className="text-red-700">
                 {deleteStep === 1 ? 'Delete this entry?' : 'Final deletion confirmation'}
@@ -1233,6 +1236,7 @@ export default function TrialEntriesPage() {
                   onChange={(event) => setDeleteConfirmation(event.target.value.toUpperCase())}
                   autoComplete="off"
                   disabled={deletingEntry}
+                  className="bg-white"
                 />
               </div>
             )}
