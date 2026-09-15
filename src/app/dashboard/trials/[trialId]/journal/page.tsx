@@ -24,6 +24,7 @@ interface JournalEntry {
   timestamp: string;
   type:
     | 'entry_created'
+    | 'entry_deleted'
     | 'entry_modified'
     | 'payment_received'
     | 'entry_withdrawn'
@@ -124,6 +125,7 @@ export default function TrialJournalPage() {
           .eq('trial_id', trialId)
           .in('activity_type', [
             'entry_submitted',
+            'entry_deleted',
             'entry_modified',
             'fees_waived',
             'fees_unwaived',
@@ -169,6 +171,32 @@ export default function TrialJournalPage() {
             amount: snapshot.total_fee || 0,
             entry_id: activity.entry_id,
             snapshot: snapshot, // Store snapshot for modal
+          });
+        } else if (activity.activity_type === 'entry_deleted') {
+          const deletedEntries = Array.isArray(snapshot.entries) ? snapshot.entries : [];
+          const deletedEntry = deletedEntries[0] || {};
+          const deletedCount = Number(snapshot.entry_count || deletedEntries.length || 1);
+          const totalFee = deletedEntries.reduce(
+            (sum: number, item: any) => sum + Number(item.total_fee || 0),
+            0
+          );
+
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'entry_deleted',
+            handler_name: deletedEntry.handler_name || 'Unknown',
+            dog_call_name: deletedEntry.dog_call_name || 'Unknown',
+            cwags_number: deletedEntry.cwags_number || 'Unknown',
+            description: `${deletedEntry.dog_call_name || 'Entry'} was permanently deleted by ${activity.user_name || 'Unknown user'}${deletedCount > 1 ? ` (${deletedCount} linked entry records)` : ''}`,
+            amount: totalFee,
+            snapshot: {
+              ...deletedEntry,
+              classes: snapshot.selections || [],
+              deletion_snapshot: snapshot,
+              deleted_by: activity.user_name || 'Unknown user',
+              deleted_entry_count: deletedCount,
+            },
           });
         } else if (activity.activity_type === 'entry_modified') {
           const snapshot = activity.snapshot_data || {};
@@ -717,6 +745,8 @@ export default function TrialJournalPage() {
     switch (type) {
       case 'entry_created':
         return <UserPlus className="h-5 w-5 text-blue-600" />;
+      case 'entry_deleted':
+        return <Trash2 className="h-5 w-5 text-red-700" />;
       case 'entry_modified':
       case 'entry_edited':
         return <FileEdit className="h-5 w-5 text-orange-600" />;
@@ -755,6 +785,8 @@ export default function TrialJournalPage() {
     switch (type) {
       case 'entry_created':
         return 'bg-blue-100 text-blue-800';
+      case 'entry_deleted':
+        return 'bg-red-100 text-red-900';
       case 'entry_modified':
       case 'entry_edited':
         return 'bg-orange-100 text-orange-800';
@@ -915,6 +947,7 @@ export default function TrialJournalPage() {
             >
               <option value="all">All Types</option>
               <option value="entry_created">Entries Created</option>
+              <option value="entry_deleted">Entries Deleted</option>
               <option value="entry_modified">Entries Modified</option>
               <option value="entry_edited">Entry Detail Edits</option>
               <option value="dog_substituted">Dog Substitutions</option>
