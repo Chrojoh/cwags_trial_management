@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/apiAuth';
 import { createHash, randomUUID } from 'crypto';
+import { getEffectiveEntryStatus } from '@/lib/entryWindow';
 
 const inactive = new Set(['waitlisted', 'withdrawn']);
 const text = (value: unknown, max: number) =>
@@ -98,12 +99,12 @@ export async function GET(
     }
     const { data: trial, error: trialError } = await db
       .from('trials')
-      .select('id,entry_status')
+      .select('id,entry_status,entry_open_at')
       .eq('id', trialId)
       .maybeSingle();
     if (trialError) throw trialError;
     if (!trial) return NextResponse.json({ error: 'Trial not found.' }, { status: 404 });
-    if (trial.entry_status !== 'open') {
+    if (getEffectiveEntryStatus(trial) !== 'open') {
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
@@ -235,12 +236,12 @@ export async function POST(
 
     const { data: trial, error: trialError } = await db
       .from('trials')
-      .select('id,entry_status')
+      .select('id,entry_status,entry_open_at')
       .eq('id', trialId)
       .maybeSingle();
     if (trialError) throw trialError;
     if (!trial) return NextResponse.json({ error: 'Trial not found.' }, { status: 404 });
-    if (trial.entry_status !== 'open') {
+    if (getEffectiveEntryStatus(trial) !== 'open') {
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 

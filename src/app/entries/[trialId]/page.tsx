@@ -50,6 +50,7 @@ import {
   isBillableSelection,
   NON_ACTIVE_SELECTION_STATUSES_FILTER,
 } from "@/lib/selectionStatus";
+import { formatEntryCountdown } from "@/lib/entryWindow";
 
 // ============================================
 // INTERFACES
@@ -66,6 +67,8 @@ interface Trial {
   secretary_email: string;
   waiver_text: string;
   entries_open: boolean;
+  entry_open_at?: string | null;
+  entry_timezone?: string | null;
 }
 
 interface TrialRound {
@@ -238,6 +241,21 @@ export default function PublicEntryForm() {
     useState<EntryFormData | null>(null);
   const [registryVerification, setRegistryVerification] =
     useState<RegistryLookupVerification | null>(null);
+  const [countdownNow, setCountdownNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (trial?.entry_status !== "draft" || !trial.entry_open_at) return;
+    const openingTime = new Date(trial.entry_open_at).getTime();
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setCountdownNow(current);
+      if (current >= openingTime) {
+        window.clearInterval(timer);
+        void loadTrialData();
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [trial?.entry_status, trial?.entry_open_at]);
 
   // ============================================
   // LOAD TRIAL DATA
@@ -1645,6 +1663,26 @@ export default function PublicEntryForm() {
                 or contact the trial secretary for more information.
               </AlertDescription>
             </Alert>
+            {trial.entry_open_at && new Date(trial.entry_open_at).getTime() > countdownNow && (
+              <div className="rounded-lg border border-blue-200 bg-white p-5 space-y-2">
+                <p className="text-sm text-gray-600">Entries open in</p>
+                <p className="text-3xl font-bold tabular-nums text-blue-700">
+                  {formatEntryCountdown(new Date(trial.entry_open_at).getTime() - countdownNow)}
+                </p>
+                <p className="text-sm text-gray-700">
+                  {new Intl.DateTimeFormat("en-CA", {
+                    timeZone: trial.entry_timezone || "America/Edmonton",
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    timeZoneName: "short",
+                  }).format(new Date(trial.entry_open_at))}
+                </p>
+              </div>
+            )}
             <p className="text-gray-600">
               This page will be updated once registration opens.
             </p>

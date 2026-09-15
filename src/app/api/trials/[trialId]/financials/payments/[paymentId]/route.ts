@@ -11,8 +11,8 @@ export async function PATCH(
     if (!auth.authorized) return auth.response;
     const body = await request.json();
     const amount = Number(body.amount);
-    if (!Number.isFinite(amount) || amount === 0) {
-      return NextResponse.json({ error: 'A non-zero payment amount is required' }, { status: 400 });
+    if (!Number.isFinite(amount)) {
+      return NextResponse.json({ error: 'A valid payment amount is required' }, { status: 400 });
     }
 
     const supabase = getServiceRoleClient();

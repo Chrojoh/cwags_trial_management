@@ -58,6 +58,8 @@ export interface Database {
           premium_published: boolean;
           entries_open: boolean;
           entries_close_date: string | null;
+          entry_open_at: string | null;
+          entry_timezone: string;
           max_entries_per_day: number;
           trial_secretary: string;
           secretary_email: string;
@@ -80,6 +82,8 @@ export interface Database {
           premium_published?: boolean;
           entries_open?: boolean;
           entries_close_date?: string | null;
+          entry_open_at?: string | null;
+          entry_timezone?: string;
           max_entries_per_day?: number;
           trial_secretary: string;
           secretary_email: string;
@@ -102,6 +106,8 @@ export interface Database {
           premium_published?: boolean;
           entries_open?: boolean;
           entries_close_date?: string | null;
+          entry_open_at?: string | null;
+          entry_timezone?: string;
           max_entries_per_day?: number;
           trial_secretary?: string;
           secretary_email?: string;

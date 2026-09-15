@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getServiceRoleClient } from '@/lib/apiAuth'
+import { getEffectiveEntryStatus } from '@/lib/entryWindow'
 
 // This endpoint is PUBLIC - no authentication required
 export async function GET(
@@ -26,7 +27,11 @@ export async function GET(
       if (!publicPayload) {
         return NextResponse.json({ error: 'Trial not found' }, { status: 404 })
       }
-      return NextResponse.json(publicPayload)
+      const payload = publicPayload as any
+      if (payload?.trial) {
+        payload.trial.entry_status = getEffectiveEntryStatus(payload.trial)
+      }
+      return NextResponse.json(payload)
     }
 
     // Temporary compatibility path while the additive RPC migration is being
@@ -40,7 +45,7 @@ export async function GET(
     const { data: trial, error: trialError } = await db
       .from('trials')
       .select(`id,trial_name,club_name,location,start_date,end_date,entries_open,
-        entries_close_date,entry_status,trial_secretary,secretary_email,
+        entries_close_date,entry_status,entry_open_at,entry_timezone,trial_secretary,secretary_email,
         secretary_phone,default_entry_fee,default_feo_price,waiver_text`)
       .eq('id', trialId)
       .maybeSingle()
@@ -77,6 +82,8 @@ export async function GET(
       entries_open: trial.entries_open,
       entries_close_date: trial.entries_close_date,
       entry_status: trial.entry_status,
+      entry_open_at: trial.entry_open_at,
+      entry_timezone: trial.entry_timezone,
       trial_secretary: trial.trial_secretary,
       secretary_email: trial.secretary_email,
       secretary_phone: trial.secretary_phone,
@@ -86,7 +93,7 @@ export async function GET(
     }
 
     return NextResponse.json({
-      trial: publicTrial,
+      trial: { ...publicTrial, entry_status: getEffectiveEntryStatus(publicTrial) },
       rounds: sortedRounds
     })
   } catch (error) {

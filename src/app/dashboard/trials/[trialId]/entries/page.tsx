@@ -10,12 +10,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { calculateBalance } from '@/lib/financialUtils';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { financialOperations } from '@/lib/financialOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { getDivisionColor } from '@/lib/divisionUtils';
 import { localDateOnly } from '@/lib/dateOnly';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +49,7 @@ import {
   ChevronUp,
   CheckCircle,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { simpleTrialOperations, type EntryData } from '@/lib/trialOperationsSimple';
 import { isBillableSelection, isWaitlistedSelection } from '@/lib/selectionStatus';
@@ -177,6 +187,10 @@ export default function TrialEntriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [promotingSelectionId, setPromotingSelectionId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GroupedEntry | null>(null);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletingEntry, setDeletingEntry] = useState(false);
 
   // NEW: State for tracking expanded entries
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
@@ -206,6 +220,43 @@ export default function TrialEntriesPage() {
       }
       return newSet;
     });
+  };
+
+  const closeDeleteDialog = () => {
+    if (deletingEntry) return;
+    setDeleteTarget(null);
+    setDeleteStep(1);
+    setDeleteConfirmation('');
+  };
+
+  const deleteEntryPermanently = async () => {
+    if (!deleteTarget || deleteConfirmation !== 'DELETE') return;
+    try {
+      setDeletingEntry(true);
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+
+      const response = await fetch(`/api/trials/${trialId}/entries/delete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entryIds: deleteTarget.entry_ids,
+          confirmation: deleteConfirmation,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to delete entry.');
+
+      setDeleteTarget(null);
+      setDeleteStep(1);
+      setDeleteConfirmation('');
+      await loadTrialAndEntries();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete entry.');
+    } finally {
+      setDeletingEntry(false);
+    }
   };
 
   const loadTrialAndEntries = async () => {
@@ -1023,6 +1074,19 @@ export default function TrialEntriesPage() {
                             <Edit className="h-4 w-4 mr-1" />
                             Edit Entry
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDeleteTarget(entry);
+                              setDeleteStep(1);
+                              setDeleteConfirmation('');
+                            }}
+                            className="text-red-700 border-red-300 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Delete Entry
+                          </Button>
                         </div>
                       </div>
 
@@ -1135,6 +1199,61 @@ export default function TrialEntriesPage() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && closeDeleteDialog()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-red-700">
+                {deleteStep === 1 ? 'Delete this entry?' : 'Final deletion confirmation'}
+              </DialogTitle>
+              <DialogDescription>
+                {deleteStep === 1
+                  ? 'This permanently removes the entry and its class selections, scores, and payment records.'
+                  : 'This cannot be undone. A historical deletion record will remain in the Activity Journal.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {deleteTarget && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-1">
+                <p className="font-semibold">{deleteTarget.handler_name} • {deleteTarget.dog_call_name}</p>
+                <p className="text-sm">C-WAGS: {deleteTarget.cwags_number}</p>
+                <p className="text-sm">{deleteTarget.entry_selections.length} class selection(s)</p>
+                <p className="text-sm">Paid: {formatCurrency(deleteTarget.amount_paid)}</p>
+              </div>
+            )}
+
+            {deleteStep === 2 && (
+              <div className="space-y-2">
+                <Label htmlFor="delete-confirmation">
+                  Type <strong>DELETE</strong> to confirm
+                </Label>
+                <Input
+                  id="delete-confirmation"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value.toUpperCase())}
+                  autoComplete="off"
+                  disabled={deletingEntry}
+                />
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={closeDeleteDialog} disabled={deletingEntry}>Cancel</Button>
+              {deleteStep === 1 ? (
+                <Button variant="destructive" onClick={() => setDeleteStep(2)}>Continue</Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  onClick={deleteEntryPermanently}
+                  disabled={deleteConfirmation !== 'DELETE' || deletingEntry}
+                >
+                  {deletingEntry ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                  Permanently Delete Entry
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

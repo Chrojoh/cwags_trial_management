@@ -343,8 +343,8 @@ export default function TrialFinancialsPage() {
   };
 
   const updatePayment = async () => {
-    if (!editingPayment || !editPaymentAmount || parseFloat(editPaymentAmount) === 0) {
-      alert('Please enter a non-zero payment amount');
+    if (!editingPayment || editPaymentAmount.trim() === '' || !Number.isFinite(Number(editPaymentAmount))) {
+      alert('Please enter a valid payment amount');
       return;
     }
 

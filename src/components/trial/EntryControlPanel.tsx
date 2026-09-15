@@ -14,8 +14,11 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Lock, Unlock, Calendar, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { getEffectiveEntryStatus } from '@/lib/entryWindow';
 
 interface TrialDay {
   id: string;
@@ -38,6 +41,21 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [entryOpenLocal, setEntryOpenLocal] = useState('');
+  const [entryOpenAt, setEntryOpenAt] = useState<string | null>(null);
+  const [entryTimezone, setEntryTimezone] = useState('America/Edmonton');
+  const [clock, setClock] = useState(() => Date.now());
+
+  const effectiveEntryStatus = getEffectiveEntryStatus(
+    { entry_status: entryStatus, entry_open_at: entryOpenAt },
+    new Date(clock),
+  );
+
+  useEffect(() => {
+    if (entryStatus !== 'draft' || !entryOpenAt) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [entryStatus, entryOpenAt]);
 
   useEffect(() => {
     loadTrialDays();
@@ -46,20 +64,87 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
   const loadTrialDays = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const [{ data, error }, { data: schedule, error: scheduleError }] = await Promise.all([
+        supabase
         .from('trial_days')
         .select('*')
         .eq('trial_id', trialId)
-        .order('day_number');
+        .order('day_number'),
+        supabase
+          .from('trials')
+          .select('entry_open_at,entry_timezone')
+          .eq('id', trialId)
+          .single(),
+      ]);
 
       if (error) throw error;
+      if (scheduleError) throw scheduleError;
 
       setTrialDays(data || []);
+      const timezone = schedule?.entry_timezone || 'America/Edmonton';
+      setEntryOpenAt(schedule?.entry_open_at || null);
+      setEntryTimezone(timezone);
+      setEntryOpenLocal(
+        schedule?.entry_open_at
+          ? formatInTimeZone(schedule.entry_open_at, timezone, "yyyy-MM-dd'T'HH:mm")
+          : '',
+      );
     } catch (err: any) {
       console.error('Error loading trial days:', err);
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveEntrySchedule = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(false);
+      if (!entryOpenLocal) throw new Error('Choose an opening date and time.');
+
+      const opening = fromZonedTime(entryOpenLocal, entryTimezone);
+      if (Number.isNaN(opening.getTime())) throw new Error('Choose a valid opening date and time.');
+
+      const { error: saveError } = await supabase
+        .from('trials')
+        .update({
+          entry_open_at: opening.toISOString(),
+          entry_timezone: entryTimezone,
+          entry_status: 'draft',
+        })
+        .eq('id', trialId);
+      if (saveError) throw saveError;
+
+      setEntryStatus('draft');
+      setEntryOpenAt(opening.toISOString());
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Unable to save the entry schedule.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearEntrySchedule = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+      const { error: saveError } = await supabase
+        .from('trials')
+        .update({ entry_open_at: null })
+        .eq('id', trialId);
+      if (saveError) throw saveError;
+      setEntryOpenLocal('');
+      setEntryOpenAt(null);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Unable to clear the entry schedule.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -71,12 +156,18 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
 
       const { error } = await supabase
         .from('trials')
-        .update({ entry_status: newStatus })
+        .update(newStatus === 'draft'
+          ? { entry_status: newStatus, entry_open_at: null }
+          : { entry_status: newStatus })
         .eq('id', trialId);
 
       if (error) throw error;
 
       setEntryStatus(newStatus);
+      if (newStatus === 'draft') {
+        setEntryOpenAt(null);
+        setEntryOpenLocal('');
+      }
       setSuccess(true);
 
       setTimeout(() => setSuccess(false), 3000);
@@ -175,7 +266,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               <h3 className="font-semibold text-lg">Trial-Wide Entry Status</h3>
               <p className="text-sm text-gray-600">Master control for all entry submissions</p>
             </div>
-            {getStatusBadge(entryStatus)}
+            {getStatusBadge(effectiveEntryStatus)}
           </div>
 
           <div className="grid gap-3">
@@ -184,7 +275,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               disabled={saving}
               variant="outline"
               className={`justify-start ${
-                entryStatus === 'draft'
+                effectiveEntryStatus === 'draft'
                   ? 'bg-gray-600 text-white border-gray-600 hover:bg-gray-700 hover:text-white'
                   : 'hover:bg-gray-50'
               }`}
@@ -193,7 +284,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               Not Yet Open
               <span
                 className={`ml-auto text-xs ${
-                  entryStatus === 'draft' ? 'text-gray-200' : 'text-gray-500'
+                  effectiveEntryStatus === 'draft' ? 'text-gray-200' : 'text-gray-500'
                 }`}
               >
                 Form visible but disabled
@@ -205,7 +296,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               disabled={saving}
               variant="outline"
               className={`justify-start ${
-                entryStatus === 'open'
+                effectiveEntryStatus === 'open'
                   ? 'bg-green-600 text-white border-green-600 hover:bg-green-700 hover:text-white'
                   : 'hover:bg-green-50'
               }`}
@@ -214,7 +305,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               Open for Entries
               <span
                 className={`ml-auto text-xs ${
-                  entryStatus === 'open' ? 'text-green-100' : 'text-gray-500'
+                  effectiveEntryStatus === 'open' ? 'text-green-100' : 'text-gray-500'
                 }`}
               >
                 Accepting registrations
@@ -226,7 +317,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               disabled={saving}
               variant="outline"
               className={`justify-start ${
-                entryStatus === 'closed'
+                effectiveEntryStatus === 'closed'
                   ? 'bg-red-600 text-white border-red-600 hover:bg-red-700 hover:text-white'
                   : 'hover:bg-red-50'
               }`}
@@ -235,7 +326,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
               Closed
               <span
                 className={`ml-auto text-xs ${
-                  entryStatus === 'closed' ? 'text-red-100' : 'text-gray-500'
+                  effectiveEntryStatus === 'closed' ? 'text-red-100' : 'text-gray-500'
                 }`}
               >
                 No longer accepting entries
@@ -244,7 +335,56 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
           </div>
         </div>
 
-        {entryStatus === 'open' && trialDays.length > 0 && (
+        <div className="space-y-4 p-4 border rounded-lg bg-blue-50/40">
+          <div>
+            <h3 className="font-semibold text-lg">Automatic Opening</h3>
+            <p className="text-sm text-gray-600">
+              The public form will count down and begin accepting entries automatically at this time.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="entry-open-at">Opening date and time</Label>
+              <Input
+                id="entry-open-at"
+                type="datetime-local"
+                value={entryOpenLocal}
+                onChange={(event) => setEntryOpenLocal(event.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="entry-timezone">Timezone where the trial is held</Label>
+              <Select value={entryTimezone} onValueChange={setEntryTimezone} disabled={saving}>
+                <SelectTrigger id="entry-timezone"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="America/St_Johns">Newfoundland</SelectItem>
+                  <SelectItem value="America/Halifax">Atlantic</SelectItem>
+                  <SelectItem value="America/Toronto">Eastern</SelectItem>
+                  <SelectItem value="America/Winnipeg">Central</SelectItem>
+                  <SelectItem value="America/Edmonton">Mountain</SelectItem>
+                  <SelectItem value="America/Vancouver">Pacific</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={saveEntrySchedule} disabled={saving || !entryOpenLocal}>
+              <Save className="h-4 w-4 mr-2" />Save Automatic Opening
+            </Button>
+            {entryOpenLocal && (
+              <Button variant="outline" onClick={clearEntrySchedule} disabled={saving}>
+                Clear Schedule
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-gray-600">
+            Use the timezone at the trial location, even if you are scheduling while travelling.
+            Saving a schedule sets the trial to Not Yet Open. You can still open it early or close it at any time using the controls above.
+          </p>
+        </div>
+
+        {effectiveEntryStatus === 'open' && trialDays.length > 0 && (
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-lg mb-2">Per-Day Entry Control</h3>
@@ -300,7 +440,7 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
           </div>
         )}
 
-        {entryStatus !== 'open' && (
+        {effectiveEntryStatus !== 'open' && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
