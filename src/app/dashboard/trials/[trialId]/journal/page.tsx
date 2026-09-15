@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { isWaitlistedSelection, isWithdrawnSelection } from '@/lib/selectionStatus';
+import { exportJournalExcel, exportJournalPdf } from '@/lib/journalExport';
+import { hasCompleteEntrySnapshot, journalPaymentDate } from '@/lib/journalDetailRules';
 import {
   ArrowLeft,
   Calendar,
@@ -15,6 +17,7 @@ import {
   Trash2,
   AlertCircle,
   Filter,
+  Download,
   Settings,
   X,
 } from 'lucide-react';
@@ -42,7 +45,6 @@ interface JournalEntry {
     | 'selection_waitlisted'
     | 'entry_edited'
     | 'running_order_changed'
-    | 'fees_recalculated'
     | 'score_recorded'
     | 'score_corrected';
   handler_name: string;
@@ -70,6 +72,8 @@ export default function TrialJournalPage() {
   const [filteredEntries, setFilteredEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -140,7 +144,6 @@ export default function TrialJournalPage() {
             'selection_waitlisted',
             'entry_edited',
             'running_order_changed',
-            'fees_recalculated',
             'score_corrected',
             'payment_received',
           ])
@@ -357,20 +360,6 @@ export default function TrialJournalPage() {
             entry_id: activity.entry_id,
             snapshot,
           });
-        } else if (activity.activity_type === 'fees_recalculated') {
-          entries.push({
-            id: activity.id,
-            timestamp: activity.created_at,
-            type: 'fees_recalculated',
-            handler_name: snapshot.handler_name || 'Unknown',
-            dog_call_name: snapshot.dog_call_name || 'Unknown',
-            cwags_number: snapshot.cwags_number || 'Unknown',
-            description: `Fees recalculated for ${snapshot.dog_call_name || 'entry'}: $${Number(snapshot.before?.total_fee || 0).toFixed(2)} → $${Number(snapshot.after?.total_fee || 0).toFixed(2)} by ${activity.user_name || 'Unknown user'}`,
-            amount: Number(snapshot.after?.total_fee || 0),
-            notes: snapshot.reason || undefined,
-            entry_id: activity.entry_id,
-            snapshot,
-          });
         } else if (activity.activity_type === 'score_corrected') {
           const isInitialScore = snapshot.operation === 'insert' || !snapshot.before;
           entries.push({
@@ -544,6 +533,7 @@ export default function TrialJournalPage() {
             recorded_by: 'Legacy record',
             notes: payment.notes,
             entry_id: payment.entry_id,
+            snapshot: { amount: payment.amount, payment_date: payment.payment_date },
           });
         });
       }
@@ -602,6 +592,7 @@ export default function TrialJournalPage() {
 
   const openDetailsModal = async (entry: JournalEntry) => {
     setSelectedEntry(entry);
+    setEntryDetails(null);
     setLoadingDetails(true);
 
     try {
@@ -612,8 +603,13 @@ export default function TrialJournalPage() {
         return;
       }
 
-      // Use snapshot data if available (for entry submissions and modifications)
-      if (entry.snapshot && entry.type !== 'entry_edited') {
+      if (!hasCompleteEntrySnapshot(entry.type, entry.snapshot)) {
+        setEntryDetails({ event: entry.snapshot || {} });
+        return;
+      }
+
+      // Only a complete entry snapshot can show historical rounds and fees.
+      if (entry.snapshot) {
         const snapshot = entry.snapshot;
 
         // For entry_modified, use the 'after' state
@@ -641,92 +637,22 @@ export default function TrialJournalPage() {
           },
         }));
 
-        // Fetch current payments for this entry (still from transactions table)
-        const { data: paymentsData } = await supabase
-          .from('entry_payment_transactions')
-          .select('*')
-          .eq('entry_id', entry.entry_id)
-          .order('payment_date', { ascending: false });
-
         setEntryDetails({
           entry: {
             handler_name: snapshot.handler_name || displayState.handler_name,
             dog_call_name: snapshot.dog_call_name || displayState.dog_call_name,
-            cwags_number: snapshot.cwags_number || displayState.cwags_number,
+            cwags_number: snapshot.cwags_number || displayState.cwags_number || entry.cwags_number,
             handler_email: snapshot.handler_email,
             handler_phone: snapshot.handler_phone,
-            total_fee: displayState.total_fee || snapshot.total_fee,
-            entry_status: 'active',
-            fees_waived: false,
+            total_fee: displayState.total_fee ?? snapshot.total_fee,
+            entry_status: displayState.entry_status || (entry.type === 'entry_created' ? 'submitted' : 'Not recorded'),
+            fees_waived: displayState.fees_waived ?? snapshot.fees_waived ?? false,
             from_snapshot: true, // Flag to show this is historical data
             snapshot_timestamp: entry.timestamp,
           },
           selections: selections,
-          payments: paymentsData || [],
+          payments: [],
           audit: entry.type === 'entry_modified' ? snapshot : null,
-        });
-      }
-      // For payments, fetch current entry details
-      else {
-        const { data: entryData, error: entryError } = await supabase
-          .from('entries')
-          .select(
-            `
-            *,
-            entry_selections!entry_selections_entry_id_fkey (
-              *,
-              trial_rounds (
-                round_number,
-                trial_classes (
-                  class_name,
-                  class_order,
-                  trial_days (
-                    day_number,
-                    trial_date
-                  )
-                )
-              )
-            )
-          `
-          )
-          .eq('id', entry.entry_id)
-          .single();
-
-        if (entryError) throw entryError;
-
-        const { data: paymentsData } = await supabase
-          .from('entry_payment_transactions')
-          .select('*')
-          .eq('entry_id', entry.entry_id)
-          .order('payment_date', { ascending: false });
-
-        // Flatten trial_days data so it's accessible as selection.day_number
-        const selectionsWithDays = (entryData?.entry_selections || []).map((sel: any) => ({
-          ...sel,
-          day_number: sel.trial_rounds?.trial_classes?.trial_days?.day_number,
-          trial_date: sel.trial_rounds?.trial_classes?.trial_days?.trial_date,
-        }));
-
-        const editChanges =
-          entry.type === 'entry_edited' && entry.snapshot?.before && entry.snapshot?.after
-            ? Object.keys(entry.snapshot.after)
-                .filter(
-                  (field) =>
-                    JSON.stringify(entry.snapshot.before[field]) !==
-                    JSON.stringify(entry.snapshot.after[field])
-                )
-                .map((field) => ({
-                  field,
-                  before: entry.snapshot.before[field],
-                  after: entry.snapshot.after[field],
-                }))
-            : [];
-
-        setEntryDetails({
-          entry: entryData,
-          selections: selectionsWithDays,
-          payments: paymentsData || [],
-          edit_changes: editChanges,
         });
       }
     } catch (err) {
@@ -768,8 +694,6 @@ export default function TrialJournalPage() {
         return <AlertCircle className="h-5 w-5 text-yellow-700" />;
       case 'running_order_changed':
         return <RefreshCw className="h-5 w-5 text-cyan-700" />;
-      case 'fees_recalculated':
-        return <DollarSign className="h-5 w-5 text-purple-700" />;
       case 'score_corrected':
         return <FileEdit className="h-5 w-5 text-red-700" />;
       case 'score_recorded':
@@ -806,8 +730,6 @@ export default function TrialJournalPage() {
         return 'bg-yellow-100 text-yellow-900';
       case 'running_order_changed':
         return 'bg-cyan-100 text-cyan-900';
-      case 'fees_recalculated':
-        return 'bg-purple-100 text-purple-900';
       case 'score_corrected':
         return 'bg-red-100 text-red-900';
       case 'score_recorded':
@@ -854,6 +776,22 @@ export default function TrialJournalPage() {
       style: 'currency',
       currency: 'USD',
     }).format(amount);
+  };
+
+  const exportDisplayedJournal = async (format: 'pdf' | 'xlsx') => {
+    setExporting(format);
+    setExportError(null);
+    try {
+      const name = trial?.trial_name || 'Trial';
+      const timezone = trial?.trial_timezone || 'America/Edmonton';
+      if (format === 'pdf') await exportJournalPdf(filteredEntries, name, timezone);
+      else await exportJournalExcel(filteredEntries, name, timezone);
+    } catch (cause) {
+      console.error('Journal export failed:', cause);
+      setExportError(cause instanceof Error ? cause.message : 'Could not create journal export');
+    } finally {
+      setExporting(null);
+    }
   };
 
   if (loading) {
@@ -911,13 +849,22 @@ export default function TrialJournalPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center gap-3 flex-wrap justify-end">
               <span className="text-sm text-gray-600">
-                {filteredEntries.length} {filteredEntries.length === 1 ? 'entry' : 'entries'}
+                {filteredEntries.length} {filteredEntries.length === 1 ? 'event' : 'events'} displayed
               </span>
+              <button onClick={() => exportDisplayedJournal('pdf')} disabled={Boolean(exporting)}
+                className="flex items-center gap-2 px-3 py-2 rounded-md border border-amber-400 bg-white text-gray-900 hover:bg-amber-50 disabled:opacity-50">
+                <Download className="h-4 w-4" /> {exporting === 'pdf' ? 'Creating PDF...' : 'Export PDF'}
+              </button>
+              <button onClick={() => exportDisplayedJournal('xlsx')} disabled={Boolean(exporting)}
+                className="flex items-center gap-2 px-3 py-2 rounded-md border border-amber-400 bg-white text-gray-900 hover:bg-amber-50 disabled:opacity-50">
+                <Download className="h-4 w-4" /> {exporting === 'xlsx' ? 'Creating Excel...' : 'Export Excel'}
+              </button>
             </div>
           </div>
+          <p className="mt-2 text-xs text-gray-600">Exports include the events currently displayed after filtering.</p>
+          {exportError && <p role="alert" className="mt-2 text-sm text-red-700">Export failed: {exportError}</p>}
         </div>
       </div>
 
@@ -959,7 +906,6 @@ export default function TrialJournalPage() {
               <option value="entry_status_changed">Status Changes</option>
               <option value="selection_waitlisted">Waitlisted Selections</option>
               <option value="running_order_changed">Running Order Changes</option>
-              <option value="fees_recalculated">Fee Recalculations</option>
               <option value="score_recorded">Scores Recorded</option>
               <option value="score_corrected">Score Corrections</option>
             </select>
@@ -1081,7 +1027,9 @@ export default function TrialJournalPage() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h2 className="text-xl font-bold text-gray-900">
-                    {selectedEntry.type === 'score_recorded'
+                    {entryDetails?.event
+                      ? selectedEntry.type.replaceAll('_', ' ') + ' details'
+                      : selectedEntry.type === 'score_recorded'
                       ? 'Score Record Details'
                       : selectedEntry.type === 'score_corrected'
                         ? 'Score Correction Details'
@@ -1115,6 +1063,74 @@ export default function TrialJournalPage() {
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading details...</p>
+                </div>
+              ) : entryDetails?.event ? (
+                <div className="space-y-5">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      {selectedEntry.type.replaceAll('_', ' ')}
+                    </h3>
+                    <p className="whitespace-pre-line text-sm text-gray-800">{selectedEntry.description}</p>
+                    <p className="text-xs text-gray-600 mt-3">
+                      Recorded {formatTimestamp(selectedEntry.timestamp)}. This event does not contain
+                      a complete historical copy of the entry or its class selections.
+                    </p>
+                  </div>
+                  {selectedEntry.type === 'payment_received' && (
+                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-2 text-sm">
+                      <h3 className="font-semibold text-gray-900">Payment recorded</h3>
+                      <p>Amount: {formatCurrency(Number(entryDetails.event.amount ?? selectedEntry.amount ?? 0))}</p>
+                      <p>Payment date: {journalPaymentDate(entryDetails.event.payment_date)}</p>
+                      <p>Recorded in journal: {formatTimestamp(selectedEntry.timestamp)}</p>
+                      {selectedEntry.payment_method && <p>Method: {selectedEntry.payment_method}</p>}
+                      {selectedEntry.payment_received_by && <p>Received by: {selectedEntry.payment_received_by}</p>}
+                      {selectedEntry.recorded_by && <p>Recorded by: {selectedEntry.recorded_by}</p>}
+                      {selectedEntry.notes && <p>Note: {selectedEntry.notes}</p>}
+                    </div>
+                  )}
+                  {selectedEntry.type === 'entry_status_changed' && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+                      Entry status: {entryDetails.event.previous_status || 'Not recorded'} →{' '}
+                      {entryDetails.event.resulting_status || entryDetails.event.requested_status || 'Not recorded'}
+                    </div>
+                  )}
+                  {selectedEntry.type === 'waitlist_promoted' && (
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm space-y-1">
+                      <h3 className="font-semibold text-gray-900">Waitlisted round accepted</h3>
+                      <p>{entryDetails.event.class_name || 'Class not recorded'}, Round{' '}
+                        {entryDetails.event.round || 'not recorded'}</p>
+                      <p>Added fee: {formatCurrency(Number(entryDetails.event.fee_added || 0))}</p>
+                      {entryDetails.event.total_fee_before != null &&
+                        entryDetails.event.total_fee_after != null && (
+                          <p>Entry total: {formatCurrency(Number(entryDetails.event.total_fee_before))} →{' '}
+                            {formatCurrency(Number(entryDetails.event.total_fee_after))}</p>
+                        )}
+                    </div>
+                  )}
+                  {['fees_waived', 'fees_unwaived'].includes(selectedEntry.type) && (
+                    <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-sm space-y-1">
+                      <h3 className="font-semibold text-gray-900">Waiver decision</h3>
+                      {entryDetails.event.gross_billable_fee != null &&
+                        <p>Run fees before waiver: {formatCurrency(Number(entryDetails.event.gross_billable_fee))}</p>}
+                      {entryDetails.event.reason && <p>Reason: {entryDetails.event.reason}</p>}
+                    </div>
+                  )}
+                  {selectedEntry.type === 'entry_edited' &&
+                    entryDetails.event.before && entryDetails.event.after && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-gray-900">Fields changed</h3>
+                        {Object.keys(entryDetails.event.after)
+                          .filter((field) => JSON.stringify(entryDetails.event.before[field]) !==
+                            JSON.stringify(entryDetails.event.after[field]))
+                          .map((field) => (
+                            <div key={field} className="rounded border border-orange-200 bg-orange-50 p-3 text-sm">
+                              {field.replaceAll('_', ' ')}:{' '}
+                              {String(entryDetails.event.before[field] ?? 'Blank')} →{' '}
+                              {String(entryDetails.event.after[field] ?? 'Blank')}
+                            </div>
+                          ))}
+                      </div>
+                    )}
                 </div>
               ) : ['score_recorded', 'score_corrected'].includes(selectedEntry.type) &&
                 entryDetails?.audit ? (
@@ -1259,56 +1275,6 @@ export default function TrialJournalPage() {
                         </div>
                       </div>
                     )}
-                  {selectedEntry.type === 'entry_edited' &&
-                    entryDetails.edit_changes?.length > 0 && (
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                          Changes Made
-                        </h3>
-                        <div className="space-y-2">
-                          {entryDetails.edit_changes.map((change: any) => {
-                            const labels: Record<string, string> = {
-                              handler_name: 'Handler Name',
-                              handler_email: 'Email',
-                              handler_phone: 'Phone',
-                              emergency_contact: 'Emergency Contact',
-                              dog_call_name: 'Dog Name',
-                              cwags_number: 'CWAGS Number',
-                              dog_breed: 'Breed',
-                              dog_sex: 'Sex',
-                              is_junior_handler: 'Junior Handler',
-                              close_to_titles: 'Close to Titles',
-                              volunteer_preferences: 'Volunteer Preferences',
-                            };
-                            const displayValue = (value: any) => {
-                              if (value === null || value === undefined || value === '') {
-                                return 'Blank';
-                              }
-                              if (typeof value === 'object') return JSON.stringify(value);
-                              if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-                              return String(value);
-                            };
-
-                            return (
-                              <div
-                                key={change.field}
-                                className="rounded-lg border border-orange-200 bg-orange-50 p-4"
-                              >
-                                <div className="font-semibold text-gray-900">
-                                  {labels[change.field] || change.field}
-                                </div>
-                                <div className="mt-1 text-sm text-gray-700">
-                                  <span className="text-gray-500">
-                                    {displayValue(change.before)}
-                                  </span>{' '}
-                                  → <span className="font-medium">{displayValue(change.after)}</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                   {/* Entry Information */}
                   <div>
@@ -1336,7 +1302,7 @@ export default function TrialJournalPage() {
                         <div>
                           <span className="text-gray-600">Entry Status:</span>
                           <p className="font-medium text-gray-900">
-                            {entryDetails.entry.entry_status || 'Active'}
+                            {entryDetails.entry.entry_status || 'Not recorded'}
                           </p>
                         </div>
                       </div>
@@ -1493,7 +1459,11 @@ export default function TrialJournalPage() {
                         )}
                         <div className="border-t border-amber-200 pt-2 mt-2">
                           <div className="flex justify-between text-lg font-bold">
-                            <span>Amount Due:</span>
+                            <span>
+                              {entryDetails.entry.entry_status === 'submitted'
+                                ? 'Quoted fee (awaiting acceptance):'
+                                : 'Amount Due:'}
+                            </span>
                             <span
                               className={entryDetails.entry.fees_waived ? 'text-green-600' : ''}
                             >
@@ -1509,75 +1479,6 @@ export default function TrialJournalPage() {
                     </div>
                   </div>
 
-                  {/* Payment History */}
-                  {entryDetails.payments.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        Payment History ({entryDetails.payments.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {entryDetails.payments.map((payment: any) => (
-                          <div
-                            key={payment.id}
-                            className="bg-green-50 border border-green-200 rounded-lg p-4"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <DollarSign className="h-4 w-4 text-green-600" />
-                                  <span className="font-semibold text-gray-900">
-                                    Payment Received
-                                  </span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                                  <div className="text-gray-600">
-                                    Date:{' '}
-                                    <span className="text-gray-900">
-                                      {new Date(
-                                        payment.payment_date || payment.created_at
-                                      ).toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                      })}
-                                    </span>
-                                  </div>
-                                  {payment.payment_method && (
-                                    <div className="text-gray-600">
-                                      Method:{' '}
-                                      <span className="text-gray-900">
-                                        {payment.payment_method}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {payment.payment_received_by && (
-                                    <div className="text-gray-600">
-                                      Received by:{' '}
-                                      <span className="text-gray-900">
-                                        {payment.payment_received_by}
-                                      </span>
-                                    </div>
-                                  )}
-                                  {payment.notes && (
-                                    <div className="text-gray-600 col-span-2">
-                                      Notes: <span className="text-gray-900">{payment.notes}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right ml-4">
-                                <p className="font-semibold text-green-600 text-lg">
-                                  +{formatCurrency(payment.amount)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">No details available</div>

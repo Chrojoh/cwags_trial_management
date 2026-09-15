@@ -51,6 +51,9 @@ export interface CompetitorFinancial {
   waived_regular_runs: number; // ADD THIS
   waived_feo_runs: number; // ADD THIS
   amount_owed: number;
+  quoted_fee?: number;
+  quoted_regular_runs?: number;
+  quoted_feo_runs?: number;
   amount_paid: number;
   payment_history?: PaymentTransaction[];
   fees_waived: boolean;

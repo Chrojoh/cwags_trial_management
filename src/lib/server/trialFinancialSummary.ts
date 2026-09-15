@@ -40,6 +40,9 @@ interface OwnerGroup {
   waived_regular_runs: number;
   waived_feo_runs: number;
   amount_owed: number;
+  quoted_fee: number;
+  quoted_regular_runs: number;
+  quoted_feo_runs: number;
   payment_history: PaymentTransaction[];
   waived_entry_count: number;
   billable_entry_count: number;
@@ -121,6 +124,9 @@ export async function loadTrialFinancialReadModel(
       waived_regular_runs: 0,
       waived_feo_runs: 0,
       amount_owed: 0,
+      quoted_fee: 0,
+      quoted_regular_runs: 0,
+      quoted_feo_runs: 0,
       payment_history: [],
       waived_entry_count: 0,
       billable_entry_count: 0,
@@ -130,7 +136,12 @@ export async function loadTrialFinancialReadModel(
 
     const regularRuns = activeSelections.filter((selection) => selection.entry_type === 'regular').length;
     const feoRuns = activeSelections.filter((selection) => selection.entry_type === 'feo').length;
-    if (entry.fees_waived) {
+    const awaitingAcceptance = entry.entry_status === 'submitted';
+    if (awaitingAcceptance) {
+      group.quoted_regular_runs += regularRuns;
+      group.quoted_feo_runs += feoRuns;
+      if (!entry.fees_waived) group.quoted_fee += calculateSelectionFees(entrySelections);
+    } else if (entry.fees_waived) {
       group.waived_regular_runs += regularRuns;
       group.waived_feo_runs += feoRuns;
       group.waived_entry_count += 1;
@@ -151,8 +162,10 @@ export async function loadTrialFinancialReadModel(
     const calculatedOwed = calculateSelectionFees(entrySelections);
     const storedOwed = Number(entry.amount_owed || 0);
     const effectiveOwed = storedOwed > 0 ? storedOwed : calculatedOwed;
-    if (entry.fees_waived) group.waived_amount += calculatedOwed;
-    else group.amount_owed += effectiveOwed;
+    if (!awaitingAcceptance) {
+      if (entry.fees_waived) group.waived_amount += calculatedOwed;
+      else group.amount_owed += effectiveOwed;
+    }
     group.payment_history.push(...(paymentsByEntry.get(entry.id) || []));
     groups.set(ownerId, group);
   });
@@ -174,6 +187,9 @@ export async function loadTrialFinancialReadModel(
       waived_regular_runs: group.waived_regular_runs,
       waived_feo_runs: group.waived_feo_runs,
       amount_owed: group.amount_owed,
+      quoted_fee: group.quoted_fee,
+      quoted_regular_runs: group.quoted_regular_runs,
+      quoted_feo_runs: group.quoted_feo_runs,
       amount_paid: group.payment_history.reduce((sum, payment) => sum + Number(payment.amount), 0),
       payment_history: group.payment_history,
       fees_waived: group.billable_entry_count === 0 && group.waived_entry_count > 0,

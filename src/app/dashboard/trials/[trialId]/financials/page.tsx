@@ -566,9 +566,10 @@ export default function TrialFinancialsPage() {
 
     // Columns: A Handler | B Dogs | C Regular | D FEO |
     //          E Opening Balance | F Payments Received | G Refunds Issued |
-    //          H Fees Waived | I Balance Owing (=E-F+G-H) | J Notes
-    const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-    const moneyCols = ['E', 'F', 'G', 'H', 'I'];
+    //          H Fees Waived | I Balance Owing (=E-F+G-H) | J Notes |
+    //          K Quoted Fees Awaiting Acceptance
+    const headerCols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+    const moneyCols = ['E', 'F', 'G', 'H', 'I', 'K'];
     const numCols = ['C', 'D'];
 
     // ── Build row data ──────────────────────────────────────────────
@@ -588,6 +589,7 @@ export default function TrialFinancialsPage() {
         'Fees Waived',
         'Balance Owing',
         'Notes',
+        'Quoted Fees Awaiting Acceptance',
       ],
     ];
 
@@ -655,6 +657,7 @@ export default function TrialFinancialsPage() {
           : comp.has_waived_entries && comp.has_billable_entries
             ? `Partially waived: ${comp.waiver_reason || 'No reason given'}`
             : '',
+        comp.quoted_fee || 0,
       ]);
     });
 
@@ -673,6 +676,7 @@ export default function TrialFinancialsPage() {
       { f: `SUM(H${dataStartRow}:H${lastDataRow})` },
       { f: `SUMIF(I${dataStartRow}:I${lastDataRow},">0",I${dataStartRow}:I${lastDataRow})` },
       '',
+      { f: `SUM(K${dataStartRow}:K${lastDataRow})` },
     ]);
     const creditsRowNum = totalsRowNum + 1;
     rows.push([
@@ -685,6 +689,7 @@ export default function TrialFinancialsPage() {
       '',
       '',
       { f: `-SUMIF(I${dataStartRow}:I${lastDataRow},"<0",I${dataStartRow}:I${lastDataRow})` },
+      '',
       '',
     ]);
 
@@ -702,12 +707,13 @@ export default function TrialFinancialsPage() {
       { wch: 14 }, // H Fees Waived
       { wch: 14 }, // I Balance Owing
       { wch: 26 }, // J Notes
+      { wch: 22 }, // K Quoted fees
     ];
 
     // ── Merges ────────────────────────────────────────────────────
     worksheet['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }, // A1:J1 title
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }, // A2:J2 date
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }, // A1:K1 title
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } }, // A2:K2 date
     ];
 
     // ── Row heights ───────────────────────────────────────────────
@@ -746,6 +752,7 @@ export default function TrialFinancialsPage() {
       H: '4A1D96', // Fees Waived — dark purple
       I: '7F1D1D', // Balance Owing — dark red
       J: '374151',
+      K: '1D4ED8', // Awaiting acceptance — blue
     };
     headerCols.forEach((col) => {
       const cell = getCell(`${col}4`);
@@ -974,6 +981,7 @@ End of Report
       0
     ),
     totalPaid: competitors.reduce((sum, c) => sum + c.amount_paid, 0),
+    totalQuoted: competitors.reduce((sum, c) => sum + (c.quoted_fee || 0), 0),
     totalOutstanding: competitors.reduce((sum, c) => {
       const balance = c.fees_waived ? 0 : c.amount_owed - c.amount_paid;
       return sum + balance; // ✅ CORRECT - includes negative balances (refunds)
@@ -1080,7 +1088,7 @@ End of Report
         {activeTab === 'expenses' ? (
           <>
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-sm text-gray-600">Total Expenses</div>
@@ -1096,6 +1104,17 @@ End of Report
                   <div className="text-2xl font-bold text-gray-900">
                     ${totals.totalOwed.toFixed(2)}
                   </div>
+                  <div className="text-xs text-gray-500 mt-1">Accepted entries only</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-sm text-gray-600">Awaiting Acceptance</div>
+                  <div className="text-2xl font-bold text-blue-700">
+                    ${totals.totalQuoted.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Quoted fees; not yet assessed</div>
                 </CardContent>
               </Card>
 
