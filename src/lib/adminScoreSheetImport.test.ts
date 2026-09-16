@@ -117,3 +117,34 @@ test('uses Trial Recap B4 as host and excludes recap and directions from scores'
   assert.equal(parsed.records.length, 1);
   assert.deepEqual(parsed.detections.map((detection) => detection.sheetName), ['Scores']);
 });
+
+
+test('retains labeled rounds on one-column forms with either checkbox setting', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Round', 'Result', 'Judge'],
+    ['23-4330-01', 'Ginny', '', '2026-08-31', 'Starter', 'Round 1', 97, 'Judge One'],
+    ['23-4330-01', 'Ginny', '', '2026-08-31', 'Starter', 'Round 2', 96, 'Judge Two'],
+  ];
+  for (const includeRepeatedRows of [false, true]) {
+    const parsed = parseScoreSheetWorkbook(workbookBuffer([{ name: 'Scores', rows }]), 'scores.xlsx', { includeRepeatedRows });
+    assert.deepEqual(parsed.records.map(r => [r.roundNumber, r.numericalScore, r.judgeName]), [[1, 97, 'Judge One'], [2, 96, 'Judge Two']]);
+    assert.deepEqual(parsed.warnings, []);
+  }
+});
+
+test('one-column repeated option retains additional outcomes without displacing explicit rounds', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Round', 'Result', 'Judge'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Starter', 1, 97, 'Judge One'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Starter', 'Round 1', 'NQ', 'Judge Two'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Starter', ' round 2 ', 96, 'Judge Three'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Starter', '', 'ABS', 'Judge Four'],
+  ];
+  const buffer = workbookBuffer([{ name: 'Scores', rows }]);
+  const omitted = parseScoreSheetWorkbook(buffer, 'scores.xlsx');
+  assert.equal(omitted.records.length, 2);
+  assert.equal(omitted.warnings.length, 2);
+  const included = parseScoreSheetWorkbook(buffer, 'scores.xlsx', { includeRepeatedRows: true });
+  assert.deepEqual(included.records.map(r => [r.roundNumber, r.result]), [[1, 'Pass'], [2, 'Pass'], [3, 'NQ'], [4, 'ABS']]);
+  assert.deepEqual(included.warnings, []);
+});

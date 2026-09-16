@@ -214,7 +214,13 @@ const makeRecord = (
   };
 };
 
-const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[]) => {
+const parseRoundNumber = (value: unknown) => {
+  const match = String(value ?? '').trim().match(/^(?:round\s*#?\s*)?(\d+)$/i);
+  const round = match ? Number(match[1]) : 1;
+  return Number.isSafeInteger(round) && round > 0 ? round : 1;
+};
+
+const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[], includeRepeatedRows: boolean) => {
   const records: ParsedScoreRecord[] = [];
   for (let row = 7; row <= lastDataRow(sheet, 1); row++) {
     const registration = cellValue(sheet, row, 1);
@@ -225,8 +231,31 @@ const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: stri
       warnings.push(`${sheetName}, row ${row}: the date could not be read; result was skipped.`);
       continue;
     }
-    const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, cellValue(sheet, row, 5), Number(cellValue(sheet, row, 6)) || 1, cellValue(sheet, row, 8), result, warnings);
+    const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, cellValue(sheet, row, 5), parseRoundNumber(cellValue(sheet, row, 6)), cellValue(sheet, row, 8), result, warnings);
     if (record) records.push(record);
+  }
+  if (includeRepeatedRows) {
+    // Reserve explicit rounds first so an inferred round cannot displace a later row.
+    const groupKey = (record: ParsedScoreRecord) =>
+      [record.registrationNumber, record.trialDate, record.className.toLowerCase()].join('|');
+    const reserved = new Map<string, Set<number>>();
+    for (const record of records) {
+      const key = groupKey(record);
+      if (!reserved.has(key)) reserved.set(key, new Set());
+      reserved.get(key)!.add(record.roundNumber);
+    }
+    const seen = new Set<string>();
+    for (const record of records) {
+      const key = groupKey(record);
+      if (seen.has(`${key}|${record.roundNumber}`)) {
+        const rounds = reserved.get(key)!;
+        let additionalRound = 1;
+        while (rounds.has(additionalRound)) additionalRound++;
+        record.roundNumber = additionalRound;
+        rounds.add(additionalRound);
+      }
+      seen.add(`${key}|${record.roundNumber}`);
+    }
   }
   return records;
 };
@@ -342,7 +371,7 @@ export const parseScoreSheetWorkbook = (
     if (!metadataTitle) metadataTitle = String(cellValue(sheet, 1, 1) ?? '').trim();
     const type = detectScoreSheetType(sheet);
     let sheetRecords: ParsedScoreRecord[] = [];
-    if (type === 'one-column') sheetRecords = parseOneColumn(sheet, sheetName, warnings);
+    if (type === 'one-column') sheetRecords = parseOneColumn(sheet, sheetName, warnings, Boolean(options.includeRepeatedRows));
     else if (type === 'two-column')
       sheetRecords = parseTwoColumn(
         sheet,
