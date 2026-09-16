@@ -298,7 +298,13 @@ const populateClassSheet = (
       const column = columnName(columnIndex);
       const round = rounds[columnIndex - 3];
       const result = participant && round ? round.results.get(participant.cwagsNumber) || '-' : '';
-      setCell(document, `${column}${rowNumber}`, result, `I${Math.min(rowNumber, 98)}`);
+      const resultAddress = `${column}${rowNumber}`;
+      const resultStyleAddress = `I${Math.min(rowNumber, 98)}`;
+      setCell(document, resultAddress, result, resultStyleAddress);
+      // Existing template cells can retain a date-formatted style. A numerical score such as
+      // 98.5 is then displayed by Excel as an April 1900 date even though the value is correct.
+      // Always normalize populated result cells to the template's general result style.
+      copyCellStyle(document, resultAddress, resultStyleAddress);
     }
   }
 
