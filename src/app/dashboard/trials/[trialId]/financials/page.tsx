@@ -50,7 +50,6 @@ import {
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { dateOnlyValue, formatDateOnly, localDateOnly } from '@/lib/dateOnly';
-import RibbonExpenseEstimator from '@/components/financials/RibbonExpenseEstimator';
 
 const supabase = getSupabaseBrowser();
 
@@ -104,7 +103,7 @@ export default function TrialFinancialsPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'expenses' | 'ribbons' | 'breakeven'>('expenses');
+  const [activeTab, setActiveTab] = useState<'expenses' | 'breakeven'>('expenses');
 
   // Break-even state
   const [breakEvenData, setBreakEvenData] = useState<BreakEvenConfig>({
@@ -1056,19 +1055,6 @@ End of Report
               Expenses & Payments
             </button>
             <button
-              onClick={() => setActiveTab('ribbons')}
-              className={`
-                py-4 px-1 border-b-2 font-medium text-sm transition-colors
-                ${
-                  activeTab === 'ribbons'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }
-              `}
-            >
-              Ribbon Estimator
-            </button>
-            <button
               onClick={() => setActiveTab('breakeven')}
               className={`
                 py-4 px-1 border-b-2 font-medium text-sm transition-colors
@@ -1711,8 +1697,6 @@ End of Report
               </CardContent>
             </Card>
           </>
-        ) : activeTab === 'ribbons' ? (
-          <RibbonExpenseEstimator trialId={trialId} />
         ) : (
           /* BREAK-EVEN TAB */
           <div className="space-y-6">

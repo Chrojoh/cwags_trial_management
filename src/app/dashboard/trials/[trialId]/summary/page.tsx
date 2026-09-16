@@ -33,6 +33,7 @@ import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import { buildLeagueResultsWorkbook } from '@/lib/leagueResultsWorkbook';
 import { isAbsentSelection, isActiveSelection, isScorableSelection } from '@/lib/selectionStatus';
+import RibbonExpenseEstimator from '@/components/financials/RibbonExpenseEstimator';
 
 interface Trial {
   id: string;
@@ -760,7 +761,7 @@ export default function ClassSummaryPage() {
               </div>
 
               {/* Export Button */}
-              <div className="flex items-end">
+              <div className="flex flex-wrap items-end gap-2">
                 <Button
                   onClick={generateExcelReport}
                   disabled={exporting}
@@ -782,6 +783,7 @@ export default function ClassSummaryPage() {
                     </>
                   )}
                 </Button>
+                <RibbonExpenseEstimator trialId={trialId} exportOnly />
               </div>
             </div>
           </CardContent>

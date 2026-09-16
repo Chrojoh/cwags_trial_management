@@ -20,6 +20,7 @@ import {
   DollarSign,
   Info,
   BookOpen,
+  BadgeCheck,
   Copy,
   Check,
   X,
@@ -225,6 +226,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Summary',
       href: `/dashboard/trials/${trial.id}/summary`,
       icon: FileText,
+      permission: 'generate_reports',
+    },
+    {
+      label: 'Award Confirmations',
+      href: `/dashboard/trials/${trial.id}/award-confirmations`,
+      icon: BadgeCheck,
       permission: 'generate_reports',
     },
     {

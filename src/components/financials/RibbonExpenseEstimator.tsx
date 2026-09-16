@@ -78,7 +78,15 @@ function candidateKey(kind: 'title' | 'ace', dog: DogCloseToTitle) {
   return `${kind}:${dog.cwagsNumber}:${dog.className}:${kind === 'ace' ? dog.aceNumber : 0}`;
 }
 
-export default function RibbonExpenseEstimator({ trialId }: { trialId: string }) {
+export default function RibbonExpenseEstimator({
+  trialId,
+  awardsOnly = false,
+  exportOnly = false,
+}: {
+  trialId: string;
+  awardsOnly?: boolean;
+  exportOnly?: boolean;
+}) {
   const [live, setLive] = useState<LiveData | null>(null);
   const [questionnaire, setQuestionnaire] = useState<Questionnaire>(defaults);
   const [currency, setCurrency] = useState<RibbonCurrency>('CAD');
@@ -338,7 +346,9 @@ export default function RibbonExpenseEstimator({ trialId }: { trialId: string })
           ? 'Ribbon types saved as this club’s default. Quantities will always be recalculated for each trial.'
           : saveExpense
             ? 'Estimate saved to Trial Expenses. Replace this same estimate with the receipt amount later.'
-            : 'Questionnaire saved for this trial.'
+            : awardsOnly
+              ? 'Award confirmations saved for this trial.'
+              : 'Questionnaire saved for this trial.'
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Unable to save');
@@ -347,12 +357,105 @@ export default function RibbonExpenseEstimator({ trialId }: { trialId: string })
     }
   };
 
+  if (loading && exportOnly)
+    return (
+      <Button variant="outline" disabled>
+        Loading Title Verification...
+      </Button>
+    );
   if (loading)
     return (
       <Card>
         <CardContent className="py-8 text-center">Loading ribbon estimate...</CardContent>
       </Card>
     );
+  if (exportOnly) {
+    return (
+      <Button
+        variant="outline"
+        disabled={titleCandidates.length + aceCandidates.length === 0}
+        onClick={exportConfirmation}
+        title={
+          titleCandidates.length + aceCandidates.length === 0
+            ? 'No title or Ace candidates have been detected from saved scores.'
+            : 'Export title and Ace awards for verification.'
+        }
+      >
+        Export Title Verification
+      </Button>
+    );
+  }
+  if (awardsOnly) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Track Awards Requiring Confirmation</CardTitle>
+          <CardDescription>
+            Review title and Ace awards detected from saved trial results. Confirm or exclude an
+            award before the host posts title winners, then export the confirmation workbook.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void load()}>
+              Refresh Saved Results
+            </Button>
+            <Button
+              variant="outline"
+              disabled={titleCandidates.length + aceCandidates.length === 0}
+              onClick={exportConfirmation}
+            >
+              Export Confirmation XLSX
+            </Button>
+            <Button
+              disabled={saving || live?.setupRequired}
+              onClick={() => void save(false)}
+            >
+              Save Confirmations
+            </Button>
+          </div>
+          {live?.setupRequired && (
+            <p className="text-sm text-amber-800">
+              Confirmations can be reviewed and exported, but saving requires the optional award
+              confirmation table.
+            </p>
+          )}
+          {titleCandidates.length + aceCandidates.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              No title or Ace candidates have been triggered by saved scores yet.
+            </p>
+          ) : (
+            [
+              ...titleCandidates.map((d) => ({ kind: 'title' as const, d })),
+              ...aceCandidates.map((d) => ({ kind: 'ace' as const, d })),
+            ].map(({ kind, d }) => {
+              const key = candidateKey(kind, d);
+              return (
+                <label
+                  key={key}
+                  className="flex items-center justify-between gap-4 rounded border p-3"
+                >
+                  <span>
+                    <strong>{d.dogName}</strong> ({d.cwagsNumber}) - {d.className} -{' '}
+                    {kind === 'title' ? 'Title' : `Ace ${d.aceNumber}`}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={confirmed.includes(key)}
+                      onChange={() => toggleCandidate(key)}
+                    />
+                    <Badge>{confirmed.includes(key) ? 'Confirmed' : 'Excluded'}</Badge>
+                  </span>
+                </label>
+              );
+            })
+          )}
+          {message && <p className="text-sm font-medium">{message}</p>}
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <div className="space-y-6">
       {live?.setupRequired && (
