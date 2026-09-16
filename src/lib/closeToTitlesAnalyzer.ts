@@ -44,6 +44,7 @@ export interface DogCloseToTitle {
   // Current status (before this trial)
   currentQs: number;
   currentJudges: number;
+  currentJudgeNames: string[];
   currentGameTypes: number; // For Games levels only
   hasTitle: boolean;
   aceQs: number; // Q's earned after title (for ace tracking)
@@ -61,6 +62,7 @@ export interface DogCloseToTitle {
   // Details
   qsNeededForTitle: number;
   judgesNeededForTitle: number;
+  judgesRequiredForTitle: number;
   gamesNeededForTitle: number;
   qsNeededForNextAce: number;
 }
@@ -151,7 +153,9 @@ function analyzeTrackerHistory(history: any[], className: string) {
   );
 
   const totalQs = levelRecords.reduce((sum, r) => sum + r.qs, 0);
-  const judges = new Set(levelRecords.map((r) => r.judge).filter(Boolean));
+  const judges = new Set<string>(
+    levelRecords.map((r) => String(r.judge || '').trim()).filter(Boolean)
+  );
   const gameTypes = extractGameTypes(levelRecords);
 
   const isGames = isGamesClass(className);
@@ -242,6 +246,7 @@ function analyzeTrackerHistory(history: any[], className: string) {
   return {
     totalQs,
     judgeCount: judges.size,
+    judgeNames: Array.from(judges).sort((a, b) => String(a).localeCompare(String(b))),
     gameTypeCount: gameTypes.size,
     hasTitle,
     aceQs: Math.max(0, aceQs),
@@ -569,6 +574,7 @@ export async function generateCloseToTitlesReport(
 
           currentQs: trackerStatus.totalQs,
           currentJudges: trackerStatus.judgeCount,
+          currentJudgeNames: trackerStatus.judgeNames,
           currentGameTypes: trackerStatus.gameTypeCount,
           hasTitle: trackerStatus.hasTitle,
           aceQs: trackerStatus.aceQs,
@@ -583,6 +589,7 @@ export async function generateCloseToTitlesReport(
 
           qsNeededForTitle,
           judgesNeededForTitle,
+          judgesRequiredForTitle: requirements.minJudges,
           gamesNeededForTitle,
           qsNeededForNextAce,
         };

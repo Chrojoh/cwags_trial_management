@@ -78,6 +78,12 @@ function candidateKey(kind: 'title' | 'ace', dog: DogCloseToTitle) {
   return `${kind}:${dog.cwagsNumber}:${dog.className}:${kind === 'ace' ? dog.aceNumber : 0}`;
 }
 
+function uniqueJudgeNames(names: Array<string | undefined>) {
+  return Array.from(new Set(names.map((name) => name?.trim()).filter(Boolean) as string[])).sort(
+    (a, b) => a.localeCompare(b)
+  );
+}
+
 export default function RibbonExpenseEstimator({
   trialId,
   awardsOnly = false,
@@ -158,21 +164,32 @@ export default function RibbonExpenseEstimator({
         const passes: PassResult[] = data.passResults || [];
         const matching = (dog: DogCloseToTitle) =>
           passes.filter((p) => p.cwagsNumber === dog.cwagsNumber && p.className === dog.className);
-        const earnedTitles = report.closeToTitles.filter((d) => {
+        const titleThresholdCandidates = report.allDogs.filter((d) => !d.hasTitle).filter((d) => {
           const p = matching(d);
-          return (
-            p.length >= d.qsNeededForTitle &&
-            new Set(p.map((x) => x.judgeName)).size >= d.judgesNeededForTitle &&
-            new Set(p.map((x) => x.gamesSubclass).filter(Boolean)).size >= d.gamesNeededForTitle
-          );
+          return p.length >= d.qsNeededForTitle;
         });
         const earnedAces = report.closeToAces.filter(
           (d) => matching(d).length >= d.qsNeededForNextAce
         );
-        setTitleCandidates(earnedTitles);
+        setTitleCandidates(titleThresholdCandidates);
         setAceCandidates(earnedAces);
         const detected = [
-          ...earnedTitles.map((dog) => candidateKey('title', dog)),
+          ...titleThresholdCandidates
+            .filter((dog) => {
+              const trialPasses = matching(dog);
+              const combinedJudges = uniqueJudgeNames([
+                ...dog.currentJudgeNames,
+                ...trialPasses.map((pass) => pass.judgeName),
+              ]);
+              const trialGames = new Set(
+                trialPasses.map((pass) => pass.gamesSubclass).filter(Boolean)
+              ).size;
+              return (
+                combinedJudges.length >= dog.judgesRequiredForTitle &&
+                dog.currentGameTypes + trialGames >= dog.currentGameTypes + dog.gamesNeededForTitle
+              );
+            })
+            .map((dog) => candidateKey('title', dog)),
           ...earnedAces.map((dog) => candidateKey('ace', dog)),
         ];
         setConfirmed(
@@ -287,9 +304,18 @@ export default function RibbonExpenseEstimator({
       );
     const exportRow = (kind: 'title' | 'ace', dog: DogCloseToTitle): TitleConfirmationExportRow => {
       const passes = passesFor(dog);
+      const trialJudgeNames = uniqueJudgeNames(passes.map((pass) => pass.judgeName));
+      const combinedJudgeNames = uniqueJudgeNames([
+        ...dog.currentJudgeNames,
+        ...trialJudgeNames,
+      ]);
+      const judgeRequirementMet = combinedJudgeNames.length >= dog.judgesRequiredForTitle;
       return {
         award: kind === 'title' ? 'Title' : awardLabel(`ace${dog.aceNumber || 1}`),
-        confirmed: confirmed.includes(candidateKey(kind, dog)),
+        confirmed:
+          kind === 'title'
+            ? confirmed.includes(candidateKey(kind, dog)) && judgeRequirementMet
+            : confirmed.includes(candidateKey(kind, dog)),
         cwagsNumber: dog.cwagsNumber,
         dogName: dog.dogName,
         handlerName: dog.handlerName,
@@ -299,7 +325,10 @@ export default function RibbonExpenseEstimator({
         qsRequired: kind === 'title' ? dog.qsNeededForTitle : dog.qsNeededForNextAce,
         priorJudges: dog.currentJudges,
         trialJudges: new Set(passes.map((pass) => pass.judgeName).filter(Boolean)).size,
-        judgesRequired: kind === 'title' ? dog.judgesNeededForTitle : 0,
+        judgesRequired: kind === 'title' ? dog.judgesRequiredForTitle : 0,
+        priorJudgeNames: kind === 'title' ? dog.currentJudgeNames.join(', ') || 'None' : 'N/A',
+        trialJudgeNames: kind === 'title' ? trialJudgeNames.join(', ') || 'None' : 'N/A',
+        judgeRequirementMet: kind === 'title' ? (judgeRequirementMet ? 'Met' : 'NOT MET') : 'N/A',
         priorGameTypes: dog.currentGameTypes,
         trialGameTypes: new Set(passes.map((pass) => pass.gamesSubclass).filter(Boolean)).size,
         gameTypesRequired: kind === 'title' ? dog.gamesNeededForTitle : 0,
@@ -430,22 +459,51 @@ export default function RibbonExpenseEstimator({
               ...aceCandidates.map((d) => ({ kind: 'ace' as const, d })),
             ].map(({ kind, d }) => {
               const key = candidateKey(kind, d);
+              const trialPasses = live ? live.passResults.filter(
+                (pass) => pass.cwagsNumber === d.cwagsNumber && pass.className === d.className
+              ) : [];
+              const trialJudgeNames = uniqueJudgeNames(
+                trialPasses.map((pass) => pass.judgeName)
+              );
+              const combinedJudgeNames = uniqueJudgeNames([
+                ...d.currentJudgeNames,
+                ...trialJudgeNames,
+              ]);
+              const judgeRequirementMet =
+                kind === 'ace' || combinedJudgeNames.length >= d.judgesRequiredForTitle;
               return (
                 <label
                   key={key}
                   className="flex items-center justify-between gap-4 rounded border p-3"
                 >
-                  <span>
+                  <span className="space-y-1">
                     <strong>{d.dogName}</strong> ({d.cwagsNumber}) - {d.className} -{' '}
                     {kind === 'title' ? 'Title' : `Ace ${d.aceNumber}`}
+                    {kind === 'title' && (
+                      <span className="block text-sm text-gray-600">
+                        Prior qualifying judges: {d.currentJudgeNames.join(', ') || 'None'}
+                        <br />
+                        Qualifying judges this trial: {trialJudgeNames.join(', ') || 'None'}
+                        <br />
+                        Unique judges: {combinedJudgeNames.length} of {d.judgesRequiredForTitle}{' '}
+                        required — {judgeRequirementMet ? 'requirement met' : 'requirement not met'}
+                      </span>
+                    )}
                   </span>
                   <span className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={confirmed.includes(key)}
+                      disabled={!judgeRequirementMet}
                       onChange={() => toggleCandidate(key)}
                     />
-                    <Badge>{confirmed.includes(key) ? 'Confirmed' : 'Excluded'}</Badge>
+                    <Badge>
+                      {!judgeRequirementMet
+                        ? 'Judge requirement not met'
+                        : confirmed.includes(key)
+                          ? 'Confirmed'
+                          : 'Excluded'}
+                    </Badge>
                   </span>
                 </label>
               );

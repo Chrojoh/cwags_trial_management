@@ -13,6 +13,9 @@ export interface TitleConfirmationExportRow {
   priorJudges: number;
   trialJudges: number;
   judgesRequired: number;
+  priorJudgeNames: string;
+  trialJudgeNames: string;
+  judgeRequirementMet: string;
   priorGameTypes: number;
   trialGameTypes: number;
   gameTypesRequired: number;
@@ -28,9 +31,12 @@ const headers = [
   'Prior Qs',
   'Q’s This Trial',
   'Q’s Required',
-  'Prior Judges',
-  'Judges This Trial',
+  'Prior Judge Count',
+  'Trial Judge Count',
   'Judges Required',
+  'Prior Judge Names',
+  'Judges This Trial',
+  'Judge Requirement',
   'Prior Game Types',
   'Game Types This Trial',
   'Game Types Required',
@@ -60,6 +66,9 @@ export function buildTitleConfirmationWorkbook(
       row.priorJudges,
       row.trialJudges,
       row.judgesRequired,
+      row.priorJudgeNames,
+      row.trialJudgeNames,
+      row.judgeRequirementMet,
       row.priorGameTypes,
       row.trialGameTypes,
       row.gameTypesRequired,
@@ -68,9 +77,9 @@ export function buildTitleConfirmationWorkbook(
     ]),
   ];
   const sheet = XLSX.utils.aoa_to_sheet(data);
-  sheet['!merges'] = [XLSX.utils.decode_range('A1:Q1'), XLSX.utils.decode_range('A2:Q2')];
+  sheet['!merges'] = [XLSX.utils.decode_range('A1:T1'), XLSX.utils.decode_range('A2:T2')];
   sheet['!freeze'] = { xSplit: 0, ySplit: 4 } as any;
-  sheet['!autofilter'] = { ref: `A4:Q${Math.max(4, rows.length + 4)}` };
+  sheet['!autofilter'] = { ref: `A4:T${Math.max(4, rows.length + 4)}` };
   sheet['!cols'] = [
     { wch: 12 },
     { wch: 16 },
@@ -84,6 +93,9 @@ export function buildTitleConfirmationWorkbook(
     { wch: 13 },
     { wch: 16 },
     { wch: 16 },
+    { wch: 28 },
+    { wch: 28 },
+    { wch: 20 },
     { wch: 17 },
     { wch: 21 },
     { wch: 20 },

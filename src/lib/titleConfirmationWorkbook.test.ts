@@ -18,6 +18,9 @@ test('exports title evidence and independent review columns', () => {
       priorJudges: 2,
       trialJudges: 1,
       judgesRequired: 0,
+      priorJudgeNames: 'Judge One, Judge Two',
+      trialJudgeNames: 'Judge Three',
+      judgeRequirementMet: 'N/A',
       priorGameTypes: 0,
       trialGameTypes: 0,
       gameTypesRequired: 0,
@@ -28,7 +31,7 @@ test('exports title evidence and independent review columns', () => {
     header: 1,
   });
   assert.equal(rows[0][0], 'Warm Summer Nights - Title and Ace Confirmation');
-  assert.equal(rows[3][15], 'Independent Review');
+  assert.equal(rows[3][18], 'Independent Review');
   assert.equal(rows[4][0], 'Ace 2');
   assert.equal(rows[4][1], 'Confirmed');
 });
