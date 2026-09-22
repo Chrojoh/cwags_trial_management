@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { parseDateOnly } from '@/lib/dateOnly';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -85,7 +86,7 @@ export default function DraftTrialsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-CA', {
+    return parseDateOnly(dateString).toLocaleDateString('en-CA', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',

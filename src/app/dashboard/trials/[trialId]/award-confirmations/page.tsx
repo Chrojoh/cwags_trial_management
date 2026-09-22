@@ -28,6 +28,12 @@ export default function AwardConfirmationsPage() {
           </p>
         </div>
 
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Use this page before posting this trial&apos;s results to the Tracker. The calculation combines
+          prior Tracker totals with this trial&apos;s saved results, so posting first can count the current
+          results twice.
+        </div>
+
         <RibbonExpenseEstimator trialId={trialId} awardsOnly />
       </div>
     </MainLayout>

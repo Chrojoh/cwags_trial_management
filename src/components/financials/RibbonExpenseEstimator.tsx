@@ -47,6 +47,7 @@ interface LiveData {
   config: any;
   clubProfile?: any;
   setupRequired?: boolean;
+  canManageFinancials: boolean;
 }
 
 const defaults: Questionnaire = {
@@ -437,7 +438,7 @@ export default function RibbonExpenseEstimator({
               Export Confirmation XLSX
             </Button>
             <Button
-              disabled={saving || live?.setupRequired}
+              disabled={saving || live?.setupRequired || !live?.canManageFinancials}
               onClick={() => void save(false)}
             >
               Save Confirmations
@@ -447,6 +448,11 @@ export default function RibbonExpenseEstimator({
             <p className="text-sm text-amber-800">
               Confirmations can be reviewed and exported, but saving requires the optional award
               confirmation table.
+            </p>
+          )}
+          {live && !live.canManageFinancials && (
+            <p className="text-sm text-gray-600">
+              You have report access. A secretary or administrator must save confirmation changes.
             </p>
           )}
           {titleCandidates.length + aceCandidates.length === 0 ? (
@@ -494,7 +500,7 @@ export default function RibbonExpenseEstimator({
                     <input
                       type="checkbox"
                       checked={confirmed.includes(key)}
-                      disabled={!judgeRequirementMet}
+                      disabled={!judgeRequirementMet || !live?.canManageFinancials}
                       onChange={() => toggleCandidate(key)}
                     />
                     <Badge>

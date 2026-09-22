@@ -37,6 +37,33 @@ test('parses two-column sheets as separate rounds', () => {
   assert.deepEqual(parsed.records.map((record) => [record.roundNumber, record.result]), [[1, 'Pass'], [2, 'Fail']]);
 });
 
+test('preserves every Games pass code while retaining Pass statistics', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Result', 'Judge', 'Result', 'Judge'],
+    ['12-3456-78', 'Colors Dog', '', '2026-07-04', 'Games 1', 'C', 'Judge One', 'P', 'Judge Two'],
+    ['12-3456-79', 'Teams Dog', '', '2026-07-04', 'Games 1', 'T', 'Judge One', 'BJ', 'Judge Two'],
+    ['12-3456-80', 'Grab Bag Dog', '', '2026-07-04', 'Games 1', 'GB', 'Judge One', 'F', 'Judge Two'],
+  ];
+  const parsed = parseScoreSheetWorkbook(workbookBuffer([{ name: 'Games', rows }]), 'games.xlsx');
+  assert.equal(parsed.warnings.length, 0);
+  assert.deepEqual(
+    parsed.records.map((record) => record.gamesSubclass).filter(Boolean).sort(),
+    ['BJ', 'C', 'GB', 'P', 'T']
+  );
+  assert.equal(parsed.records.filter((record) => record.result === 'Pass').length, 5);
+  assert.equal(parsed.records.filter((record) => record.result === 'Fail').length, 1);
+});
+
+test('does not treat an ordinary P result as a Games subclass outside Games classes', () => {
+  const rows: unknown[][] = [[], [], [], [], [],
+    ['Registration', 'Dog', '', 'Date', 'Class', 'Round', 'Result', 'Judge'],
+    ['12-3456-78', 'Scout', '', '2026-07-04', 'Patrol 1', 1, 'P', 'Judge One'],
+  ];
+  const parsed = parseScoreSheetWorkbook(workbookBuffer([{ name: 'Scent', rows }]), 'scent.xlsx');
+  assert.equal(parsed.records[0].result, 'Pass');
+  assert.equal(parsed.records[0].gamesSubclass, null);
+});
+
 test('imports qualifying Rally, Obedience, and Obedience 5 numerical scores', () => {
   const rows: unknown[][] = [[], [], [], [], [],
     ['Registration', 'Dog', '', 'Date', 'Class', 'Result', 'Judge', 'Result', 'Judge'],

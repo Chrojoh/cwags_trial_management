@@ -63,7 +63,9 @@ export default function CloseToTitlesPage() {
         <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           <strong>Ribbon-planning guide only.</strong> This report estimates dogs close to titles from
           the results currently available here. Results from other recent trials may not have arrived,
-          so it does not confirm eligibility or prevent an entry.
+          so it does not confirm eligibility or prevent an entry. Run this report before posting this
+          trial&apos;s results to the Tracker; otherwise those results may be counted both as prior Tracker
+          results and as results from this trial.
         </div>
 
         {/* Report Component */}

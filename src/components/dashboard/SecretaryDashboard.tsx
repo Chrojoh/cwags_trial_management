@@ -208,6 +208,25 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       const trialRole = getTrialRole(userTrials.find((trial) => trial.id === trialId));
       const canManageFinancials = hasTrialPermission(trialRole, 'manage_financials');
 
+      // The server read model paginates every high-volume table. Use it for
+      // secretaries and administrators so dashboard totals cannot stop at
+      // Supabase's 1,000-row response ceiling.
+      if (canManageFinancials) {
+        const dashboardResponse = await fetch(`/api/trials/${trialId}/dashboard`, {
+          headers: await getDashboardApiHeaders(),
+          cache: 'no-store',
+        });
+        const dashboardPayload = await dashboardResponse.json();
+        if (!dashboardResponse.ok) {
+          throw new Error(dashboardPayload.error || 'Failed to load dashboard data');
+        }
+        setMetrics(dashboardPayload.metrics);
+        setOutstandingEntries(dashboardPayload.outstandingEntries || []);
+        setActionItems(dashboardPayload.actionItems || []);
+        setRecentActivity(dashboardPayload.recentActivity || []);
+        return;
+      }
+
       // Get trial info for days calculation
       const { data: trialData } = await supabase
         .from('trials')

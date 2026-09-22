@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 
 export type ScoreSheetType = 'league' | 'two-column' | 'one-column' | 'unknown';
 export type ImportedResult = 'Pass' | 'Fail' | 'NQ' | 'ABS';
+export type ImportedGamesSubclass = 'C' | 'P' | 'T' | 'BJ' | 'GB';
 
 export interface ParsedScoreRecord {
   registrationNumber: string;
@@ -11,6 +12,7 @@ export interface ParsedScoreRecord {
   roundNumber: number;
   judgeName: string;
   result: ImportedResult;
+  gamesSubclass: ImportedGamesSubclass | null;
   numericalScore: number | null;
   sourceSheet: string;
   sourceRow: number;
@@ -132,6 +134,17 @@ export const normalizeImportedResult = (input: unknown): ImportedResult | null =
   return null;
 };
 
+export const normalizeImportedGamesSubclass = (
+  input: unknown,
+  className: string
+): ImportedGamesSubclass | null => {
+  if (!className.trim().toLowerCase().startsWith('games')) return null;
+  const value = String(input ?? '').trim().toUpperCase();
+  return ['C', 'P', 'T', 'BJ', 'GB'].includes(value)
+    ? (value as ImportedGamesSubclass)
+    : null;
+};
+
 const isNotEnteredResult = (input: unknown) => {
   const result = String(input ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
   return !result || ['-', 'NA', 'N/A'].includes(result);
@@ -162,6 +175,7 @@ const makeRecord = (
   warnings: string[]
 ): ParsedScoreRecord | null => {
   const normalizedClass = normalizeImportedClassName(className);
+  const gamesSubclass = normalizeImportedGamesSubclass(resultValue, normalizedClass);
   let result = normalizeImportedResult(resultValue);
   let numericalScore: number | null = null;
   const rawNumericScore =
@@ -208,6 +222,7 @@ const makeRecord = (
     roundNumber: Math.max(1, Number(roundNumber) || 1),
     judgeName: String(judgeName ?? '').trim() || 'Unknown Judge',
     result,
+    gamesSubclass,
     numericalScore,
     sourceSheet: sheetName,
     sourceRow: row,

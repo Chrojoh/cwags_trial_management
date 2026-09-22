@@ -116,6 +116,9 @@ export async function POST(request: NextRequest) {
           trial_day_id: dayId,
           class_name: example.className,
           class_type: classType(example.className),
+          games_subclass: classType(example.className) === 'games'
+            ? Array.from(new Set(classRecords.map((record) => record.gamesSubclass).filter(Boolean))).join(', ') || null
+            : null,
           entry_fee: 0,
           feo_price: 0,
           class_order: classOrder,
@@ -187,6 +190,7 @@ export async function POST(request: NextRequest) {
           fee: 0,
           entry_status: 'confirmed',
           running_position: runningPosition,
+          games_subclass: record.gamesSubclass,
         })
         .select('id')
         .single();
@@ -195,7 +199,7 @@ export async function POST(request: NextRequest) {
         entry_selection_id: selection.id,
         trial_round_id: roundId,
         numerical_score: record.numericalScore,
-        pass_fail: record.result,
+        pass_fail: record.gamesSubclass || record.result,
         entry_status: record.result === 'ABS' ? 'ABS' : 'present',
       });
       if (scoreError) throw new Error(`Failed to save ${record.result} for ${record.registrationNumber}: ${scoreError.message}`);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient, requireTrialPermission } from '@/lib/apiAuth';
 import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import { isScorableSelection } from '@/lib/selectionStatus';
+import { hasTrialPermission } from '@/lib/trialPermissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -110,7 +111,7 @@ export async function GET(
   { params }: { params: Promise<{ trialId: string }> }
 ) {
   const { trialId } = await params;
-  const auth = await requireTrialPermission(request, trialId, 'manage_financials');
+  const auth = await requireTrialPermission(request, trialId, 'generate_reports');
   if (!auth.authorized) return auth.response;
   try {
     const db = getServiceRoleClient();
@@ -130,11 +131,21 @@ export async function GET(
       throw configResult.error;
     if (clubResult.error && !missingTableCodes.includes(clubResult.error.code || ''))
       throw clubResult.error;
+    const canManageFinancials = hasTrialPermission(auth.role, 'manage_financials');
+    const reportConfig = canManageFinancials
+      ? configResult.data
+      : configResult.data
+        ? {
+            confirmed_awards: configResult.data.confirmed_awards,
+            dismissed_awards: configResult.data.dismissed_awards,
+          }
+        : null;
     return NextResponse.json({
       ...live,
-      config: configResult.data || null,
-      clubProfile: clubResult.data || null,
+      config: reportConfig,
+      clubProfile: canManageFinancials ? clubResult.data || null : null,
       setupRequired,
+      canManageFinancials,
     });
   } catch (error) {
     console.error('Ribbon estimate read failed', { trialId, error });
