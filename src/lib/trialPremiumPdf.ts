@@ -1,4 +1,4 @@
-import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb } from 'pdf-lib';
+import { PDFDocument, PDFPage, PDFFont, PDFString, StandardFonts, rgb } from 'pdf-lib';
 import type { TrialPremiumModel } from '@/types/trialPremium';
 
 const margin = 42;
@@ -27,7 +27,10 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines.length ? lines : [''];
 }
 
-export async function createTrialPremiumPdf(model: TrialPremiumModel): Promise<Uint8Array> {
+export async function createTrialPremiumPdf(
+  model: TrialPremiumModel,
+  options: { mapImageBytes?: Uint8Array; mapMimeType?: string; publicEntryUrl?: string } = {}
+): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
@@ -59,12 +62,27 @@ export async function createTrialPremiumPdf(model: TrialPremiumModel): Promise<U
     y -= 17;
     paragraph(text);
   };
+  const link = (label: string, url: string) => {
+    need(26);
+    const size = 9;
+    page.drawText(label, { x: margin, y, size, font: bold, color: rgb(0.05, 0.32, 0.72) });
+    const width = bold.widthOfTextAtSize(label, size);
+    const annotation = page.doc.context.register(page.doc.context.obj({
+      Type: 'Annot', Subtype: 'Link', Rect: [margin, y - 2, margin + width, y + size + 2], Border: [0, 0, 0],
+      A: { Type: 'Action', S: 'URI', URI: PDFString.of(url) },
+    }));
+    page.node.addAnnot(annotation);
+    y -= 22;
+  };
 
   addPage();
   paragraph(`${model.trial.clubName} | ${model.trial.location}`, 10);
   paragraph(`${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`, 10);
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
   section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(model.trial.location)}`;
+  link('Open venue map and directions', mapUrl);
+  if (options.publicEntryUrl) link('Open the online entry form', options.publicEntryUrl);
 
   need(44);
   page.drawText('Classes, Rounds, Judges and Fees', { x: margin, y, size: 12, font: bold });
@@ -87,10 +105,36 @@ export async function createTrialPremiumPdf(model: TrialPremiumModel): Promise<U
     ['Accessibility', model.content.accessibilityInformation],
     ['Veterinarian', model.content.veterinarianInformation],
     ['Emergency Information', model.content.emergencyInformation],
+    ['Directions and Arrival', model.content.directionsInformation],
+    ['Nearby Services', model.content.nearbyServices],
+    ['Safety and Comfort Rules', model.content.safetyRules],
+    ['Waitlist', model.content.waitlistInformation],
+    ['Rules Acknowledgement', model.content.rulesAcknowledgement],
+    ['Ring Setup', model.content.ringSetupTime || 'See secretary instructions.'],
+    ["Judges' Briefing", model.content.judgesBriefingTime || 'See secretary instructions.'],
     ['Additional Information', model.content.additionalInformation],
     ['Waiver', model.trial.waiverText],
   ];
-  sections.forEach(([title, text]) => section(title, text));
+  for (const [title, text] of sections) {
+    section(title, text);
+    if (title === 'Directions and Arrival' && options.mapImageBytes?.length) {
+      try {
+        const image = options.mapMimeType === 'image/png'
+          ? await pdf.embedPng(options.mapImageBytes)
+          : await pdf.embedJpg(options.mapImageBytes);
+        const maxWidth = pageWidth - margin * 2;
+        const maxHeight = 330;
+        const scale = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        need(height + 18);
+        page.drawImage(image, { x: margin + (maxWidth - width) / 2, y: y - height, width, height });
+        y -= height + 18;
+      } catch {
+        section('Map image', 'The uploaded map image could not be rendered. Use the map link above.');
+      }
+    }
+  }
 
   const pages = pdf.getPages();
   pages.forEach((pdfPage, index) => {

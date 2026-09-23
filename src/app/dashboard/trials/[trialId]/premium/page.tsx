@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CheckCircle, Download, Save } from 'lucide-react';
+import Image from 'next/image';
+import { AlertTriangle, ArrowLeft, CheckCircle, Download, Image as ImageIcon, Save, Upload } from 'lucide-react';
 import MainLayout from '@/components/layout/mainLayout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,13 @@ const fields: Array<{ key: keyof TrialPremiumContent; label: string; help: strin
   { key: 'accessibilityInformation', label: 'Accessibility', help: 'Provide accessibility details and a contact for accommodations.' },
   { key: 'veterinarianInformation', label: 'Veterinarian', help: 'Name, address and phone number for the nearest emergency veterinarian.', required: true },
   { key: 'emergencyInformation', label: 'Emergency information', help: 'Give emergency procedures and site-specific safety directions.', required: true },
+  { key: 'directionsInformation', label: 'Directions and arrival', help: 'Explain the correct entrance, landmarks, unloading and any directions a map alone may miss.', required: true },
+  { key: 'nearbyServices', label: 'Nearby services', help: 'List secretary-reviewed hotels, restaurants, fuel, groceries or pet supplies. Include a web or map address when useful.' },
+  { key: 'safetyRules', label: 'Safety and comfort rules', help: 'State leash, dog-spacing, barking, crating, cleanup and search-discussion expectations.', required: true },
+  { key: 'waitlistInformation', label: 'Waitlist information', help: 'Explain how full rounds are waitlisted and how competitors will be contacted if promoted.' },
+  { key: 'rulesAcknowledgement', label: 'Rules acknowledgement', help: 'Explain that submitting an entry confirms the competitor has read the current C-WAGS and host rules.' },
+  { key: 'ringSetupTime', label: 'Ring setup time', help: 'State when setup begins and whether volunteers are requested.' },
+  { key: 'judgesBriefingTime', label: "Judges' briefing time", help: 'State the briefing time or explain that it follows setup.' },
   { key: 'additionalInformation', label: 'Additional information', help: 'Add trial-specific instructions not covered above.' },
 ];
 
@@ -37,6 +45,8 @@ export default function TrialPremiumPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [uploadingMap, setUploadingMap] = useState(false);
+  const [mapPreviewUrl, setMapPreviewUrl] = useState('');
 
   const authHeaders = async () => {
     const { data } = await getSupabaseBrowser().auth.getSession();
@@ -54,10 +64,35 @@ export default function TrialPremiumPage() {
       setModel(body);
       const local = sessionStorage.getItem(`trial-premium-draft:${trialId}`);
       setContent(local ? { ...body.content, ...JSON.parse(local) } : body.content);
+      if (body.mapImagePath) {
+        const mapResponse = await fetch(`/api/trials/${trialId}/premium/map`, { headers: await authHeaders(), cache: 'no-store' });
+        if (mapResponse.ok) setMapPreviewUrl(URL.createObjectURL(await mapResponse.blob()));
+      }
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to load premium'); }
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, [trialId]);
+  useEffect(() => () => { if (mapPreviewUrl) URL.revokeObjectURL(mapPreviewUrl); }, [mapPreviewUrl]);
+
+  const uploadMap = async (file?: File) => {
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type)) { setError('Choose a JPG or PNG map image.'); return; }
+    if (file.size > 3 * 1024 * 1024) { setError('Map image must be 3 MB or smaller.'); return; }
+    if (model?.setupRequired) { setError('Install the premium migration before uploading a private map image.'); return; }
+    setUploadingMap(true); setError('');
+    try {
+      const form = new FormData(); form.append('map', file);
+      const headers = await authHeaders();
+      const response = await fetch(`/api/trials/${trialId}/premium/map`, { method: 'POST', headers: { Authorization: headers.Authorization }, body: form });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Unable to upload map');
+      if (mapPreviewUrl) URL.revokeObjectURL(mapPreviewUrl);
+      setMapPreviewUrl(URL.createObjectURL(file));
+      setModel((current) => current ? { ...current, mapImagePath: body.path } : current);
+      setMessage('Private map image uploaded. It will appear in the premium PDF.');
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to upload map'); }
+    finally { setUploadingMap(false); }
+  };
 
   const save = async (status: PremiumStatus) => {
     if (!content) return;
@@ -99,6 +134,7 @@ export default function TrialPremiumPage() {
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-bold">Premium List Builder</h1><p className="text-gray-600">{model.trial.trialName}</p></div><Button variant="outline" onClick={() => router.back()}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button></div>
     {model.setupRequired && <Alert><AlertTriangle className="h-4 w-4" /><AlertDescription>The premium database migration has not been installed. You can prepare and retain a browser draft, but server saving is intentionally disabled.</AlertDescription></Alert>}
     <Card><CardHeader><CardTitle className="flex items-center gap-2">Workflow Status <Badge variant={model.status === 'ready' ? 'default' : 'secondary'}>{model.status === 'ready' ? 'Ready' : 'Draft'}</Badge></CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p><strong>Trial:</strong> {model.trial.clubName} - {model.trial.location}</p><p><strong>Schedule:</strong> {model.schedule.length} rounds pulled from trial setup.</p><p><strong>Entry opening:</strong> {model.trial.entryOpenAt || 'Not scheduled'} {model.trial.entryTimezone || ''}</p><p><strong>Entry closing:</strong> {model.trial.entriesCloseDate || "Secretary closes entries when full"}</p>{model.missingRequired.length > 0 && <p className="text-amber-800"><strong>Still required:</strong> {model.missingRequired.join(', ')}</p>}</CardContent></Card>
+    <Card><CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Local Map Image</CardTitle></CardHeader><CardContent className="space-y-3"><p className="text-sm text-gray-700">Upload a secretary-reviewed JPG or PNG map showing the venue and useful nearby landmarks. Maximum 3 MB. The original stays private and is embedded only in the generated premium.</p>{mapPreviewUrl && <Image src={mapPreviewUrl} alt="Uploaded local venue map preview" width={900} height={600} unoptimized className="h-auto max-h-80 w-auto rounded border object-contain" />}<label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"><Upload className="mr-2 h-4 w-4" />{uploadingMap ? 'Uploading...' : model.mapImagePath ? 'Replace Map Image' : 'Upload Map Image'}<input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={uploadingMap} onChange={(event) => void uploadMap(event.target.files?.[0])} /></label></CardContent></Card>
     <div className="grid gap-5 lg:grid-cols-2">{fields.map((field) => <Card key={field.key}><CardHeader><CardTitle className="text-base">{field.label}{field.required ? ' *' : ''}</CardTitle></CardHeader><CardContent><Label className="sr-only">{field.label}</Label><Textarea rows={5} value={content[field.key]} onChange={(event) => setContent({ ...content, [field.key]: event.target.value })} placeholder={field.help} /><p className="mt-2 text-xs text-gray-600">{field.help}</p></CardContent></Card>)}</div>
     <Card><CardHeader><CardTitle>Review and Generate</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-3"><Button variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button><Button disabled={saving} onClick={() => void save('ready')}><CheckCircle className="mr-2 h-4 w-4" />Mark Premium Ready</Button><Button variant="outline" onClick={() => void download()}><Download className="mr-2 h-4 w-4" />Download Premium PDF</Button>{message && <p className="w-full text-sm text-green-700">{message}</p>}{error && <p className="w-full text-sm text-red-700">{error}</p>}<p className="w-full text-xs text-gray-600">The schedule, judges and fees come from trial setup. Change them there rather than retyping them in the premium.</p></CardContent></Card>
   </div></MainLayout>;

@@ -7,7 +7,7 @@ import {
   type TrialPremiumModel,
 } from '@/types/trialPremium';
 
-const premiumSelect = 'status,content,updated_at,updated_by';
+const premiumSelect = 'status,content,map_image_path,updated_at,updated_by';
 
 export async function loadTrialPremium(trialId: string): Promise<TrialPremiumModel> {
   const db = getServiceRoleClient();
@@ -29,6 +29,7 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     content?: Partial<TrialPremiumContent>;
     updated_at?: string | null;
     updated_by?: string | null;
+    map_image_path?: string | null;
   } | null;
   const content = { ...EMPTY_PREMIUM_CONTENT, ...(saved?.content || {}) };
   const schedule = (daysResult.data || []).flatMap((day: any) =>
@@ -54,6 +55,8 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     !content.facilityInformation && 'Facility information',
     !content.veterinarianInformation && 'Veterinarian information',
     !content.emergencyInformation && 'Emergency information',
+    !content.directionsInformation && 'Directions and arrival information',
+    !content.safetyRules && 'Safety and comfort rules',
     !trial.waiver_text && 'Waiver text',
     schedule.length === 0 && 'Class and round schedule',
   ].filter(Boolean) as string[];
@@ -79,6 +82,7 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     content,
     updatedAt: saved?.updated_at || null,
     updatedBy: saved?.updated_by || null,
+    mapImagePath: saved?.map_image_path || null,
     missingRequired,
     setupRequired: tableMissing,
   };
@@ -95,6 +99,22 @@ export async function saveTrialPremium(
     trial_id: trialId,
     content,
     status,
+    updated_by: userId,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'trial_id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function saveTrialPremiumMap(trialId: string, path: string, userId: string) {
+  const db = getServiceRoleClient();
+  const { data: existing, error: readError } = await db
+    .from('trial_premiums').select('content,status').eq('trial_id', trialId).maybeSingle();
+  if (readError) throw new Error(readError.message);
+  const { error } = await db.from('trial_premiums').upsert({
+    trial_id: trialId,
+    content: existing?.content || EMPTY_PREMIUM_CONTENT,
+    status: existing?.status || 'draft',
+    map_image_path: path,
     updated_by: userId,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'trial_id' });

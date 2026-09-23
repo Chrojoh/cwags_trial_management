@@ -20,10 +20,19 @@ test('premium PDF paginates a complete trial without overflowing a single page',
       className: `Class ${index + 1}`, classOrder: index, roundNumber: 1, judgeName: 'Judge Example',
       entryFee: 25, feoAvailable: true,
     })),
-    status: 'ready', content, updatedAt: null, updatedBy: null, missingRequired: [],
+    status: 'ready', content, updatedAt: null, updatedBy: null, mapImagePath: null, missingRequired: [],
   };
-  const bytes = await createTrialPremiumPdf(model);
+  const mapImageBytes = new Uint8Array(Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    'base64'
+  ));
+  const bytes = await createTrialPremiumPdf(model, {
+    mapImageBytes,
+    mapMimeType: 'image/png',
+    publicEntryUrl: 'https://example.com/entries/trial-1',
+  });
   const pdf = await PDFDocument.load(bytes);
   assert.ok(pdf.getPageCount() >= 3);
   assert.ok(bytes.length > 5000);
+  assert.ok((pdf.getPage(0).node.Annots()?.size() || 0) >= 2);
 });

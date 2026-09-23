@@ -34,6 +34,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         !content.facilityInformation && 'Facility information',
         !content.veterinarianInformation && 'Veterinarian information',
         !content.emergencyInformation && 'Emergency information',
+        !content.directionsInformation && 'Directions and arrival information',
+        !content.safetyRules && 'Safety and comfort rules',
         !preview.trial.waiverText && 'Waiver text',
         preview.schedule.length === 0 && 'Class and round schedule',
       ].filter(Boolean);

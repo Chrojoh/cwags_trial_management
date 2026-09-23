@@ -12,6 +12,13 @@ export interface TrialPremiumContent {
   accessibilityInformation: string;
   veterinarianInformation: string;
   emergencyInformation: string;
+  directionsInformation: string;
+  nearbyServices: string;
+  safetyRules: string;
+  waitlistInformation: string;
+  rulesAcknowledgement: string;
+  ringSetupTime: string;
+  judgesBriefingTime: string;
   additionalInformation: string;
 }
 
@@ -20,6 +27,7 @@ export interface TrialPremiumRecord {
   content: TrialPremiumContent;
   updatedAt: string | null;
   updatedBy: string | null;
+  mapImagePath: string | null;
 }
 
 export interface TrialPremiumModel extends TrialPremiumRecord {
@@ -64,5 +72,12 @@ export const EMPTY_PREMIUM_CONTENT: TrialPremiumContent = {
   accessibilityInformation: '',
   veterinarianInformation: '',
   emergencyInformation: '',
+  directionsInformation: '',
+  nearbyServices: '',
+  safetyRules: '',
+  waitlistInformation: '',
+  rulesAcknowledgement: '',
+  ringSetupTime: '',
+  judgesBriefingTime: '',
   additionalInformation: '',
 };
