@@ -11,6 +11,7 @@ import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import type { PostTrialPackageModel } from '@/lib/postTrialPackage';
 
 const issueLabels: Record<keyof PostTrialPackageModel['issues'], string> = {
+  awaitingAcceptance: 'Entries awaiting acceptance',
   pendingRegistration: 'Pending registration numbers',
   placeholderJudges: 'TBA or unassigned judges',
   missingScores: 'Missing scores',

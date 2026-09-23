@@ -127,6 +127,7 @@ export interface ClassResultsReport {
 }
 
 export interface PostTrialReadinessIssues {
+  awaitingAcceptance: number;
   pendingRegistration: number;
   placeholderJudges: number;
   missingScores: number;
@@ -185,7 +186,8 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
   const activeEntries = source.entries.filter(
     (entry) => !inactiveEntryStatuses.has(normalize(entry.entry_status))
   );
-  const activeEntryIds = new Set(activeEntries.map((entry) => entry.id));
+  const acceptedEntries = activeEntries.filter((entry) => normalize(entry.entry_status) !== 'submitted');
+  const activeEntryIds = new Set(acceptedEntries.map((entry) => entry.id));
   const reportableSelections = source.selections.filter(
     (selection) => activeEntryIds.has(selection.entry_id) && isActiveSelection(selection.entry_status)
   );
@@ -261,14 +263,15 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
     );
 
   const issues: PostTrialReadinessIssues = {
-    pendingRegistration: activeEntries.filter(
+    awaitingAcceptance: activeEntries.filter((entry) => normalize(entry.entry_status) === 'submitted').length,
+    pendingRegistration: acceptedEntries.filter(
       (entry) => entry.registration_pending || !String(entry.cwags_number || '').trim()
     ).length,
     placeholderJudges: source.rounds.filter(
       (round) => !round.is_reset && isPlaceholderJudge(round.judge_name)
     ).length,
     missingScores: classResults.reduce((sum, report) => sum + report.totals.missingResults, 0),
-    outstandingBalances: activeEntries.filter(
+    outstandingBalances: acceptedEntries.filter(
       (entry) =>
         !entry.fees_waived &&
         Number(entry.amount_owed || 0) - Number(entry.amount_paid || 0) > 0.005
@@ -300,7 +303,7 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
     issues,
     classResults,
     recap: {
-      acceptedEntries: activeEntries.length,
+      acceptedEntries: acceptedEntries.length,
       regularSelections: regularSelections.length,
       feoSelections: feoSelections.length,
       scoredRegularRuns: scoredRegularRuns.length,

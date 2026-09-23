@@ -256,6 +256,7 @@ export default function TrialDetailPage() {
       const readiness = await readinessResponse.json();
       if (!readinessResponse.ok) throw new Error(readiness.error || 'Could not check closing readiness');
       const issueText = [
+        `${readiness.issues.awaitingAcceptance || 0} entry/entries awaiting acceptance`,
         `${readiness.issues.pendingRegistration} pending registration number(s)`,
         `${readiness.issues.placeholderJudges} TBA/unassigned judge(s)`,
         `${readiness.issues.missingScores} missing score(s)`,

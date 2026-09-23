@@ -116,11 +116,22 @@ test('readiness identifies missing results, placeholder judges, registrations, a
   const model = buildPostTrialPackageModel(source);
   assert.equal(model.ready, false);
   assert.deepEqual(model.issues, {
+    awaitingAcceptance: 0,
     pendingRegistration: 1,
     placeholderJudges: 1,
     missingScores: 1,
     outstandingBalances: 1,
   });
+});
+
+test('keeps submitted quotes out of accepted post-trial totals', () => {
+  const source = fixture();
+  source.entries[0].entry_status = 'submitted';
+
+  const model = buildPostTrialPackageModel(source);
+  assert.equal(model.issues.awaitingAcceptance, 1);
+  assert.equal(model.recap.acceptedEntries, 1);
+  assert.equal(model.recap.regularSelections, 1);
 });
 
 test('preserves Games result codes in the report', () => {

@@ -27,7 +27,7 @@ test('creates readable recap workbook with numeric money cells', () => {
   const workbook = XLSX.read(bytes, { type: 'array' });
   assert.deepEqual(workbook.SheetNames, ['Trial Recap', 'Readiness', 'Class Summary', 'Judges']);
   assert.equal(workbook.Sheets['Trial Recap'].B16.v, 1.75);
-  assert.equal(workbook.Sheets.Readiness.B6.v, 'READY');
+  assert.equal(workbook.Sheets.Readiness.B7.v, 'READY');
 });
 
 test('creates class results and judge PDF documents', async () => {

@@ -256,6 +256,7 @@ export function createTrialRecapWorkbook(model: PostTrialPackageModel): Uint8Arr
 
   const readiness = XLSX.utils.aoa_to_sheet([
     ['Closing Readiness', 'Count'],
+    ['Entries awaiting acceptance', model.issues.awaitingAcceptance],
     ['Pending registration numbers', model.issues.pendingRegistration],
     ['TBA or unassigned judges', model.issues.placeholderJudges],
     ['Missing scores', model.issues.missingScores],
