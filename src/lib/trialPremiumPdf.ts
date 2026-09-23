@@ -93,45 +93,85 @@ export async function createTrialPremiumPdf(
   const drawDailyScheduleGrids = () => {
     const byDate = new Map<string, typeof model.schedule>();
     model.schedule.forEach((row) => byDate.set(row.date, [...(byDate.get(row.date) || []), row]));
+
+    type ScheduleBlock = {
+      date: string;
+      rows: typeof model.schedule;
+      judges: string[];
+      classes: typeof model.schedule;
+      continued: boolean;
+    };
+    const blocks: ScheduleBlock[] = [];
+
     for (const [date, rows] of byDate) {
       const judges = [...new Set(rows.map((row) => row.judgeName || 'TBA'))];
       const classes = [...new Map(rows.map((row) => [row.className, row])).values()]
         .sort((a, b) => a.classOrder - b.classOrder);
-      const judgeChunks = Array.from({ length: Math.ceil(judges.length / 5) }, (_, index) => judges.slice(index * 5, index * 5 + 5));
-      const classChunks = Array.from({ length: Math.ceil(classes.length / 12) }, (_, index) => classes.slice(index * 12, index * 12 + 12));
-
+      const judgeChunks = Array.from({ length: Math.ceil(judges.length / 4) }, (_, index) => judges.slice(index * 4, index * 4 + 4));
+      const classChunks = Array.from({ length: Math.ceil(classes.length / 8) }, (_, index) => classes.slice(index * 8, index * 8 + 8));
+      let blockIndex = 0;
       for (const judgeChunk of judgeChunks) for (const classChunk of classChunks) {
-        const gridPage = pdf.addPage([792, 612]);
+        blocks.push({ date, rows, judges: judgeChunk, classes: classChunk, continued: blockIndex > 0 });
+        blockIndex += 1;
+      }
+    }
+
+    for (let pageIndex = 0; pageIndex < blocks.length; pageIndex += 2) {
+      const gridPage = pdf.addPage([pageWidth, pageHeight]);
+      blocks.slice(pageIndex, pageIndex + 2).forEach((block, slotIndex) => {
         const left = 36;
-        const top = 548;
-        const classWidth = 158;
-        const judgeWidth = (720 - classWidth) / Math.max(1, judgeChunk.length);
-        const headerHeight = 46;
-        const rowHeight = 35;
-        gridPage.drawText(`${formatDate(date)} - Classes, Judges and Fees`, { x: left, y: 578, size: 15, font: bold, color: rgb(0.2, 0.15, 0.12) });
-        gridPage.drawText('Each filled cell shows the assigned round(s), regular fee and whether FEO is offered.', { x: left, y: 560, size: 8, font });
-        gridPage.drawRectangle({ x: left, y: top - headerHeight, width: classWidth, height: headerHeight, borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18) });
-        drawCenteredLines(gridPage, 'Class', left, top, classWidth, 9, bold);
-        judgeChunk.forEach((judge, judgeIndex) => {
+        const totalWidth = 540;
+        const titleY = slotIndex === 0 ? 752 : 397;
+        const tableTop = titleY - 42;
+        const classWidth = 140;
+        const judgeWidth = (totalWidth - classWidth) / Math.max(1, block.judges.length);
+        const headerHeight = 42;
+        const rowHeight = 31;
+        const judgeFontSize = block.judges.length >= 4 ? 7 : 8;
+        const cellFontSize = block.judges.length >= 4 ? 6.5 : block.judges.length === 3 ? 7 : 7.5;
+        const continuation = block.continued ? ' (continued)' : '';
+
+        gridPage.drawText(`${formatDate(block.date)} - Classes, Judges and Fees${continuation}`, {
+          x: left, y: titleY, size: 12, font: bold, color: rgb(0.2, 0.15, 0.12),
+        });
+        gridPage.drawText('Cells show round(s), regular fee and FEO availability.', { x: left, y: titleY - 16, size: 7.5, font });
+        gridPage.drawRectangle({
+          x: left, y: tableTop - headerHeight, width: classWidth, height: headerHeight,
+          borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18),
+        });
+        drawCenteredLines(gridPage, 'Class', left, tableTop, classWidth, 8, bold);
+        block.judges.forEach((judge, judgeIndex) => {
           const x = left + classWidth + judgeIndex * judgeWidth;
-          gridPage.drawRectangle({ x, y: top - headerHeight, width: judgeWidth, height: headerHeight, borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18) });
-          drawCenteredLines(gridPage, judge, x, top, judgeWidth, 8, bold);
+          gridPage.drawRectangle({
+            x, y: tableTop - headerHeight, width: judgeWidth, height: headerHeight,
+            borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18),
+          });
+          drawCenteredLines(gridPage, judge, x, tableTop, judgeWidth, judgeFontSize, bold);
         });
 
-        classChunk.forEach((classRow, rowIndex) => {
-          const rowTop = top - headerHeight - rowIndex * rowHeight;
-          gridPage.drawRectangle({ x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight, borderWidth: 0.6, color: rowIndex % 2 ? rgb(0.98, 0.98, 0.98) : rgb(1, 1, 1), borderColor: rgb(0.55, 0.55, 0.55) });
-          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 8, bold);
-          judgeChunk.forEach((judge, judgeIndex) => {
+        block.classes.forEach((classRow, rowIndex) => {
+          const rowTop = tableTop - headerHeight - rowIndex * rowHeight;
+          const fill = rowIndex % 2 ? rgb(0.98, 0.98, 0.98) : rgb(1, 1, 1);
+          gridPage.drawRectangle({
+            x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight,
+            borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
+          });
+          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 7.5, bold);
+          block.judges.forEach((judge, judgeIndex) => {
             const x = left + classWidth + judgeIndex * judgeWidth;
-            const assignments = rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
+            const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
             const rounds = assignments.map((row) => `R${row.roundNumber}`).join(', ');
-            const cell = assignments.length ? `${rounds} | $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ' | FEO' : ''}` : '';
-            gridPage.drawRectangle({ x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight, borderWidth: 0.6, color: rowIndex % 2 ? rgb(0.98, 0.98, 0.98) : rgb(1, 1, 1), borderColor: rgb(0.55, 0.55, 0.55) });
-            if (cell) drawCenteredLines(gridPage, cell, x, rowTop, judgeWidth, 7.5, font);
+            const cell = assignments.length
+              ? `${rounds}  $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? '  FEO' : ''}`
+              : '';
+            gridPage.drawRectangle({
+              x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight,
+              borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
+            });
+            if (cell) drawCenteredLines(gridPage, cell, x, rowTop, judgeWidth, cellFontSize, font);
           });
         });
-      }
+      });
     }
   };
 

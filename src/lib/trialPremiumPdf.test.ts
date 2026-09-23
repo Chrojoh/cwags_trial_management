@@ -35,4 +35,7 @@ test('premium PDF paginates a complete trial without overflowing a single page',
   assert.ok(pdf.getPageCount() >= 3);
   assert.ok(bytes.length > 5000);
   assert.ok((pdf.getPage(0).node.Annots()?.size() || 0) >= 2);
+  const schedulePageSize = pdf.getPage(1).getSize();
+  assert.equal(schedulePageSize.width, 612);
+  assert.equal(schedulePageSize.height, 792);
 });
