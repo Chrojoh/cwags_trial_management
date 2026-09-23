@@ -75,6 +75,66 @@ export async function createTrialPremiumPdf(
     y -= 22;
   };
 
+  const drawCenteredLines = (
+    target: PDFPage,
+    text: string,
+    x: number,
+    top: number,
+    width: number,
+    size: number,
+    targetFont: PDFFont
+  ) => {
+    wrap(text, targetFont, size, width - 8).slice(0, 3).forEach((line, index) => {
+      const lineWidth = targetFont.widthOfTextAtSize(line, size);
+      target.drawText(line, { x: x + Math.max(4, (width - lineWidth) / 2), y: top - 12 - index * (size + 2), size, font: targetFont });
+    });
+  };
+
+  const drawDailyScheduleGrids = () => {
+    const byDate = new Map<string, typeof model.schedule>();
+    model.schedule.forEach((row) => byDate.set(row.date, [...(byDate.get(row.date) || []), row]));
+    for (const [date, rows] of byDate) {
+      const judges = [...new Set(rows.map((row) => row.judgeName || 'TBA'))];
+      const classes = [...new Map(rows.map((row) => [row.className, row])).values()]
+        .sort((a, b) => a.classOrder - b.classOrder);
+      const judgeChunks = Array.from({ length: Math.ceil(judges.length / 5) }, (_, index) => judges.slice(index * 5, index * 5 + 5));
+      const classChunks = Array.from({ length: Math.ceil(classes.length / 12) }, (_, index) => classes.slice(index * 12, index * 12 + 12));
+
+      for (const judgeChunk of judgeChunks) for (const classChunk of classChunks) {
+        const gridPage = pdf.addPage([792, 612]);
+        const left = 36;
+        const top = 548;
+        const classWidth = 158;
+        const judgeWidth = (720 - classWidth) / Math.max(1, judgeChunk.length);
+        const headerHeight = 46;
+        const rowHeight = 35;
+        gridPage.drawText(`${formatDate(date)} - Classes, Judges and Fees`, { x: left, y: 578, size: 15, font: bold, color: rgb(0.2, 0.15, 0.12) });
+        gridPage.drawText('Each filled cell shows the assigned round(s), regular fee and whether FEO is offered.', { x: left, y: 560, size: 8, font });
+        gridPage.drawRectangle({ x: left, y: top - headerHeight, width: classWidth, height: headerHeight, borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18) });
+        drawCenteredLines(gridPage, 'Class', left, top, classWidth, 9, bold);
+        judgeChunk.forEach((judge, judgeIndex) => {
+          const x = left + classWidth + judgeIndex * judgeWidth;
+          gridPage.drawRectangle({ x, y: top - headerHeight, width: judgeWidth, height: headerHeight, borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18) });
+          drawCenteredLines(gridPage, judge, x, top, judgeWidth, 8, bold);
+        });
+
+        classChunk.forEach((classRow, rowIndex) => {
+          const rowTop = top - headerHeight - rowIndex * rowHeight;
+          gridPage.drawRectangle({ x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight, borderWidth: 0.6, color: rowIndex % 2 ? rgb(0.98, 0.98, 0.98) : rgb(1, 1, 1), borderColor: rgb(0.55, 0.55, 0.55) });
+          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 8, bold);
+          judgeChunk.forEach((judge, judgeIndex) => {
+            const x = left + classWidth + judgeIndex * judgeWidth;
+            const assignments = rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
+            const rounds = assignments.map((row) => `R${row.roundNumber}`).join(', ');
+            const cell = assignments.length ? `${rounds} | $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ' | FEO' : ''}` : '';
+            gridPage.drawRectangle({ x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight, borderWidth: 0.6, color: rowIndex % 2 ? rgb(0.98, 0.98, 0.98) : rgb(1, 1, 1), borderColor: rgb(0.55, 0.55, 0.55) });
+            if (cell) drawCenteredLines(gridPage, cell, x, rowTop, judgeWidth, 7.5, font);
+          });
+        });
+      }
+    }
+  };
+
   addPage();
   paragraph(`${model.trial.clubName} | ${model.trial.location}`, 10);
   paragraph(`${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`, 10);
@@ -84,14 +144,9 @@ export async function createTrialPremiumPdf(
   link('Open venue map and directions', mapUrl);
   if (options.publicEntryUrl) link('Open the online entry form', options.publicEntryUrl);
 
-  need(44);
-  page.drawText('Classes, Rounds, Judges and Fees', { x: margin, y, size: 12, font: bold });
-  y -= 20;
-  model.schedule.forEach((row) => {
-    need(22);
-    const line = `${formatDate(row.date)} | ${row.className}, Round ${row.roundNumber} | Judge: ${row.judgeName || 'TBA'} | $${row.entryFee.toFixed(2)}${row.feoAvailable ? ' | FEO available' : ''}`;
-    paragraph(line, 8, 8);
-  });
+  section('Classes, Rounds, Judges and Fees', `${model.schedule.length} scheduled rounds are shown in the daily grids that follow. Each grid is generated directly from the saved trial setup.`);
+  drawDailyScheduleGrids();
+  addPage();
 
   const sections: Array<[string, string]> = [
     ['Payment Instructions', model.content.paymentInstructions],
