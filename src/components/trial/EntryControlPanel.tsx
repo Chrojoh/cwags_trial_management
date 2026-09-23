@@ -157,8 +157,8 @@ export default function EntryControlPanel({ trialId, currentStatus }: EntryContr
       const { error } = await supabase
         .from('trials')
         .update(newStatus === 'draft'
-          ? { entry_status: newStatus, entry_open_at: null }
-          : { entry_status: newStatus })
+          ? { entry_status: newStatus, entries_open: false, entry_open_at: null }
+          : { entry_status: newStatus, entries_open: newStatus === 'open' })
         .eq('id', trialId);
 
       if (error) throw error;

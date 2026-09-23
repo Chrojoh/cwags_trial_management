@@ -23,10 +23,7 @@ export async function GET(
       'get_public_trial_entry_form',
       { p_trial_id: trialId }
     )
-    if (!publicError) {
-      if (!publicPayload) {
-        return NextResponse.json({ error: 'Trial not found' }, { status: 404 })
-      }
+    if (!publicError && publicPayload) {
       const payload = publicPayload as any
       if (payload?.trial) {
         payload.trial.entry_status = getEffectiveEntryStatus(payload.trial)
@@ -36,10 +33,14 @@ export async function GET(
 
     // Temporary compatibility path while the additive RPC migration is being
     // installed in an existing Supabase project.
-    console.warn('Public trial RPC unavailable; using compatibility lookup', {
-      code: publicError.code,
-      message: publicError.message,
-    })
+    if (publicError) {
+      console.warn('Public trial RPC unavailable; using compatibility lookup', {
+        code: publicError.code,
+        message: publicError.message,
+      })
+    } else {
+      console.warn('Public trial RPC returned no eligible trial; checking active-trial compatibility')
+    }
 
     const db = getServiceRoleClient()
     const { data: trial, error: trialError } = await db
@@ -48,6 +49,7 @@ export async function GET(
         entries_close_date,entry_status,entry_open_at,entry_timezone,trial_secretary,secretary_email,
         secretary_phone,default_entry_fee,default_feo_price,waiver_text`)
       .eq('id', trialId)
+      .in('trial_status', ['published', 'active'])
       .maybeSingle()
 
     if (trialError) throw trialError
