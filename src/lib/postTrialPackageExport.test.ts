@@ -7,6 +7,7 @@ import {
   createJudgeSignaturePagesPdf,
   createPostTrialPackageZip,
   createReadinessReportPdf,
+  postTrialModelToLeagueWorkbookClasses,
 } from './postTrialPackageExport';
 
 const model = buildPostTrialPackageModel({
@@ -27,12 +28,42 @@ test('creates judge signature and readable readiness PDF documents', async () =>
   assert.equal(readinessPdf.getPageCount(), 1);
 });
 
+test('paginates judge signature assignments without overflowing the signature area', async () => {
+  const manyAssignments = {
+    ...model,
+    judges: [
+      {
+        name: 'Busy Judge',
+        assignedRounds: 37,
+        assignments: Array.from({ length: 37 }, (_, index) => ({
+          trialDate: '2026-09-20',
+          className: `Class ${index + 1}`,
+          roundNumber: 1,
+        })),
+      },
+    ],
+  };
+  const judgePdf = await PDFDocument.load(await createJudgeSignaturePagesPdf(manyAssignments));
+  assert.equal(judgePdf.getPageCount(), 2);
+});
+
+test('maps post-trial results into the official workbook structure', () => {
+  const classes = postTrialModelToLeagueWorkbookClasses(model);
+  assert.equal(classes.length, 1);
+  assert.equal(classes[0].className, 'Patrol 1');
+  assert.equal(classes[0].participants[0].cwagsNumber, '12-3456-78');
+  assert.equal(classes[0].rounds[0].results.get('12-3456-78'), 'Pass');
+});
+
 test('packages every required review document in one ZIP', async () => {
-  const files = unzipSync(await createPostTrialPackageZip(model));
+  const workbook = new Uint8Array([80, 75, 3, 4]);
+  const files = unzipSync(await createPostTrialPackageZip(model, workbook));
   const names = Object.keys(files).sort();
   assert.deepEqual(names, [
     'Export-Test-Judge-Signature-Pages.pdf',
+    'Export-Test-Official-Results.xlsx',
     'Export-Test-Secretary-Readiness.pdf',
     'README.txt',
   ]);
+  assert.deepEqual(files['Export-Test-Official-Results.xlsx'], workbook);
 });

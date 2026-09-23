@@ -9,6 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import type { PostTrialPackageModel } from '@/lib/postTrialPackage';
+import {
+  createOfficialResultsWorkbook,
+  createPostTrialPackageZip,
+  postTrialPackageFilename,
+} from '@/lib/postTrialPackageExport';
 
 const issueLabels: Record<keyof PostTrialPackageModel['issues'], string> = {
   awaitingAcceptance: 'Entries awaiting acceptance',
@@ -57,19 +62,19 @@ export default function PostTrialPackagePreviewPage() {
     try {
       setDownloading(true);
       setError(null);
-      const response = await fetch(`/api/trials/${trialId}/post-trial-package/download`, {
-        headers: { Authorization: `Bearer ${await getToken()}` },
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Unable to generate the package.');
-      }
-      const disposition = response.headers.get('content-disposition') || '';
-      const filename = disposition.match(/filename="([^"]+)"/)?.[1] || 'post-trial-package.zip';
-      const url = URL.createObjectURL(await response.blob());
+      if (!model) throw new Error('The closing review must finish loading first.');
+      const templateResponse = await fetch('/templates/league-results-template-v3.xlsx');
+      if (!templateResponse.ok) throw new Error('Could not load the official C-WAGS results template.');
+      const workbook = createOfficialResultsWorkbook(
+        new Uint8Array(await templateResponse.arrayBuffer()),
+        model
+      );
+      const zip = await createPostTrialPackageZip(model, workbook);
+      const zipBuffer = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength) as ArrayBuffer;
+      const url = URL.createObjectURL(new Blob([zipBuffer], { type: 'application/zip' }));
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = filename;
+      anchor.download = postTrialPackageFilename(model);
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (downloadError) {
@@ -97,7 +102,7 @@ export default function PostTrialPackagePreviewPage() {
             </Button>
             <Button disabled={!model || downloading} onClick={download}>
               {downloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-              {downloading ? 'Generating…' : 'Download Supporting ZIP'}
+              {downloading ? 'Generating…' : 'Download Complete ZIP'}
             </Button>
           </div>
         </div>
@@ -149,9 +154,10 @@ export default function PostTrialPackagePreviewPage() {
                 <CardHeader><CardTitle>Closing Documents</CardTitle></CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <p><strong>Summary page:</strong> official C-WAGS Excel results workbook</p>
-                  <p><strong>Supporting ZIP:</strong> {model.judges.length} judge signature page{model.judges.length === 1 ? '' : 's'}</p>
-                  <p><strong>Supporting ZIP:</strong> readable secretary readiness PDF</p>
-                  <p><strong>Supporting ZIP:</strong> submission instructions</p>
+                  <p><strong>Complete ZIP:</strong> official C-WAGS Excel results workbook</p>
+                  <p><strong>Complete ZIP:</strong> {model.judges.length} judge signature page{model.judges.length === 1 ? '' : 's'}</p>
+                  <p><strong>Complete ZIP:</strong> readable secretary readiness PDF</p>
+                  <p><strong>Complete ZIP:</strong> submission instructions</p>
                 </CardContent>
               </Card>
             </div>
