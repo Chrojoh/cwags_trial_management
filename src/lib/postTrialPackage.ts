@@ -150,7 +150,15 @@ export interface PostTrialPackageModel {
     cwagsFeePerRun: number;
     cwagsAmountDue: number;
   };
-  judges: Array<{ name: string; assignedRounds: number }>;
+  judges: Array<{
+    name: string;
+    assignedRounds: number;
+    assignments: Array<{
+      trialDate: string;
+      className: string;
+      roundNumber: number;
+    }>;
+  }>;
 }
 
 const inactiveEntryStatuses = new Set(['withdrawn', 'waitlisted']);
@@ -278,11 +286,22 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
     ).length,
   };
 
-  const judges = new Map<string, number>();
+  const judges = new Map<
+    string,
+    Array<{ trialDate: string; className: string; roundNumber: number }>
+  >();
   source.rounds.forEach((round) => {
     if (round.is_reset || isPlaceholderJudge(round.judge_name)) return;
     const name = String(round.judge_name).trim();
-    judges.set(name, (judges.get(name) || 0) + 1);
+    const trialClass = classesById.get(round.trial_class_id);
+    const day = trialClass ? daysById.get(trialClass.trial_day_id) : undefined;
+    const assignments = judges.get(name) || [];
+    assignments.push({
+      trialDate: day?.trial_date || '',
+      className: trialClass?.class_name || 'Unknown class',
+      roundNumber: round.round_number,
+    });
+    judges.set(name, assignments);
   });
 
   const regularSelections = reportableSelections.filter(
@@ -320,7 +339,16 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
       cwagsAmountDue: Number((regularSelections.length * cwagsFeePerRun).toFixed(2)),
     },
     judges: [...judges.entries()]
-      .map(([name, assignedRounds]) => ({ name, assignedRounds }))
+      .map(([name, assignments]) => ({
+        name,
+        assignedRounds: assignments.length,
+        assignments: assignments.sort(
+          (a, b) =>
+            a.trialDate.localeCompare(b.trialDate) ||
+            getClassOrder(a.className) - getClassOrder(b.className) ||
+            a.roundNumber - b.roundNumber
+        ),
+      }))
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
 }

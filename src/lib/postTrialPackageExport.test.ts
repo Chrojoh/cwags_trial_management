@@ -2,13 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { unzipSync } from 'fflate';
 import { PDFDocument } from 'pdf-lib';
-import XLSX from 'xlsx';
 import { buildPostTrialPackageModel, type PostTrialSource } from './postTrialPackage';
 import {
-  createClassResultsPdf,
-  createJudgeFormsPdf,
+  createJudgeSignaturePagesPdf,
   createPostTrialPackageZip,
-  createTrialRecapWorkbook,
+  createReadinessReportPdf,
 } from './postTrialPackageExport';
 
 const model = buildPostTrialPackageModel({
@@ -22,29 +20,19 @@ const model = buildPostTrialPackageModel({
   cwagsFeePerRun: 1.75,
 } satisfies PostTrialSource);
 
-test('creates readable recap workbook with numeric money cells', () => {
-  const bytes = createTrialRecapWorkbook(model);
-  const workbook = XLSX.read(bytes, { type: 'array' });
-  assert.deepEqual(workbook.SheetNames, ['Trial Recap', 'Readiness', 'Class Summary', 'Judges']);
-  assert.equal(workbook.Sheets['Trial Recap'].B16.v, 1.75);
-  assert.equal(workbook.Sheets.Readiness.B7.v, 'READY');
-});
-
-test('creates class results and judge PDF documents', async () => {
-  const classPdf = await PDFDocument.load(await createClassResultsPdf(model));
-  const judgePdf = await PDFDocument.load(await createJudgeFormsPdf(model));
-  assert.equal(classPdf.getPageCount(), 1);
-  assert.equal(judgePdf.getPageCount(), 2);
+test('creates judge signature and readable readiness PDF documents', async () => {
+  const judgePdf = await PDFDocument.load(await createJudgeSignaturePagesPdf(model));
+  const readinessPdf = await PDFDocument.load(await createReadinessReportPdf(model));
+  assert.equal(judgePdf.getPageCount(), 1);
+  assert.equal(readinessPdf.getPageCount(), 1);
 });
 
 test('packages every required review document in one ZIP', async () => {
   const files = unzipSync(await createPostTrialPackageZip(model));
   const names = Object.keys(files).sort();
   assert.deepEqual(names, [
-    'Export-Test-Class-Results.pdf',
-    'Export-Test-Judge-Forms.pdf',
-    'Export-Test-Readiness.json',
-    'Export-Test-Trial-Recap.xlsx',
+    'Export-Test-Judge-Signature-Pages.pdf',
+    'Export-Test-Secretary-Readiness.pdf',
     'README.txt',
   ]);
 });
