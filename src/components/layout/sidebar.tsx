@@ -21,6 +21,7 @@ import {
   Info,
   BookOpen,
   BadgeCheck,
+  PackageCheck,
   Copy,
   Check,
   X,
@@ -31,9 +32,9 @@ import {
   hasTrialPermission,
   isTrialCollaboratorRole,
   type EffectiveTrialRole,
-  type TrialPermission,
 } from '@/lib/trialPermissions';
 import { useAuth } from '@/hooks/useAuth';
+import { TRIAL_WORKFLOW, trialWorkflowHref, type TrialWorkflowKey } from '@/lib/trialWorkflow';
 
 interface Trial {
   id: string;
@@ -157,90 +158,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return 'legacy_secretary';
   };
 
-  const trialMenuItems = (
-    trial: Trial
-  ): Array<{
-    label: string;
-    href?: string;
-    icon: React.ComponentType<{ className?: string }>;
-    onClick?: () => void;
-    permission: TrialPermission;
-  }> => [
-    {
-      label: 'Trial Details',
-      href: `/dashboard/trials/${trial.id}`,
-      icon: Info,
-      permission: 'view_trial',
-    },
-    {
-      label: 'Trial Application',
-      href: `/dashboard/trials/${trial.id}/trial-application`,
-      icon: ClipboardCheck,
-      permission: 'generate_trial_application',
-    },
-    {
-      label: 'Activity Journal',
-      href: `/dashboard/trials/${trial.id}/journal`,
-      icon: BookOpen,
-      permission: 'view_trial',
-    },
-    {
-      label: 'Trial Collaborators',
-      href: `/dashboard/trials/${trial.id}/collaborators`,
-      icon: Link2,
-      permission: 'manage_collaborators',
-    },
-    {
-      label: 'Entries',
-      href: `/dashboard/trials/${trial.id}/entries`,
-      icon: Users,
-      permission: 'manage_entries',
-    },
-    {
-      label: 'Copy Entry Link',
-      onClick: () => copyEntryLink(trial.id),
-      icon: Copy,
-      permission: 'manage_entries',
-    },
+  const workflowIcons: Record<TrialWorkflowKey, React.ComponentType<{ className?: string }>> = {
+    details: Info,
+    collaborators: Link2,
+    application: ClipboardCheck,
+    'copy-entry-link': Copy,
+    entries: Users,
+    'time-calculator': Clock,
+    financials: DollarSign,
+    'close-to-titles': Trophy,
+    'live-event': PlayCircle,
+    summary: FileText,
+    'award-confirmations': BadgeCheck,
+    'post-trial-package': PackageCheck,
+    journal: BookOpen,
+  };
 
-    {
-      label: 'Close to Titles',
-      href: `/dashboard/trials/${trial.id}/close-to-titles`,
-      icon: Trophy,
-      permission: 'generate_reports',
-    },
-
-    {
-      label: 'Time Calculator',
-      href: `/dashboard/trials/${trial.id}/time-calculator`,
-      icon: Clock,
-      permission: 'manage_financials',
-    },
-    {
-      label: 'Running Order & Score Entry',
-      href: `/dashboard/trials/${trial.id}/live-event`,
-      icon: PlayCircle,
-      permission: 'manage_running_order',
-    },
-    {
-      label: 'Summary',
-      href: `/dashboard/trials/${trial.id}/summary`,
-      icon: FileText,
-      permission: 'generate_reports',
-    },
-    {
-      label: 'Award Confirmations',
-      href: `/dashboard/trials/${trial.id}/award-confirmations`,
-      icon: BadgeCheck,
-      permission: 'generate_reports',
-    },
-    {
-      label: 'Financial Summary',
-      href: `/dashboard/trials/${trial.id}/financials`,
-      icon: DollarSign,
-      permission: 'manage_financials',
-    },
-  ];
+  const trialMenuItems = (trial: Trial) =>
+    TRIAL_WORKFLOW.map((item) => ({
+      ...item,
+      href: trialWorkflowHref(trial.id, item),
+      icon: workflowIcons[item.key],
+      onClick:
+        item.action === 'copy-entry-link' ? () => copyEntryLink(trial.id) : undefined,
+    }));
 
   return (
     <>

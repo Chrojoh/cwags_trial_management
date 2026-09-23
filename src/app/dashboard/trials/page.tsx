@@ -35,10 +35,25 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  ClipboardCheck,
+  Link2,
+  PlayCircle,
+  DollarSign,
+  BadgeCheck,
+  PackageCheck,
+  BookOpen,
+  Info,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  hasTrialPermission,
+  isTrialCollaboratorRole,
+  type EffectiveTrialRole,
+} from '@/lib/trialPermissions';
+import { TRIAL_WORKFLOW, trialWorkflowHref, type TrialWorkflowKey } from '@/lib/trialWorkflow';
 
 interface Trial {
   id: string;
@@ -53,6 +68,8 @@ interface Trial {
   trial_secretary: string;
   secretary_email: string;
   created_at: string;
+  ownership?: 'owned';
+  shared_role?: string;
 }
 
 type TrialStatus = 'draft' | 'published' | 'active' | 'completed' | 'cancelled';
@@ -67,6 +84,7 @@ interface Stats {
 
 export default function TrialsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<TrialStatus | 'all'>('all');
   const [trials, setTrials] = useState<Trial[]>([]);
@@ -74,6 +92,7 @@ export default function TrialsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
     total: 0,
     draft: 0,
@@ -151,6 +170,40 @@ export default function TrialsPage() {
     } finally {
       setDeleting(null);
     }
+  };
+
+  const effectiveRoleForTrial = (trial: Trial): EffectiveTrialRole => {
+    if (user?.role === 'administrator') return 'administrator';
+    if (trial.ownership === 'owned') return 'owner';
+    if (isTrialCollaboratorRole(trial.shared_role)) return trial.shared_role;
+    return 'legacy_secretary';
+  };
+
+  const copyEntryLink = async (trialId: string) => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/entries/${trialId}`);
+      setCopiedLink(trialId);
+      window.setTimeout(() => setCopiedLink(null), 2000);
+    } catch (copyError) {
+      console.error('Failed to copy entry link:', copyError);
+      setError('The entry link could not be copied. Please try again.');
+    }
+  };
+
+  const workflowIcons: Record<TrialWorkflowKey, React.ComponentType<{ className?: string }>> = {
+    details: Info,
+    collaborators: Link2,
+    application: ClipboardCheck,
+    'copy-entry-link': Copy,
+    entries: Users,
+    'time-calculator': Clock,
+    financials: DollarSign,
+    'close-to-titles': Trophy,
+    'live-event': PlayCircle,
+    summary: FileText,
+    'award-confirmations': BadgeCheck,
+    'post-trial-package': PackageCheck,
+    journal: BookOpen,
   };
 
   const getStatusColor = (status: TrialStatus) => {
@@ -539,63 +592,62 @@ export default function TrialsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                    <p className="text-sm text-white-600">Created {formatDate(trial.created_at)}</p>
+                  <div className="mt-4 pt-4 border-t space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm text-white-600">Created {formatDate(trial.created_at)}</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                        Trial Workflow
+                      </p>
+                    </div>
 
-                    <div className="flex space-x-2">
-                      <Link href={`/dashboard/trials/${trial.id}/journal`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <FileText className="h-4 w-4 mr-1" />
-                          Activity Journal
-                        </Button>
-                      </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => router.push(`/dashboard/trials/${trial.id}/entries`)}
-                        disabled={deleting === trial.id}
-                      >
-                        <Users className="h-4 w-4 mr-1" />
-                        Entries
-                      </Button>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {TRIAL_WORKFLOW.filter((item) =>
+                        hasTrialPermission(effectiveRoleForTrial(trial), item.permission)
+                      ).map((item, index) => {
+                        const Icon = workflowIcons[item.key];
+                        const isCopied = item.action === 'copy-entry-link' && copiedLink === trial.id;
+                        const content = (
+                          <>
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-800">
+                              {index + 1}
+                            </span>
+                            {isCopied ? (
+                              <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
+                            ) : (
+                              <Icon className="h-4 w-4 shrink-0" />
+                            )}
+                            <span className="truncate">{isCopied ? 'Copied!' : item.cardLabel || item.label}</span>
+                          </>
+                        );
 
-                      <Link href={`/dashboard/trials/${trial.id}/close-to-titles`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <Clock className="h-4 w-4 mr-1" />
-                          Close to Titles/Aces
-                        </Button>
-                      </Link>
+                        if (item.action === 'copy-entry-link') {
+                          return (
+                            <Button
+                              key={item.key}
+                              variant="outline"
+                              size="sm"
+                              className="justify-start bg-white/90 px-2"
+                              onClick={() => copyEntryLink(trial.id)}
+                              disabled={deleting === trial.id}
+                            >
+                              {content}
+                            </Button>
+                          );
+                        }
 
-                      <Link href={`/dashboard/trials/${trial.id}/time-calculator`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <Clock className="h-4 w-4 mr-1" />
-                          Time Calc
-                        </Button>
-                      </Link>
-
-                      <Link href={`/dashboard/trials/${trial.id}/live-event`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <FileText className="h-4 w-4 mr-1" />
-                          Running Order
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/trials/${trial.id}/summary`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <FileText className="h-4 w-4 mr-1" />
-                          Summary
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/trials/${trial.id}/financials`}>
-                        <Button variant="outline" size="sm" disabled={deleting === trial.id}>
-                          <FileText className="h-4 w-4 mr-1" />
-                          Financial Summary
-                        </Button>
-                      </Link>
-                      <Link href={`/dashboard/trials/${trial.id}`}>
-                        <Button size="sm" disabled={deleting === trial.id}>
-                          Manage
-                        </Button>
-                      </Link>
+                        return (
+                          <Button
+                            key={item.key}
+                            asChild
+                            variant="outline"
+                            size="sm"
+                            className="justify-start bg-white/90 px-2"
+                            disabled={deleting === trial.id}
+                          >
+                            <Link href={trialWorkflowHref(trial.id, item)!}>{content}</Link>
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
                 </CardContent>
