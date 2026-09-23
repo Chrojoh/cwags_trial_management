@@ -43,6 +43,7 @@ import {
   PackageCheck,
   BookOpen,
   Info,
+  FileSignature,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
@@ -179,6 +180,21 @@ export default function TrialsPage() {
 
     try {
       setError(null);
+      const premiumResponse = await fetch(`/api/trials/${trial.id}/premium`, {
+        headers: await (async () => {
+          const { data } = await getSupabaseBrowser().auth.getSession();
+          const token = data.session?.access_token;
+          if (!token) throw new Error('Your session has expired');
+          return { Authorization: `Bearer ${token}` };
+        })(),
+        cache: 'no-store',
+      });
+      if (premiumResponse.ok) {
+        const premium = await premiumResponse.json();
+        if (!premium.setupRequired && premium.status !== 'ready') {
+          throw new Error('Mark the Premium List ready before publishing the trial.');
+        }
+      }
       const result = await simpleTrialOperations.publishTrial(trial.id);
       if (!result.success) {
         throw new Error(result.error?.toString() || 'Failed to publish trial');
@@ -212,6 +228,7 @@ export default function TrialsPage() {
     details: Info,
     collaborators: Link2,
     application: ClipboardCheck,
+    premium: FileSignature,
     'copy-entry-link': Copy,
     entries: Users,
     'time-calculator': Clock,
@@ -510,15 +527,7 @@ export default function TrialsPage() {
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                           {trial.trial_status === 'draft' && (
                             <DropdownMenuItem
-                              onClick={async () => {
-                                const result = await simpleTrialOperations.publishTrial(trial.id);
-                                if (result.success) {
-                                  alert('Trial published!');
-                                  loadTrials();
-                                } else {
-                                  alert('Error publishing trial');
-                                }
-                              }}
+                              onClick={() => void handlePublishTrial(trial)}
                             >
                               <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
                               Publish Trial
@@ -623,7 +632,7 @@ export default function TrialsPage() {
                         hasTrialPermission(effectiveRoleForTrial(trial), item.permission)
                       )
                         .flatMap((item) =>
-                          item.key === 'application' && trial.trial_status === 'draft'
+                          item.key === 'premium' && trial.trial_status === 'draft'
                             ? [item, { ...item, key: 'publish-trial' as const, label: 'Publish Trial' }]
                             : [item]
                         )

@@ -4,6 +4,7 @@ export type TrialWorkflowKey =
   | 'details'
   | 'collaborators'
   | 'application'
+  | 'premium'
   | 'copy-entry-link'
   | 'entries'
   | 'time-calculator'
@@ -39,6 +40,12 @@ export const TRIAL_WORKFLOW: readonly TrialWorkflowItem[] = [
     label: 'Trial Application',
     permission: 'generate_trial_application',
     route: '/trial-application',
+  },
+  {
+    key: 'premium',
+    label: 'Premium List',
+    permission: 'generate_trial_application',
+    route: '/premium',
   },
   {
     key: 'copy-entry-link',
