@@ -172,6 +172,24 @@ export default function TrialsPage() {
     }
   };
 
+  const handlePublishTrial = async (trial: Trial) => {
+    if (!confirm(`Publish "${trial.trial_name}" and make its public entry link available?`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const result = await simpleTrialOperations.publishTrial(trial.id);
+      if (!result.success) {
+        throw new Error(result.error?.toString() || 'Failed to publish trial');
+      }
+      await loadTrials();
+    } catch (publishError) {
+      console.error('Error publishing trial:', publishError);
+      setError(publishError instanceof Error ? publishError.message : 'Failed to publish trial');
+    }
+  };
+
   const effectiveRoleForTrial = (trial: Trial): EffectiveTrialRole => {
     if (user?.role === 'administrator') return 'administrator';
     if (trial.ownership === 'owned') return 'owner';
@@ -603,10 +621,35 @@ export default function TrialsPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                       {TRIAL_WORKFLOW.filter((item) =>
                         hasTrialPermission(effectiveRoleForTrial(trial), item.permission)
-                      ).map((item, index) => {
-                        const Icon = workflowIcons[item.key];
-                        const isCopied = item.action === 'copy-entry-link' && copiedLink === trial.id;
-                        const content = (
+                      )
+                        .flatMap((item) =>
+                          item.key === 'application' && trial.trial_status === 'draft'
+                            ? [item, { ...item, key: 'publish-trial' as const, label: 'Publish Trial' }]
+                            : [item]
+                        )
+                        .map((item, index) => {
+                          if (item.key === 'publish-trial') {
+                            return (
+                              <Button
+                                key={item.key}
+                                size="sm"
+                                className="justify-start px-2"
+                                onClick={() => handlePublishTrial(trial)}
+                                disabled={deleting === trial.id}
+                              >
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold text-white">
+                                  {index + 1}
+                                </span>
+                                <TrendingUp className="h-4 w-4 shrink-0" />
+                                <span className="truncate">Publish Trial</span>
+                              </Button>
+                            );
+                          }
+
+                          const Icon = workflowIcons[item.key];
+                          const isCopied =
+                            item.action === 'copy-entry-link' && copiedLink === trial.id;
+                          const content = (
                           <>
                             <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-800">
                               {index + 1}
@@ -618,7 +661,7 @@ export default function TrialsPage() {
                             )}
                             <span className="truncate">{isCopied ? 'Copied!' : item.cardLabel || item.label}</span>
                           </>
-                        );
+                          );
 
                         if (item.action === 'copy-entry-link') {
                           return (
@@ -647,7 +690,7 @@ export default function TrialsPage() {
                             <Link href={trialWorkflowHref(trial.id, item)!}>{content}</Link>
                           </Button>
                         );
-                      })}
+                        })}
                     </div>
                   </div>
                 </CardContent>
