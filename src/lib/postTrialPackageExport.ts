@@ -87,10 +87,7 @@ export async function createPostTrialPackageZip(model: PostTrialPackageModel): P
     '1. Open the trial Summary page and use Export Summary Excel. That export populates the official C-WAGS results workbook.',
     '2. Review the workbook and obtain each judge signature on the included Class Results Judge Signature pages.',
     '3. The readiness PDF is an internal secretary checklist and is not submitted to C-WAGS.',
-    '4. Give each judge the official C-WAGS Judge Trial Review form. The judge completes and sends it independently to C-WAGS within 10 days.',
-    '5. Review all records before sending the official workbook and required signatures to C-WAGS.',
-    '',
-    'Official Judge Trial Review: https://c-wags.org/wp-content/uploads/2023/08/Judges_Trial_Review_2023-web.pdf',
+    '4. Review all records before sending the official workbook and required signatures to C-WAGS.',
   ].join('\r\n');
   return zipSync({
     [`${base}-Judge-Signature-Pages.pdf`]: judgeSignatures,

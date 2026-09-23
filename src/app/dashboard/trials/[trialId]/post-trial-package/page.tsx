@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, CheckCircle2, Download, ExternalLink, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import MainLayout from '@/components/layout/mainLayout';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -95,11 +95,6 @@ export default function PostTrialPackagePreviewPage() {
             <Button variant="outline" onClick={() => router.push(`/dashboard/trials/${trialId}/summary`)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" /> Open Summary Export
             </Button>
-            <Button variant="outline" asChild>
-              <a href="https://c-wags.org/wp-content/uploads/2023/08/Judges_Trial_Review_2023-web.pdf" target="_blank" rel="noreferrer">
-                <ExternalLink className="mr-2 h-4 w-4" /> Official Judge Review
-              </a>
-            </Button>
             <Button disabled={!model || downloading} onClick={download}>
               {downloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
               {downloading ? 'Generating…' : 'Download Supporting ZIP'}
@@ -157,7 +152,6 @@ export default function PostTrialPackagePreviewPage() {
                   <p><strong>Supporting ZIP:</strong> {model.judges.length} judge signature page{model.judges.length === 1 ? '' : 's'}</p>
                   <p><strong>Supporting ZIP:</strong> readable secretary readiness PDF</p>
                   <p><strong>Supporting ZIP:</strong> submission instructions</p>
-                  <p><strong>Separate:</strong> official Judge Trial Review, completed and sent independently by each judge</p>
                 </CardContent>
               </Card>
             </div>
