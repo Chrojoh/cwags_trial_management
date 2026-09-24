@@ -137,7 +137,7 @@ export async function createTrialPremiumPdf(
         const judgeWidth = (totalWidth - classWidth) / Math.max(1, block.judges.length);
         const headerHeight = 42;
         const rowHeight = 32;
-        const judgeFontSize = block.judges.length >= 4 ? 8 : 9;
+        const judgeFontSize = block.judges.length >= 4 ? 9 : 10;
         const cellFontSize = block.judges.length >= 4 ? 8 : 8.5;
         const continuation = block.continued ? ' (continued)' : '';
 
@@ -167,7 +167,7 @@ export async function createTrialPremiumPdf(
             x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight,
             borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
           });
-          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 8.5, bold);
+          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 10, bold);
           block.judges.forEach((judge, judgeIndex) => {
             const x = left + classWidth + judgeIndex * judgeWidth;
             const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
@@ -256,6 +256,18 @@ export async function createTrialPremiumPdf(
 
   addPage();
   section('Waiver', model.trial.waiverText);
+  need(118);
+  y -= 12;
+  page.drawText('Acknowledgement and Signature', { x: margin, y, size: 12, font: bold, color: dark });
+  y -= 28;
+  page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
+  page.drawText('Competitor name (print)', { x: margin, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
+  y -= 46;
+  const dateLineWidth = 145;
+  page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin - dateLineWidth - 28, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
+  page.drawLine({ start: { x: pageWidth - margin - dateLineWidth, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
+  page.drawText('Signature', { x: margin, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
+  page.drawText('Date', { x: pageWidth - margin - dateLineWidth, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
 
   const pages = pdf.getPages();
   pages.forEach((pdfPage, index) => {
