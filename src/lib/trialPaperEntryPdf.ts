@@ -36,9 +36,16 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const palettes = {
+    warm: { accent: rgb(0.82, 0.27, 0.03), pale: rgb(1, 0.94, 0.82) },
+    forest: { accent: rgb(0.12, 0.42, 0.25), pale: rgb(0.86, 0.94, 0.87) },
+    blue: { accent: rgb(0.08, 0.32, 0.58), pale: rgb(0.94, 0.97, 1) },
+    plum: { accent: rgb(0.46, 0.18, 0.48), pale: rgb(0.94, 0.87, 0.94) },
+  };
+  const palette = palettes[model.content.colorScheme] || palettes.warm;
   const dark = rgb(0.13, 0.13, 0.13);
-  const accent = rgb(0.08, 0.32, 0.58);
-  const pale = rgb(0.94, 0.97, 1);
+  const accent = palette.accent;
+  const pale = palette.pale;
   const lineColor = rgb(0.35, 0.35, 0.35);
   let page!: PDFPage;
   let y = 0;
@@ -152,7 +159,14 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   for (const selection of model.schedule) {
     const dayKey = `${selection.dayNumber}:${selection.date}`;
     if (dayKey !== activeDayKey) {
-      if (activeDayKey) addPage(`Printable Paper Entry Form - Day ${selection.dayNumber}`);
+      if (activeDayKey) {
+        y -= 12;
+        if (y - 86 < 120) addPage('Printable Paper Entry Form - Class Selections');
+        else {
+          page.drawLine({ start: { x: margin, y: y + 5 }, end: { x: margin + tableWidth, y: y + 5 }, thickness: 1.2, color: accent });
+          y -= 7;
+        }
+      }
       drawDayHeading(selection.dayNumber, selection.date);
       drawTableHeader();
       activeDayKey = dayKey;

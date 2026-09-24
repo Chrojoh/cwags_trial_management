@@ -23,7 +23,7 @@ test('creates a printable entry form with selections and a dedicated waiver page
 
   const bytes = await createTrialPaperEntryPdf(model);
   const pdf = await PDFDocument.load(bytes);
-  assert.ok(pdf.getPageCount() >= 4, 'each trial day should begin on its own page before the waiver');
+  assert.ok(pdf.getPageCount() >= 3, 'class selections should paginate cleanly before the dedicated waiver');
   assert.ok(bytes.length > 5000);
   assert.equal(pdf.getPage(0).getSize().width, 612);
   assert.equal(pdf.getPage(0).getSize().height, 792);
