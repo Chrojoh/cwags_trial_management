@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireTrialPermission } from '@/lib/apiAuth';
-import { loadTrialPremium, saveTrialPremium } from '@/lib/server/trialPremium';
+import { getMissingRequiredPremiumInformation, loadTrialPremium, saveTrialPremium } from '@/lib/server/trialPremium';
 import { EMPTY_PREMIUM_CONTENT, type PremiumStatus, type TrialPremiumContent } from '@/types/trialPremium';
 
 export const dynamic = 'force-dynamic';
@@ -27,18 +27,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const status: PremiumStatus = body.status === 'ready' ? 'ready' : 'draft';
     const model = await loadTrialPremium(trialId);
     if (status === 'ready') {
-      const preview = { ...model, content };
-      const missing = [
-        !content.paymentInstructions && 'Payment instructions',
-        !content.refundPolicy && 'Refund/cancellation policy',
-        !content.facilityInformation && 'Facility information',
-        !content.veterinarianInformation && 'Veterinarian information',
-        !content.emergencyInformation && 'Emergency information',
-        !content.directionsInformation && 'Directions and arrival information',
-        !content.safetyRules && 'Safety and comfort rules',
-        !preview.trial.waiverText && 'Waiver text',
-        preview.schedule.length === 0 && 'Class and round schedule',
-      ].filter(Boolean);
+      const missing = getMissingRequiredPremiumInformation(
+        content,
+        model.trial.waiverText,
+        model.schedule.length
+      );
       if (missing.length) return NextResponse.json({ error: 'Required premium information is missing', missing }, { status: 409 });
     }
     await saveTrialPremium(trialId, content, status, auth.userId);

@@ -9,6 +9,18 @@ import {
 
 const premiumSelect = 'status,content,map_image_path,updated_at,updated_by';
 
+export function getMissingRequiredPremiumInformation(
+  content: TrialPremiumContent,
+  waiverText: string,
+  scheduleLength: number
+) {
+  return [
+    !content.paymentInstructions.trim() && 'Payment instructions',
+    !waiverText.trim() && 'Waiver text',
+    scheduleLength === 0 && 'Class and round schedule',
+  ].filter(Boolean) as string[];
+}
+
 export async function loadTrialPremium(trialId: string): Promise<TrialPremiumModel> {
   const db = getServiceRoleClient();
   const [trialResult, daysResult, premiumResult] = await Promise.all([
@@ -50,17 +62,11 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     a.date.localeCompare(b.date) || a.classOrder - b.classOrder || a.roundNumber - b.roundNumber
   );
 
-  const missingRequired = [
-    !content.paymentInstructions && 'Payment instructions',
-    !content.refundPolicy && 'Refund/cancellation policy',
-    !content.facilityInformation && 'Facility information',
-    !content.veterinarianInformation && 'Veterinarian information',
-    !content.emergencyInformation && 'Emergency information',
-    !content.directionsInformation && 'Directions and arrival information',
-    !content.safetyRules && 'Safety and comfort rules',
-    !trial.waiver_text && 'Waiver text',
-    schedule.length === 0 && 'Class and round schedule',
-  ].filter(Boolean) as string[];
+  const missingRequired = getMissingRequiredPremiumInformation(
+    content,
+    trial.waiver_text || '',
+    schedule.length
+  );
 
   return {
     trial: {

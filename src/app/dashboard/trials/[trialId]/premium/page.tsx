@@ -20,19 +20,19 @@ const fields: Array<{ key: keyof TrialPremiumContent; label: string; help: strin
   { key: 'pricingDeadlineNotes', label: 'Pricing and deadline notes', help: 'Explain early or late pricing, FEO rates, payment deadlines and any conditions not shown in the class grid.' },
   { key: 'paperEntryInstructions', label: 'Paper entry instructions', help: 'Explain where competitors can obtain and return a printable entry form. The secretary can enter received paper forms through Live Event.' },
   { key: 'paymentInstructions', label: 'Payment instructions', help: 'Explain accepted payment methods, deadlines and where payment is sent.', required: true },
-  { key: 'refundPolicy', label: 'Refund and cancellation policy', help: 'State withdrawals, refunds, cancellations and emergency changes.', required: true },
+  { key: 'refundPolicy', label: 'Refund and cancellation policy', help: 'State withdrawals, refunds, cancellations and emergency changes.' },
   { key: 'moveUpPolicy', label: 'Move-up policy', help: 'Explain whether move-ups are allowed and how competitors request one.' },
   { key: 'volunteerInformation', label: 'Volunteer information', help: 'Describe volunteer requests, benefits and contact instructions.' },
   { key: 'awardsInformation', label: 'Awards', help: 'List awards the host plans to offer without promising unavailable ribbons.' },
-  { key: 'facilityInformation', label: 'Facility information', help: 'Describe surfaces, indoor/outdoor areas and site limitations.', required: true },
+  { key: 'facilityInformation', label: 'Facility information', help: 'Describe surfaces, indoor/outdoor areas and site limitations.' },
   { key: 'parkingInformation', label: 'Parking', help: 'Give parking, unloading and vehicle restrictions.' },
   { key: 'cratingInformation', label: 'Crating', help: 'Explain crating areas, shade and space restrictions.' },
   { key: 'accessibilityInformation', label: 'Accessibility', help: 'Provide accessibility details and a contact for accommodations.' },
-  { key: 'veterinarianInformation', label: 'Veterinarian', help: 'Name, address and phone number for the nearest emergency veterinarian.', required: true },
-  { key: 'emergencyInformation', label: 'Emergency information', help: 'Give emergency procedures and site-specific safety directions.', required: true },
-  { key: 'directionsInformation', label: 'Directions and arrival', help: 'Explain the correct entrance, landmarks, unloading and any directions a map alone may miss.', required: true },
+  { key: 'veterinarianInformation', label: 'Veterinarian', help: 'Name, address and phone number for the nearest emergency veterinarian.' },
+  { key: 'emergencyInformation', label: 'Emergency information', help: 'Give emergency procedures and site-specific safety directions.' },
+  { key: 'directionsInformation', label: 'Directions and arrival', help: 'Explain the correct entrance, landmarks, unloading and any directions a map alone may miss.' },
   { key: 'nearbyServices', label: 'Nearby services', help: 'List secretary-reviewed hotels, restaurants, fuel, groceries or pet supplies. Include a web or map address when useful.' },
-  { key: 'safetyRules', label: 'Safety and comfort rules', help: 'State leash, dog-spacing, barking, crating, cleanup and search-discussion expectations.', required: true },
+  { key: 'safetyRules', label: 'Safety and comfort rules', help: 'State leash, dog-spacing, barking, crating, cleanup and search-discussion expectations.' },
   { key: 'waitlistInformation', label: 'Waitlist information', help: 'Explain how full rounds are waitlisted and how competitors will be contacted if promoted.' },
   { key: 'rulesAcknowledgement', label: 'Rules acknowledgement', help: 'Explain that submitting an entry confirms the competitor has read the current C-WAGS and host rules.' },
   { key: 'ringSetupTime', label: 'Ring setup time', help: 'State when setup begins and whether volunteers are requested.' },
@@ -131,6 +131,21 @@ export default function TrialPremiumPage() {
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to generate premium'); }
   };
 
+  const downloadPaperEntryForm = async () => {
+    try {
+      setError('');
+      const response = await fetch(`/api/trials/${trialId}/premium/paper-entry-form`, {
+        headers: await authHeaders(),
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Unable to generate paper entry form');
+      const blob = await response.blob(); const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a'); anchor.href = url;
+      anchor.download = response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || 'Paper-Entry-Form.pdf';
+      anchor.click(); URL.revokeObjectURL(url);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to generate paper entry form'); }
+  };
+
   if (loading) return <MainLayout><div className="p-8">Loading Premium Builder...</div></MainLayout>;
   if (!model || !content) return <MainLayout><div className="p-8 text-red-700">{error || 'Premium unavailable'}</div></MainLayout>;
 
@@ -142,6 +157,6 @@ export default function TrialPremiumPage() {
     <Card><CardHeader><CardTitle>Trial-Day Times</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="premium-check-in-time">Check-in starts</Label><Input id="premium-check-in-time" type="time" value={content.checkInTime} onChange={(event) => setContent({ ...content, checkInTime: event.target.value })} /><p className="text-xs text-gray-600">Displayed prominently on the premium cover.</p></div><div className="space-y-2"><Label htmlFor="premium-trial-start-time">Trial starts</Label><Input id="premium-trial-start-time" type="time" value={content.trialStartTime} onChange={(event) => setContent({ ...content, trialStartTime: event.target.value })} /><p className="text-xs text-gray-600">Use the trial venue's local time.</p></div></CardContent></Card>
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Venue Map and Local Map Image</CardTitle></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="premium-map-address">Street address for GPS directions</Label><Input id="premium-map-address" value={content.mapAddress} onChange={(event) => setContent({ ...content, mapAddress: event.target.value })} placeholder="123 Main Street, City, Province, Postal Code" /><p className="text-xs text-gray-600">The clickable map link uses this exact address instead of searching by venue name. Include the postal code when available. If left blank, the saved trial location is used.</p></div><p className="text-sm text-gray-700">Upload a secretary-reviewed JPG or PNG map showing the venue and useful nearby landmarks. Maximum 3 MB. The original stays private and is embedded only in the generated premium.</p>{mapPreviewUrl && <Image src={mapPreviewUrl} alt="Uploaded local venue map preview" width={900} height={600} unoptimized className="h-auto max-h-80 w-auto rounded border object-contain" />}<label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"><Upload className="mr-2 h-4 w-4" />{uploadingMap ? 'Uploading...' : model.mapImagePath ? 'Replace Map Image' : 'Upload Map Image'}<input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={uploadingMap} onChange={(event) => void uploadMap(event.target.files?.[0])} /></label></CardContent></Card>
     <div className="grid gap-5 lg:grid-cols-2">{fields.map((field) => <Card key={field.key}><CardHeader><CardTitle className="text-base">{field.label}{field.required ? ' *' : ''}</CardTitle></CardHeader><CardContent><Label className="sr-only">{field.label}</Label><Textarea rows={5} value={content[field.key]} onChange={(event) => setContent({ ...content, [field.key]: event.target.value })} placeholder={field.help} /><p className="mt-2 text-xs text-gray-600">{field.help}</p></CardContent></Card>)}</div>
-    <Card><CardHeader><CardTitle>Review and Generate</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-3"><Button variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button><Button disabled={saving} onClick={() => void save('ready')}><CheckCircle className="mr-2 h-4 w-4" />Mark Premium Ready</Button><Button variant="outline" onClick={() => void download()}><Download className="mr-2 h-4 w-4" />Download Premium PDF</Button>{message && <p className="w-full text-sm text-green-700">{message}</p>}{error && <p className="w-full text-sm text-red-700">{error}</p>}<p className="w-full text-xs text-gray-600">The schedule, judges and fees come from trial setup. Change them there rather than retyping them in the premium.</p></CardContent></Card>
+    <Card><CardHeader><CardTitle>Review and Generate</CardTitle></CardHeader><CardContent className="flex flex-wrap gap-3"><Button variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button><Button disabled={saving} onClick={() => void save('ready')}><CheckCircle className="mr-2 h-4 w-4" />Mark Premium Ready</Button><Button variant="outline" onClick={() => void download()}><Download className="mr-2 h-4 w-4" />Download Premium PDF</Button><Button variant="outline" onClick={() => void downloadPaperEntryForm()}><Download className="mr-2 h-4 w-4" />Preview Paper Entry Form</Button>{message && <p className="w-full text-sm text-green-700">{message}</p>}{error && <p className="w-full text-sm text-red-700">{error}</p>}<p className="w-full text-xs text-gray-600">The schedule, judges and fees come from trial setup. Change them there rather than retyping them in the premium. The paper-entry preview is available while the premium is still a draft; the public link opens only after the premium is marked ready.</p></CardContent></Card>
   </div></MainLayout>;
 }
