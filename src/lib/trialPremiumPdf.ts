@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { PDFDocument, PDFPage, PDFFont, PDFString, StandardFonts, rgb } from 'pdf-lib';
 import type { TrialPremiumModel } from '@/types/trialPremium';
 
@@ -45,6 +47,9 @@ export async function createTrialPremiumPdf(
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await readFile(path.join(process.cwd(), 'public', 'images', 'cwags-logo.png'))
+    .then((bytes) => pdf.embedPng(bytes))
+    .catch(() => null);
   const palettes = {
     warm: { accent: rgb(0.82, 0.27, 0.03), dark: rgb(0.22, 0.14, 0.1), band: rgb(1, 0.94, 0.82), pale: rgb(1, 0.98, 0.93), border: rgb(0.88, 0.65, 0.42) },
     forest: { accent: rgb(0.12, 0.42, 0.25), dark: rgb(0.09, 0.23, 0.15), band: rgb(0.86, 0.94, 0.87), pale: rgb(0.95, 0.98, 0.95), border: rgb(0.48, 0.67, 0.52) },
@@ -58,9 +63,15 @@ export async function createTrialPremiumPdf(
 
   const addPage = () => {
     page = pdf.addPage([pageWidth, pageHeight]);
+    const firstPage = pdf.getPageCount() === 1;
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: pageWidth, height: 72, color: band });
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: 8, height: 72, color: accent });
-    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 });
+    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - (firstPage && logo ? 76 : 0) });
+    if (firstPage && logo) {
+      const logoWidth = 56;
+      const logoHeight = logoWidth * (logo.height / logo.width);
+      page.drawImage(logo, { x: pageWidth - margin - logoWidth, y: pageHeight - 65, width: logoWidth, height: logoHeight });
+    }
     page.drawLine({ start: { x: margin, y: pageHeight - 72 }, end: { x: pageWidth - margin, y: pageHeight - 72 }, thickness: 1.1, color: accent });
     y = pageHeight - 100;
   };
