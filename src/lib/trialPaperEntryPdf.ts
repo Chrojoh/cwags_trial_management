@@ -98,20 +98,25 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   drawField('Close to titles', 304, 266, 72);
   y -= 36;
 
-  const dateWidth = 72;
-  const classWidth = 210;
-  const judgeWidth = 110;
+  const classWidth = 272;
+  const judgeWidth = 120;
   const regularWidth = 68;
   const feoWidth = 68;
   const rowHeight = 34;
-  const tableWidth = dateWidth + classWidth + judgeWidth + regularWidth + feoWidth;
+  const tableWidth = classWidth + judgeWidth + regularWidth + feoWidth;
+  const drawDayHeading = (dayNumber: number, date: string) => {
+    const label = `Day ${dayNumber} - ${formatDate(date)}`;
+    page.drawRectangle({ x: margin, y: y - 28, width: tableWidth, height: 28, color: accent });
+    page.drawText(label, { x: margin + 10, y: y - 19, size: 11, font: bold, color: rgb(1, 1, 1) });
+    y -= 34;
+  };
   const drawTableHeader = () => {
     page.drawRectangle({ x: margin, y: y - 24, width: tableWidth, height: 24, color: pale, borderColor: lineColor, borderWidth: 0.7 });
     const labels: Array<[string, number, number]> = [
-      ['Date', margin, dateWidth], ['Class / Round', margin + dateWidth, classWidth],
-      ['Judge', margin + dateWidth + classWidth, judgeWidth],
-      ['Regular', margin + dateWidth + classWidth + judgeWidth, regularWidth],
-      ['FEO', margin + dateWidth + classWidth + judgeWidth + regularWidth, feoWidth],
+      ['Class / Round', margin, classWidth],
+      ['Judge', margin + classWidth, judgeWidth],
+      ['Regular', margin + classWidth + judgeWidth, regularWidth],
+      ['FEO', margin + classWidth + judgeWidth + regularWidth, feoWidth],
     ];
     labels.forEach(([label, x, width]) => {
       const labelWidth = bold.widthOfTextAtSize(label, 8);
@@ -124,13 +129,12 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   const drawSelectionRow = (selection: TrialPremiumModel['schedule'][number]) => {
     const rowTop = y;
     page.drawRectangle({ x: margin, y: rowTop - rowHeight, width: tableWidth, height: rowHeight, borderColor: lineColor, borderWidth: 0.6 });
-    const boundaries = [dateWidth, dateWidth + classWidth, dateWidth + classWidth + judgeWidth, dateWidth + classWidth + judgeWidth + regularWidth];
+    const boundaries = [classWidth, classWidth + judgeWidth, classWidth + judgeWidth + regularWidth];
     boundaries.forEach((offset) => page.drawLine({ start: { x: margin + offset, y: rowTop }, end: { x: margin + offset, y: rowTop - rowHeight }, thickness: 0.5, color: lineColor }));
-    page.drawText(formatDate(selection.date), { x: margin + 4, y: rowTop - 20, size: 7.5, font, color: dark });
     const classLabel = `${selection.className} - Round ${selection.roundNumber}`;
-    wrap(classLabel, bold, 8, classWidth - 8).slice(0, 2).forEach((line, index) => page.drawText(line, { x: margin + dateWidth + 4, y: rowTop - 14 - index * 10, size: 8, font: bold, color: dark }));
-    wrap(selection.judgeName || 'TBA', font, 7.5, judgeWidth - 8).slice(0, 2).forEach((line, index) => page.drawText(line, { x: margin + dateWidth + classWidth + 4, y: rowTop - 14 - index * 10, size: 7.5, font, color: dark }));
-    const regularX = margin + dateWidth + classWidth + judgeWidth;
+    wrap(classLabel, bold, 8, classWidth - 8).slice(0, 2).forEach((line, index) => page.drawText(line, { x: margin + 4, y: rowTop - 14 - index * 10, size: 8, font: bold, color: dark }));
+    wrap(selection.judgeName || 'TBA', font, 7.5, judgeWidth - 8).slice(0, 2).forEach((line, index) => page.drawText(line, { x: margin + classWidth + 4, y: rowTop - 14 - index * 10, size: 7.5, font, color: dark }));
+    const regularX = margin + classWidth + judgeWidth;
     page.drawRectangle({ x: regularX + 6, y: rowTop - 23, width: 10, height: 10, borderColor: dark, borderWidth: 0.8 });
     page.drawText(`$${selection.entryFee.toFixed(2)}`, { x: regularX + 20, y: rowTop - 21, size: 7.5, font, color: dark });
     const feoX = regularX + regularWidth;
@@ -142,12 +146,20 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   };
 
   drawSectionTitle('Class Selections');
-  page.drawText('Check either Regular or FEO for every round entered.', { x: margin, y, size: 8.5, font, color: dark });
+  page.drawText('Each trial day has its own section. Check either Regular or FEO for every round entered.', { x: margin, y, size: 8.5, font, color: dark });
   y -= 15;
-  drawTableHeader();
+  let activeDayKey = '';
   for (const selection of model.schedule) {
+    const dayKey = `${selection.dayNumber}:${selection.date}`;
+    if (dayKey !== activeDayKey) {
+      if (activeDayKey) addPage(`Printable Paper Entry Form - Day ${selection.dayNumber}`);
+      drawDayHeading(selection.dayNumber, selection.date);
+      drawTableHeader();
+      activeDayKey = dayKey;
+    }
     if (y - rowHeight < 120) {
-      addPage('Printable Paper Entry Form - Class Selections');
+      addPage(`Printable Paper Entry Form - Day ${selection.dayNumber} (continued)`);
+      drawDayHeading(selection.dayNumber, selection.date);
       drawTableHeader();
     }
     drawSelectionRow(selection);
