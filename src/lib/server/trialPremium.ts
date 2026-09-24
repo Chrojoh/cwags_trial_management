@@ -50,7 +50,9 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
         date: String(day.trial_date || ''),
         dayNumber: Number(day.day_number || 0),
         className: String(trialClass.class_name || ''),
-        classOrder: Number(trialClass.class_order ?? getClassOrder(trialClass.class_name)),
+        classOrder: getClassOrder(trialClass.class_name) === 999
+          ? Number(trialClass.class_order ?? 999)
+          : getClassOrder(trialClass.class_name),
         roundNumber: Number(round.round_number || 0),
         judgeName: String(round.judge_name || ''),
         entryFee: Number(trialClass.entry_fee || 0),

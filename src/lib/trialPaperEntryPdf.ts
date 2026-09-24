@@ -1,4 +1,5 @@
 import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb } from 'pdf-lib';
+import { getClassOrder } from '@/lib/cwagsClassNames';
 import type { TrialPremiumModel } from '@/types/trialPremium';
 
 const pageWidth = 612;
@@ -30,6 +31,23 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
 
 function wrapPreservingBreaks(text: string, font: PDFFont, size: number, width: number): string[] {
   return text.split(/\r?\n/).flatMap((line) => line.trim() ? wrap(line, font, size, width) : ['']);
+}
+
+export function sortPaperEntrySchedule(schedule: TrialPremiumModel['schedule']) {
+  return [...schedule].sort((a, b) => {
+    const aCanonicalOrder = getClassOrder(a.className);
+    const bCanonicalOrder = getClassOrder(b.className);
+    const bothUnknown = aCanonicalOrder === 999 && bCanonicalOrder === 999;
+
+    return (
+      a.date.localeCompare(b.date) ||
+      a.dayNumber - b.dayNumber ||
+      aCanonicalOrder - bCanonicalOrder ||
+      (bothUnknown ? a.classOrder - b.classOrder : 0) ||
+      a.className.localeCompare(b.className) ||
+      a.roundNumber - b.roundNumber
+    );
+  });
 }
 
 export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promise<Uint8Array> {
@@ -156,7 +174,7 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   page.drawText('Each trial day has its own section. Check either Regular or FEO for every round entered.', { x: margin, y, size: 8.5, font, color: dark });
   y -= 15;
   let activeDayKey = '';
-  for (const selection of model.schedule) {
+  for (const selection of sortPaperEntrySchedule(model.schedule)) {
     const dayKey = `${selection.dayNumber}:${selection.date}`;
     if (dayKey !== activeDayKey) {
       if (activeDayKey) {

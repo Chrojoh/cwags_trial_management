@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { PDFDocument } from 'pdf-lib';
-import { createTrialPaperEntryPdf } from './trialPaperEntryPdf';
+import { createTrialPaperEntryPdf, sortPaperEntrySchedule } from './trialPaperEntryPdf';
 import { EMPTY_PREMIUM_CONTENT, type TrialPremiumModel } from '@/types/trialPremium';
 
 test('creates a printable entry form with selections and a dedicated waiver page', async () => {
@@ -27,4 +27,22 @@ test('creates a printable entry form with selections and a dedicated waiver page
   assert.ok(bytes.length > 5000);
   assert.equal(pdf.getPage(0).getSize().width, 612);
   assert.equal(pdf.getPage(0).getSize().height, 792);
+});
+
+test('groups every round of a class in canonical C-WAGS order', () => {
+  const rows = [
+    ['Dasher 6', 1, 1],
+    ['Investigator 3', 1, 99],
+    ['Dasher 6', 2, 1],
+    ['Investigator 3', 2, 99],
+  ].map(([className, roundNumber, classOrder], index) => ({
+    date: '2026-08-23', dayNumber: 3, className: String(className),
+    classOrder: Number(classOrder), roundNumber: Number(roundNumber),
+    judgeName: `Judge ${index + 1}`, entryFee: 23, feoPrice: 15, feoAvailable: true,
+  }));
+
+  assert.deepEqual(
+    sortPaperEntrySchedule(rows).map((row) => `${row.className} R${row.roundNumber}`),
+    ['Investigator 3 R1', 'Investigator 3 R2', 'Dasher 6 R1', 'Dasher 6 R2']
+  );
 });
