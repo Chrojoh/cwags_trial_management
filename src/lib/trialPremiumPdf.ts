@@ -34,21 +34,24 @@ export async function createTrialPremiumPdf(
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const accent = rgb(0.82, 0.27, 0.03);
-  const dark = rgb(0.22, 0.14, 0.1);
-  const warm = rgb(1, 0.94, 0.82);
-  const pale = rgb(1, 0.98, 0.93);
+  const palettes = {
+    warm: { accent: rgb(0.82, 0.27, 0.03), dark: rgb(0.22, 0.14, 0.1), band: rgb(1, 0.94, 0.82), pale: rgb(1, 0.98, 0.93), border: rgb(0.88, 0.65, 0.42) },
+    forest: { accent: rgb(0.12, 0.42, 0.25), dark: rgb(0.09, 0.23, 0.15), band: rgb(0.86, 0.94, 0.87), pale: rgb(0.95, 0.98, 0.95), border: rgb(0.48, 0.67, 0.52) },
+    blue: { accent: rgb(0.08, 0.35, 0.62), dark: rgb(0.08, 0.18, 0.3), band: rgb(0.86, 0.93, 0.98), pale: rgb(0.95, 0.98, 1), border: rgb(0.48, 0.67, 0.82) },
+    plum: { accent: rgb(0.46, 0.18, 0.48), dark: rgb(0.24, 0.12, 0.25), band: rgb(0.94, 0.87, 0.94), pale: rgb(0.99, 0.96, 0.99), border: rgb(0.68, 0.5, 0.69) },
+  };
+  const palette = palettes[model.content.colorScheme] || palettes.warm;
+  const { accent, dark, band, pale, border } = palette;
   let page!: PDFPage;
   let y = 0;
 
   const addPage = () => {
     page = pdf.addPage([pageWidth, pageHeight]);
-    page.drawRectangle({ x: 0, y: pageHeight - 88, width: pageWidth, height: 88, color: warm });
-    page.drawRectangle({ x: 0, y: pageHeight - 88, width: 8, height: 88, color: accent });
-    page.drawText('INDEPENDENT C-WAGS TRIAL PREMIUM', { x: margin, y: pageHeight - 29, size: 9.5, font: bold, color: accent });
-    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 61, size: 21, font: bold, color: dark, maxWidth: pageWidth - margin * 2 });
-    page.drawLine({ start: { x: margin, y: pageHeight - 88 }, end: { x: pageWidth - margin, y: pageHeight - 88 }, thickness: 1.1, color: accent });
-    y = pageHeight - 116;
+    page.drawRectangle({ x: 0, y: pageHeight - 72, width: pageWidth, height: 72, color: band });
+    page.drawRectangle({ x: 0, y: pageHeight - 72, width: 8, height: 72, color: accent });
+    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 });
+    page.drawLine({ start: { x: margin, y: pageHeight - 72 }, end: { x: pageWidth - margin, y: pageHeight - 72 }, thickness: 1.1, color: accent });
+    y = pageHeight - 100;
   };
   const need = (height: number) => { if (y - height < 48) addPage(); };
   const paragraph = (text: string, size = 9, inset = 0) => {
@@ -62,7 +65,7 @@ export async function createTrialPremiumPdf(
   };
   const section = (title: string, text: string) => {
     need(62);
-    page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: warm });
+    page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: band });
     page.drawRectangle({ x: margin, y: y - 20, width: 5, height: 26, color: accent });
     page.drawText(title, { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
     y -= 34;
@@ -71,7 +74,7 @@ export async function createTrialPremiumPdf(
   const link = (label: string, url: string) => {
     need(34);
     const size = 9;
-    page.drawRectangle({ x: margin, y: y - 8, width: pageWidth - margin * 2, height: 25, color: pale, borderWidth: 0.6, borderColor: rgb(0.88, 0.65, 0.42) });
+    page.drawRectangle({ x: margin, y: y - 8, width: pageWidth - margin * 2, height: 25, color: pale, borderWidth: 0.6, borderColor: border });
     page.drawText(label, { x: margin + 10, y, size, font: bold, color: rgb(0.05, 0.32, 0.72) });
     const width = bold.widthOfTextAtSize(label, size);
     const annotation = page.doc.context.register(page.doc.context.obj({
@@ -133,9 +136,9 @@ export async function createTrialPremiumPdf(
         const classWidth = 140;
         const judgeWidth = (totalWidth - classWidth) / Math.max(1, block.judges.length);
         const headerHeight = 42;
-        const rowHeight = 31;
-        const judgeFontSize = block.judges.length >= 4 ? 7 : 8;
-        const cellFontSize = block.judges.length >= 4 ? 6.5 : block.judges.length === 3 ? 7 : 7.5;
+        const rowHeight = 32;
+        const judgeFontSize = block.judges.length >= 4 ? 8 : 9;
+        const cellFontSize = block.judges.length >= 4 ? 8 : 8.5;
         const continuation = block.continued ? ' (continued)' : '';
 
         gridPage.drawRectangle({ x: left, y: titleY - 4, width: 5, height: 18, color: accent });
@@ -145,14 +148,14 @@ export async function createTrialPremiumPdf(
         gridPage.drawText('Cells show round(s), regular fee and FEO availability.', { x: left, y: titleY - 16, size: 7.5, font });
         gridPage.drawRectangle({
           x: left, y: tableTop - headerHeight, width: classWidth, height: headerHeight,
-          borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18),
+          borderWidth: 0.7, color: band, borderColor: border,
         });
         drawCenteredLines(gridPage, 'Class', left, tableTop, classWidth, 8, bold);
         block.judges.forEach((judge, judgeIndex) => {
           const x = left + classWidth + judgeIndex * judgeWidth;
           gridPage.drawRectangle({
             x, y: tableTop - headerHeight, width: judgeWidth, height: headerHeight,
-            borderWidth: 0.7, color: rgb(0.96, 0.78, 0.56), borderColor: rgb(0.35, 0.25, 0.18),
+            borderWidth: 0.7, color: band, borderColor: border,
           });
           drawCenteredLines(gridPage, judge, x, tableTop, judgeWidth, judgeFontSize, bold);
         });
@@ -164,19 +167,22 @@ export async function createTrialPremiumPdf(
             x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight,
             borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
           });
-          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 7.5, bold);
+          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 8.5, bold);
           block.judges.forEach((judge, judgeIndex) => {
             const x = left + classWidth + judgeIndex * judgeWidth;
             const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
             const rounds = assignments.map((row) => `R${row.roundNumber}`).join(', ');
-            const cell = assignments.length
-              ? `${rounds}  $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? '  FEO' : ''}`
+            const feeLine = assignments.length
+              ? `$${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ' | FEO' : ''}`
               : '';
             gridPage.drawRectangle({
               x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight,
               borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
             });
-            if (cell) drawCenteredLines(gridPage, cell, x, rowTop, judgeWidth, cellFontSize, font);
+            if (assignments.length) {
+              drawCenteredLines(gridPage, rounds, x, rowTop + 1, judgeWidth, cellFontSize, bold);
+              drawCenteredLines(gridPage, feeLine, x, rowTop - 13, judgeWidth, cellFontSize, font);
+            }
           });
         });
       });
@@ -188,7 +194,7 @@ export async function createTrialPremiumPdf(
   const locationLines = wrap(model.trial.location, font, 9, pageWidth - margin * 2 - 28).slice(0, 2);
   const hasMapAddress = Boolean(model.content.mapAddress.trim());
   const summaryHeight = hasMapAddress ? 94 : 82;
-  page.drawRectangle({ x: margin, y: y - summaryHeight, width: pageWidth - margin * 2, height: summaryHeight, color: pale, borderWidth: 0.8, borderColor: rgb(0.88, 0.65, 0.42) });
+  page.drawRectangle({ x: margin, y: y - summaryHeight, width: pageWidth - margin * 2, height: summaryHeight, color: pale, borderWidth: 0.8, borderColor: border });
   page.drawText(model.trial.clubName, { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
   locationLines.forEach((line, index) => page.drawText(line, { x: margin + 14, y: y - 41 - index * 11, size: 9, font }));
   if (hasMapAddress) page.drawText(model.content.mapAddress.trim(), { x: margin + 14, y: y - 66, size: 8.5, font: bold, color: rgb(0.3, 0.3, 0.3), maxWidth: pageWidth - margin * 2 - 28 });
@@ -222,12 +228,12 @@ export async function createTrialPremiumPdf(
     ['Safety and Comfort Rules', model.content.safetyRules],
     ['Waitlist', model.content.waitlistInformation],
     ['Rules Acknowledgement', model.content.rulesAcknowledgement],
-    ['Ring Setup', model.content.ringSetupTime || 'See secretary instructions.'],
-    ["Judges' Briefing", model.content.judgesBriefingTime || 'See secretary instructions.'],
+    ['Ring Setup', model.content.ringSetupTime],
+    ["Judges' Briefing", model.content.judgesBriefingTime],
     ['Additional Information', model.content.additionalInformation],
-    ['Waiver', model.trial.waiverText],
   ];
   for (const [title, text] of sections) {
+    if (!text.trim()) continue;
     section(title, text);
     if (title === 'Directions and Arrival' && options.mapImageBytes?.length) {
       try {
@@ -247,6 +253,9 @@ export async function createTrialPremiumPdf(
       }
     }
   }
+
+  addPage();
+  section('Waiver', model.trial.waiverText);
 
   const pages = pdf.getPages();
   pages.forEach((pdfPage, index) => {
