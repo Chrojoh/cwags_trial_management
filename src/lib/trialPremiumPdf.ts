@@ -74,10 +74,17 @@ export async function createTrialPremiumPdf(
     const lines = wrap(text || 'Not provided.', font, size, pageWidth - margin * 2 - inset);
     lines.forEach((line) => {
       need(size + 8);
-      page.drawText(line, { x: margin + inset, y, size, font });
+      let textX = margin + inset;
+      let consumed = 0;
       for (const match of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)) {
         const email = match[0];
-        const emailX = margin + inset + font.widthOfTextAtSize(line.slice(0, match.index), size);
+        const matchIndex = match.index ?? consumed;
+        const precedingText = line.slice(consumed, matchIndex);
+        if (precedingText) {
+          page.drawText(precedingText, { x: textX, y, size, font });
+          textX += font.widthOfTextAtSize(precedingText, size);
+        }
+        const emailX = textX;
         const emailWidth = font.widthOfTextAtSize(email, size);
         page.drawText(email, { x: emailX, y, size, font, color: rgb(0.05, 0.32, 0.72) });
         const annotation = page.doc.context.register(page.doc.context.obj({
@@ -85,7 +92,11 @@ export async function createTrialPremiumPdf(
           A: { Type: 'Action', S: 'URI', URI: PDFString.of(`mailto:${email}`) },
         }));
         page.node.addAnnot(annotation);
+        textX += emailWidth;
+        consumed = matchIndex + email.length;
       }
+      const remainingText = line.slice(consumed);
+      if (remainingText) page.drawText(remainingText, { x: textX, y, size, font });
       y -= size + 4;
     });
     y -= 5;
