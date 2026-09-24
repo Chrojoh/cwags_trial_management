@@ -34,17 +34,21 @@ export async function createTrialPremiumPdf(
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const accent = rgb(0.82, 0.27, 0.03);
+  const dark = rgb(0.22, 0.14, 0.1);
+  const warm = rgb(1, 0.94, 0.82);
+  const pale = rgb(1, 0.98, 0.93);
   let page!: PDFPage;
   let y = 0;
 
   const addPage = () => {
     page = pdf.addPage([pageWidth, pageHeight]);
-    y = pageHeight - 42;
-    page.drawText('Independent C-WAGS Trial Premium', { x: margin, y, size: 9, font: bold, color: rgb(0.82, 0.27, 0.03) });
-    page.drawText(model.trial.trialName, { x: margin, y: y - 22, size: 17, font: bold, maxWidth: pageWidth - margin * 2 });
-    y -= 48;
-    page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.82, 0.27, 0.03) });
-    y -= 20;
+    page.drawRectangle({ x: 0, y: pageHeight - 88, width: pageWidth, height: 88, color: warm });
+    page.drawRectangle({ x: 0, y: pageHeight - 88, width: 8, height: 88, color: accent });
+    page.drawText('INDEPENDENT C-WAGS TRIAL PREMIUM', { x: margin, y: pageHeight - 29, size: 9.5, font: bold, color: accent });
+    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 61, size: 21, font: bold, color: dark, maxWidth: pageWidth - margin * 2 });
+    page.drawLine({ start: { x: margin, y: pageHeight - 88 }, end: { x: pageWidth - margin, y: pageHeight - 88 }, thickness: 1.1, color: accent });
+    y = pageHeight - 116;
   };
   const need = (height: number) => { if (y - height < 48) addPage(); };
   const paragraph = (text: string, size = 9, inset = 0) => {
@@ -57,22 +61,25 @@ export async function createTrialPremiumPdf(
     y -= 5;
   };
   const section = (title: string, text: string) => {
-    need(54);
-    page.drawText(title, { x: margin, y, size: 11, font: bold, color: rgb(0.25, 0.16, 0.12) });
-    y -= 17;
+    need(62);
+    page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: warm });
+    page.drawRectangle({ x: margin, y: y - 20, width: 5, height: 26, color: accent });
+    page.drawText(title, { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
+    y -= 34;
     paragraph(text);
   };
   const link = (label: string, url: string) => {
-    need(26);
+    need(34);
     const size = 9;
-    page.drawText(label, { x: margin, y, size, font: bold, color: rgb(0.05, 0.32, 0.72) });
+    page.drawRectangle({ x: margin, y: y - 8, width: pageWidth - margin * 2, height: 25, color: pale, borderWidth: 0.6, borderColor: rgb(0.88, 0.65, 0.42) });
+    page.drawText(label, { x: margin + 10, y, size, font: bold, color: rgb(0.05, 0.32, 0.72) });
     const width = bold.widthOfTextAtSize(label, size);
     const annotation = page.doc.context.register(page.doc.context.obj({
-      Type: 'Annot', Subtype: 'Link', Rect: [margin, y - 2, margin + width, y + size + 2], Border: [0, 0, 0],
+      Type: 'Annot', Subtype: 'Link', Rect: [margin + 10, y - 2, margin + 10 + width, y + size + 2], Border: [0, 0, 0],
       A: { Type: 'Action', S: 'URI', URI: PDFString.of(url) },
     }));
     page.node.addAnnot(annotation);
-    y -= 22;
+    y -= 34;
   };
 
   const drawCenteredLines = (
@@ -131,8 +138,9 @@ export async function createTrialPremiumPdf(
         const cellFontSize = block.judges.length >= 4 ? 6.5 : block.judges.length === 3 ? 7 : 7.5;
         const continuation = block.continued ? ' (continued)' : '';
 
+        gridPage.drawRectangle({ x: left, y: titleY - 4, width: 5, height: 18, color: accent });
         gridPage.drawText(`${formatDate(block.date)} - Classes, Judges and Fees${continuation}`, {
-          x: left, y: titleY, size: 12, font: bold, color: rgb(0.2, 0.15, 0.12),
+          x: left + 11, y: titleY, size: 13, font: bold, color: dark,
         });
         gridPage.drawText('Cells show round(s), regular fee and FEO availability.', { x: left, y: titleY - 16, size: 7.5, font });
         gridPage.drawRectangle({
@@ -176,8 +184,13 @@ export async function createTrialPremiumPdf(
   };
 
   addPage();
-  paragraph(`${model.trial.clubName} | ${model.trial.location}`, 10);
-  paragraph(`${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`, 10);
+  const dateLine = `${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`;
+  const locationLines = wrap(model.trial.location, font, 9, pageWidth - margin * 2 - 28).slice(0, 2);
+  page.drawRectangle({ x: margin, y: y - 82, width: pageWidth - margin * 2, height: 82, color: pale, borderWidth: 0.8, borderColor: rgb(0.88, 0.65, 0.42) });
+  page.drawText(model.trial.clubName, { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
+  locationLines.forEach((line, index) => page.drawText(line, { x: margin + 14, y: y - 41 - index * 11, size: 9, font }));
+  page.drawText(dateLine, { x: margin + 14, y: y - 70, size: 10, font: bold, color: accent });
+  y -= 101;
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
   section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
   const mapDestination = model.content.mapAddress.trim() || model.trial.location;
@@ -234,7 +247,10 @@ export async function createTrialPremiumPdf(
 
   const pages = pdf.getPages();
   pages.forEach((pdfPage, index) => {
-    pdfPage.drawText(`Page ${index + 1} of ${pages.length}`, { x: 510, y: 24, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
+    const pageLabel = `Page ${index + 1} of ${pages.length}`;
+    const labelWidth = font.widthOfTextAtSize(pageLabel, 8);
+    pdfPage.drawLine({ start: { x: margin, y: 36 }, end: { x: pageWidth - margin, y: 36 }, thickness: 0.5, color: rgb(0.82, 0.72, 0.63) });
+    pdfPage.drawText(pageLabel, { x: pageWidth - margin - labelWidth, y: 20, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
   });
   return pdf.save();
 }
