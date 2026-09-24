@@ -1,6 +1,7 @@
 export type PremiumStatus = 'draft' | 'ready';
 
 export interface TrialPremiumContent {
+  mapAddress: string;
   paymentInstructions: string;
   refundPolicy: string;
   moveUpPolicy: string;
@@ -61,6 +62,7 @@ export interface TrialPremiumModel extends TrialPremiumRecord {
 }
 
 export const EMPTY_PREMIUM_CONTENT: TrialPremiumContent = {
+  mapAddress: '',
   paymentInstructions: '',
   refundPolicy: '',
   moveUpPolicy: '',

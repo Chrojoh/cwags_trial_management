@@ -255,12 +255,10 @@ export default function CreateTrialPage() {
       }
 
       // Otherwise, create a new trial
-      const locationParts = [
-        trialData.venue_name,
-        trialData.city,
-        trialData.province,
-        trialData.country,
-      ].filter((part) => part.trim());
+      const locationParts = (trialData.full_address.trim()
+        ? [trialData.venue_name, trialData.full_address]
+        : [trialData.venue_name, trialData.city, trialData.province, trialData.country]
+      ).filter((part) => part.trim());
 
       const location = locationParts.join(', ');
 
@@ -314,12 +312,10 @@ export default function CreateTrialPage() {
 
     setLoading(true);
     try {
-      const locationParts = [
-        trialData.venue_name,
-        trialData.city,
-        trialData.province,
-        trialData.country,
-      ].filter((part) => part.trim());
+      const locationParts = (trialData.full_address.trim()
+        ? [trialData.venue_name, trialData.full_address]
+        : [trialData.venue_name, trialData.city, trialData.province, trialData.country]
+      ).filter((part) => part.trim());
 
       const location = locationParts.join(', ');
 
@@ -397,12 +393,15 @@ export default function CreateTrialPage() {
 
     setLoading(true);
     try {
-      const locationParts = [
-        trialData.venue_name || 'TBD',
-        trialData.city || 'TBD',
-        trialData.province || 'AB',
-        trialData.country || 'Canada',
-      ].filter((part) => part.trim());
+      const locationParts = (trialData.full_address.trim()
+        ? [trialData.venue_name || 'TBD', trialData.full_address]
+        : [
+            trialData.venue_name || 'TBD',
+            trialData.city || 'TBD',
+            trialData.province || 'AB',
+            trialData.country || 'Canada',
+          ]
+      ).filter((part) => part.trim());
 
       const location = locationParts.join(', ');
 

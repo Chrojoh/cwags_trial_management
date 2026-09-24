@@ -180,7 +180,8 @@ export async function createTrialPremiumPdf(
   paragraph(`${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`, 10);
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
   section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(model.trial.location)}`;
+  const mapDestination = model.content.mapAddress.trim() || model.trial.location;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapDestination)}`;
   link('Open venue map and directions', mapUrl);
   if (options.publicEntryUrl) link('Open the online entry form', options.publicEntryUrl);
 
