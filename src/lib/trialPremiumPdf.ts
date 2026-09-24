@@ -305,6 +305,8 @@ export async function createTrialPremiumPdf(
       }
     }
   }
+  section('Current C-WAGS Rules', 'Competitors should review the current rules and program information published by C-WAGS before entering.');
+  link('Open current C-WAGS rules and program information', 'https://c-wags.org/');
 
   addPage();
   sectionHeading('Waiver');
