@@ -27,6 +27,10 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines.length ? lines : [''];
 }
 
+function wrapPreservingLineBreaks(text: string, font: PDFFont, size: number, width: number): string[] {
+  return text.split(/\r?\n/).flatMap((line) => line.trim() ? wrap(line, font, size, width) : ['']);
+}
+
 export async function createTrialPremiumPdf(
   model: TrialPremiumModel,
   options: { mapImageBytes?: Uint8Array; mapMimeType?: string; publicEntryUrl?: string } = {}
@@ -260,36 +264,22 @@ export async function createTrialPremiumPdf(
   page.drawText('Waiver', { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
   y -= 36;
 
-  const signatureHeadingY = 170;
-  const waiverTextBottom = signatureHeadingY + 34;
   const waiverWidth = pageWidth - margin * 2;
-  const waiverText = model.trial.waiverText.trim() || 'No waiver text was provided.';
+  const waiverText = model.trial.waiverText.trim();
   let waiverFontSize = 12;
   let waiverLineHeight = waiverFontSize + 4;
-  let waiverLines = wrap(waiverText, font, waiverFontSize, waiverWidth);
+  let waiverLines = wrapPreservingLineBreaks(waiverText, font, waiverFontSize, waiverWidth);
 
-  while (waiverFontSize > 7 && waiverLines.length * waiverLineHeight > y - waiverTextBottom) {
+  while (waiverFontSize > 7 && waiverLines.length * waiverLineHeight > y - 48) {
     waiverFontSize -= 1;
     waiverLineHeight = waiverFontSize + 4;
-    waiverLines = wrap(waiverText, font, waiverFontSize, waiverWidth);
+    waiverLines = wrapPreservingLineBreaks(waiverText, font, waiverFontSize, waiverWidth);
   }
 
   waiverLines.forEach((line) => {
     page.drawText(line, { x: margin, y, size: waiverFontSize, font, color: dark });
     y -= waiverLineHeight;
   });
-
-  y = signatureHeadingY;
-  page.drawText('Acknowledgement and Signature', { x: margin, y, size: 12, font: bold, color: dark });
-  y -= 28;
-  page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
-  page.drawText('Competitor name (print)', { x: margin, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
-  y -= 46;
-  const dateLineWidth = 145;
-  page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin - dateLineWidth - 28, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
-  page.drawLine({ start: { x: pageWidth - margin - dateLineWidth, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
-  page.drawText('Signature', { x: margin, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
-  page.drawText('Date', { x: pageWidth - margin - dateLineWidth, y: y - 13, size: 8, font, color: rgb(0.35, 0.35, 0.35) });
 
   const pages = pdf.getPages();
   pages.forEach((pdfPage, index) => {
