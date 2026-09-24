@@ -19,7 +19,7 @@ const fields: Array<{ key: keyof TrialPremiumContent; label: string; help: strin
   { key: 'trialChairContact', label: 'Trial chair or day-of contact', help: 'Give the name, phone number and email for the person competitors should contact on trial day.' },
   { key: 'pricingDeadlineNotes', label: 'Pricing and deadline notes', help: 'Explain early or late pricing, FEO rates, payment deadlines and any conditions not shown in the class grid.' },
   { key: 'paperEntryInstructions', label: 'Paper entry instructions', help: 'Explain where competitors can obtain and return a printable entry form. The secretary can enter received paper forms through Live Event.' },
-  { key: 'paymentInstructions', label: 'Payment instructions', help: 'Explain accepted payment methods, deadlines and where payment is sent.', required: true },
+  { key: 'paymentInstructions', label: 'Payment instructions', help: 'Explain accepted payment methods, deadlines and where payment is sent. Leave blank when the host will provide payment details separately.' },
   { key: 'refundPolicy', label: 'Refund and cancellation policy', help: 'State withdrawals, refunds, cancellations and emergency changes.' },
   { key: 'moveUpPolicy', label: 'Move-up policy', help: 'Explain whether move-ups are allowed and how competitors request one.' },
   { key: 'volunteerInformation', label: 'Volunteer information', help: 'Describe volunteer requests, benefits and contact instructions.' },

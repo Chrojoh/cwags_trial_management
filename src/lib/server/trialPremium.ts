@@ -10,12 +10,10 @@ import {
 const premiumSelect = 'status,content,map_image_path,updated_at,updated_by';
 
 export function getMissingRequiredPremiumInformation(
-  content: TrialPremiumContent,
   waiverText: string,
   scheduleLength: number
 ) {
   return [
-    !content.paymentInstructions.trim() && 'Payment instructions',
     !waiverText.trim() && 'Waiver text',
     scheduleLength === 0 && 'Class and round schedule',
   ].filter(Boolean) as string[];
@@ -65,7 +63,6 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
   );
 
   const missingRequired = getMissingRequiredPremiumInformation(
-    content,
     trial.waiver_text || '',
     schedule.length
   );

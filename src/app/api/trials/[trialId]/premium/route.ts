@@ -28,7 +28,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const model = await loadTrialPremium(trialId);
     if (status === 'ready') {
       const missing = getMissingRequiredPremiumInformation(
-        content,
         model.trial.waiverText,
         model.schedule.length
       );
