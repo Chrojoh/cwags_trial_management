@@ -13,6 +13,13 @@ const formatDate = (value: string) => {
     year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
   });
 };
+const formatClockTime = (value: string) => {
+  const match = value.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return value;
+  const hour = Number(match[1]);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:${match[2]} ${suffix}`;
+};
 
 function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
   const words = clean(text).split(/\s+/).filter(Boolean);
@@ -229,15 +236,23 @@ export async function createTrialPremiumPdf(
   const dateLine = `${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`;
   const locationLines = wrap(model.trial.location, font, 9, pageWidth - margin * 2 - 28).slice(0, 2);
   const hasMapAddress = Boolean(model.content.mapAddress.trim());
-  const summaryHeight = hasMapAddress ? 94 : 82;
+  const trialTimeParts = [
+    model.content.checkInTime && `Check-in: ${formatClockTime(model.content.checkInTime)}`,
+    model.content.trialStartTime && `Trial starts: ${formatClockTime(model.content.trialStartTime)}`,
+  ].filter(Boolean);
+  const hasTrialTimes = trialTimeParts.length > 0;
+  const summaryHeight = (hasMapAddress ? 94 : 82) + (hasTrialTimes ? 17 : 0);
   page.drawRectangle({ x: margin, y: y - summaryHeight, width: pageWidth - margin * 2, height: summaryHeight, color: pale, borderWidth: 0.8, borderColor: border });
   page.drawText(model.trial.clubName, { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
   locationLines.forEach((line, index) => page.drawText(line, { x: margin + 14, y: y - 41 - index * 11, size: 9, font }));
   if (hasMapAddress) page.drawText(model.content.mapAddress.trim(), { x: margin + 14, y: y - 66, size: 8.5, font: bold, color: rgb(0.3, 0.3, 0.3), maxWidth: pageWidth - margin * 2 - 28 });
   page.drawText(dateLine, { x: margin + 14, y: y - (hasMapAddress ? 82 : 70), size: 10, font: bold, color: accent });
+  if (hasTrialTimes) page.drawText(trialTimeParts.join('  |  '), { x: margin + 14, y: y - (hasMapAddress ? 99 : 87), size: 10, font: bold, color: dark });
   y -= summaryHeight + 19;
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
+  if (model.content.trialChairContact.trim()) section('Trial Chair / Day-of Contact', model.content.trialChairContact);
   section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
+  if (model.content.pricingDeadlineNotes.trim()) section('Pricing and Deadlines', model.content.pricingDeadlineNotes);
   const mapDestination = model.content.mapAddress.trim() || model.trial.location;
   const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapDestination)}`;
   link('Open GPS directions to the venue', mapUrl);
@@ -249,6 +264,7 @@ export async function createTrialPremiumPdf(
 
   const sections: Array<[string, string]> = [
     ['Payment Instructions', model.content.paymentInstructions],
+    ['Paper Entry Instructions', model.content.paperEntryInstructions],
     ['Refund and Cancellation Policy', model.content.refundPolicy],
     ['Move-Up Policy', model.content.moveUpPolicy],
     ['Volunteer Information', model.content.volunteerInformation],

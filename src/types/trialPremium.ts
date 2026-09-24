@@ -4,6 +4,11 @@ export type PremiumColorScheme = 'warm' | 'forest' | 'blue' | 'plum';
 export interface TrialPremiumContent {
   colorScheme: PremiumColorScheme;
   mapAddress: string;
+  checkInTime: string;
+  trialStartTime: string;
+  trialChairContact: string;
+  pricingDeadlineNotes: string;
+  paperEntryInstructions: string;
   paymentInstructions: string;
   refundPolicy: string;
   moveUpPolicy: string;
@@ -66,6 +71,11 @@ export interface TrialPremiumModel extends TrialPremiumRecord {
 export const EMPTY_PREMIUM_CONTENT: TrialPremiumContent = {
   colorScheme: 'warm',
   mapAddress: '',
+  checkInTime: '',
+  trialStartTime: '',
+  trialChairContact: '',
+  pricingDeadlineNotes: '',
+  paperEntryInstructions: '',
   paymentInstructions: '',
   refundPolicy: '',
   moveUpPolicy: '',
