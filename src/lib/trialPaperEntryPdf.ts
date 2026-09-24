@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { PDFDocument, PDFPage, PDFFont, StandardFonts, rgb } from 'pdf-lib';
 import { getClassOrder } from '@/lib/cwagsClassNames';
 import type { TrialPremiumModel } from '@/types/trialPremium';
@@ -54,6 +56,9 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const logo = await readFile(path.join(process.cwd(), 'public', 'images', 'cwags-logo.png'))
+    .then((bytes) => pdf.embedPng(bytes))
+    .catch(() => null);
   const palettes = {
     warm: { accent: rgb(0.82, 0.27, 0.03), pale: rgb(1, 0.94, 0.82) },
     forest: { accent: rgb(0.12, 0.42, 0.25), pale: rgb(0.86, 0.94, 0.87) },
@@ -70,8 +75,14 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
 
   const addPage = (subtitle = 'Printable Paper Entry Form') => {
     page = pdf.addPage([pageWidth, pageHeight]);
-    page.drawText(model.trial.trialName, { x: margin, y: 746, size: 20, font: bold, color: dark, maxWidth: pageWidth - margin * 2 });
+    const firstPage = pdf.getPageCount() === 1;
+    page.drawText(model.trial.trialName, { x: margin, y: 746, size: 20, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - (firstPage && logo ? 82 : 0) });
     page.drawText(subtitle, { x: margin, y: 724, size: 11, font: bold, color: accent });
+    if (firstPage && logo) {
+      const logoWidth = 62;
+      const logoHeight = logoWidth * (logo.height / logo.width);
+      page.drawImage(logo, { x: pageWidth - margin - logoWidth, y: 718, width: logoWidth, height: logoHeight });
+    }
     page.drawLine({ start: { x: margin, y: 714 }, end: { x: pageWidth - margin, y: 714 }, thickness: 1, color: accent });
     y = 692;
   };
