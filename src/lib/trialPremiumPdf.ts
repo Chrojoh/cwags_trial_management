@@ -186,16 +186,19 @@ export async function createTrialPremiumPdf(
   addPage();
   const dateLine = `${formatDate(model.trial.startDate)}${model.trial.endDate !== model.trial.startDate ? ` to ${formatDate(model.trial.endDate)}` : ''}`;
   const locationLines = wrap(model.trial.location, font, 9, pageWidth - margin * 2 - 28).slice(0, 2);
-  page.drawRectangle({ x: margin, y: y - 82, width: pageWidth - margin * 2, height: 82, color: pale, borderWidth: 0.8, borderColor: rgb(0.88, 0.65, 0.42) });
+  const hasMapAddress = Boolean(model.content.mapAddress.trim());
+  const summaryHeight = hasMapAddress ? 94 : 82;
+  page.drawRectangle({ x: margin, y: y - summaryHeight, width: pageWidth - margin * 2, height: summaryHeight, color: pale, borderWidth: 0.8, borderColor: rgb(0.88, 0.65, 0.42) });
   page.drawText(model.trial.clubName, { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
   locationLines.forEach((line, index) => page.drawText(line, { x: margin + 14, y: y - 41 - index * 11, size: 9, font }));
-  page.drawText(dateLine, { x: margin + 14, y: y - 70, size: 10, font: bold, color: accent });
-  y -= 101;
+  if (hasMapAddress) page.drawText(model.content.mapAddress.trim(), { x: margin + 14, y: y - 66, size: 8.5, font: bold, color: rgb(0.3, 0.3, 0.3), maxWidth: pageWidth - margin * 2 - 28 });
+  page.drawText(dateLine, { x: margin + 14, y: y - (hasMapAddress ? 82 : 70), size: 10, font: bold, color: accent });
+  y -= summaryHeight + 19;
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
   section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
   const mapDestination = model.content.mapAddress.trim() || model.trial.location;
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapDestination)}`;
-  link('Open venue map and directions', mapUrl);
+  const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapDestination)}`;
+  link('Open GPS directions to the venue', mapUrl);
   if (options.publicEntryUrl) link('Open the online entry form', options.publicEntryUrl);
 
   section('Classes, Rounds, Judges and Fees', `${model.schedule.length} scheduled rounds are shown in the daily grids that follow. Each grid is generated directly from the saved trial setup.`);
