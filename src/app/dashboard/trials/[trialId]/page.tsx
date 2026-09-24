@@ -570,6 +570,23 @@ export default function TrialDetailPage() {
                           }
                         />
                       </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="location">Venue and Full Street Address</Label>
+                        <Input
+                          id="location"
+                          value={editData.location || ''}
+                          onChange={(e) =>
+                            setEditData((prev: Partial<TrialData>) => ({
+                              ...prev,
+                              location: e.target.value,
+                            }))
+                          }
+                          placeholder="Venue name, street address, city, province, postal code"
+                        />
+                        <p className="text-xs text-gray-600">
+                          Include the street number and postal code so premiums and map links can provide accurate directions.
+                        </p>
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="trial_secretary">Trial Secretary</Label>
                         <Input
