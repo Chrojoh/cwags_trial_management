@@ -40,7 +40,7 @@ function wrapPreservingLineBreaks(text: string, font: PDFFont, size: number, wid
 
 export async function createTrialPremiumPdf(
   model: TrialPremiumModel,
-  options: { mapImageBytes?: Uint8Array; mapMimeType?: string; publicEntryUrl?: string } = {}
+  options: { mapImageBytes?: Uint8Array; mapMimeType?: string; publicEntryUrl?: string; paperEntryFormUrl?: string } = {}
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -257,6 +257,7 @@ export async function createTrialPremiumPdf(
   const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapDestination)}`;
   link('Open GPS directions to the venue', mapUrl);
   if (options.publicEntryUrl) link('Open the online entry form', options.publicEntryUrl);
+  if (options.paperEntryFormUrl) link('Download and print a paper entry form', options.paperEntryFormUrl);
 
   section('Classes, Rounds, Judges and Fees', `${model.schedule.length} scheduled rounds are shown in the daily grids that follow. Each grid is generated directly from the saved trial setup.`);
   drawDailyScheduleGrids();

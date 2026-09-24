@@ -18,7 +18,7 @@ test('premium PDF paginates a complete trial without overflowing a single page',
     schedule: Array.from({ length: 36 }, (_, index) => ({
       date: index < 18 ? '2026-10-01' : '2026-10-02', dayNumber: index < 18 ? 1 : 2,
       className: `Class ${index + 1}`, classOrder: index, roundNumber: 1, judgeName: 'Judge Example',
-      entryFee: 25, feoAvailable: true,
+      entryFee: 25, feoPrice: 15, feoAvailable: true,
     })),
     status: 'ready', content, updatedAt: null, updatedBy: null, mapImagePath: null, missingRequired: [],
   };

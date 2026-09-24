@@ -13,7 +13,7 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
   const db = getServiceRoleClient();
   const [trialResult, daysResult, premiumResult] = await Promise.all([
     db.from('trials').select('id,trial_name,club_name,location,start_date,end_date,entry_open_at,entry_timezone,entries_close_date,trial_secretary,secretary_email,secretary_phone,waiver_text').eq('id', trialId).single(),
-    db.from('trial_days').select('id,day_number,trial_date,trial_classes(id,class_name,class_order,entry_fee,trial_rounds(round_number,judge_name,feo_available))').eq('trial_id', trialId).order('day_number'),
+    db.from('trial_days').select('id,day_number,trial_date,trial_classes(id,class_name,class_order,entry_fee,feo_price,trial_rounds(round_number,judge_name,feo_available))').eq('trial_id', trialId).order('day_number'),
     db.from('trial_premiums').select(premiumSelect).eq('trial_id', trialId).maybeSingle(),
   ]);
 
@@ -42,6 +42,7 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
         roundNumber: Number(round.round_number || 0),
         judgeName: String(round.judge_name || ''),
         entryFee: Number(trialClass.entry_fee || 0),
+        feoPrice: Number(trialClass.feo_price || 0),
         feoAvailable: Boolean(round.feo_available),
       }))
     )

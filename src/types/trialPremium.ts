@@ -62,6 +62,7 @@ export interface TrialPremiumModel extends TrialPremiumRecord {
     roundNumber: number;
     judgeName: string;
     entryFee: number;
+    feoPrice: number;
     feoAvailable: boolean;
   }>;
   missingRequired: string[];

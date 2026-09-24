@@ -23,7 +23,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const pdf = await createTrialPremiumPdf({
       ...model,
       content: { ...EMPTY_PREMIUM_CONTENT, ...model.content, ...(body.content || {}) },
-    }, { mapImageBytes, mapMimeType, publicEntryUrl: `${request.nextUrl.origin}/entries/${trialId}` });
+    }, {
+      mapImageBytes,
+      mapMimeType,
+      publicEntryUrl: `${request.nextUrl.origin}/entries/${trialId}`,
+      paperEntryFormUrl: `${request.nextUrl.origin}/api/public/trials/${trialId}/paper-entry-form`,
+    });
     return new NextResponse(Buffer.from(pdf), { headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${premiumFilename(model.trial.trialName)}"`,
