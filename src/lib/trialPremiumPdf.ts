@@ -255,9 +255,31 @@ export async function createTrialPremiumPdf(
   }
 
   addPage();
-  section('Waiver', model.trial.waiverText);
-  need(118);
-  y -= 12;
+  page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: band });
+  page.drawRectangle({ x: margin, y: y - 20, width: 5, height: 26, color: accent });
+  page.drawText('Waiver', { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
+  y -= 36;
+
+  const signatureHeadingY = 170;
+  const waiverTextBottom = signatureHeadingY + 34;
+  const waiverWidth = pageWidth - margin * 2;
+  const waiverText = model.trial.waiverText.trim() || 'No waiver text was provided.';
+  let waiverFontSize = 12;
+  let waiverLineHeight = waiverFontSize + 4;
+  let waiverLines = wrap(waiverText, font, waiverFontSize, waiverWidth);
+
+  while (waiverFontSize > 7 && waiverLines.length * waiverLineHeight > y - waiverTextBottom) {
+    waiverFontSize -= 1;
+    waiverLineHeight = waiverFontSize + 4;
+    waiverLines = wrap(waiverText, font, waiverFontSize, waiverWidth);
+  }
+
+  waiverLines.forEach((line) => {
+    page.drawText(line, { x: margin, y, size: waiverFontSize, font, color: dark });
+    y -= waiverLineHeight;
+  });
+
+  y = signatureHeadingY;
   page.drawText('Acknowledgement and Signature', { x: margin, y, size: 12, font: bold, color: dark });
   y -= 28;
   page.drawLine({ start: { x: margin, y }, end: { x: pageWidth - margin, y }, thickness: 0.8, color: rgb(0.35, 0.35, 0.35) });
