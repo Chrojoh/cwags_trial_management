@@ -135,7 +135,9 @@ export default function TrialPremiumPage() {
     try {
       setError('');
       const response = await fetch(`/api/trials/${trialId}/premium/paper-entry-form`, {
+        method: 'POST',
         headers: await authHeaders(),
+        body: JSON.stringify({ content }),
         cache: 'no-store',
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Unable to generate paper entry form');

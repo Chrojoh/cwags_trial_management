@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireTrialPermission } from '@/lib/apiAuth';
 import { loadTrialPremium } from '@/lib/server/trialPremium';
 import { createTrialPaperEntryPdf, paperEntryFilename } from '@/lib/trialPaperEntryPdf';
+import { EMPTY_PREMIUM_CONTENT, type TrialPremiumContent } from '@/types/trialPremium';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ trialId: string }> }
 ) {
@@ -16,7 +17,11 @@ export async function GET(
 
   try {
     const model = await loadTrialPremium(trialId);
-    const pdf = await createTrialPaperEntryPdf(model);
+    const body = await request.json().catch(() => ({})) as { content?: Partial<TrialPremiumContent> };
+    const pdf = await createTrialPaperEntryPdf({
+      ...model,
+      content: { ...EMPTY_PREMIUM_CONTENT, ...model.content, ...(body.content || {}) },
+    });
     return new NextResponse(Buffer.from(pdf), { headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${paperEntryFilename(model.trial.trialName)}"`,
