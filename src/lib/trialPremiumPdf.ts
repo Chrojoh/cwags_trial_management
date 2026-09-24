@@ -58,6 +58,18 @@ export async function createTrialPremiumPdf(
     y = pageHeight - 100;
   };
   const need = (height: number) => { if (y - height < 48) addPage(); };
+  const sectionHeading = (title: string) => {
+    const headingSize = 16;
+    const headingWidth = bold.widthOfTextAtSize(title, headingSize);
+    page.drawText(title, {
+      x: Math.max(margin, (pageWidth - headingWidth) / 2),
+      y,
+      size: headingSize,
+      font: bold,
+      color: dark,
+    });
+    y -= 29;
+  };
   const paragraph = (text: string, size = 9, inset = 0) => {
     const lines = wrap(text || 'Not provided.', font, size, pageWidth - margin * 2 - inset);
     lines.forEach((line) => {
@@ -68,11 +80,8 @@ export async function createTrialPremiumPdf(
     y -= 5;
   };
   const section = (title: string, text: string) => {
-    need(62);
-    page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: band });
-    page.drawRectangle({ x: margin, y: y - 20, width: 5, height: 26, color: accent });
-    page.drawText(title, { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
-    y -= 34;
+    need(54);
+    sectionHeading(title);
     paragraph(text);
   };
   const link = (label: string, url: string) => {
@@ -259,10 +268,7 @@ export async function createTrialPremiumPdf(
   }
 
   addPage();
-  page.drawRectangle({ x: margin, y: y - 20, width: pageWidth - margin * 2, height: 26, color: band });
-  page.drawRectangle({ x: margin, y: y - 20, width: 5, height: 26, color: accent });
-  page.drawText('Waiver', { x: margin + 14, y: y - 12, size: 12, font: bold, color: dark });
-  y -= 36;
+  sectionHeading('Waiver');
 
   const waiverWidth = pageWidth - margin * 2;
   const waiverText = model.trial.waiverText.trim();
