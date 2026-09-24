@@ -68,13 +68,24 @@ export async function createTrialPremiumPdf(
       font: bold,
       color: dark,
     });
-    y -= 29;
+    y -= 23;
   };
   const paragraph = (text: string, size = 9, inset = 0) => {
     const lines = wrap(text || 'Not provided.', font, size, pageWidth - margin * 2 - inset);
     lines.forEach((line) => {
       need(size + 8);
       page.drawText(line, { x: margin + inset, y, size, font });
+      for (const match of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)) {
+        const email = match[0];
+        const emailX = margin + inset + font.widthOfTextAtSize(line.slice(0, match.index), size);
+        const emailWidth = font.widthOfTextAtSize(email, size);
+        page.drawText(email, { x: emailX, y, size, font, color: rgb(0.05, 0.32, 0.72) });
+        const annotation = page.doc.context.register(page.doc.context.obj({
+          Type: 'Annot', Subtype: 'Link', Rect: [emailX, y - 2, emailX + emailWidth, y + size + 2], Border: [0, 0, 0],
+          A: { Type: 'Action', S: 'URI', URI: PDFString.of(`mailto:${email}`) },
+        }));
+        page.node.addAnnot(annotation);
+      }
       y -= size + 4;
     });
     y -= 5;
@@ -83,6 +94,7 @@ export async function createTrialPremiumPdf(
     need(54);
     sectionHeading(title);
     paragraph(text);
+    y -= 12;
   };
   const link = (label: string, url: string) => {
     need(34);
