@@ -650,20 +650,7 @@ export default function TrialEntriesPage() {
 
       const competitors = financialsResult.data;
 
-      // Create a map of owner_id to email/phone from entries
-      const ownerContactInfo: Record<string, { email: string; phone: string }> = {};
-
-      entries.forEach((entry) => {
-        const cwagsMatch = entry.cwags_number?.match(/^\d{2}-(\d{4})-\d{2}$/);
-        const ownerId = cwagsMatch ? cwagsMatch[1] : entry.handler_name;
-
-        if (!ownerContactInfo[ownerId]) {
-          ownerContactInfo[ownerId] = {
-            email: entry.handler_email || 'N/A',
-            phone: entry.handler_phone || 'N/A',
-          };
-        }
-      });
+      const entriesById = new Map(entries.map((entry) => [entry.id!, entry]));
 
       const headers = [
         'Handler Name',
@@ -675,9 +662,13 @@ export default function TrialEntriesPage() {
       ];
 
       const rows = competitors.map((comp) => {
-        const cwagsMatch = comp.cwags_number?.match(/Owner ID: (.+)/);
-        const ownerId = cwagsMatch ? cwagsMatch[1] : comp.handler_name;
-        const contact = ownerContactInfo[ownerId] || { email: 'N/A', phone: 'N/A' };
+        const contactEntry = (comp.entry_ids || [comp.entry_id])
+          .map((entryId) => entriesById.get(entryId))
+          .find(Boolean);
+        const contact = {
+          email: contactEntry?.handler_email || 'N/A',
+          phone: contactEntry?.handler_phone || 'N/A',
+        };
 
         const dogsWithRuns = (comp.dogs || [])
           .map((dog: any) => {

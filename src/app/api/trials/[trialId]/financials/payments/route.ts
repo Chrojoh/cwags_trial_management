@@ -11,14 +11,19 @@ export async function POST(
     if (!auth.authorized) return auth.response;
     const body = await request.json();
     const amount = Number(body.amount);
-    if (!body.entryId || !Number.isFinite(amount) || amount === 0) {
+    const entryIds = Array.isArray(body.entryIds)
+      ? [...new Set(body.entryIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0))]
+      : body.entryId
+        ? [body.entryId]
+        : [];
+    if (entryIds.length === 0 || !Number.isFinite(amount) || amount === 0) {
       return NextResponse.json({ error: 'A non-zero payment amount is required' }, { status: 400 });
     }
 
     const supabase = getServiceRoleClient();
-    const { data, error } = await supabase.rpc('record_entry_payment_atomic', {
+    const { data, error } = await supabase.rpc('record_handler_payment_atomic', {
       p_trial_id: trialId,
-      p_entry_id: body.entryId,
+      p_entry_ids: entryIds,
       p_amount: amount,
       p_payment_method: body.paymentMethod || null,
       p_payment_received_by: body.paymentReceivedBy || null,
@@ -30,9 +35,12 @@ export async function POST(
     if (error?.message.includes('ENTRY_NOT_FOUND')) {
       return NextResponse.json({ error: 'Entry not found' }, { status: 404 });
     }
+    if (error?.message.includes('MIXED_HANDLER_ENTRIES')) {
+      return NextResponse.json({ error: 'The selected entries do not belong to one handler account' }, { status: 409 });
+    }
     if (error?.message.includes('REFUND_EXCEEDS_NET_PAYMENTS')) {
       return NextResponse.json(
-        { error: 'Refund cannot exceed the net payments recorded for this entry' },
+        { error: 'Refund cannot exceed the net payments recorded for this handler' },
         { status: 409 }
       );
     }

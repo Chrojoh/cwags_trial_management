@@ -308,7 +308,7 @@ export default function TrialFinancialsPage() {
         method: 'POST',
         headers: await getFinancialApiHeaders(),
         body: JSON.stringify({
-          entryId: selectedCompetitor.entry_id,
+          entryIds: selectedCompetitor.entry_ids || [selectedCompetitor.entry_id],
           amount: parseFloat(paymentAmount),
           paymentMethod,
           paymentReceivedBy,
@@ -359,6 +359,7 @@ export default function TrialFinancialsPage() {
           method: 'PATCH',
           headers: await getFinancialApiHeaders(),
           body: JSON.stringify({
+            entryIds: selectedCompetitor?.entry_ids || (selectedCompetitor ? [selectedCompetitor.entry_id] : []),
             amount: parseFloat(editPaymentAmount),
             paymentMethod: editPaymentMethod,
             paymentReceivedBy: editPaymentReceivedBy,
@@ -418,7 +419,7 @@ export default function TrialFinancialsPage() {
         method: 'POST',
         headers: await getFinancialApiHeaders(),
         body: JSON.stringify({
-          entryId: selectedCompetitor.entry_id,
+          entryIds: selectedCompetitor.entry_ids || [selectedCompetitor.entry_id],
           amount: -parseFloat(refundAmount),
           paymentMethod: refundMethod,
           paymentReceivedBy: refundIssuedBy,
@@ -447,7 +448,10 @@ export default function TrialFinancialsPage() {
   };
 
   const toggleJudgeVolunteer = async (competitor: CompetitorFinancial) => {
-    const currentStatus = judgeVolunteerStatus[competitor.entry_id] || false;
+    const dogs = competitor.dogs || [];
+    const currentStatus = dogs.length > 0
+      ? dogs.every((dog) => dog.is_judge_volunteer)
+      : judgeVolunteerStatus[competitor.entry_id] || false;
     const newStatus = !currentStatus;
 
     try {
@@ -1397,7 +1401,7 @@ End of Report
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-gray-100">
-                        <th className="text-left p-2 text-sm font-semibold">Handler / Dog</th>
+                        <th className="text-left p-2 text-sm font-semibold">Handler / Dogs</th>
                         <th className="text-center p-2 text-sm font-semibold w-24">Regular</th>
                         <th className="text-center p-2 text-sm font-semibold w-24">FEO</th>
                         <th className="text-center p-2 text-sm font-semibold w-16">J/V</th>
@@ -1417,6 +1421,22 @@ End of Report
                         const hasPayments = payments.length > 0;
                         const effectiveOwed = comp.fees_waived ? 0 : comp.amount_owed;
                         const balance = comp.fees_waived ? 0 : comp.amount_owed - comp.amount_paid;
+                        const dogs = comp.dogs || [];
+                        const reducedDogCount = dogs.filter((dog) => dog.is_judge_volunteer).length;
+                        const allDogsReduced = dogs.length > 0 && reducedDogCount === dogs.length;
+                        const mixedReducedRates = reducedDogCount > 0 && !allDogsReduced;
+                        let runningPaymentBalance = effectiveOwed;
+                        const paymentBalances = new Map<(typeof payments)[number], number>();
+                        [...payments]
+                          .sort((a, b) => {
+                            const aKey = `${a.payment_date || ''}|${a.created_at || ''}|${a.id || ''}`;
+                            const bKey = `${b.payment_date || ''}|${b.created_at || ''}|${b.id || ''}`;
+                            return aKey.localeCompare(bKey);
+                          })
+                          .forEach((payment) => {
+                            runningPaymentBalance -= Number(payment.amount || 0);
+                            paymentBalances.set(payment, runningPaymentBalance);
+                          });
 
                         return (
                           <React.Fragment key={compIndex}>
@@ -1428,10 +1448,41 @@ End of Report
                                 rowSpan={hasPayments ? payments.length + 2 : 2}
                               >
                                 <div className="font-bold">{comp.handler_name}</div>
-                                <div className="text-sm text-gray-600">{comp.dog_call_name}</div>
                                 <div className="text-xs text-gray-500 font-mono">
                                   {comp.cwags_number}
                                 </div>
+                                <details className="mt-2 rounded border border-orange-200 bg-white/80 font-normal">
+                                  <summary className="cursor-pointer px-2 py-1.5 text-sm font-semibold text-gray-700">
+                                    {dogs.length} dog{dogs.length === 1 ? '' : 's'} — view details
+                                  </summary>
+                                  <div className="space-y-2 border-t border-orange-100 p-2">
+                                    {dogs.map((dog) => (
+                                      <div key={dog.entry_id} className="rounded bg-orange-50 p-2 text-xs">
+                                        <div className="flex flex-wrap items-center justify-between gap-1">
+                                          <span className="font-bold text-gray-900">{dog.dog_call_name}</span>
+                                          <span className="font-mono text-gray-600">
+                                            {String(dog.cwags_number || '').startsWith('PENDING-')
+                                              ? 'Waiting for C-WAGS number'
+                                              : dog.cwags_number}
+                                          </span>
+                                        </div>
+                                        <div className="mt-1 text-gray-600">
+                                          Status: {dog.entry_status || 'unknown'} · {dog.regular_runs} regular ·{' '}
+                                          {dog.feo_runs} FEO
+                                          {dog.waitlisted_runs > 0 && ` · ${dog.waitlisted_runs} waitlisted`}
+                                        </div>
+                                        <div className="mt-1 font-semibold text-gray-800">
+                                          {dog.entry_status === 'submitted'
+                                            ? `Quoted if accepted: $${dog.quoted_fee.toFixed(2)}`
+                                            : dog.fees_waived
+                                              ? `Waived${dog.waiver_reason ? `: ${dog.waiver_reason}` : ''}`
+                                              : `Accepted fees: $${dog.amount_owed.toFixed(2)}`}
+                                          {dog.is_judge_volunteer && ' · Reduced rate'}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </details>
                                 {comp.fees_waived && (
                                   <Badge
                                     variant="outline"
@@ -1469,7 +1520,7 @@ End of Report
                               >
                                 <input
                                   type="checkbox"
-                                  checked={judgeVolunteerStatus[comp.entry_id] || false}
+                                  checked={allDogsReduced}
                                   onChange={() => toggleJudgeVolunteer(comp)}
                                   className="w-4 h-4 cursor-pointer"
                                   disabled={comp.fees_waived || saving}
@@ -1479,6 +1530,9 @@ End of Report
                                       : 'Apply Judge/Volunteer reduced rate'
                                   }
                                 />
+                                {mixedReducedRates && (
+                                  <div className="mt-1 text-[10px] font-semibold text-amber-700">Mixed</div>
+                                )}
                               </td>
                               <td className="p-2">
                                 <span className="font-semibold text-gray-700">
@@ -1545,11 +1599,7 @@ End of Report
                             </tr>
 
                             {payments.map((payment, paymentIndex) => {
-                              const remainingAfterThisPayment =
-                                effectiveOwed -
-                                payments
-                                  .slice(0, paymentIndex + 1)
-                                  .reduce((sum, p) => sum + p.amount, 0);
+                              const remainingAfterThisPayment = paymentBalances.get(payment) ?? effectiveOwed;
 
                               const isRefund = payment.amount < 0;
 

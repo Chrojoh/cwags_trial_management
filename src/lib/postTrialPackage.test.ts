@@ -134,6 +134,35 @@ test('keeps submitted quotes out of accepted post-trial totals', () => {
   assert.equal(model.recap.regularSelections, 1);
 });
 
+test('assesses outstanding balances once per handler across multiple dogs', () => {
+  const source = fixture();
+  source.entries = [
+    {
+      id: 'dog-one',
+      handler_name: 'Michelle Example',
+      dog_call_name: 'Flash',
+      cwags_number: '26-5828-01',
+      entry_status: 'confirmed',
+      amount_owed: 40,
+      amount_paid: 80,
+    },
+    {
+      id: 'dog-two',
+      handler_name: 'Michelle Example',
+      dog_call_name: 'Lumi',
+      cwags_number: '26-5828-02',
+      entry_status: 'confirmed',
+      amount_owed: 40,
+      amount_paid: 0,
+    },
+  ];
+  source.selections = [];
+  source.scores = [];
+
+  const model = buildPostTrialPackageModel(source);
+  assert.equal(model.issues.outstandingBalances, 0);
+});
+
 test('preserves Games result codes in the report', () => {
   const source = fixture();
   source.classes[0].class_name = 'Games 1';

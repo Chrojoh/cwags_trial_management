@@ -1,8 +1,13 @@
 // src/lib/financialOperations.ts
 import { getSupabaseBrowser } from './supabaseBrowser';
-import { calculateSelectionFees, getCwagsOwnerKey } from './financialRules';
+import {
+  calculateSelectionFees,
+  getCwagsOwnerKey,
+  shouldIncludeEntryInFinancialSummary,
+} from './financialRules';
 import { isBillableSelection } from './selectionStatus';
 import { fetchAllPages, fetchInBatches } from './supabasePagination';
+import { financialOwnerLabel, resolveFinancialOwnerKeys } from './financialOwnerIdentity';
 
 const supabase = getSupabaseBrowser();
 
@@ -41,10 +46,18 @@ export interface CompetitorFinancial {
   cwags_number: string;
   dog_call_name: string;
   dogs?: Array<{
+    entry_id: string;
     dog_call_name: string;
     cwags_number: string;
+    entry_status: string | null;
     regular_runs: number;
     feo_runs: number;
+    waitlisted_runs: number;
+    amount_owed: number;
+    quoted_fee: number;
+    fees_waived: boolean;
+    waiver_reason?: string | null;
+    is_judge_volunteer: boolean;
   }>;
   regular_runs: number;
   feo_runs: number;
@@ -152,12 +165,16 @@ export const financialOperations = {
             `
         id,
         handler_name,
+        handler_email,
+        handler_phone,
         dog_call_name,
         cwags_number,
         amount_owed,
         amount_paid,
+        entry_status,
         fees_waived,
         waiver_reason,
+        is_judge_volunteer,
         entry_selections!entry_selections_entry_id_fkey (
           id,
           entry_type,
@@ -192,8 +209,9 @@ export const financialOperations = {
         paymentsByEntry[payment.entry_id].push(payment);
       });
 
-      // Group entries by owner (using middle 4 digits of C-WAGS number)
+      // Group entries by owner (using registration year plus the owner digits).
       const ownerGroups: Record<string, any> = {};
+      const ownerKeys = resolveFinancialOwnerKeys(entries || []);
 
       (entries || []).forEach((entry: any) => {
         const selections = entry.entry_selections || [];
@@ -201,11 +219,16 @@ export const financialOperations = {
           isBillableSelection(s.entry_status)
         );
 
-        // Skip if no active entries
-        if (activeSelections.length === 0 && !paymentsByEntry[entry.id]) return;
+        if (
+          !shouldIncludeEntryInFinancialSummary(
+            entry.entry_status,
+            activeSelections.length,
+            Boolean(paymentsByEntry[entry.id])
+          )
+        ) return;
 
         // This remains a compatibility grouping key until an explicit owner/account ID exists.
-        const ownerId = getCwagsOwnerKey(entry.cwags_number, entry.handler_name);
+        const ownerId = ownerKeys.get(entry.id) || getCwagsOwnerKey(entry.cwags_number, entry.handler_name);
 
         if (!ownerGroups[ownerId]) {
           ownerGroups[ownerId] = {
@@ -218,6 +241,9 @@ export const financialOperations = {
             waived_regular_runs: 0,
             waived_feo_runs: 0,
             amount_owed: 0,
+            quoted_fee: 0,
+            quoted_regular_runs: 0,
+            quoted_feo_runs: 0,
             amount_paid: 0,
             payment_history: [],
             fees_waived: false,
@@ -231,9 +257,18 @@ export const financialOperations = {
         // Count runs separately for paid vs waived
         const regularRuns = activeSelections.filter((s: any) => s.entry_type === 'regular').length;
         const feoRuns = activeSelections.filter((s: any) => s.entry_type === 'feo').length;
+        const waitlistedRuns = selections.filter(
+          (s: any) => String(s.entry_status || '').toLowerCase() === 'waitlisted'
+        ).length;
+        const calculatedOwed = calculateSelectionFees(selections);
+        const awaitingAcceptance = entry.entry_status === 'submitted';
 
         // CRITICAL: Track waived runs separately from paid runs
-        if (entry.fees_waived) {
+        if (awaitingAcceptance) {
+          ownerGroups[ownerId].quoted_regular_runs += regularRuns;
+          ownerGroups[ownerId].quoted_feo_runs += feoRuns;
+          if (!entry.fees_waived) ownerGroups[ownerId].quoted_fee += calculatedOwed;
+        } else if (entry.fees_waived) {
           ownerGroups[ownerId].waived_regular_runs += regularRuns;
           ownerGroups[ownerId].waived_feo_runs += feoRuns;
           ownerGroups[ownerId].waived_entry_count += 1;
@@ -245,24 +280,33 @@ export const financialOperations = {
 
         // Add dog to owner's list
         ownerGroups[ownerId].dogs.push({
+          entry_id: entry.id,
           dog_call_name: entry.dog_call_name,
           cwags_number: entry.cwags_number,
+          entry_status: entry.entry_status,
           regular_runs: regularRuns,
           feo_runs: feoRuns,
+          waitlisted_runs: waitlistedRuns,
+          amount_owed: entry.fees_waived ? 0 : Number(entry.amount_owed || calculatedOwed),
+          quoted_fee: awaitingAcceptance && !entry.fees_waived ? calculatedOwed : 0,
+          fees_waived: Boolean(entry.fees_waived),
+          waiver_reason: entry.waiver_reason,
+          is_judge_volunteer: Boolean(entry.is_judge_volunteer),
         });
 
         ownerGroups[ownerId].entry_ids.push(entry.id);
 
         // Sum up fees
-        const calculatedOwed = calculateSelectionFees(selections);
         const storedOwed = Number(entry.amount_owed || 0);
         const effectiveAmountOwed = storedOwed > 0 ? storedOwed : calculatedOwed;
-        if (entry.fees_waived) {
+        if (!awaitingAcceptance && entry.fees_waived) {
           ownerGroups[ownerId].waived_amount += calculatedOwed;
         }
-        ownerGroups[ownerId].amount_owed += entry.fees_waived
-          ? 0
-          : effectiveAmountOwed;
+        if (!awaitingAcceptance) {
+          ownerGroups[ownerId].amount_owed += entry.fees_waived
+            ? 0
+            : effectiveAmountOwed;
+        }
 
         // Collect payment history
         const entryPayments = paymentsByEntry[entry.id] || [];
@@ -294,13 +338,16 @@ export const financialOperations = {
             entry_ids: group.entry_ids,
             handler_name: group.handler_name,
             dog_call_name: `${group.dogs.length} dog${group.dogs.length > 1 ? 's' : ''}`,
-            cwags_number: `Owner ID: ${String(group.owner_id).replace(/^(cwags:|handler:)/, '')}`,
+            cwags_number: financialOwnerLabel(group.owner_id),
             dogs: group.dogs,
             regular_runs: group.regular_runs,
             feo_runs: group.feo_runs,
             waived_regular_runs: group.waived_regular_runs,
             waived_feo_runs: group.waived_feo_runs,
             amount_owed: group.amount_owed,
+            quoted_fee: group.quoted_fee,
+            quoted_regular_runs: group.quoted_regular_runs,
+            quoted_feo_runs: group.quoted_feo_runs,
             amount_paid: totalPaid,
             payment_history: group.payment_history,
             fees_waived: group.billable_entry_count === 0 && group.waived_entry_count > 0,

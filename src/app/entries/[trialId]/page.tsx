@@ -231,6 +231,8 @@ export default function PublicEntryForm() {
   const [pendingLookupPhone, setPendingLookupPhone] = useState("");
   const [pendingLookupDog, setPendingLookupDog] = useState("");
   const [receivedCwagsNumber, setReceivedCwagsNumber] = useState("");
+  const [assigningOfficialNumber, setAssigningOfficialNumber] = useState(false);
+  const [officialNumberNotice, setOfficialNumberNotice] = useState<string | null>(null);
   const [editModeLoading, setEditModeLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmationData, setConfirmationData] = useState<{
@@ -655,6 +657,10 @@ export default function PublicEntryForm() {
   };
 
   const handleAssignOfficialNumber = async () => {
+    setAssigningOfficialNumber(true);
+    setLookupError(null);
+    setError(null);
+    setOfficialNumberNotice(null);
     try {
       const officialNumber = cleanCwagsNumber(receivedCwagsNumber);
       const response = await fetch(`/api/public/trials/${trialId}/entries/pending-number`, {
@@ -668,10 +674,15 @@ export default function PublicEntryForm() {
       setFormData((prev) => ({ ...prev, cwags_number: officialNumber }));
       setRegistryVerification({ cwags_number: officialNumber, status: "existing", handler_name: formData.handler_name, dog_call_name: formData.dog_call_name });
       setReceivedCwagsNumber("");
+      setOfficialNumberNotice(
+        `${officialNumber} was saved for ${formData.dog_call_name}. Your existing entry and round selections were kept; you do not need to submit the entry again.`,
+      );
       setLookupError(null);
     } catch (assignError) {
       const message = assignError instanceof Error ? assignError.message : "Unable to save the C-WAGS number";
       setLookupError(message); setError(message);
+    } finally {
+      setAssigningOfficialNumber(false);
     }
   };
 
@@ -2372,7 +2383,8 @@ export default function PublicEntryForm() {
               <p className="font-semibold">How to begin</p>
               <ol className="mt-2 list-decimal space-y-1 pl-5">
                 <li>If you have a C-WAGS number, enter it with the email previously used for that dog, then select <strong>Lookup</strong>.</li>
-                <li>If the number has not arrived, check <strong>Waiting for C-WAGS Number</strong>. Use the same email, phone number, and dog name whenever you return to edit this entry.</li>
+                <li>If the number has not arrived, check <strong>Waiting for a Number / Update a Pending Entry</strong>. Use the same email, phone number, and dog name whenever you return.</li>
+                <li>If you entered while waiting and now have the official number, use that same waiting section to find your entry. The official-number box will appear after your entry is found.</li>
                 <li>After lookup, complete the form, choose the rounds, accept the waiver, and submit.</li>
               </ol>
             </div>
@@ -2383,13 +2395,14 @@ export default function PublicEntryForm() {
                 onCheckedChange={(checked) => {
                   const pending = checked === true;
                   setRegistrationPending(pending);
+                  setOfficialNumberNotice(null);
                   setLookupError(null); setError(null); setExistingEntry(null); setOriginalFormData(null); setRegistryVerification(null);
                   setFormData((prev) => ({ ...prev, cwags_number: "", selected_rounds: [], feo_selections: [], division_selections: {}, jump_height_selections: {} }));
                 }}
               />
               <div>
-                <Label htmlFor="registration-pending" className="font-semibold">Waiting for C-WAGS Number</Label>
-                <p className="mt-1 text-xs text-gray-600">Choose this only if registration has been requested but the official number has not yet been issued.</p>
+                <Label htmlFor="registration-pending" className="font-semibold">Waiting for a Number / Update a Pending Entry</Label>
+                <p className="mt-1 text-xs text-gray-600">Use this when entering without a number and when returning later to add the official number.</p>
               </div>
             </div>
             {!registrationPending ? <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
@@ -2439,13 +2452,17 @@ export default function PublicEntryForm() {
                 )}
               </Button>
             </div> : <div className="space-y-3">
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-950">
+                <p className="font-semibold">Already entered and your official number has arrived?</p>
+                <p className="mt-1">Step 1: enter the same email, phone number, and dog name used on the original entry. Select <strong>Find My Pending Entry</strong>. Step 2 will then ask for the official number.</p>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <Input type="email" placeholder="Email address" value={lookupEmail} onChange={(e) => { setLookupEmail(e.target.value); setFormData((prev) => ({ ...prev, handler_email: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
                 <Input type="tel" placeholder="Phone number" value={pendingLookupPhone} onChange={(e) => { setPendingLookupPhone(e.target.value); setFormData((prev) => ({ ...prev, handler_phone: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
                 <Input placeholder="Dog's call name" value={pendingLookupDog} onChange={(e) => { setPendingLookupDog(e.target.value); setFormData((prev) => ({ ...prev, dog_call_name: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
               </div>
               <Button onClick={handlePendingRegistrationLookup} disabled={registryLoading || !lookupEmail.trim() || !pendingLookupPhone.trim() || !pendingLookupDog.trim()} className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-70">
-                {registryLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Checking...</span> : "Continue or Find My Entry"}
+                {registryLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Checking...</span> : "Find My Pending Entry or Start a New Entry"}
               </Button>
               <p className="text-xs text-gray-600">For your privacy, email and phone must both match. Dog name helps select the right entry. Your temporary record is not added to the official C-WAGS registry.</p>
             </div>}
@@ -2453,6 +2470,13 @@ export default function PublicEntryForm() {
               <Alert variant="destructive" className="mt-3">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{lookupError}</AlertDescription>
+              </Alert>
+            )}
+            {officialNumberNotice && (
+              <Alert className="mt-3 border-green-400 bg-green-50 text-green-950">
+                <AlertDescription>
+                  <strong>Official C-WAGS number saved.</strong> {officialNumberNotice}
+                </AlertDescription>
               </Alert>
             )}
             {!registrationPending && <p className="text-xs text-gray-500 mt-1">
@@ -2473,13 +2497,16 @@ export default function PublicEntryForm() {
               </Alert>
             )}
             {registrationPending && existingEntry && (
-              <div className="rounded-lg border border-green-300 bg-green-50 p-4">
-                <p className="font-semibold text-green-900">Did your official number arrive?</p>
-                <p className="mt-1 text-xs text-green-900">Enter it here. This changes the existing entry; it does not create a second entry.</p>
+              <div className="rounded-lg border-2 border-green-500 bg-green-50 p-4">
+                <p className="text-lg font-bold text-green-950">Step 2 — Add the official C-WAGS number</p>
+                <p className="mt-1 text-sm text-green-900">We found the pending entry for <strong>{existingEntry.dog_call_name}</strong>. Enter the newly issued number below. It updates this entry and keeps all selected rounds; it does not create a second entry.</p>
                 <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                  <Input placeholder="12-3456-78" value={receivedCwagsNumber} onChange={(e) => setReceivedCwagsNumber(e.target.value.toUpperCase())} />
-                  <Button type="button" variant="outline" onClick={handleAssignOfficialNumber} disabled={!receivedCwagsNumber.trim()}>Save Official Number</Button>
+                  <Input aria-label="Official C-WAGS number" placeholder="12-3456-78" value={receivedCwagsNumber} onChange={(e) => setReceivedCwagsNumber(e.target.value.toUpperCase())} />
+                  <Button type="button" onClick={handleAssignOfficialNumber} disabled={!receivedCwagsNumber.trim() || assigningOfficialNumber} className="bg-green-700 text-white hover:bg-green-800">
+                    {assigningOfficialNumber ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Saving...</span> : "Save Official Number"}
+                  </Button>
                 </div>
+                <p className="mt-2 text-xs text-green-900">This saves immediately. You do not need to submit the full entry form again.</p>
               </div>
             )}
           </CardContent>

@@ -29,6 +29,20 @@ export function derivePaymentStatus(
 }
 
 export function getCwagsOwnerKey(cwagsNumber: string | null | undefined, handlerName: string) {
-  const match = cwagsNumber?.match(/^\d{2}-(\d{4})-\d{2}$/);
+  const match = cwagsNumber?.match(/^(\d{2}-\d{4})-\d{2}$/);
   return match ? `cwags:${match[1]}` : `handler:${handlerName.trim().toLowerCase()}`;
+}
+
+export function shouldIncludeEntryInFinancialSummary(
+  entryStatus: string | null | undefined,
+  activeSelectionCount: number,
+  hasPayments: boolean
+) {
+  if (activeSelectionCount > 0 || hasPayments) return true;
+
+  // Keep legitimate parent entry records visible even when they temporarily or
+  // historically have no billable selections. This preserves the handler's
+  // complete dog list without treating an inactive entry as financially active.
+  const normalizedStatus = entryStatus?.trim().toLowerCase() || '';
+  return ['submitted', 'confirmed', 'entered'].includes(normalizedStatus);
 }

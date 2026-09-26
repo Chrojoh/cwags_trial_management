@@ -607,9 +607,36 @@ export interface Database {
         };
         Returns: Json;
       };
+      record_handler_payment_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_ids: string[];
+          p_amount: number;
+          p_payment_method: string | null;
+          p_payment_received_by: string | null;
+          p_payment_date: string | null;
+          p_notes?: string | null;
+          p_recorded_by?: string | null;
+        };
+        Returns: Json;
+      };
       update_entry_payment_atomic: {
         Args: {
           p_trial_id: string;
+          p_transaction_id: string;
+          p_amount: number;
+          p_payment_method: string | null;
+          p_payment_received_by: string | null;
+          p_payment_date: string | null;
+          p_notes?: string | null;
+          p_changed_by?: string | null;
+        };
+        Returns: Json;
+      };
+      update_handler_payment_atomic: {
+        Args: {
+          p_trial_id: string;
+          p_entry_ids: string[];
           p_transaction_id: string;
           p_amount: number;
           p_payment_method: string | null;

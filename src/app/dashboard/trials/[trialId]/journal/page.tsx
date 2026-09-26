@@ -7,6 +7,7 @@ import { fetchAllPages } from '@/lib/supabasePagination';
 import { isWaitlistedSelection, isWithdrawnSelection } from '@/lib/selectionStatus';
 import { exportJournalExcel, exportJournalPdf } from '@/lib/journalExport';
 import { hasCompleteEntrySnapshot, journalPaymentDate } from '@/lib/journalDetailRules';
+import { dedupeSelectionDeletionAudits } from '@/lib/journalActivityDedup';
 import {
   ArrowLeft,
   Calendar,
@@ -152,7 +153,7 @@ export default function TrialJournalPage() {
       );
 
       // Process activity log entries with snapshots
-      (activityData || []).forEach((activity: any) => {
+      dedupeSelectionDeletionAudits(activityData || []).forEach((activity: any) => {
         const snapshot = activity.snapshot_data || {};
 
         if (activity.activity_type === 'entry_submitted') {

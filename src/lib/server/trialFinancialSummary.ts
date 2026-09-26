@@ -1,10 +1,15 @@
 import 'server-only';
 
-import { calculateSelectionFees, getCwagsOwnerKey } from '@/lib/financialRules';
+import {
+  calculateSelectionFees,
+  getCwagsOwnerKey,
+  shouldIncludeEntryInFinancialSummary,
+} from '@/lib/financialRules';
 import { isBillableSelection } from '@/lib/selectionStatus';
 import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import { getServiceRoleClient } from '@/lib/apiAuth';
 import type { CompetitorFinancial, PaymentTransaction } from '@/lib/financialOperations';
+import { financialOwnerLabel, resolveFinancialOwnerKeys } from '@/lib/financialOwnerIdentity';
 
 interface EntryRow {
   id: string;
@@ -106,14 +111,21 @@ export async function loadTrialFinancialReadModel(
   });
 
   const groups = new Map<string, OwnerGroup>();
+  const ownerKeys = resolveFinancialOwnerKeys(entries);
   entries.forEach((entry) => {
     const entrySelections = selectionsByEntry.get(entry.id) || [];
     const activeSelections = entrySelections.filter((selection) =>
       isBillableSelection(selection.entry_status)
     );
-    if (activeSelections.length === 0 && !paymentsByEntry.has(entry.id)) return;
+    if (
+      !shouldIncludeEntryInFinancialSummary(
+        entry.entry_status,
+        activeSelections.length,
+        paymentsByEntry.has(entry.id)
+      )
+    ) return;
 
-    const ownerId = getCwagsOwnerKey(entry.cwags_number, entry.handler_name);
+    const ownerId = ownerKeys.get(entry.id) || getCwagsOwnerKey(entry.cwags_number, entry.handler_name);
     const group = groups.get(ownerId) || {
       handler_name: entry.handler_name,
       owner_id: ownerId,
@@ -136,6 +148,10 @@ export async function loadTrialFinancialReadModel(
 
     const regularRuns = activeSelections.filter((selection) => selection.entry_type === 'regular').length;
     const feoRuns = activeSelections.filter((selection) => selection.entry_type === 'feo').length;
+    const waitlistedRuns = entrySelections.filter(
+      (selection) => String(selection.entry_status || '').toLowerCase() === 'waitlisted'
+    ).length;
+    const calculatedOwed = calculateSelectionFees(entrySelections);
     const awaitingAcceptance = entry.entry_status === 'submitted';
     if (awaitingAcceptance) {
       group.quoted_regular_runs += regularRuns;
@@ -152,14 +168,21 @@ export async function loadTrialFinancialReadModel(
       group.billable_entry_count += 1;
     }
     group.dogs.push({
+      entry_id: entry.id,
       dog_call_name: entry.dog_call_name,
       cwags_number: entry.cwags_number,
+      entry_status: entry.entry_status,
       regular_runs: regularRuns,
       feo_runs: feoRuns,
+      waitlisted_runs: waitlistedRuns,
+      amount_owed: entry.fees_waived ? 0 : Number(entry.amount_owed || calculatedOwed),
+      quoted_fee: awaitingAcceptance && !entry.fees_waived ? calculatedOwed : 0,
+      fees_waived: Boolean(entry.fees_waived),
+      waiver_reason: entry.waiver_reason,
+      is_judge_volunteer: Boolean(entry.is_judge_volunteer),
     });
     group.entry_ids.push(entry.id);
 
-    const calculatedOwed = calculateSelectionFees(entrySelections);
     const storedOwed = Number(entry.amount_owed || 0);
     const effectiveOwed = storedOwed > 0 ? storedOwed : calculatedOwed;
     if (!awaitingAcceptance) {
@@ -180,7 +203,7 @@ export async function loadTrialFinancialReadModel(
       entry_ids: group.entry_ids,
       handler_name: group.handler_name,
       dog_call_name: `${group.dogs.length} dog${group.dogs.length > 1 ? 's' : ''}`,
-      cwags_number: `Owner ID: ${group.owner_id.replace(/^(cwags:|handler:)/, '')}`,
+      cwags_number: financialOwnerLabel(group.owner_id),
       dogs: group.dogs,
       regular_runs: group.regular_runs,
       feo_runs: group.feo_runs,

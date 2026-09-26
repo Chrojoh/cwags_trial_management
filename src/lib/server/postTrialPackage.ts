@@ -38,7 +38,7 @@ export async function loadPostTrialPackageModel(
       db
         .from('entries')
         .select(
-          'id,handler_name,dog_call_name,cwags_number,registration_pending,entry_status,amount_owed,amount_paid,fees_waived'
+          'id,handler_name,handler_email,handler_phone,dog_call_name,cwags_number,registration_pending,entry_status,amount_owed,amount_paid,fees_waived'
         )
         .eq('trial_id', trialId)
         .order('id')

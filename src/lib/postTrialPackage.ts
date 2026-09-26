@@ -10,6 +10,7 @@ import {
   isFailingResult,
   isPassingResult,
 } from './resultMetrics';
+import { resolveFinancialOwnerKeys } from './financialOwnerIdentity';
 
 export interface PostTrialTrial {
   id: string;
@@ -48,6 +49,8 @@ export interface PostTrialEntry {
   handler_name: string;
   dog_call_name: string;
   cwags_number: string | null;
+  handler_email?: string | null;
+  handler_phone?: string | null;
   registration_pending?: boolean | null;
   entry_status: string | null;
   amount_owed?: number | null;
@@ -270,6 +273,16 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
         a.roundNumber - b.roundNumber
     );
 
+  const financialOwnerKeys = resolveFinancialOwnerKeys(acceptedEntries);
+  const handlerBalances = new Map<string, { owed: number; paid: number }>();
+  acceptedEntries.forEach((entry) => {
+    const ownerKey = financialOwnerKeys.get(entry.id) || entry.id;
+    const balance = handlerBalances.get(ownerKey) || { owed: 0, paid: 0 };
+    if (!entry.fees_waived) balance.owed += Number(entry.amount_owed || 0);
+    balance.paid += Number(entry.amount_paid || 0);
+    handlerBalances.set(ownerKey, balance);
+  });
+
   const issues: PostTrialReadinessIssues = {
     awaitingAcceptance: activeEntries.filter((entry) => normalize(entry.entry_status) === 'submitted').length,
     pendingRegistration: acceptedEntries.filter(
@@ -279,10 +292,8 @@ export function buildPostTrialPackageModel(source: PostTrialSource): PostTrialPa
       (round) => !round.is_reset && isPlaceholderJudge(round.judge_name)
     ).length,
     missingScores: classResults.reduce((sum, report) => sum + report.totals.missingResults, 0),
-    outstandingBalances: acceptedEntries.filter(
-      (entry) =>
-        !entry.fees_waived &&
-        Number(entry.amount_owed || 0) - Number(entry.amount_paid || 0) > 0.005
+    outstandingBalances: [...handlerBalances.values()].filter(
+      (balance) => balance.owed - balance.paid > 0.005
     ).length,
   };
 

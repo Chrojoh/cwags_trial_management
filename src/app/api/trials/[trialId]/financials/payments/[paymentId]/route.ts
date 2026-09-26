@@ -11,13 +11,17 @@ export async function PATCH(
     if (!auth.authorized) return auth.response;
     const body = await request.json();
     const amount = Number(body.amount);
-    if (!Number.isFinite(amount)) {
+    const entryIds = Array.isArray(body.entryIds)
+      ? [...new Set(body.entryIds.filter((id: unknown): id is string => typeof id === 'string' && id.length > 0))]
+      : [];
+    if (!Number.isFinite(amount) || entryIds.length === 0) {
       return NextResponse.json({ error: 'A valid payment amount is required' }, { status: 400 });
     }
 
     const supabase = getServiceRoleClient();
-    const { data, error } = await supabase.rpc('update_entry_payment_atomic', {
+    const { data, error } = await supabase.rpc('update_handler_payment_atomic', {
       p_trial_id: trialId,
+      p_entry_ids: entryIds,
       p_transaction_id: paymentId,
       p_amount: amount,
       p_payment_method: body.paymentMethod || null,
@@ -30,9 +34,12 @@ export async function PATCH(
     if (error?.message.includes('PAYMENT_NOT_FOUND')) {
       return NextResponse.json({ error: 'Payment transaction not found' }, { status: 404 });
     }
+    if (error?.message.includes('MIXED_HANDLER_ENTRIES')) {
+      return NextResponse.json({ error: 'The selected entries do not belong to one handler account' }, { status: 409 });
+    }
     if (error?.message.includes('REFUND_EXCEEDS_NET_PAYMENTS')) {
       return NextResponse.json(
-        { error: 'Refund cannot exceed the remaining net payments for this entry' },
+        { error: 'Refund cannot exceed the remaining net payments for this handler' },
         { status: 409 }
       );
     }
