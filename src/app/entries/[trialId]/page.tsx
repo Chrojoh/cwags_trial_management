@@ -604,6 +604,66 @@ export default function PublicEntryForm() {
     }
   };
 
+  const applyPendingEntryLookup = (result: any) => {
+    const entry = result.entries?.[0];
+    if (!entry) return false;
+
+    setLookupEmail(entry.handler_email || "");
+    setPendingLookupPhone(entry.handler_phone || "");
+    setPendingLookupDog(entry.dog_call_name || "");
+    setExistingEntry(entry);
+    const selections = result.selections || [];
+    const selectedRounds = selections.map((selection: any) => selection.trial_round_id);
+    const feoRounds = selections.filter((selection: any) => selection.entry_type === "feo").map((selection: any) => selection.trial_round_id);
+    const divisions: Record<string, string> = {};
+    const jumpHeights: Record<string, string> = {};
+    selections.forEach((selection: any) => {
+      if (selection.division) divisions[selection.trial_round_id] = selection.division;
+      if (selection.jump_height) jumpHeights[selection.trial_round_id] = selection.jump_height;
+    });
+    setScoredRoundIds(new Set(selections.filter((selection: any) => selection.has_score).map((selection: any) => selection.trial_round_id)));
+    setRegistryVerification({ cwags_number: entry.cwags_number, status: "existing", handler_name: entry.handler_name, dog_call_name: entry.dog_call_name });
+    const loaded: EntryFormData = {
+      handler_name: entry.handler_name || "", handler_email: entry.handler_email || "",
+      handler_phone: entry.handler_phone || "", emergency_contact: entry.emergency_contact || "",
+      cwags_number: entry.cwags_number, dog_call_name: entry.dog_call_name || "", dog_breed: entry.dog_breed || "",
+      dog_sex: entry.dog_sex || "", dog_dob: entry.dog_dob || "", is_junior_handler: entry.is_junior_handler || false,
+      selected_rounds: selectedRounds, feo_selections: feoRounds, division_selections: divisions,
+      waiver_accepted: true, jump_height_selections: jumpHeights, close_to_titles: entry.close_to_titles || "",
+      volunteer_preferences: entry.volunteer_preferences || {},
+    };
+    setOriginalFormData(loaded);
+    setFormData(loaded);
+    return true;
+  };
+
+  const loadStaffPendingEntry = async (entryId: string) => {
+    setRegistryLoading(true);
+    setEditModeLoading(true);
+    setError(null);
+    setLookupError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Please sign in again to edit this entry.");
+      const response = await fetch(
+        `/api/public/trials/${trialId}/entries?pending=true&staffEdit=true&entryId=${encodeURIComponent(entryId)}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } },
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load the pending entry");
+      if (!applyPendingEntryLookup(result)) {
+        throw new Error("The selected pending entry was not found.");
+      }
+    } catch (lookupFailure) {
+      const message = lookupFailure instanceof Error ? lookupFailure.message : "Unable to load the pending entry";
+      setLookupError(message);
+      setError(message);
+    } finally {
+      setRegistryLoading(false);
+      setEditModeLoading(false);
+    }
+  };
+
   const handlePendingRegistrationLookup = async () => {
     if (!lookupEmail.trim() || !pendingLookupPhone.trim() || !pendingLookupDog.trim()) {
       setLookupError("Enter your email, phone number, and dog's call name.");
@@ -647,30 +707,7 @@ export default function PublicEntryForm() {
         }));
         return;
       }
-
-      setExistingEntry(entry);
-      const selections = result.selections || [];
-      const selectedRounds = selections.map((selection: any) => selection.trial_round_id);
-      const feoRounds = selections.filter((selection: any) => selection.entry_type === "feo").map((selection: any) => selection.trial_round_id);
-      const divisions: Record<string, string> = {};
-      const jumpHeights: Record<string, string> = {};
-      selections.forEach((selection: any) => {
-        if (selection.division) divisions[selection.trial_round_id] = selection.division;
-        if (selection.jump_height) jumpHeights[selection.trial_round_id] = selection.jump_height;
-      });
-      setScoredRoundIds(new Set(selections.filter((selection: any) => selection.has_score).map((selection: any) => selection.trial_round_id)));
-      setRegistryVerification({ cwags_number: entry.cwags_number, status: "existing", handler_name: entry.handler_name, dog_call_name: entry.dog_call_name });
-      const loaded: EntryFormData = {
-        handler_name: entry.handler_name || "", handler_email: entry.handler_email || lookupEmail.trim(),
-        handler_phone: entry.handler_phone || pendingLookupPhone.trim(), emergency_contact: entry.emergency_contact || "",
-        cwags_number: entry.cwags_number, dog_call_name: entry.dog_call_name || pendingLookupDog.trim(), dog_breed: entry.dog_breed || "",
-        dog_sex: entry.dog_sex || "", dog_dob: entry.dog_dob || "", is_junior_handler: entry.is_junior_handler || false,
-        selected_rounds: selectedRounds, feo_selections: feoRounds, division_selections: divisions,
-        waiver_accepted: true, jump_height_selections: jumpHeights, close_to_titles: entry.close_to_titles || "",
-        volunteer_preferences: entry.volunteer_preferences || {},
-      };
-      setOriginalFormData(loaded);
-      setFormData(loaded);
+      applyPendingEntryLookup(result);
     } catch (lookupFailure) {
       const message = lookupFailure instanceof Error ? lookupFailure.message : "Unable to look up the entry";
       setLookupError(message);
@@ -1636,11 +1673,16 @@ export default function PublicEntryForm() {
     const cwagsParam = urlParams.get("cwags");
     const pendingParam = urlParams.get("pending") === "true";
     const pendingEditParam = urlParams.get("edit") === "true";
+    const entryIdParam = urlParams.get("entryId") || "";
     const dogParam = urlParams.get("dog") || "";
 
     if (pendingParam) {
       setRegistrationPending(true);
       setPendingEditOnly(pendingEditParam);
+      if (pendingEditParam && entryIdParam) {
+        void loadStaffPendingEntry(entryIdParam);
+        return;
+      }
       if (dogParam) {
         setPendingLookupDog(dogParam);
         setFormData((prev) => ({ ...prev, dog_call_name: dogParam }));

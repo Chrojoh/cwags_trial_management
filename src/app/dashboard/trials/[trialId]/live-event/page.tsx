@@ -459,10 +459,10 @@ export default function LiveEventManagementPage() {
       return (
         <div
           key={classKey}
-          className={`p-4 rounded-lg border cursor-pointer transition-all ${
+          className={`rounded-lg border p-3 cursor-pointer transition-all ${
             sortedRounds.some((cls) => selectedClass?.id === cls.id)
-              ? 'bg-orange-50 border-orange-300 ring-2 ring-orange-200'
-              : 'border-gray-200 hover:bg-gray-50'
+              ? 'bg-orange-50 border-orange-400 ring-2 ring-orange-200'
+              : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50'
           }`}
           onClick={() => setSelectedClass(sortedRounds[0])}
         >
@@ -495,25 +495,50 @@ export default function LiveEventManagementPage() {
           </div>
 
           {/* List all rounds with judges */}
-          <div className="space-y-1.5 mt-2 pt-2 border-t border-gray-200">
+          <div className="space-y-1 mt-2 pt-2 border-t border-gray-200">
             {sortedRounds.map((round) => (
               <div
                 key={round.id}
-                className={`flex items-center justify-between text-sm p-1.5 rounded hover:bg-orange-50 transition-colors ${
-                  selectedClass?.id === round.id ? 'bg-orange-100' : ''
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedClass?.id === round.id}
+                className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm transition-all ${
+                  selectedClass?.id === round.id
+                    ? 'bg-[#5C3B2E] text-white shadow-sm ring-2 ring-orange-200'
+                    : 'bg-white text-gray-700 hover:bg-orange-100'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedClass(round);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedClass(round);
+                  }
+                }}
               >
                 <div className="flex items-center space-x-2">
-                  <span className="text-xs font-medium text-gray-600">
+                  <span
+                    className={`text-xs font-semibold ${
+                      selectedClass?.id === round.id ? 'text-white' : 'text-gray-600'
+                    }`}
+                  >
                     Round {round.round_number}:
                   </span>
-                  <span className="text-gray-700">{round.judge_name || 'No Judge Assigned'}</span>
+                  <span className={selectedClass?.id === round.id ? 'text-white' : 'text-gray-700'}>
+                    {round.judge_name || 'No Judge Assigned'}
+                  </span>
                 </div>
-                <Badge variant="secondary" className="text-xs">
+                <Badge
+                  variant="secondary"
+                  className={`text-xs ${
+                    selectedClass?.id === round.id
+                      ? 'border-white/40 bg-white/20 text-white'
+                      : ''
+                  }`}
+                >
                   {classCounts[round.id] || 0}
                 </Badge>
               </div>

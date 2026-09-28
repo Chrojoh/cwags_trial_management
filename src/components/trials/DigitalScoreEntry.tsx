@@ -494,9 +494,14 @@ export default function DigitalScoreEntry({
       }
 
       setSaved(true);
+      const savedRoundNumbers = [...new Set(entriesToSave.map((entry) => entry.roundNumber))]
+        .sort((left, right) => left - right)
+        .join(' and ');
       alert(
         `${entriesToSave.length} ${entriesToSave.length === 1 ? 'score' : 'scores'} saved to ` +
-          `${selectedClass.class_name}, Round ${selectedClass.round_number}.`
+          `${selectedClass.class_name}, ${
+            savedRoundNumbers.includes(' and ') ? 'Rounds' : 'Round'
+          } ${savedRoundNumbers}.`
       );
 
       await loadEntries();
@@ -535,30 +540,47 @@ export default function DigitalScoreEntry({
                 {selectedClass?.judge_name}
               </h2>
               <p className="mt-1 text-sm text-gray-600">
-                Both views save to this selected round. Dogs remain in the saved running order.
+                {entryMode === 'score_sheet' && pairedRounds.length > 1
+                  ? `This sheet saves each completed row to its displayed round (Rounds ${pairedRounds
+                      .map((round) => round.round_number)
+                      .join(' and ')}).`
+                  : `Completed rows save to Round ${selectedClass?.round_number}.`}{' '}
+                Dogs remain in the saved running order.
               </p>
             </div>
             <div
-              className="inline-flex w-full rounded-lg border border-orange-300 bg-orange-50 p-1 lg:w-auto"
+              className="inline-flex w-full gap-1 rounded-md border-2 border-[#5C3B2E] bg-white p-1 lg:w-auto"
               role="group"
               aria-label="Score entry view"
             >
               <Button
                 type="button"
-                variant={entryMode === 'round' ? 'default' : 'ghost'}
-                className="flex-1 lg:flex-none"
+                size="sm"
+                variant="ghost"
+                aria-pressed={entryMode === 'round'}
+                className={`h-8 flex-1 px-3 text-xs font-semibold lg:flex-none ${
+                  entryMode === 'round'
+                    ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                    : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                }`}
                 onClick={() => setEntryMode('round')}
               >
-                <Rows3 className="mr-2 h-4 w-4" />
+                <Rows3 className="mr-1.5 h-3.5 w-3.5" />
                 Round Grid
               </Button>
               <Button
                 type="button"
-                variant={entryMode === 'score_sheet' ? 'default' : 'ghost'}
-                className="flex-1 lg:flex-none"
+                size="sm"
+                variant="ghost"
+                aria-pressed={entryMode === 'score_sheet'}
+                className={`h-8 flex-1 px-3 text-xs font-semibold lg:flex-none ${
+                  entryMode === 'score_sheet'
+                    ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                    : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                }`}
                 onClick={() => setEntryMode('score_sheet')}
               >
-                <ClipboardList className="mr-2 h-4 w-4" />
+                <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
                 Score Sheet View
               </Button>
             </div>
@@ -569,17 +591,35 @@ export default function DigitalScoreEntry({
               {scoreSheetType === 'scent' && (
                 <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
                   <div className="mb-2 text-sm font-semibold text-gray-900">Entering from:</div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div
+                    className="inline-flex max-w-full gap-1 rounded-md border-2 border-[#5C3B2E] bg-white p-1"
+                    role="group"
+                    aria-label="Printed score sheet layout"
+                  >
                     <Button
                       type="button"
-                      variant={sheetLayout === 'paired' ? 'default' : 'outline'}
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={sheetLayout === 'paired'}
+                      className={`h-8 px-3 text-xs font-semibold ${
+                        sheetLayout === 'paired'
+                          ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                          : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                      }`}
                       onClick={() => chooseSheetLayout('paired')}
                     >
                       2 Rounds per Sheet
                     </Button>
                     <Button
                       type="button"
-                      variant={sheetLayout === 'single' ? 'default' : 'outline'}
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={sheetLayout === 'single'}
+                      className={`h-8 px-3 text-xs font-semibold ${
+                        sheetLayout === 'single'
+                          ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                          : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                      }`}
                       onClick={() => chooseSheetLayout('single')}
                     >
                       1 Round per Sheet
@@ -1078,7 +1118,13 @@ export default function DigitalScoreEntry({
               )}
               <Button onClick={saveAllScores} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving…' : 'Save Displayed Scores'}
+                {saving
+                  ? 'Saving…'
+                  : entryMode === 'score_sheet' && pairedRounds.length > 1
+                    ? `Save Rounds ${pairedRounds
+                        .map((round) => round.round_number)
+                        .join(' & ')}`
+                    : `Save Round ${selectedClass?.round_number}`}
               </Button>
             </div>
           </div>

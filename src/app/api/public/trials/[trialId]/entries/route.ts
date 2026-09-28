@@ -77,23 +77,30 @@ export async function GET(
       if (!auth.authorized) return auth.response;
     }
     const pendingRegistration = request.nextUrl.searchParams.get('pending') === 'true';
+    const staffEntryId = staffEdit
+      ? text(request.nextUrl.searchParams.get('entryId'), 64)
+      : '';
     const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 64);
     const submittedEmail = text(request.nextUrl.searchParams.get('email'), 254).toLowerCase();
     const submittedPhone = phoneKey(text(request.nextUrl.searchParams.get('phone'), 64));
     const submittedDog = nameKey(text(request.nextUrl.searchParams.get('dog'), 120));
-    if ((!pendingRegistration && !cwagsNumber) || !submittedEmail || (pendingRegistration && (!submittedPhone || !submittedDog))) {
+    if (!staffEntryId && ((!pendingRegistration && !cwagsNumber) || !submittedEmail || (pendingRegistration && (!submittedPhone || !submittedDog)))) {
       return NextResponse.json({ error: pendingRegistration ? 'Email, phone number, and dog name are required.' : 'A registration number and email are required.' }, { status: 400 });
     }
 
     const db = getServiceRoleClient();
-    const keyHash = verificationKey(request, trialId, pendingRegistration ? `pending:${submittedEmail}` : cwagsNumber);
-    const { data: limit, error: limitError } = await db
-      .from('public_entry_verification_limits')
-      .select('failed_attempts,window_started_at,blocked_until')
-      .eq('key_hash', keyHash)
-      .maybeSingle();
+    const keyHash = staffEntryId
+      ? ''
+      : verificationKey(request, trialId, pendingRegistration ? `pending:${submittedEmail}` : cwagsNumber);
+    const { data: limit, error: limitError } = staffEntryId
+      ? { data: null, error: null }
+      : await db
+          .from('public_entry_verification_limits')
+          .select('failed_attempts,window_started_at,blocked_until')
+          .eq('key_hash', keyHash)
+          .maybeSingle();
     if (limitError) throw limitError;
-    if (limit?.blocked_until && new Date(limit.blocked_until).getTime() > Date.now()) {
+    if (!staffEntryId && limit?.blocked_until && new Date(limit.blocked_until).getTime() > Date.now()) {
       return NextResponse.json(
         {
           error:
@@ -119,9 +126,11 @@ export async function GET(
         handler_email,handler_phone,emergency_contact,is_junior_handler,
         waiver_accepted,close_to_titles,volunteer_preferences,entry_status,submitted_at,registration_pending`)
       .eq('trial_id', trialId);
-    entryQuery = pendingRegistration
-      ? entryQuery.eq('registration_pending', true)
-      : entryQuery.eq('cwags_number', cwagsNumber);
+    entryQuery = staffEntryId
+      ? entryQuery.eq('id', staffEntryId).eq('registration_pending', true)
+      : pendingRegistration
+        ? entryQuery.eq('registration_pending', true)
+        : entryQuery.eq('cwags_number', cwagsNumber);
     const { data: entries, error: entryError } = await entryQuery.order('submitted_at', { ascending: false });
     if (entryError) throw entryError;
 
@@ -133,15 +142,19 @@ export async function GET(
     const registryEmailMatches =
       Boolean(submittedEmail) &&
       String(registry?.handler_email || '').trim().toLowerCase() === submittedEmail;
-    const candidateEntries = pendingRegistration
+    const candidateEntries = staffEntryId
+      ? (entries || [])
+      : pendingRegistration
       ? (entries || []).filter((entry) => nameKey(String(entry.dog_call_name || '')) === submittedDog)
       : (entries || []);
-    const verifiedEntries = candidateEntries.filter((entry) => pendingRegistration
-      ? String(entry.handler_email || '').trim().toLowerCase() === submittedEmail &&
-        phoneKey(String(entry.handler_phone || '')) === submittedPhone &&
-        nameKey(String(entry.dog_call_name || '')) === submittedDog
-      : String(entry.handler_email || '').trim().toLowerCase() === submittedEmail || registryEmailMatches);
-    if (candidateEntries.length > 0 && verifiedEntries.length === 0) {
+    const verifiedEntries = staffEntryId
+      ? candidateEntries
+      : candidateEntries.filter((entry) => pendingRegistration
+        ? String(entry.handler_email || '').trim().toLowerCase() === submittedEmail &&
+          phoneKey(String(entry.handler_phone || '')) === submittedPhone &&
+          nameKey(String(entry.dog_call_name || '')) === submittedDog
+        : String(entry.handler_email || '').trim().toLowerCase() === submittedEmail || registryEmailMatches);
+    if (!staffEntryId && candidateEntries.length > 0 && verifiedEntries.length === 0) {
       const windowStart = limit?.window_started_at
         ? new Date(limit.window_started_at).getTime()
         : 0;
@@ -168,7 +181,7 @@ export async function GET(
         { status: 403 }
       );
     }
-    if (verifiedEntries.length > 0 && limit) {
+    if (!staffEntryId && verifiedEntries.length > 0 && limit) {
       await db.from('public_entry_verification_limits').delete().eq('key_hash', keyHash);
     }
 

@@ -444,7 +444,7 @@ export default function TrialEntriesPage() {
   const handleEditEntry = (entry: GroupedEntry) => {
     if (entry.registration_pending) {
       router.push(
-        `/entries/${trialId}?pending=true&edit=true&dog=${encodeURIComponent(entry.dog_call_name)}`
+        `/entries/${trialId}?pending=true&edit=true&entryId=${encodeURIComponent(entry.entry_ids[0])}`
       );
       return;
     }
