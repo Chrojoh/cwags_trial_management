@@ -373,6 +373,7 @@ export default function LiveEventManagementPage() {
     }>
   >([]);
   const [selectedPrintDay, setSelectedPrintDay] = useState<string | null>(null);
+  const [scoreSheetExportLayout, setScoreSheetExportLayout] = useState<'paired' | 'single'>('paired');
   const [newEntryData, setNewEntryData] = useState({
     handler_name: '',
     dog_call_name: '',
@@ -2336,6 +2337,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
           setSelectedRound(1);
           setSelectedGamesSubclass(null);
           setShowAddEntryModal(false);
+          window.dispatchEvent(new CustomEvent('dayOfEntryAdded'));
 
           alert(
             `${newEntryData.dog_call_name} was already entered in ${selectedClass.class_name} Round ${selectedRound}.\n\n` +
@@ -2424,6 +2426,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       setSelectedRound(1);
       setSelectedGamesSubclass(null);
       setShowAddEntryModal(false);
+      window.dispatchEvent(new CustomEvent('dayOfEntryAdded'));
 
       alert(
         shouldWaitlist
@@ -2559,7 +2562,10 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
 
   // Score Sheet Formatting
 
-  const exportScoreSheetsForDay = async (dayId: string) => {
+  const exportScoreSheetsForDay = async (
+    dayId: string,
+    layout: 'paired' | 'single' = scoreSheetExportLayout
+  ) => {
     if (!trial) return;
     try {
       const selectedDay = availableDays.find((day) => day.id === dayId);
@@ -2578,10 +2584,17 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
             handler: entry.handler_name || '',
             dog: (entry.dog_call_name || '') + (selection.entry_type === 'feo' ? ' (FEO)' : ''),
             registration: entry.cwags_number || '',
+            runningPosition: selection.running_position == null
+              ? null
+              : Number(selection.running_position),
           });
         }
       }
-      const pages = buildScentPages(trialClasses.filter((round) => round.trial_day_id === dayId), lines);
+      const pages = buildScentPages(
+        trialClasses.filter((round) => round.trial_day_id === dayId),
+        lines,
+        layout === 'paired' ? 2 : 1
+      );
       if (!pages.length) { alert('No scent rounds found for this day'); return; }
       const [year, month, day] = selectedDay.trial_date.split('-');
       const logoResponse = await fetch('/cwags-logo.png');
@@ -2597,7 +2610,10 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       anchor.download = `Score-Sheets-${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}-${selectedDay.trial_date}.xlsx`;
       anchor.click();
       URL.revokeObjectURL(url);
-      alert('Score sheets exported successfully');
+      window.localStorage.setItem(`score-sheet-layout:${trialId}:${dayId}`, layout);
+      alert(
+        `Score sheets exported successfully using ${layout === 'paired' ? '2 rounds per sheet' : '1 round per sheet'}.`
+      );
     } catch (error) {
       console.error('Error exporting score sheets:', error);
       alert(error instanceof Error ? error.message : 'Failed to export score sheets');
@@ -3112,7 +3128,15 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
           <AlertDescription>You must be logged in to access this page.</AlertDescription>
         </Alert>
         {showDigitalScoreEntry && selectedClass && (
-          <DigitalScoreEntry selectedClass={selectedClass} trial={trial} />
+          <DigitalScoreEntry
+            selectedClass={selectedClass}
+            trial={trial}
+            availableRounds={trialClasses}
+            onAddDayOfEntry={(roundNumber) => {
+              setSelectedRound(roundNumber);
+              setShowAddEntryModal(true);
+            }}
+          />
         )}
       </MainLayout>
     );
@@ -3839,7 +3863,15 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
             </TabsContent>
 
             <TabsContent value="scoring" className="space-y-6">
-              <DigitalScoreEntry selectedClass={selectedClass} trial={trial} />
+              <DigitalScoreEntry
+                selectedClass={selectedClass}
+                trial={trial}
+                availableRounds={trialClasses}
+                onAddDayOfEntry={(roundNumber) => {
+                  setSelectedRound(roundNumber);
+                  setShowAddEntryModal(true);
+                }}
+              />
             </TabsContent>
           </Tabs>
         )}
@@ -4251,6 +4283,30 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
             </div>
 
             <div className="space-y-3">
+              {exportType === 'score-sheets' && (
+                <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
+                  <Label>Score sheet layout</Label>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant={scoreSheetExportLayout === 'paired' ? 'default' : 'outline'}
+                      onClick={() => setScoreSheetExportLayout('paired')}
+                    >
+                      2 Rounds per Sheet
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={scoreSheetExportLayout === 'single' ? 'default' : 'outline'}
+                      onClick={() => setScoreSheetExportLayout('single')}
+                    >
+                      1 Round per Sheet
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Score entry will remember this choice for the selected trial day.
+                  </p>
+                </div>
+              )}
               {availableDays.map((day) => (
                 <Button
                   key={day.id}
@@ -4267,7 +4323,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                     } else if (exportType === 'beta-running-order') {
                       openBetaSetup(day.id);
                     } else {
-                      exportScoreSheetsForDay(day.id);
+                      exportScoreSheetsForDay(day.id, scoreSheetExportLayout);
                     }
                   }}
                 >

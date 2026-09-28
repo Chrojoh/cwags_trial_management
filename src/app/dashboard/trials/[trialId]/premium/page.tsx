@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import type { PremiumColorScheme, PremiumStatus, TrialPremiumContent, TrialPremiumModel } from '@/types/trialPremium';
+import { EMPTY_PREMIUM_CONTENT, type PremiumColorScheme, type PremiumStatus, type TrialPremiumContent, type TrialPremiumModel } from '@/types/trialPremium';
 
 const fields: Array<{ key: keyof TrialPremiumContent; label: string; help: string; required?: boolean }> = [
   { key: 'trialChairContact', label: 'Trial chair or day-of contact', help: 'Give the name, phone number and email for the person competitors should contact on trial day.' },
@@ -51,6 +51,7 @@ export default function TrialPremiumPage() {
   const [error, setError] = useState('');
   const [uploadingMap, setUploadingMap] = useState(false);
   const [mapPreviewUrl, setMapPreviewUrl] = useState('');
+  const [previousPremiumId, setPreviousPremiumId] = useState('');
 
   const authHeaders = async () => {
     const { data } = await getSupabaseBrowser().auth.getSession();
@@ -116,6 +117,15 @@ export default function TrialPremiumPage() {
     finally { setSaving(false); }
   };
 
+  const reusePreviousPremium = () => {
+    const previous = model?.previousPremiums?.find((item) => item.trialId === previousPremiumId);
+    if (!previous) return;
+    if (!confirm(`Replace the editable premium fields with content from ${previous.trialName}?`)) return;
+    setContent({ ...EMPTY_PREMIUM_CONTENT, ...previous.content });
+    setMessage(`Loaded editable content from ${previous.trialName}. Review every section, then save this trial's draft.`);
+    setError('');
+  };
+
   const download = async () => {
     try {
       const response = await fetch(`/api/trials/${trialId}/premium/pdf`, {
@@ -155,6 +165,7 @@ export default function TrialPremiumPage() {
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-3xl font-bold">Premium List Builder</h1><p className="text-gray-600">{model.trial.trialName}</p></div><Button variant="outline" onClick={() => router.back()}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button></div>
     {model.setupRequired && <Alert><AlertTriangle className="h-4 w-4" /><AlertDescription>The premium database migration has not been installed. You can prepare and retain a browser draft, but server saving is intentionally disabled.</AlertDescription></Alert>}
     <Card><CardHeader><CardTitle className="flex items-center gap-2">Workflow Status <Badge variant={model.status === 'ready' ? 'default' : 'secondary'}>{model.status === 'ready' ? 'Ready' : 'Draft'}</Badge></CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p><strong>Trial:</strong> {model.trial.clubName} - {model.trial.location}</p><p><strong>Schedule:</strong> {model.schedule.length} rounds pulled from trial setup.</p><p><strong>Entry opening:</strong> {model.trial.entryOpenAt || 'Not scheduled'} {model.trial.entryTimezone || ''}</p><p><strong>Entry closing:</strong> {model.trial.entriesCloseDate || "Secretary closes entries when full"}</p>{model.missingRequired.length > 0 && <p className="text-amber-800"><strong>Still required:</strong> {model.missingRequired.join(', ')}</p>}</CardContent></Card>
+    <Card><CardHeader><CardTitle>Reuse a Previous Club Premium</CardTitle></CardHeader><CardContent className="space-y-3"><p className="text-sm text-gray-700">Start with the editable information saved for an earlier {model.trial.clubName} trial. The current trial schedule, judges, fees, dates, waiver and uploaded map remain controlled by this trial.</p>{(model.previousPremiums || []).length > 0 ? <div className="flex flex-col gap-2 sm:flex-row"><select className="h-10 flex-1 rounded-md border border-gray-300 bg-white px-3 text-sm" value={previousPremiumId} onChange={(event) => setPreviousPremiumId(event.target.value)}><option value="">Choose a previous premium</option>{(model.previousPremiums || []).map((item) => <option key={item.trialId} value={item.trialId}>{item.trialName}{item.startDate ? ` - ${item.startDate}` : ''}</option>)}</select><Button type="button" variant="outline" disabled={!previousPremiumId} onClick={reusePreviousPremium}>Use This Premium</Button></div> : <p className="text-sm text-gray-500">No earlier saved premium is available for this club yet.</p>}<p className="text-xs text-gray-600">Review contact names, veterinarian details, policies, directions, nearby services and payment instructions before saving.</p></CardContent></Card>
     <Card><CardHeader><CardTitle>Premium Color Scheme</CardTitle></CardHeader><CardContent className="space-y-3"><Label htmlFor="premium-color-scheme">Choose the accent colors used throughout the PDF</Label><select id="premium-color-scheme" className="h-10 w-full max-w-sm rounded-md border border-gray-300 bg-white px-3 text-sm" value={content.colorScheme} onChange={(event) => setContent({ ...content, colorScheme: event.target.value as PremiumColorScheme })}><option value="warm">Warm Orange</option><option value="forest">Forest Green</option><option value="blue">Classic Blue</option><option value="plum">Plum</option></select><div className="flex gap-2" aria-hidden="true"><span className="h-5 w-12 rounded bg-orange-700" /><span className="h-5 w-12 rounded bg-green-700" /><span className="h-5 w-12 rounded bg-blue-700" /><span className="h-5 w-12 rounded bg-purple-700" /></div><p className="text-xs text-gray-600">All choices use light backgrounds and dark text so the premium remains readable when printed or photocopied.</p></CardContent></Card>
     <Card><CardHeader><CardTitle>Trial-Day Times</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="premium-check-in-time">Check-in starts</Label><Input id="premium-check-in-time" type="time" value={content.checkInTime} onChange={(event) => setContent({ ...content, checkInTime: event.target.value })} /><p className="text-xs text-gray-600">Displayed prominently on the premium cover.</p></div><div className="space-y-2"><Label htmlFor="premium-trial-start-time">Trial starts</Label><Input id="premium-trial-start-time" type="time" value={content.trialStartTime} onChange={(event) => setContent({ ...content, trialStartTime: event.target.value })} /><p className="text-xs text-gray-600">Use the trial venue's local time.</p></div></CardContent></Card>
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Venue Map and Local Map Image</CardTitle></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="premium-map-address">Street address for GPS directions</Label><Input id="premium-map-address" value={content.mapAddress} onChange={(event) => setContent({ ...content, mapAddress: event.target.value })} placeholder="123 Main Street, City, Province, Postal Code" /><p className="text-xs text-gray-600">The clickable map link uses this exact address instead of searching by venue name. Include the postal code when available. If left blank, the saved trial location is used.</p></div><p className="text-sm text-gray-700">Upload a secretary-reviewed JPG or PNG map showing the venue and useful nearby landmarks. Maximum 3 MB. The original stays private and is embedded only in the generated premium.</p>{mapPreviewUrl && <Image src={mapPreviewUrl} alt="Uploaded local venue map preview" width={900} height={600} unoptimized className="h-auto max-h-80 w-auto rounded border object-contain" />}<label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"><Upload className="mr-2 h-4 w-4" />{uploadingMap ? 'Uploading...' : model.mapImagePath ? 'Replace Map Image' : 'Upload Map Image'}<input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={uploadingMap} onChange={(event) => void uploadMap(event.target.files?.[0])} /></label></CardContent></Card>

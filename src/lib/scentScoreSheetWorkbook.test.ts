@@ -8,7 +8,7 @@ import { createScentScoreSheetWorkbook } from './scentScoreSheetWorkbook';
 
 test('Excel output has blank first round, merged identity, duplicated scent boxes and fixed Letter sizing', () => {
   const rounds = [1,2,3].map((n) => ({id:`r${n}`,round_number:n,class_name:'Patrol 1',class_id:'c',class_type:'scent',judge_name:'Judge A',trial_day_id:'d'}));
-  const pages=buildScentPages(rounds,[{entryId:'e',selectionId:'s',roundId:'r2',handler:'Handler',dog:'Dog',registration:'12-3456-01'}]);
+  const pages=buildScentPages(rounds,[{entryId:'e',selectionId:'s',roundId:'r2',handler:'Handler',dog:'Dog',registration:'12-3456-01',runningPosition:1}]);
   const bytes=createScentScoreSheetWorkbook(pages,'05/22/2026');
   const workbook=XLSX.read(bytes,{type:'array'});
   assert.equal(workbook.SheetNames.length,2);

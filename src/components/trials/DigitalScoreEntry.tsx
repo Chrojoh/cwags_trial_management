@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Save, Check } from 'lucide-react';
+import { Save, Check, ClipboardList, Rows3, UserPlus } from 'lucide-react';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
 import { isAbsentSelection, isScorableSelection } from '@/lib/selectionStatus';
 import { calculatePlacements, validateManualPlacements } from '@/lib/placementUtils';
@@ -21,10 +21,14 @@ import { calculatePlacements, validateManualPlacements } from '@/lib/placementUt
 interface ScoreEntryPageProps {
   selectedClass: any;
   trial: any;
+  availableRounds?: any[];
+  onAddDayOfEntry?: (roundNumber: number) => void;
 }
 
 interface EntryScore {
   id: string;
+  roundId: string;
+  roundNumber: number;
   runningOrder: number;
   cwagsNumber: string;
   dogName: string;
@@ -68,14 +72,93 @@ function displayToSeconds(display: string): string {
   return String((mins * 60) + secs);
 }
 
-export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPageProps) {
+export default function DigitalScoreEntry({
+  selectedClass,
+  trial,
+  availableRounds = [],
+  onAddDayOfEntry,
+}: ScoreEntryPageProps) {
   const [entries, setEntries] = useState<EntryScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [entryMode, setEntryMode] = useState<'round' | 'score_sheet'>('round');
+  const [sheetLayout, setSheetLayout] = useState<'paired' | 'single'>('paired');
   const [scoreSheetType, setScoreSheetType] = useState<'scent' | 'rally_obedience' | 'games'>(
     'scent'
   );
+
+  const pairedRounds = useMemo(() => {
+    if (!selectedClass) return [];
+    if (scoreSheetType !== 'scent' || sheetLayout === 'single') return [selectedClass];
+
+    const matchingRounds = availableRounds
+      .filter(
+        (round) =>
+          round.class_id === selectedClass.class_id &&
+          round.trial_day_id === selectedClass.trial_day_id &&
+          round.class_name === selectedClass.class_name &&
+          round.judge_name === selectedClass.judge_name
+      )
+      .sort((left, right) => Number(left.round_number || 1) - Number(right.round_number || 1));
+
+    const selectedIndex = matchingRounds.findIndex((round) => round.id === selectedClass.id);
+    if (selectedIndex < 0) return [selectedClass];
+    const pairStart = Math.floor(selectedIndex / 2) * 2;
+    return matchingRounds.slice(pairStart, pairStart + 2);
+  }, [availableRounds, scoreSheetType, selectedClass, sheetLayout]);
+
+  const displayedEntries = useMemo(
+    () =>
+      entryMode === 'score_sheet'
+        ? entries
+        : entries.filter((entry) => entry.roundId === selectedClass?.id),
+    [entries, entryMode, selectedClass?.id]
+  );
+
+  const scentSheetRows = useMemo(() => {
+    if (entryMode !== 'score_sheet' || scoreSheetType !== 'scent') {
+      return displayedEntries.map((entry) => ({
+        key: entry.id,
+        roundNumber: entry.roundNumber,
+        entry,
+        identityEntry: entry,
+      }));
+    }
+
+    const teams = new Map<string, EntryScore[]>();
+    for (const entry of displayedEntries) {
+      const identity = entry.cwagsNumber.trim() || `${entry.handlerName}|${entry.dogName}`;
+      teams.set(identity, [...(teams.get(identity) || []), entry]);
+    }
+
+    return [...teams.entries()]
+      .sort(([, left], [, right]) => {
+        const leftPosition = Math.min(...left.map((entry) => entry.runningOrder || Number.MAX_SAFE_INTEGER));
+        const rightPosition = Math.min(...right.map((entry) => entry.runningOrder || Number.MAX_SAFE_INTEGER));
+        return leftPosition - rightPosition || left[0].dogName.localeCompare(right[0].dogName);
+      })
+      .flatMap(([identity, teamEntries]) =>
+        pairedRounds.map((round) => ({
+          key: `${identity}-${round.id}`,
+          roundNumber: Number(round.round_number || 1),
+          entry: teamEntries.find((entry) => entry.roundNumber === Number(round.round_number || 1)),
+          identityEntry: teamEntries[0],
+        }))
+      );
+  }, [displayedEntries, entryMode, pairedRounds, scoreSheetType]);
+
+  useEffect(() => {
+    const key = `score-sheet-layout:${trial?.id || 'trial'}:${selectedClass?.trial_day_id || 'day'}`;
+    const remembered = window.localStorage.getItem(key);
+    if (remembered === 'paired' || remembered === 'single') setSheetLayout(remembered);
+  }, [selectedClass?.trial_day_id, trial?.id]);
+
+  const chooseSheetLayout = (layout: 'paired' | 'single') => {
+    setSheetLayout(layout);
+    const key = `score-sheet-layout:${trial?.id || 'trial'}:${selectedClass?.trial_day_id || 'day'}`;
+    window.localStorage.setItem(key, layout);
+  };
 
   const placementDiscipline = useMemo<'rally' | 'obedience'>(() => {
     const className = selectedClass?.class_name?.toLowerCase() || '';
@@ -88,7 +171,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
   const placements = useMemo(
     () =>
       calculatePlacements(
-        entries.map((entry) => ({
+        displayedEntries.map((entry) => ({
           id: entry.id,
           division: entry.division,
           entryType: entry.entry_type,
@@ -98,12 +181,18 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
           tieBreakValue: entry.time_seconds ? displayToSeconds(entry.time_seconds) : null,
         })),
       ),
-    [entries],
+    [displayedEntries],
   );
 
   useEffect(() => {
     loadEntries();
-  }, [selectedClass?.id]);
+  }, [selectedClass?.id, pairedRounds.map((round) => round.id).join('|')]);
+
+  useEffect(() => {
+    const handleDayOfEntryAdded = () => void loadEntries(true);
+    window.addEventListener('dayOfEntryAdded', handleDayOfEntryAdded);
+    return () => window.removeEventListener('dayOfEntryAdded', handleDayOfEntryAdded);
+  }, [selectedClass?.id, pairedRounds.map((round) => round.id).join('|')]);
 
   useEffect(() => {
     // Determine score sheet type based on class type
@@ -132,7 +221,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
     }
   }, [selectedClass]);
 
-  const loadEntries = async () => {
+  const loadEntries = async (preserveTypedScores = false) => {
     if (!trial?.id || !selectedClass?.id) return;
 
     try {
@@ -144,36 +233,30 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
       }
 
       const roundEntries: EntryScore[] = [];
+      const roundsToLoad = pairedRounds.length > 0 ? pairedRounds : [selectedClass];
 
       (entriesResult.data || []).forEach((entry: any) => {
         const selections = entry.entry_selections || [];
         selections.forEach((selection: any) => {
-          // ✅ Handle compound IDs for Games classes
-          let baseRoundId = selectedClass.id;
-          let targetSubclass = selectedClass.games_subclass;
-
-          if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
-            const parts = selectedClass.id.split('-');
-            const lastPart = parts[parts.length - 1];
-
-            if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
-              baseRoundId = parts.slice(0, -1).join('-');
-              targetSubclass = lastPart;
+          const matchingRound = roundsToLoad.find((round) => {
+            let baseRoundId = round.id;
+            let targetSubclass = round.games_subclass;
+            if (round.class_type === 'games' && round.id.includes('-')) {
+              const parts = round.id.split('-');
+              const lastPart = parts[parts.length - 1];
+              if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
+                baseRoundId = parts.slice(0, -1).join('-');
+                targetSubclass = lastPart;
+              }
             }
-          }
+            const roundMatches =
+              selection.trial_round_id === round.id || selection.trial_round_id === baseRoundId;
+            const subclassMatches =
+              round.class_type !== 'games' || !targetSubclass || selection.games_subclass === targetSubclass;
+            return roundMatches && subclassMatches;
+          });
 
-          // Check if round ID matches
-          const roundMatches =
-            selection.trial_round_id === selectedClass.id ||
-            selection.trial_round_id === baseRoundId;
-
-          // For Games classes, also check subclass matches
-          let subclassMatches = true;
-          if (selectedClass.class_type === 'games' && targetSubclass) {
-            subclassMatches = selection.games_subclass === targetSubclass;
-          }
-
-          if (roundMatches && subclassMatches && isScorableSelection(selection.entry_status)) {
+          if (matchingRound && isScorableSelection(selection.entry_status)) {
             const scoresArray = Array.isArray(selection.scores)
               ? selection.scores
               : selection.scores
@@ -200,6 +283,8 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
             roundEntries.push({
               id: selection.id,
+              roundId: selection.trial_round_id,
+              roundNumber: Number(matchingRound.round_number || 1),
               runningOrder: selection.running_position || 0,
               cwagsNumber,
               dogName,
@@ -233,8 +318,33 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
         });
       });
 
-      roundEntries.sort((a, b) => a.runningOrder - b.runningOrder);
-      setEntries(roundEntries);
+      roundEntries.sort(
+        (a, b) =>
+          a.runningOrder - b.runningOrder ||
+          a.cwagsNumber.localeCompare(b.cwagsNumber) ||
+          a.roundNumber - b.roundNumber
+      );
+      setEntries((previous) => {
+        if (!preserveTypedScores) return roundEntries;
+        const previousBySelection = new Map(previous.map((entry) => [entry.id, entry]));
+        return roundEntries.map((freshEntry) => {
+          const typedEntry = previousBySelection.get(freshEntry.id);
+          if (!typedEntry) return freshEntry;
+          return {
+            ...freshEntry,
+            scent1: typedEntry.scent1,
+            scent2: typedEntry.scent2,
+            scent3: typedEntry.scent3,
+            scent4: typedEntry.scent4,
+            fault1: typedEntry.fault1,
+            fault2: typedEntry.fault2,
+            time_seconds: typedEntry.time_seconds,
+            numerical_score: typedEntry.numerical_score,
+            manual_placement: typedEntry.manual_placement,
+            pass_fail: typedEntry.pass_fail,
+          };
+        });
+      });
     } catch (error) {
       console.error('Error loading entries:', error);
       alert('Failed to load entries');
@@ -243,8 +353,10 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
     }
   };
 
-  const updateEntry = (index: number, field: keyof EntryScore, value: string) => {
+  const updateEntry = (entryId: string, field: keyof EntryScore, value: string) => {
     setEntries((prev) => {
+      const index = prev.findIndex((entry) => entry.id === entryId);
+      if (index < 0) return prev;
       const updated = [...prev];
       const entry = updated[index];
 
@@ -281,9 +393,28 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
     try {
       setSaving(true);
 
+      const entriesToSave = displayedEntries.filter((entry) => {
+        if (entry.entry_type === 'feo' || isAbsentSelection(entry.entry_status)) return true;
+        if (scoreSheetType === 'scent') {
+          return Boolean(
+            entry.scent1 || entry.scent2 || entry.scent3 || entry.scent4 ||
+            entry.fault1 || entry.fault2 || entry.time_seconds || entry.pass_fail
+          );
+        }
+        if (scoreSheetType === 'rally_obedience') {
+          return Boolean(entry.numerical_score || entry.time_seconds || entry.pass_fail);
+        }
+        return Boolean(entry.pass_fail || entry.manual_placement);
+      });
+
+      if (entriesToSave.length === 0) {
+        alert('Enter at least one result before saving this score sheet.');
+        return;
+      }
+
       if (scoreSheetType === 'games') {
         const placementError = validateManualPlacements(
-          entries.map((entry) => ({
+          entriesToSave.map((entry) => ({
             id: entry.id,
             placement: entry.manual_placement,
             entryType: entry.entry_type,
@@ -296,7 +427,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
         }
       }
 
-      for (const entry of entries) {
+      for (const entry of entriesToSave) {
         let scoreData: any = {};
 
         if (scoreSheetType === 'scent') {
@@ -340,10 +471,10 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
         }
 
         // Extract base round ID for Games classes with compound IDs
-        let roundIdForScore = selectedClass.id;
+        let roundIdForScore = entry.roundId;
 
-        if (selectedClass.class_type === 'games' && selectedClass.id.includes('-')) {
-          const parts = selectedClass.id.split('-');
+        if (selectedClass.class_type === 'games' && roundIdForScore.includes('-')) {
+          const parts = roundIdForScore.split('-');
           const lastPart = parts[parts.length - 1];
 
           if (['GB', 'BJ', 'T', 'P', 'C'].includes(lastPart)) {
@@ -363,7 +494,10 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
       }
 
       setSaved(true);
-      alert('All scores saved successfully!');
+      alert(
+        `${entriesToSave.length} ${entriesToSave.length === 1 ? 'score' : 'scores'} saved to ` +
+          `${selectedClass.class_name}, Round ${selectedClass.round_number}.`
+      );
 
       await loadEntries();
 
@@ -394,10 +528,104 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             </div>
           )}
 
-          <h2 className="text-xl font-bold mb-6">
-            {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge:{' '}
-            {selectedClass?.judge_name}
-          </h2>
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">
+                {selectedClass?.class_name} — Round {selectedClass?.round_number} — Judge:{' '}
+                {selectedClass?.judge_name}
+              </h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Both views save to this selected round. Dogs remain in the saved running order.
+              </p>
+            </div>
+            <div
+              className="inline-flex w-full rounded-lg border border-orange-300 bg-orange-50 p-1 lg:w-auto"
+              role="group"
+              aria-label="Score entry view"
+            >
+              <Button
+                type="button"
+                variant={entryMode === 'round' ? 'default' : 'ghost'}
+                className="flex-1 lg:flex-none"
+                onClick={() => setEntryMode('round')}
+              >
+                <Rows3 className="mr-2 h-4 w-4" />
+                Round Grid
+              </Button>
+              <Button
+                type="button"
+                variant={entryMode === 'score_sheet' ? 'default' : 'ghost'}
+                className="flex-1 lg:flex-none"
+                onClick={() => setEntryMode('score_sheet')}
+              >
+                <ClipboardList className="mr-2 h-4 w-4" />
+                Score Sheet View
+              </Button>
+            </div>
+          </div>
+
+          {entryMode === 'score_sheet' && (
+            <div className="mb-5 space-y-4">
+              {scoreSheetType === 'scent' && (
+                <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
+                  <div className="mb-2 text-sm font-semibold text-gray-900">Entering from:</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant={sheetLayout === 'paired' ? 'default' : 'outline'}
+                      onClick={() => chooseSheetLayout('paired')}
+                    >
+                      2 Rounds per Sheet
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={sheetLayout === 'single' ? 'default' : 'outline'}
+                      onClick={() => chooseSheetLayout('single')}
+                    >
+                      1 Round per Sheet
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Choose the same layout that was printed. Switching layouts does not change saved scores.
+                  </p>
+                </div>
+              )}
+              <div className="border-2 border-gray-900 bg-white p-4 text-gray-950 shadow-sm print:shadow-none">
+              <div className="grid gap-3 border-b-2 border-gray-900 pb-3 md:grid-cols-[1fr_auto] md:items-start">
+                <div>
+                  <div className="text-2xl font-black uppercase tracking-wide">
+                    {scoreSheetType === 'scent'
+                      ? 'Scent Detection Master Score Sheet'
+                      : `${selectedClass?.class_name} Score Sheet`}
+                  </div>
+                  <div className="mt-2 grid gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+                    <div><strong>Trial:</strong> {trial?.trial_name || '—'}</div>
+                    <div><strong>Date:</strong> {selectedClass?.trial_date || '—'}</div>
+                    <div><strong>Class:</strong> {selectedClass?.class_name || '—'}</div>
+                    <div>
+                      <strong>Rounds:</strong>{' '}
+                      {pairedRounds.map((round) => round.round_number).join(' and ') || '—'}
+                    </div>
+                    <div className="sm:col-span-2"><strong>Judge:</strong> {selectedClass?.judge_name || '—'}</div>
+                  </div>
+                </div>
+                <Badge variant="outline" className="w-fit border-gray-900 bg-white text-gray-900">
+                  {new Set(entries.map((entry) => entry.cwagsNumber || entry.id)).size}{' '}
+                  {new Set(entries.map((entry) => entry.cwagsNumber || entry.id)).size === 1
+                    ? 'team'
+                    : 'teams'}
+                </Badge>
+              </div>
+              {scoreSheetType === 'scent' && (
+                <p className="pt-3 text-xs leading-relaxed">
+                  <strong>Faults:</strong> Dropped food; dog stops working; handler guiding dog;
+                  incorrect find; destructive behavior; disturbing the search area; verbally naming
+                  the item; continuing the search after “alert”; or crossing the line where prohibited.
+                </p>
+              )}
+              </div>
+            </div>
+          )}
 
           {scoreSheetType === 'scent' && (
             <p className="text-sm text-black-600 mb-5 italic">
@@ -422,11 +650,20 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             </p>
           )}
 
-          <div className="border border-gray-300 overflow-x-auto">
+          <div
+            className={`${
+              entryMode === 'score_sheet'
+                ? 'border-2 border-t-0 border-gray-900 bg-white'
+                : 'border border-gray-300'
+            } overflow-x-auto`}
+          >
             {scoreSheetType === 'scent' && (
               <table className="w-full">
-                <thead className="bg-orange-300">
+                <thead className={entryMode === 'score_sheet' ? 'bg-gray-200' : 'bg-orange-300'}>
                   <tr>
+                    {entryMode === 'score_sheet' && (
+                      <th className="border border-gray-900 p-2 text-sm w-20">Round</th>
+                    )}
                     <th className="border p-2 text-sm">C-WAGS #</th>
                     <th className="border p-2 text-sm">Dog / Handler</th>
                     <th className="border p-2 text-sm w-20">Scent 1</th>
@@ -440,7 +677,29 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => {
+                  {scentSheetRows.map((sheetRow, idx) => {
+                    const entry = sheetRow.entry;
+                    const identityEntry = sheetRow.entry || sheetRow.identityEntry;
+                    if (!entry && identityEntry) {
+                      return (
+                        <tr key={sheetRow.key} className="bg-gray-100 text-gray-500">
+                          {entryMode === 'score_sheet' && (
+                            <td className="border border-gray-900 p-2 text-center text-sm font-bold">
+                              {sheetRow.roundNumber}
+                            </td>
+                          )}
+                          <td className="border p-2 font-mono text-sm">{identityEntry.cwagsNumber}</td>
+                          <td className="border p-2 text-sm">
+                            <div className="font-semibold">{identityEntry.dogName}</div>
+                            <div>{identityEntry.handlerName}</div>
+                          </td>
+                          <td className="border p-2 text-center text-sm font-semibold" colSpan={8}>
+                            Not entered in Round {sheetRow.roundNumber}
+                          </td>
+                        </tr>
+                      );
+                    }
+                    if (!entry) return null;
                     const isAbsent =
                       isAbsentSelection(entry.entry_status);
                     const isDisabled = entry.entry_type === 'feo' || isAbsent;
@@ -451,6 +710,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
                         }`}
                       >
+                        {entryMode === 'score_sheet' && (
+                          <td className="border border-gray-900 p-2 text-center text-sm font-bold">
+                            {entry.roundNumber}
+                          </td>
+                        )}
                         <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
                         <td className="border p-2 text-sm">
                           <div className="flex items-center gap-2">
@@ -494,7 +758,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                             <Select
                               value={entry[field] || '-'}
                               onValueChange={(value) =>
-                                updateEntry(idx, field, value === '-' ? '' : value)
+                                updateEntry(entry.id, field, value === '-' ? '' : value)
                               }
                               disabled={isDisabled}
                             >
@@ -513,7 +777,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           <td className="border p-1 w-40" key={field}>
                             <Input
                               value={entry[field]}
-                              onChange={(e) => updateEntry(idx, field, e.target.value)}
+                              onChange={(e) => updateEntry(entry.id, field, e.target.value)}
                               className="w-full h-8 text-center text-sm"
                               disabled={isDisabled}
                             />
@@ -522,7 +786,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                         <td className="border p-1 w-24">
                           <Input
                             value={entry.time_seconds}
-                            onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
+                            onChange={(e) => updateEntry(entry.id, 'time_seconds', e.target.value)}
                             type="text"
                             className="w-full h-8 text-center text-sm"
                             placeholder="m:ss.cc"
@@ -537,7 +801,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           ) : (
                             <Select
                               value={entry.pass_fail || ''}
-                              onValueChange={(value) => updateEntry(idx, 'pass_fail', value)}
+                              onValueChange={(value) => updateEntry(entry.id, 'pass_fail', value)}
                               disabled={entry.entry_type === 'feo'}
                             >
                               <SelectTrigger className="h-8 bg-white">
@@ -559,8 +823,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
             {scoreSheetType === 'rally_obedience' && (
               <table className="w-full">
-                <thead className="bg-orange-300">
+                <thead className={entryMode === 'score_sheet' ? 'bg-gray-200' : 'bg-orange-300'}>
                   <tr>
+                    {entryMode === 'score_sheet' && (
+                      <th className="border border-gray-900 p-2 text-sm w-20">Round</th>
+                    )}
                     <th className="border p-2 text-sm">C-WAGS #</th>
                     <th className="border p-2 text-sm">Dog / Handler</th>
                     <th className="border p-2 text-sm w-32">Score</th>
@@ -572,7 +839,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => {
+                  {displayedEntries.map((entry, idx) => {
                     const isAbsent =
                       isAbsentSelection(entry.entry_status);
                     return (
@@ -582,6 +849,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
                         }`}
                       >
+                        {entryMode === 'score_sheet' && (
+                          <td className="border border-gray-900 p-2 text-center text-sm font-bold">
+                            {entry.roundNumber}
+                          </td>
+                        )}
                         <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
                         <td className="border p-2 text-sm">
                           <div className="font-semibold flex items-center gap-2">
@@ -619,7 +891,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                         <td className="border p-1 w-32">
                           <Input
                             value={entry.numerical_score}
-                            onChange={(e) => updateEntry(idx, 'numerical_score', e.target.value)}
+                            onChange={(e) => updateEntry(entry.id, 'numerical_score', e.target.value)}
                             type="number"
                             min={
                               selectedClass.class_name?.toLowerCase().includes('obedience 5')
@@ -643,7 +915,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                         <td className="border p-1 w-28">
                           <Input
                             value={entry.time_seconds}
-                            onChange={(e) => updateEntry(idx, 'time_seconds', e.target.value)}
+                            onChange={(e) => updateEntry(entry.id, 'time_seconds', e.target.value)}
                             type={placementDiscipline === 'rally' ? 'text' : 'number'}
                             min={placementDiscipline === 'obedience' ? 1 : undefined}
                             className="w-full h-8 text-center text-sm"
@@ -672,8 +944,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
 
             {scoreSheetType === 'games' && (
               <table className="w-full">
-                <thead className="bg-orange-300">
+                <thead className={entryMode === 'score_sheet' ? 'bg-gray-200' : 'bg-orange-300'}>
                   <tr>
+                    {entryMode === 'score_sheet' && (
+                      <th className="border border-gray-900 p-2 text-sm w-20">Round</th>
+                    )}
                     <th className="border p-2 text-sm">C-WAGS #</th>
                     <th className="border p-2 text-sm">Dog / Handler</th>
                     <th className="border p-2 text-sm w-32">Result</th>
@@ -681,7 +956,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                   </tr>
                 </thead>
                 <tbody>
-                  {entries.map((entry, idx) => {
+                  {displayedEntries.map((entry, idx) => {
                     const isAbsent =
                       isAbsentSelection(entry.entry_status);
                     return (
@@ -691,6 +966,11 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           entry.entry_type === 'feo' || isAbsent ? 'opacity-75' : ''
                         }`}
                       >
+                        {entryMode === 'score_sheet' && (
+                          <td className="border border-gray-900 p-2 text-center text-sm font-bold">
+                            {entry.roundNumber}
+                          </td>
+                        )}
                         <td className="border p-2 font-mono text-sm">{entry.cwagsNumber}</td>
                         <td className="border p-2 text-sm">
                           <div className="font-semibold flex items-center gap-2">
@@ -734,7 +1014,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                             <Select
                               value={entry.pass_fail || 'none'}
                               onValueChange={(value) =>
-                                updateEntry(idx, 'pass_fail', value === 'none' ? '' : value)
+                                updateEntry(entry.id, 'pass_fail', value === 'none' ? '' : value)
                               }
                               disabled={entry.entry_type === 'feo'}
                             >
@@ -757,7 +1037,7 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
                           <Select
                             value={entry.manual_placement || 'none'}
                             onValueChange={(value) =>
-                              updateEntry(idx, 'manual_placement', value === 'none' ? '' : value)
+                              updateEntry(entry.id, 'manual_placement', value === 'none' ? '' : value)
                             }
                             disabled={entry.entry_type === 'feo' || entry.division === 'TO' || isAbsent}
                           >
@@ -781,11 +1061,26 @@ export default function DigitalScoreEntry({ selectedClass, trial }: ScoreEntryPa
             )}
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <Button onClick={saveAllScores} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? 'Saving…' : 'Save All Scores'}
-            </Button>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-gray-600">
+              Save writes every completed row to its displayed round. Blank rows are left unchanged.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {entryMode === 'score_sheet' && onAddDayOfEntry && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onAddDayOfEntry(Number(pairedRounds[0]?.round_number || 1))}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Day-of Entry
+                </Button>
+              )}
+              <Button onClick={saveAllScores} disabled={saving}>
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? 'Saving…' : 'Save Displayed Scores'}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

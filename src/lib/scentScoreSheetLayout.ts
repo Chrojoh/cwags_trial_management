@@ -15,6 +15,7 @@ export interface ScentLine {
   handler: string;
   dog: string;
   registration: string;
+  runningPosition: number | null;
 }
 
 export interface ScentPage {
@@ -33,7 +34,11 @@ export const SCENT_FAULTS = 'Faults: Dropped food. Dog stops working. Handler gu
 
 // Fixed Letter-page budget at the existing 50% print scale. Two-round pages
 // allow eight complete dog blocks; single-round pages allow twenty dogs.
-export function buildScentPages(rounds: ScentRound[], lines: ScentLine[]): ScentPage[] {
+export function buildScentPages(
+  rounds: ScentRound[],
+  lines: ScentLine[],
+  roundsPerSheet: 1 | 2 = 2
+): ScentPage[] {
   const groups = new Map<string, ScentRound[]>();
   for (const round of rounds.filter((item) => item.class_type === 'scent')) {
     const key = JSON.stringify([round.trial_day_id, round.class_id || round.class_name, round.judge_name]);
@@ -42,8 +47,8 @@ export function buildScentPages(rounds: ScentRound[], lines: ScentLine[]): Scent
   const pages: ScentPage[] = [];
   for (const group of groups.values()) {
     const ordered = [...group].sort((a, b) => (a.round_number || 1) - (b.round_number || 1));
-    for (let offset = 0; offset < ordered.length; offset += 2) {
-      const pair = ordered.slice(offset, offset + 2);
+    for (let offset = 0; offset < ordered.length; offset += roundsPerSheet) {
+      const pair = ordered.slice(offset, offset + roundsPerSheet);
       const dogs = new Map<string, ScentPage['dogs'][number]>();
       const seen = new Set<string>();
       for (const line of lines) {
@@ -61,7 +66,12 @@ export function buildScentPages(rounds: ScentRound[], lines: ScentLine[]): Scent
       const sorted = [...dogs.values()].sort((a, b) => {
         const first = a.lines.find(Boolean)!;
         const second = b.lines.find(Boolean)!;
-        return first.handler.localeCompare(second.handler) || first.dog.localeCompare(second.dog) || a.identity.localeCompare(b.identity);
+        // A two-round sheet uses one shared dog row, so use the earliest round
+        // shown on that sheet as its authoritative running order. A dog entered
+        // only in the later round falls back to that round's saved position.
+        const firstPosition = first.runningPosition ?? Number.MAX_SAFE_INTEGER;
+        const secondPosition = second.runningPosition ?? Number.MAX_SAFE_INTEGER;
+        return firstPosition - secondPosition || first.handler.localeCompare(second.handler) || first.dog.localeCompare(second.dog) || a.identity.localeCompare(b.identity);
       });
       const capacity = pair.length === 2 ? 8 : 20;
       const pageCount = Math.max(1, Math.ceil(sorted.length / capacity));

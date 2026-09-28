@@ -67,6 +67,38 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     schedule.length
   );
 
+  let previousPremiums: NonNullable<TrialPremiumModel['previousPremiums']> = [];
+  if (!tableMissing && trial.club_name) {
+    const { data: priorTrials, error: priorTrialsError } = await db
+      .from('trials')
+      .select('id,trial_name,start_date')
+      .eq('club_name', trial.club_name)
+      .neq('id', trialId)
+      .order('start_date', { ascending: false })
+      .limit(10);
+    if (priorTrialsError) throw new Error(priorTrialsError.message);
+
+    const priorIds = (priorTrials || []).map((item) => item.id);
+    if (priorIds.length > 0) {
+      const { data: priorPremiumRows, error: priorPremiumError } = await db
+        .from('trial_premiums')
+        .select('trial_id,content')
+        .in('trial_id', priorIds);
+      if (priorPremiumError) throw new Error(priorPremiumError.message);
+      const contentByTrial = new Map(
+        (priorPremiumRows || []).map((item) => [item.trial_id, item.content as Partial<TrialPremiumContent>])
+      );
+      previousPremiums = (priorTrials || [])
+        .filter((item) => contentByTrial.has(item.id))
+        .map((item) => ({
+          trialId: item.id,
+          trialName: item.trial_name || 'Previous trial',
+          startDate: item.start_date || '',
+          content: { ...EMPTY_PREMIUM_CONTENT, ...(contentByTrial.get(item.id) || {}) },
+        }));
+    }
+  }
+
   return {
     trial: {
       id: trial.id,
@@ -91,6 +123,7 @@ export async function loadTrialPremium(trialId: string): Promise<TrialPremiumMod
     mapImagePath: saved?.map_image_path || null,
     missingRequired,
     setupRequired: tableMissing,
+    previousPremiums,
   };
 }
 

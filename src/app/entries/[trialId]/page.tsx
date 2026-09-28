@@ -78,6 +78,8 @@ interface TrialRound {
   trial_class_id: string;
   feo_available: boolean;
   max_entries?: number | null;
+  occupied_entries?: number;
+  is_full?: boolean;
   trial_classes?: {
     class_name: string;
     class_level: string;
@@ -228,6 +230,8 @@ export default function PublicEntryForm() {
   const [cwagsInputValue, setCwagsInputValue] = useState("");
   const [lookupEmail, setLookupEmail] = useState("");
   const [registrationPending, setRegistrationPending] = useState(false);
+  const [pendingEditOnly, setPendingEditOnly] = useState(false);
+  const [staffEditAuthorized, setStaffEditAuthorized] = useState(false);
   const [pendingLookupPhone, setPendingLookupPhone] = useState("");
   const [pendingLookupDog, setPendingLookupDog] = useState("");
   const [receivedCwagsNumber, setReceivedCwagsNumber] = useState("");
@@ -267,11 +271,21 @@ export default function PublicEntryForm() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/public/trials/${trialId}`);
+      const staffEditRequested = new URLSearchParams(window.location.search).get("edit") === "true";
+      const headers: HeadersInit = {};
+      if (staffEditRequested) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(
+        `/api/public/trials/${trialId}${staffEditRequested ? "?staffEdit=true" : ""}`,
+        { headers },
+      );
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Failed to load trial information");
 
       setTrial(result.trial);
+      setStaffEditAuthorized(result.staff_edit_authorized === true);
       const rounds = result.rounds || [];
       setTrialRounds(rounds);
 
@@ -600,13 +614,24 @@ export default function PublicEntryForm() {
     setError(null);
     setLookupError(null);
     try {
+      const headers: HeadersInit = {};
+      if (pendingEditOnly) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      }
       const response = await fetch(
-        `/api/public/trials/${trialId}/entries?pending=true&email=${encodeURIComponent(lookupEmail.trim())}&phone=${encodeURIComponent(pendingLookupPhone.trim())}&dog=${encodeURIComponent(pendingLookupDog.trim())}`,
+        `/api/public/trials/${trialId}/entries?pending=true&email=${encodeURIComponent(lookupEmail.trim())}&phone=${encodeURIComponent(pendingLookupPhone.trim())}&dog=${encodeURIComponent(pendingLookupDog.trim())}${pendingEditOnly ? "&staffEdit=true" : ""}`,
+        { headers },
       );
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Pending entry lookup failed");
       const entry = result.entries?.[0];
       if (!entry) {
+        if (pendingEditOnly) {
+          throw new Error(
+            "No matching pending entry was found. Check the email and phone number used on the original entry.",
+          );
+        }
         const pendingReference = `PENDING-${crypto.randomUUID()}`;
         setExistingEntry(null);
         setOriginalFormData(null);
@@ -1083,14 +1108,20 @@ export default function PublicEntryForm() {
 
       // All entry, selection, capacity, fee, score-protection, and journal
       // writes now run through the controlled public server transaction.
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (pendingEditOnly) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+      }
       const entryResponse = await fetch(`/api/public/trials/${trialId}/entries`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           ...formData,
           verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
           verification_phone: pendingLookupPhone.trim(),
           registration_pending: registrationPending,
+          staff_edit: pendingEditOnly,
           handler_name: authoritativeHandlerName,
           dog_call_name: authoritativeDogCallName,
         }),
@@ -1603,6 +1634,19 @@ export default function PublicEntryForm() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const cwagsParam = urlParams.get("cwags");
+    const pendingParam = urlParams.get("pending") === "true";
+    const pendingEditParam = urlParams.get("edit") === "true";
+    const dogParam = urlParams.get("dog") || "";
+
+    if (pendingParam) {
+      setRegistrationPending(true);
+      setPendingEditOnly(pendingEditParam);
+      if (dogParam) {
+        setPendingLookupDog(dogParam);
+        setFormData((prev) => ({ ...prev, dog_call_name: dogParam }));
+      }
+      return;
+    }
 
     if (cwagsParam) {
       console.log("Auto-populating C-WAGS number from URL:", cwagsParam);
@@ -1639,7 +1683,7 @@ export default function PublicEntryForm() {
     );
   }
   // Check entry status
-  if (trial.entry_status === "draft") {
+  if (!staffEditAuthorized && trial.entry_status === "draft") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-6">
         <Card className="max-w-2xl w-full">
@@ -1703,7 +1747,7 @@ export default function PublicEntryForm() {
     );
   }
 
-  if (trial.entry_status === "closed") {
+  if (!staffEditAuthorized && trial.entry_status === "closed") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-pink-50 flex items-center justify-center p-6">
         <Card className="max-w-2xl w-full">
@@ -2395,6 +2439,7 @@ export default function PublicEntryForm() {
                 onCheckedChange={(checked) => {
                   const pending = checked === true;
                   setRegistrationPending(pending);
+                  setPendingEditOnly(false);
                   setOfficialNumberNotice(null);
                   setLookupError(null); setError(null); setExistingEntry(null); setOriginalFormData(null); setRegistryVerification(null);
                   setFormData((prev) => ({ ...prev, cwags_number: "", selected_rounds: [], feo_selections: [], division_selections: {}, jump_height_selections: {} }));
@@ -2453,8 +2498,14 @@ export default function PublicEntryForm() {
               </Button>
             </div> : <div className="space-y-3">
               <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-950">
-                <p className="font-semibold">Already entered and your official number has arrived?</p>
-                <p className="mt-1">Step 1: enter the same email, phone number, and dog name used on the original entry. Select <strong>Find My Pending Entry</strong>. Step 2 will then ask for the official number.</p>
+                <p className="font-semibold">
+                  {pendingEditOnly
+                    ? "Edit this waiting-number entry"
+                    : "Already entered or still waiting for your official number?"}
+                </p>
+                <p className="mt-1">
+                  Enter the same email and phone number used on the original entry, then select <strong>Find My Pending Entry</strong>. You can update the rounds now; adding the official number is optional until it arrives.
+                </p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <Input type="email" placeholder="Email address" value={lookupEmail} onChange={(e) => { setLookupEmail(e.target.value); setFormData((prev) => ({ ...prev, handler_email: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
@@ -2462,7 +2513,7 @@ export default function PublicEntryForm() {
                 <Input placeholder="Dog's call name" value={pendingLookupDog} onChange={(e) => { setPendingLookupDog(e.target.value); setFormData((prev) => ({ ...prev, dog_call_name: e.target.value })); setRegistryVerification(null); setExistingEntry(null); }} />
               </div>
               <Button onClick={handlePendingRegistrationLookup} disabled={registryLoading || !lookupEmail.trim() || !pendingLookupPhone.trim() || !pendingLookupDog.trim()} className="w-full border-2 border-purple-600 bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-70">
-                {registryLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Checking...</span> : "Find My Pending Entry or Start a New Entry"}
+                {registryLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Checking...</span> : pendingEditOnly ? "Find My Pending Entry" : "Find My Pending Entry or Start a New Entry"}
               </Button>
               <p className="text-xs text-gray-600">For your privacy, email and phone must both match. Dog name helps select the right entry. Your temporary record is not added to the official C-WAGS registry.</p>
             </div>}
@@ -2819,6 +2870,7 @@ export default function PublicEntryForm() {
                                 round.trial_classes?.feo_price !== undefined &&
                                 round.trial_classes?.feo_price !== null &&
                                 round.trial_classes?.feo_price > 0;
+                              const isFull = round.is_full === true;
 
                               // DEBUG: Log EVERY class
                               console.log("=== CLASS DEBUG ===");
@@ -2867,6 +2919,11 @@ export default function PublicEntryForm() {
                                               )
                                             </span>
                                           )}
+                                          {isFull && (
+                                            <Badge className="ml-2 border border-yellow-400 bg-yellow-100 text-yellow-900">
+                                              Full — waitlist only
+                                            </Badge>
+                                          )}
                                         </h4>
                                         <div className="text-right">
                                           <div className="text-sm text-gray-600">
@@ -2877,6 +2934,15 @@ export default function PublicEntryForm() {
                                           </div>
                                         </div>
                                       </div>
+
+                                      {isFull && !isSelected && (
+                                        <Alert className="mb-3 border-yellow-400 bg-yellow-50 text-yellow-950">
+                                          <Clock className="h-4 w-4" />
+                                          <AlertDescription>
+                                            This round is full. If you select it, your dog will be placed on the waitlist and you will not be charged unless the dog is promoted.
+                                          </AlertDescription>
+                                        </Alert>
+                                      )}
 
                                       <div className="flex gap-3">
                                         {/* Regular Entry Button */}

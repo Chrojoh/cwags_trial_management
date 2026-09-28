@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildScentPages, SCENT_ROW_HEIGHT, type ScentRound, type ScentLine } from './scentScoreSheetLayout';
 
 const rounds: ScentRound[] = [1,2,3].map((n) => ({ id: `r${n}`, round_number: n, class_id: 'c', class_name: 'Patrol 1', class_type: 'scent', judge_name: 'Judge A', trial_day_id: 'day' }));
-const line = (round: number, dog = 'dog'): ScentLine => ({ roundId: `r${round}`, selectionId: `${dog}-r${round}`, entryId: dog, registration: dog, handler: 'Handler', dog });
+const line = (round: number, dog = 'dog', runningPosition = round): ScentLine => ({ roundId: `r${round}`, selectionId: `${dog}-r${round}`, entryId: dog, registration: dog, handler: 'Handler', dog, runningPosition });
 
 test('round-2-only dog retains a blank white first row', () => {
   const page = buildScentPages(rounds.slice(0,2), [line(2)])[0];
@@ -14,6 +14,10 @@ test('round-2-only dog retains a blank white first row', () => {
 test('third round gets its own page and no fabricated entry', () => {
   const pages = buildScentPages(rounds, [line(1),line(2),line(3)]);
   assert.deepEqual(pages.map((p) => p.rounds.map((r) => r.round_number)), [[1,2],[3]]);
+});
+test('single-round layout creates one score sheet group per round', () => {
+  const pages = buildScentPages(rounds, [line(1), line(2), line(3)], 1);
+  assert.deepEqual(pages.map((page) => page.rounds.map((round) => round.round_number)), [[1], [2], [3]]);
 });
 test('page breaks never split dog blocks, all selections preserved', () => {
   const lines = Array.from({length: 17}, (_, i) => [line(1,`dog${i}`), line(2,`dog${i}`)]).flat();
@@ -27,4 +31,12 @@ test('different judges, classes, and days do not combine', () => {
     const changed = [{...rounds[0]}, {...rounds[1], [field]: 'different'}];
     assert.equal(buildScentPages(changed, [line(1),line(2)]).length, 2);
   }
+});
+test('dogs follow the saved running order instead of alphabetical order', () => {
+  const page = buildScentPages(rounds.slice(0, 1), [
+    line(1, 'Alpha', 3),
+    line(1, 'Zulu', 1),
+    line(1, 'Middle', 2),
+  ])[0];
+  assert.deepEqual(page.dogs.map((dog) => dog.identity), ['Zulu', 'Middle', 'Alpha']);
 });

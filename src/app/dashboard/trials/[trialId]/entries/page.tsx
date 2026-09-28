@@ -50,6 +50,7 @@ import {
   CheckCircle,
   Download,
   Trash2,
+  UserPlus,
 } from 'lucide-react';
 import { simpleTrialOperations, type EntryData } from '@/lib/trialOperationsSimple';
 import { isBillableSelection, isWaitlistedSelection } from '@/lib/selectionStatus';
@@ -121,6 +122,7 @@ interface GroupedEntry {
     division?: string;
   }[];
   entry_ids: string[];
+  registration_pending: boolean;
 }
 
 interface EntryStats {
@@ -191,6 +193,9 @@ export default function TrialEntriesPage() {
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deletingEntry, setDeletingEntry] = useState(false);
+  const [registrationTarget, setRegistrationTarget] = useState<GroupedEntry | null>(null);
+  const [officialCwagsNumber, setOfficialCwagsNumber] = useState('');
+  const [savingRegistrationNumber, setSavingRegistrationNumber] = useState(false);
   const deleteRequestInFlight = useRef(false);
 
   // NEW: State for tracking expanded entries
@@ -325,6 +330,7 @@ export default function TrialEntriesPage() {
           amount_owed: entry.amount_owed || 0,
           entry_selections: [],
           entry_ids: [],
+          registration_pending: entry.registration_pending === true || /^PENDING-/i.test(cwagsNumber),
         };
       }
 
@@ -436,7 +442,43 @@ export default function TrialEntriesPage() {
   };
 
   const handleEditEntry = (entry: GroupedEntry) => {
+    if (entry.registration_pending) {
+      router.push(
+        `/entries/${trialId}?pending=true&edit=true&dog=${encodeURIComponent(entry.dog_call_name)}`
+      );
+      return;
+    }
     router.push(`/entries/${trialId}?cwags=${entry.cwags_number}`);
+  };
+
+  const handleAddRegistrationNumber = (entry: GroupedEntry) => {
+    setRegistrationTarget(entry);
+    setOfficialCwagsNumber('');
+  };
+
+  const assignOfficialRegistrationNumber = async () => {
+    if (!registrationTarget || savingRegistrationNumber) return;
+    try {
+      setSavingRegistrationNumber(true);
+      setError(null);
+      const response = await authenticatedFetch(
+        `/api/trials/${trialId}/entries/${registrationTarget.entry_ids[0]}/registration-number`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ official_cwags_number: officialCwagsNumber.trim() }),
+        }
+      );
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to update the C-WAGS number.');
+      setRegistrationTarget(null);
+      setOfficialCwagsNumber('');
+      await loadTrialAndEntries();
+    } catch (assignError) {
+      setError(assignError instanceof Error ? assignError.message : 'Unable to update the C-WAGS number.');
+    } finally {
+      setSavingRegistrationNumber(false);
+    }
   };
 
   const getAuthorizationHeader = async () => {
@@ -1060,14 +1102,20 @@ export default function TrialEntriesPage() {
 
                         {/* Edit button */}
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditEntry(entry)}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => handleEditEntry(entry)}>
                             <Edit className="h-4 w-4 mr-1" />
                             Edit Entry
                           </Button>
+                          {entry.registration_pending && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddRegistrationNumber(entry)}
+                            >
+                              <UserPlus className="h-4 w-4 mr-1" />
+                              Add C-WAGS Number
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -1193,6 +1241,51 @@ export default function TrialEntriesPage() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog
+          open={Boolean(registrationTarget)}
+          onOpenChange={(open) => {
+            if (!open && !savingRegistrationNumber) {
+              setRegistrationTarget(null);
+              setOfficialCwagsNumber('');
+            }
+          }}
+        >
+          <DialogContent className="bg-white">
+            <DialogHeader>
+              <DialogTitle>Add the official C-WAGS number</DialogTitle>
+              <DialogDescription>
+                This updates the existing entry in place. Its selections, running positions, fees, payments, and scores are retained.
+              </DialogDescription>
+            </DialogHeader>
+            {registrationTarget && (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-purple-200 bg-purple-50 p-4">
+                  <p className="font-semibold">{registrationTarget.handler_name} • {registrationTarget.dog_call_name}</p>
+                  <p className="text-sm text-gray-700">Current reference: {registrationTarget.cwags_number}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="official-cwags-number">Official C-WAGS number</Label>
+                  <Input
+                    id="official-cwags-number"
+                    value={officialCwagsNumber}
+                    onChange={(event) => setOfficialCwagsNumber(event.target.value)}
+                    placeholder="26-1234-01"
+                    className="bg-white"
+                    disabled={savingRegistrationNumber}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRegistrationTarget(null)} disabled={savingRegistrationNumber}>Cancel</Button>
+              <Button onClick={assignOfficialRegistrationNumber} disabled={savingRegistrationNumber || !/^\d{2}-\d{4}-\d{2}$/.test(officialCwagsNumber.trim())}>
+                {savingRegistrationNumber && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Number
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && closeDeleteDialog()}>
           <DialogContent className="bg-white">

@@ -39,6 +39,12 @@ export interface TrialPremiumRecord {
 }
 
 export interface TrialPremiumModel extends TrialPremiumRecord {
+  previousPremiums?: Array<{
+    trialId: string;
+    trialName: string;
+    startDate: string;
+    content: TrialPremiumContent;
+  }>;
   trial: {
     id: string;
     trialName: string;

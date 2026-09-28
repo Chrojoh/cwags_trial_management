@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceRoleClient } from '@/lib/apiAuth';
+import { getServiceRoleClient, requireTrialPermission } from '@/lib/apiAuth';
 import { createHash, randomUUID } from 'crypto';
 import { getEffectiveEntryStatus } from '@/lib/entryWindow';
 
@@ -71,6 +71,11 @@ export async function GET(
 ) {
   try {
     const { trialId } = await params;
+    const staffEdit = request.nextUrl.searchParams.get('staffEdit') === 'true';
+    if (staffEdit) {
+      const auth = await requireTrialPermission(request, trialId, 'manage_entries');
+      if (!auth.authorized) return auth.response;
+    }
     const pendingRegistration = request.nextUrl.searchParams.get('pending') === 'true';
     const cwagsNumber = text(request.nextUrl.searchParams.get('cwags'), 64);
     const submittedEmail = text(request.nextUrl.searchParams.get('email'), 254).toLowerCase();
@@ -104,7 +109,7 @@ export async function GET(
       .maybeSingle();
     if (trialError) throw trialError;
     if (!trial) return NextResponse.json({ error: 'Trial not found.' }, { status: 404 });
-    if (getEffectiveEntryStatus(trial) !== 'open') {
+    if (!staffEdit && getEffectiveEntryStatus(trial) !== 'open') {
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
@@ -211,6 +216,11 @@ export async function POST(
 
   try {
     const body = await request.json();
+    const staffEdit = body.staff_edit === true;
+    if (staffEdit) {
+      const auth = await requireTrialPermission(request, trialId, 'manage_entries');
+      if (!auth.authorized) return auth.response;
+    }
     const pendingRegistration = body.registration_pending === true;
     const suppliedCwagsNumber = text(body.cwags_number, 64);
     const cwagsNumber = pendingRegistration
@@ -241,7 +251,7 @@ export async function POST(
       .maybeSingle();
     if (trialError) throw trialError;
     if (!trial) return NextResponse.json({ error: 'Trial not found.' }, { status: 404 });
-    if (getEffectiveEntryStatus(trial) !== 'open') {
+    if (!staffEdit && getEffectiveEntryStatus(trial) !== 'open') {
       return NextResponse.json({ error: 'Entries are not currently open.' }, { status: 403 });
     }
 
@@ -383,7 +393,7 @@ export async function POST(
         return day?.is_accepting_entries === false && !existingRoundIds.has(round.id);
       })
       .map((round) => round.id);
-    if (newlySelectedClosedRoundIds.length) {
+    if (!staffEdit && newlySelectedClosedRoundIds.length) {
       return NextResponse.json(
         {
           error:

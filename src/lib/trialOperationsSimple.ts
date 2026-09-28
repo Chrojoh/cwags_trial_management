@@ -104,6 +104,7 @@ export interface EntryData {
   payment_status: string;
   submitted_at?: string;
   entry_status: string;
+  registration_pending?: boolean;
   audit_trail?: string;
   created_at?: string;
 }
