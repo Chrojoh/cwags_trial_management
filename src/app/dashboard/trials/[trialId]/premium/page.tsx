@@ -40,6 +40,17 @@ const fields: Array<{ key: keyof TrialPremiumContent; label: string; help: strin
   { key: 'additionalInformation', label: 'Additional information', help: 'Add trial-specific instructions not covered above.' },
 ];
 
+const premiumColorSchemes: Array<{
+  value: PremiumColorScheme;
+  label: string;
+  swatches: [string, string, string];
+}> = [
+  { value: 'warm', label: 'Warm Orange', swatches: ['#9A3412', '#FDBA74', '#FFF7ED'] },
+  { value: 'forest', label: 'Forest Green', swatches: ['#166534', '#86EFAC', '#F0FDF4'] },
+  { value: 'blue', label: 'Classic Blue', swatches: ['#1D4ED8', '#93C5FD', '#EFF6FF'] },
+  { value: 'plum', label: 'Plum', swatches: ['#7E22CE', '#D8B4FE', '#FAF5FF'] },
+];
+
 export default function TrialPremiumPage() {
   const { trialId } = useParams<{ trialId: string }>();
   const router = useRouter();
@@ -166,7 +177,51 @@ export default function TrialPremiumPage() {
     {model.setupRequired && <Alert><AlertTriangle className="h-4 w-4" /><AlertDescription>The premium database migration has not been installed. You can prepare and retain a browser draft, but server saving is intentionally disabled.</AlertDescription></Alert>}
     <Card><CardHeader><CardTitle className="flex items-center gap-2">Workflow Status <Badge variant={model.status === 'ready' ? 'default' : 'secondary'}>{model.status === 'ready' ? 'Ready' : 'Draft'}</Badge></CardTitle></CardHeader><CardContent className="space-y-2 text-sm"><p><strong>Trial:</strong> {model.trial.clubName} - {model.trial.location}</p><p><strong>Schedule:</strong> {model.schedule.length} rounds pulled from trial setup.</p><p><strong>Entry opening:</strong> {model.trial.entryOpenAt || 'Not scheduled'} {model.trial.entryTimezone || ''}</p><p><strong>Entry closing:</strong> {model.trial.entriesCloseDate || "Secretary closes entries when full"}</p>{model.missingRequired.length > 0 && <p className="text-amber-800"><strong>Still required:</strong> {model.missingRequired.join(', ')}</p>}</CardContent></Card>
     <Card><CardHeader><CardTitle>Reuse a Previous Club Premium</CardTitle></CardHeader><CardContent className="space-y-3"><p className="text-sm text-gray-700">Start with the editable information saved for an earlier {model.trial.clubName} trial. The current trial schedule, judges, fees, dates, waiver and uploaded map remain controlled by this trial.</p>{(model.previousPremiums || []).length > 0 ? <div className="flex flex-col gap-2 sm:flex-row"><select className="h-10 flex-1 rounded-md border border-gray-300 bg-white px-3 text-sm" value={previousPremiumId} onChange={(event) => setPreviousPremiumId(event.target.value)}><option value="">Choose a previous premium</option>{(model.previousPremiums || []).map((item) => <option key={item.trialId} value={item.trialId}>{item.trialName}{item.startDate ? ` - ${item.startDate}` : ''}</option>)}</select><Button type="button" variant="outline" disabled={!previousPremiumId} onClick={reusePreviousPremium}>Use This Premium</Button></div> : <p className="text-sm text-gray-500">No earlier saved premium is available for this club yet.</p>}<p className="text-xs text-gray-600">Review contact names, veterinarian details, policies, directions, nearby services and payment instructions before saving.</p></CardContent></Card>
-    <Card><CardHeader><CardTitle>Premium Color Scheme</CardTitle></CardHeader><CardContent className="space-y-3"><Label htmlFor="premium-color-scheme">Choose the accent colors used throughout the PDF</Label><select id="premium-color-scheme" className="h-10 w-full max-w-sm rounded-md border border-gray-300 bg-white px-3 text-sm" value={content.colorScheme} onChange={(event) => setContent({ ...content, colorScheme: event.target.value as PremiumColorScheme })}><option value="warm">Warm Orange</option><option value="forest">Forest Green</option><option value="blue">Classic Blue</option><option value="plum">Plum</option></select><div className="flex gap-2" aria-hidden="true"><span className="h-5 w-12 rounded bg-orange-700" /><span className="h-5 w-12 rounded bg-green-700" /><span className="h-5 w-12 rounded bg-blue-700" /><span className="h-5 w-12 rounded bg-purple-700" /></div><p className="text-xs text-gray-600">All choices use light backgrounds and dark text so the premium remains readable when printed or photocopied.</p></CardContent></Card>
+    <Card>
+      <CardHeader><CardTitle>Premium Color Scheme</CardTitle></CardHeader>
+      <CardContent className="space-y-3">
+        <Label id="premium-color-scheme-label">Choose the accent colors used throughout the PDF</Label>
+        <div
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          role="radiogroup"
+          aria-labelledby="premium-color-scheme-label"
+        >
+          {premiumColorSchemes.map((scheme) => {
+            const selected = content.colorScheme === scheme.value;
+            return (
+              <button
+                key={scheme.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setContent({ ...content, colorScheme: scheme.value })}
+                className={`relative rounded-lg border-2 bg-white p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${
+                  selected
+                    ? 'border-gray-900 shadow-md ring-2 ring-gray-900 ring-offset-2'
+                    : 'border-gray-200 hover:border-gray-400 hover:shadow-sm'
+                }`}
+              >
+                {selected && (
+                  <span className="absolute right-2 top-2 rounded-full bg-gray-900 p-0.5 text-white">
+                    <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                )}
+                <span className="block pr-7 text-sm font-semibold text-gray-900">{scheme.label}</span>
+                <span className="mt-3 flex overflow-hidden rounded-md border border-gray-200" aria-hidden="true">
+                  {scheme.swatches.map((color) => (
+                    <span key={color} className="h-9 flex-1" style={{ backgroundColor: color }} />
+                  ))}
+                </span>
+                <span className="mt-2 block text-xs font-medium text-gray-600">
+                  {selected ? 'Selected' : 'Choose this scheme'}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-600">All choices use light backgrounds and dark text so the premium remains readable when printed or photocopied.</p>
+      </CardContent>
+    </Card>
     <Card><CardHeader><CardTitle>Trial-Day Times</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><Label htmlFor="premium-check-in-time">Check-in starts</Label><Input id="premium-check-in-time" type="time" value={content.checkInTime} onChange={(event) => setContent({ ...content, checkInTime: event.target.value })} /><p className="text-xs text-gray-600">Displayed prominently on the premium cover.</p></div><div className="space-y-2"><Label htmlFor="premium-trial-start-time">Trial starts</Label><Input id="premium-trial-start-time" type="time" value={content.trialStartTime} onChange={(event) => setContent({ ...content, trialStartTime: event.target.value })} /><p className="text-xs text-gray-600">Use the trial venue's local time.</p></div></CardContent></Card>
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" />Venue Map and Local Map Image</CardTitle></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="premium-map-address">Street address for GPS directions</Label><Input id="premium-map-address" value={content.mapAddress} onChange={(event) => setContent({ ...content, mapAddress: event.target.value })} placeholder="123 Main Street, City, Province, Postal Code" /><p className="text-xs text-gray-600">The clickable map link uses this exact address instead of searching by venue name. Include the postal code when available. If left blank, the saved trial location is used.</p></div><p className="text-sm text-gray-700">Upload a secretary-reviewed JPG or PNG map showing the venue and useful nearby landmarks. Maximum 3 MB. The original stays private and is embedded only in the generated premium.</p>{mapPreviewUrl && <Image src={mapPreviewUrl} alt="Uploaded local venue map preview" width={900} height={600} unoptimized className="h-auto max-h-80 w-auto rounded border object-contain" />}<label className="inline-flex cursor-pointer items-center rounded-md border bg-white px-4 py-2 text-sm font-medium hover:bg-gray-50"><Upload className="mr-2 h-4 w-4" />{uploadingMap ? 'Uploading...' : model.mapImagePath ? 'Replace Map Image' : 'Upload Map Image'}<input className="sr-only" type="file" accept="image/png,image/jpeg" disabled={uploadingMap} onChange={(event) => void uploadMap(event.target.files?.[0])} /></label></CardContent></Card>
     <div className="grid gap-5 lg:grid-cols-2">{fields.map((field) => <Card key={field.key}><CardHeader><CardTitle className="text-base">{field.label}{field.required ? ' *' : ''}</CardTitle></CardHeader><CardContent><Label className="sr-only">{field.label}</Label><Textarea rows={5} value={content[field.key]} onChange={(event) => setContent({ ...content, [field.key]: event.target.value })} placeholder={field.help} /><p className="mt-2 text-xs text-gray-600">{field.help}</p></CardContent></Card>)}</div>
