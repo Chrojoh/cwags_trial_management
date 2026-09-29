@@ -146,8 +146,12 @@ export async function loadTrialFinancialReadModel(
       waived_amount: 0,
     };
 
-    const regularRuns = activeSelections.filter((selection) => selection.entry_type === 'regular').length;
-    const feoRuns = activeSelections.filter((selection) => selection.entry_type === 'feo').length;
+    const regularRuns = activeSelections.filter(
+      (selection) => String(selection.entry_type || '').toLowerCase() === 'regular'
+    ).length;
+    const feoRuns = activeSelections.filter(
+      (selection) => String(selection.entry_type || '').toLowerCase() === 'feo'
+    ).length;
     const waitlistedRuns = entrySelections.filter(
       (selection) => String(selection.entry_status || '').toLowerCase() === 'waitlisted'
     ).length;

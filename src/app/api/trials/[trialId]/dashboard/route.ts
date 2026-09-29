@@ -3,7 +3,11 @@ import { getServiceRoleClient, requireTrialPermission } from '@/lib/apiAuth';
 import { fetchAllPages, fetchInBatches } from '@/lib/supabasePagination';
 import { loadTrialFinancialReadModel } from '@/lib/server/trialFinancialSummary';
 import { derivePaymentStatus } from '@/lib/financialRules';
-import { isActiveSelection } from '@/lib/selectionStatus';
+import { isActiveSelection, isBillableSelection } from '@/lib/selectionStatus';
+import {
+  calculateWaivedRegularCwagsCost,
+  summarizeRunAccounting,
+} from '@/lib/waivedRunAccounting';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +30,12 @@ interface ActivityRow {
   activity_type: string;
   snapshot_data: Record<string, unknown> | null;
   created_at: string;
+}
+interface ExpenseRow {
+  expense_category: string;
+  description: string | null;
+  amount: number | null;
+  paid_to: string | null;
 }
 interface ActivitySnapshot {
   dog_call_name?: string;
@@ -50,7 +60,7 @@ export async function GET(
     const db = getServiceRoleClient();
     const twoDaysAgo = new Date();
     twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    const [trial, financials, days, breakEvenConfig, timeConfigs, activity, allotments] =
+    const [trial, financials, days, breakEvenConfig, expenses, timeConfigs, activity, allotments] =
       await Promise.all([
         db.from('trials').select('id,start_date').eq('id', trialId).single(),
         loadTrialFinancialReadModel(trialId),
@@ -63,6 +73,13 @@ export async function GET(
             .range(from, to)
         ),
         db.from('trial_break_even_config').select('*').eq('trial_id', trialId).maybeSingle(),
+        fetchAllPages<ExpenseRow>((from, to) =>
+          db
+            .from('trial_expenses')
+            .select('expense_category,description,amount,paid_to')
+            .eq('trial_id', trialId)
+            .range(from, to)
+        ),
         fetchAllPages((from, to) =>
           db
             .from('trial_time_configurations')
@@ -151,30 +168,44 @@ export async function GET(
     let breakEvenAnalysis = null;
     const config = breakEvenConfig.data;
     if (config) {
-      const totalPaidRuns = competitors.reduce((sum, competitor) => sum + competitor.regular_runs, 0);
-      const totalFeoRuns = competitors.reduce((sum, competitor) => sum + competitor.feo_runs, 0);
-      const totalWaivedRegular = competitors.reduce((sum, competitor) => sum + competitor.waived_regular_runs, 0);
-      const totalWaivedFeo = competitors.reduce((sum, competitor) => sum + competitor.waived_feo_runs, 0);
-      const totalRegularRuns = totalPaidRuns + totalWaivedRegular;
-      const cwagsExpense = totalRegularRuns * Number(config.regular_cwags_fee || 0);
-      const totalFixedCosts =
-        Number(config.hall_rental || 0) + Number(config.ribbons || 0) +
-        Number(config.insurance || 0) + Number(config.other_fixed_costs || 0) + cwagsExpense;
-      const regularNetPerRun =
-        Number(config.regular_entry_fee || 0) - Number(config.regular_cwags_fee || 0) - Number(config.regular_judge_fee || 0);
-      const feoNetPerRun = Number(config.feo_entry_fee || 0) - Number(config.feo_judge_fee || 0);
-      const waivedJudgeCosts =
-        totalWaivedRegular * Number(config.regular_judge_fee || 0) +
-        totalWaivedFeo * Number(config.feo_judge_fee || 0);
+      const runSummary = summarizeRunAccounting(competitors);
+      const totalPaidRuns = runSummary.paidRegularRuns;
+      const totalFeoRuns = runSummary.paidFeoRuns;
+      const totalWaivedRegular = runSummary.waivedRegularRuns;
+      const totalWaivedFeo = runSummary.waivedFeoRuns;
+      const regularCwagsFee = Number(config.regular_cwags_fee || 0);
+      const cwagsExpense = calculateWaivedRegularCwagsCost(runSummary, regularCwagsFee);
+      const judgeRuns = new Map<string, number>();
+      rounds.forEach((round) => {
+        const judgeName = round.judge_name?.trim();
+        if (!judgeName) return;
+        const runCount = (selectionsByRound.get(round.id) || []).filter(
+          (selection) =>
+            selection.entry_type?.toLowerCase() !== 'feo' &&
+            isBillableSelection(selection.entry_status)
+        ).length;
+        judgeRuns.set(judgeName, (judgeRuns.get(judgeName) || 0) + runCount);
+      });
+      const totalFixedCosts = expenses.reduce((sum, expense) => {
+        if (expense.paid_to === 'waived') return sum;
+        if (expense.expense_category === 'Judge Fees' && expense.paid_to === 'per_run') {
+          return sum + Number(expense.amount || 0) * (judgeRuns.get(expense.description || '') || 0);
+        }
+        return sum + Number(expense.amount || 0);
+      }, 0);
+      const regularNetPerRun = Number(config.regular_entry_fee || 0) - regularCwagsFee;
+      const feoNetPerRun = Number(config.feo_entry_fee || 0);
       const currentRevenue = totalPaidRuns * regularNetPerRun + totalFeoRuns * feoNetPerRun;
-      const totalAllCosts = totalFixedCosts + waivedJudgeCosts;
+      const totalAllCosts = totalFixedCosts + cwagsExpense;
       const currentNetIncome = currentRevenue - totalAllCosts;
-      const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
+      const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalAllCosts / regularNetPerRun) : 0;
       breakEvenAnalysis = {
         totalFixedCosts, cwagsExpense, regularNetPerRun, feoNetPerRun, totalPaidRuns,
-        totalFeoRuns, totalWaivedRegular, totalWaivedFeo, totalWaivedCosts: waivedJudgeCosts,
+        totalFeoRuns, totalWaivedRegular, totalWaivedFeo, totalWaivedCosts: cwagsExpense,
         currentRevenue, totalAllCosts, currentNetIncome, breakEvenRuns,
         paidRunsNeeded: Math.max(0, breakEvenRuns - totalPaidRuns),
+        isConfigured:
+          Number(config.regular_entry_fee || 0) > 0 && regularCwagsFee > 0,
         isProfitable: currentNetIncome >= 0,
         progressPercent: breakEvenRuns > 0 ? Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100)) : 100,
       };

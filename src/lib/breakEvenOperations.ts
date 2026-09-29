@@ -17,11 +17,6 @@ export interface BreakEvenConfig {
   regular_judge_fee: number;
   feo_entry_fee: number;
   feo_judge_fee: number;
-  waived_entry_fee: number;
-  waived_cwags_fee: number;
-  waived_judge_fee: number;
-  waived_feo_entry_fee: number;
-  waived_feo_judge_fee: number;
   judge_volunteer_rate: number;
   feo_volunteer_rate: number;
   created_at?: string;
@@ -79,11 +74,12 @@ export const breakEvenOperations = {
             regular_judge_fee: config.regular_judge_fee,
             feo_entry_fee: config.feo_entry_fee,
             feo_judge_fee: config.feo_judge_fee,
-            waived_entry_fee: config.waived_entry_fee,
-            waived_cwags_fee: config.waived_cwags_fee,
-            waived_judge_fee: config.waived_judge_fee,
-            waived_feo_entry_fee: config.waived_feo_entry_fee,
-            waived_feo_judge_fee: config.waived_feo_judge_fee,
+            // Clear retired estimate fields. Actual waived runs now come from entries.
+            waived_entry_fee: 0,
+            waived_cwags_fee: 0,
+            waived_judge_fee: 0,
+            waived_feo_entry_fee: 0,
+            waived_feo_judge_fee: 0,
             judge_volunteer_rate: config.judge_volunteer_rate,
             feo_volunteer_rate: config.feo_volunteer_rate,
             updated_at: new Date().toISOString(),
@@ -110,11 +106,12 @@ export const breakEvenOperations = {
               regular_judge_fee: config.regular_judge_fee,
               feo_entry_fee: config.feo_entry_fee,
               feo_judge_fee: config.feo_judge_fee,
-              waived_entry_fee: config.waived_entry_fee,
-              waived_cwags_fee: config.waived_cwags_fee,
-              waived_judge_fee: config.waived_judge_fee,
-              waived_feo_entry_fee: config.waived_feo_entry_fee,
-              waived_feo_judge_fee: config.waived_feo_judge_fee,
+              // Required legacy columns are initialized but never used as estimates.
+              waived_entry_fee: 0,
+              waived_cwags_fee: 0,
+              waived_judge_fee: 0,
+              waived_feo_entry_fee: 0,
+              waived_feo_judge_fee: 0,
               judge_volunteer_rate: config.judge_volunteer_rate,
               feo_volunteer_rate: config.feo_volunteer_rate,
             },

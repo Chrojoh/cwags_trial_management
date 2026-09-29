@@ -4311,17 +4311,35 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
               {exportType === 'score-sheets' && (
                 <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
                   <Label>Score sheet layout</Label>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <div
+                    className="mt-2 inline-flex max-w-full gap-1 rounded-md border-2 border-[#5C3B2E] bg-white p-1"
+                    role="group"
+                    aria-label="Exported score sheet layout"
+                  >
                     <Button
                       type="button"
-                      variant={scoreSheetExportLayout === 'paired' ? 'default' : 'outline'}
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={scoreSheetExportLayout === 'paired'}
+                      className={`h-8 px-3 text-xs font-semibold ${
+                        scoreSheetExportLayout === 'paired'
+                          ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                          : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                      }`}
                       onClick={() => setScoreSheetExportLayout('paired')}
                     >
                       2 Rounds per Sheet
                     </Button>
                     <Button
                       type="button"
-                      variant={scoreSheetExportLayout === 'single' ? 'default' : 'outline'}
+                      size="sm"
+                      variant="ghost"
+                      aria-pressed={scoreSheetExportLayout === 'single'}
+                      className={`h-8 px-3 text-xs font-semibold ${
+                        scoreSheetExportLayout === 'single'
+                          ? 'bg-[#5C3B2E] text-white shadow-sm hover:bg-[#4A3026] hover:text-white'
+                          : 'text-[#5C3B2E] hover:bg-orange-100 hover:text-[#5C3B2E]'
+                      }`}
                       onClick={() => setScoreSheetExportLayout('single')}
                     >
                       1 Round per Sheet

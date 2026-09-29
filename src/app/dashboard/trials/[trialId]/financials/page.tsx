@@ -50,6 +50,11 @@ import {
 import { breakEvenOperations, type BreakEvenConfig } from '@/lib/breakEvenOperations';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { dateOnlyValue, formatDateOnly, localDateOnly } from '@/lib/dateOnly';
+import {
+  calculateNetWaivedAmount,
+  calculateWaivedRegularCwagsCost,
+  summarizeRunAccounting,
+} from '@/lib/waivedRunAccounting';
 
 const supabase = getSupabaseBrowser();
 
@@ -117,11 +122,6 @@ export default function TrialFinancialsPage() {
     regular_judge_fee: 0,
     feo_entry_fee: 0,
     feo_judge_fee: 0,
-    waived_entry_fee: 0,
-    waived_cwags_fee: 0,
-    waived_judge_fee: 0,
-    waived_feo_entry_fee: 0,
-    waived_feo_judge_fee: 0,
     judge_volunteer_rate: 0,
     feo_volunteer_rate: 0,
   });
@@ -623,8 +623,7 @@ export default function TrialFinancialsPage() {
       // comp.amount_paid = grossPayments - refunds (net)
 
       const grossWaivedValue = comp.waived_amount || 0;
-      const paymentTowardWaived = Math.max(0, comp.amount_paid - comp.amount_owed);
-      const waivedNet = Math.max(0, grossWaivedValue - paymentTowardWaived);
+      const waivedNet = calculateNetWaivedAmount(comp);
       // Opening must use full grossWaivedValue (not waivedNet) so the formula
       // opening - payments + refunds - waivedNet correctly zeroes out when
       // there is a partial payment before waiving (e.g. paid $50, waived $50 → 100-50-50=0)
@@ -864,29 +863,37 @@ export default function TrialFinancialsPage() {
   };
 
   const exportBreakEvenAnalysis = () => {
-    // Calculate totals
-    const totalFixedCosts = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const totalFixedCosts = expenses.reduce((sum, expense) => {
+      if (expense.paid_to === 'waived') return sum;
+      if (expense.expense_category === 'Judge Fees' && expense.paid_to === 'per_run') {
+        const runs =
+          trialJudges.find((judge) => judge.name === expense.description)?.runsJudged || 0;
+        return sum + (expense.amount || 0) * runs;
+      }
+      return sum + (expense.amount || 0);
+    }, 0);
 
     const regularNetPerRun =
-      breakEvenData.regular_entry_fee -
-      breakEvenData.regular_cwags_fee -
-      breakEvenData.regular_judge_fee;
+      breakEvenData.regular_entry_fee - breakEvenData.regular_cwags_fee;
 
-    const feoNetPerRun = breakEvenData.feo_entry_fee - breakEvenData.feo_judge_fee;
+    const feoNetPerRun = breakEvenData.feo_entry_fee;
 
     // Calculate current status
-    const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
-    const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
-    const totalWaivedRegular = competitors.reduce(
-      (sum, c) => sum + (c.waived_regular_runs || 0),
-      0
+    const runSummary = summarizeRunAccounting(competitors);
+    const totalPaidRuns = runSummary.paidRegularRuns;
+    const totalFeoRuns = runSummary.paidFeoRuns;
+    const totalWaivedRegular = runSummary.waivedRegularRuns;
+    const totalWaivedFeo = runSummary.waivedFeoRuns;
+
+    const waivedCwagsCost = calculateWaivedRegularCwagsCost(
+      runSummary,
+      breakEvenData.regular_cwags_fee
     );
-    const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
-
+    const totalCostsToCover = totalFixedCosts + waivedCwagsCost;
     const currentRevenue = totalPaidRuns * regularNetPerRun + totalFeoRuns * feoNetPerRun;
-    const currentNetIncome = currentRevenue - totalFixedCosts;
+    const currentNetIncome = currentRevenue - totalCostsToCover;
 
-    const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
+    const breakEvenRuns = regularNetPerRun > 0 ? Math.ceil(totalCostsToCover / regularNetPerRun) : 0;
     const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
 
     const analysis = `
@@ -906,22 +913,22 @@ ${expenses
   .join('\n')}
 ───────────────────────────────────────────────────────────
 TOTAL EXPENSES:       $${totalFixedCosts.toFixed(2)}
+Waived-run C-WAGS:    $${waivedCwagsCost.toFixed(2)} (${totalWaivedRegular} actual waived regular runs)
+TOTAL COST TO COVER:  $${totalCostsToCover.toFixed(2)}
 
 ENTRY FEE STRUCTURE
 ───────────────────────────────────────────────────────────
 Regular Entry Fee:    $${breakEvenData.regular_entry_fee.toFixed(2)}
   - C-WAGS Fee:       $${breakEvenData.regular_cwags_fee.toFixed(2)}
-  - Judge Fee:        $${breakEvenData.regular_judge_fee.toFixed(2)}
   NET PER RUN:        $${regularNetPerRun.toFixed(2)}
 
 FEO Entry Fee:        $${breakEvenData.feo_entry_fee.toFixed(2)}
-  - Judge Fee:        $${breakEvenData.feo_judge_fee.toFixed(2)}
   NET PER RUN:        $${feoNetPerRun.toFixed(2)}
 
 BREAK-EVEN CALCULATION
 ───────────────────────────────────────────────────────────
 Runs needed:          ${breakEvenRuns} regular paid runs
-At $${regularNetPerRun.toFixed(2)}/run to cover $${totalFixedCosts.toFixed(2)} in costs
+At $${regularNetPerRun.toFixed(2)}/run to cover $${totalCostsToCover.toFixed(2)} in costs
 
 CURRENT STATUS
 ───────────────────────────────────────────────────────────
@@ -958,10 +965,7 @@ End of Report
     URL.revokeObjectURL(url);
   };
   // Auto-calculate C-WAGS fee across ALL regular runs (paid + waived)
-  const allRegularRuns = competitors.reduce(
-    (sum, c) => sum + (c.regular_runs || 0) + (c.waived_regular_runs || 0),
-    0
-  );
+  const allRegularRuns = summarizeRunAccounting(competitors).allRegularRuns;
   const cwagsFeeTotal = allRegularRuns * (breakEvenData.regular_cwags_fee || 0);
   // Calculate totals //
   const totals = {
@@ -990,13 +994,9 @@ End of Report
       return sum + balance; // ✅ CORRECT - includes negative balances (refunds)
     }, 0),
     totalFeesWaived: competitors.reduce((sum, c) => {
-      if (!c.fees_waived) return sum;
+      if (!c.has_waived_entries && !c.fees_waived) return sum;
       // Gross retail value of all runs that were on waived entries
-      const grossWaivedValue = c.waived_amount || 0;
-      // How much of their payments went toward the waived entries
-      // (payments first cover non-waived amount_owed, excess goes to waived portion)
-      const paymentTowardWaived = Math.max(0, c.amount_paid - c.amount_owed);
-      return sum + Math.max(0, grossWaivedValue - paymentTowardWaived);
+      return sum + calculateNetWaivedAmount(c);
     }, 0),
     netIncome: 0, // calculated below
   };
@@ -1918,71 +1918,7 @@ End of Report
               </CardContent>
             </Card>
 
-            {/* Section 3 — Estimated Waived Runs */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Estimated Waived Runs</CardTitle>
-                <CardDescription>
-                  Enter how many runs you expect to waive (judges, volunteers, etc.). These runs
-                  cost you C-WAGS fees but bring in no entry fee revenue, so they increase how many
-                  paid runs you need to break even.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label>Estimated Number of Waived Regular Runs</Label>
-                    <p className="text-xs text-gray-500 mb-1">
-                      Enter the number of runs only. The program calculates the dollar values using
-                      the regular entry fee and C-WAGS fee entered above.
-                    </p>
-                    <Input
-                      type="number"
-                      step="1"
-                      min="0"
-                      value={breakEvenData.waived_entry_fee || 0}
-                      onChange={(e) =>
-                        setBreakEvenData({
-                          ...breakEvenData,
-                          waived_entry_fee: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      placeholder="e.g. 10"
-                    />
-                    {(breakEvenData.waived_entry_fee || 0) > 0 && (
-                      <div className="mt-2 space-y-1 text-xs">
-                        <p className="text-gray-700">
-                          Entry fees waived:{' '}
-                          <strong>
-                            $
-                            {(
-                              (breakEvenData.waived_entry_fee || 0) *
-                              breakEvenData.regular_entry_fee
-                            ).toFixed(2)}
-                          </strong>{' '}
-                          ({breakEvenData.waived_entry_fee || 0} runs × $
-                          {breakEvenData.regular_entry_fee.toFixed(2)})
-                        </p>
-                        <p className="text-red-600">
-                          C-WAGS fees still owed:{' '}
-                          <strong>
-                            $
-                            {(
-                              (breakEvenData.waived_entry_fee || 0) *
-                              breakEvenData.regular_cwags_fee
-                            ).toFixed(2)}
-                          </strong>{' '}
-                          ({breakEvenData.waived_entry_fee || 0} runs × $
-                          {breakEvenData.regular_cwags_fee.toFixed(2)})
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Section 4 — Break-Even Results */}
+            {/* Section 3 — Break-Even Results */}
             <Card className="border-orange-300">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -2004,17 +1940,18 @@ End of Report
                     return sum + (e.amount || 0);
                   }, 0);
 
-                  const estimatedWaived = breakEvenData.waived_entry_fee || 0;
-                  const waivedBurden = estimatedWaived * breakEvenData.regular_cwags_fee;
+                  const runSummary = summarizeRunAccounting(competitors);
+                  const actualWaivedRegularRuns = runSummary.waivedRegularRuns;
+                  const waivedBurden = calculateWaivedRegularCwagsCost(
+                    runSummary,
+                    breakEvenData.regular_cwags_fee
+                  );
                   const totalTocover = fixedCosts + waivedBurden;
                   const netPerRun =
                     breakEvenData.regular_entry_fee - breakEvenData.regular_cwags_fee;
                   const breakEvenRuns = netPerRun > 0 ? Math.ceil(totalTocover / netPerRun) : 0;
 
-                  const totalPaidRuns = competitors.reduce(
-                    (sum, c) => sum + (c.regular_runs || 0),
-                    0
-                  );
+                  const totalPaidRuns = runSummary.paidRegularRuns;
                   const currentRevenue = totalPaidRuns * netPerRun;
                   const currentNetIncome = currentRevenue - totalTocover;
                   const isConfigured =
@@ -2032,7 +1969,7 @@ End of Report
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">
-                            + Waived Burden ({estimatedWaived} runs × $
+                            + C-WAGS Fee on Waived Regular Runs ({actualWaivedRegularRuns} runs × $
                             {breakEvenData.regular_cwags_fee.toFixed(2)}):
                           </span>
                           <span className="text-red-600">+${waivedBurden.toFixed(2)}</span>
@@ -2040,6 +1977,10 @@ End of Report
                         <div className="flex justify-between border-t pt-2 font-bold">
                           <span>= Total to Cover:</span>
                           <span>${totalTocover.toFixed(2)}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 font-sans">
+                          Waived runs are counted automatically from accepted entries. FEO runs are
+                          not charged a C-WAGS fee.
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">

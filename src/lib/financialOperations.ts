@@ -61,8 +61,8 @@ export interface CompetitorFinancial {
   }>;
   regular_runs: number;
   feo_runs: number;
-  waived_regular_runs: number; // ADD THIS
-  waived_feo_runs: number; // ADD THIS
+  waived_regular_runs: number;
+  waived_feo_runs: number;
   amount_owed: number;
   quoted_fee?: number;
   quoted_regular_runs?: number;
@@ -255,15 +255,20 @@ export const financialOperations = {
         }
 
         // Count runs separately for paid vs waived
-        const regularRuns = activeSelections.filter((s: any) => s.entry_type === 'regular').length;
-        const feoRuns = activeSelections.filter((s: any) => s.entry_type === 'feo').length;
+        const regularRuns = activeSelections.filter(
+          (selection: any) => String(selection.entry_type || '').toLowerCase() === 'regular'
+        ).length;
+        const feoRuns = activeSelections.filter(
+          (selection: any) => String(selection.entry_type || '').toLowerCase() === 'feo'
+        ).length;
         const waitlistedRuns = selections.filter(
           (s: any) => String(s.entry_status || '').toLowerCase() === 'waitlisted'
         ).length;
         const calculatedOwed = calculateSelectionFees(selections);
         const awaitingAcceptance = entry.entry_status === 'submitted';
 
-        // CRITICAL: Track waived runs separately from paid runs
+        // Track accepted waived runs separately so financial reporting can apply
+        // the C-WAGS charge to regular runs without treating them as entry revenue.
         if (awaitingAcceptance) {
           ownerGroups[ownerId].quoted_regular_runs += regularRuns;
           ownerGroups[ownerId].quoted_feo_runs += feoRuns;

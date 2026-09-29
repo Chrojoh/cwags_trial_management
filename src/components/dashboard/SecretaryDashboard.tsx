@@ -352,92 +352,6 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
       // Get unique judges assigned
       const uniqueJudges = new Set(roundsWithJudges.map((r) => r.judge_name)).size;
 
-      // Load break-even analysis (full analysis like financials page)
-      const { data: breakEvenConfig } = canManageFinancials
-        ? await supabase
-            .from('trial_break_even_config')
-            .select('*')
-            .eq('trial_id', trialId)
-            .single()
-        : { data: null };
-
-      let breakEvenAnalysis = null;
-
-      if (breakEvenConfig) {
-        // Calculate current status (RUNS not ENTRIES!)
-        const totalPaidRuns = competitors.reduce((sum, c) => sum + (c.regular_runs || 0), 0);
-        const totalFeoRuns = competitors.reduce((sum, c) => sum + (c.feo_runs || 0), 0);
-        const totalWaivedRegular = competitors.reduce(
-          (sum, c) => sum + (c.waived_regular_runs || 0),
-          0
-        );
-        const totalWaivedFeo = competitors.reduce((sum, c) => sum + (c.waived_feo_runs || 0), 0);
-
-        // Calculate total regular runs (both paid and waived - ALL are charged C-WAGS fee)
-        const totalRegularRuns = totalPaidRuns + totalWaivedRegular;
-
-        // C-WAGS fees are charged on ALL regular runs (paid and waived)
-        const cwagsExpense = totalRegularRuns * breakEvenConfig.regular_cwags_fee;
-
-        // Calculate fixed costs INCLUDING C-WAGS fees
-        const totalFixedCosts =
-          breakEvenConfig.hall_rental +
-          breakEvenConfig.ribbons +
-          breakEvenConfig.insurance +
-          breakEvenConfig.other_fixed_costs +
-          cwagsExpense; // ← C-WAGS is a fixed cost based on total runs
-
-        // Calculate net per run
-        const regularNetPerRun =
-          breakEvenConfig.regular_entry_fee -
-          breakEvenConfig.regular_cwags_fee -
-          breakEvenConfig.regular_judge_fee;
-
-        const feoNetPerRun = breakEvenConfig.feo_entry_fee - breakEvenConfig.feo_judge_fee;
-
-        // Calculate waived run costs (only judge fees, C-WAGS already in fixed costs)
-        const waivedJudgeCosts =
-          totalWaivedRegular * breakEvenConfig.regular_judge_fee +
-          totalWaivedFeo * breakEvenConfig.feo_judge_fee;
-
-        // Calculate revenue and costs
-        const currentRevenue = totalPaidRuns * regularNetPerRun + totalFeoRuns * feoNetPerRun;
-        const totalAllCosts = totalFixedCosts + waivedJudgeCosts;
-        const currentNetIncome = currentRevenue - totalAllCosts;
-
-        // Calculate break-even point
-        const breakEvenRuns =
-          regularNetPerRun > 0 ? Math.ceil(totalFixedCosts / regularNetPerRun) : 0;
-        const paidRunsNeeded = Math.max(0, breakEvenRuns - totalPaidRuns);
-
-        const isConfigured =
-          Number(breakEvenConfig.regular_entry_fee) > 0 &&
-          Number(breakEvenConfig.regular_cwags_fee) > 0;
-
-        breakEvenAnalysis = {
-          totalFixedCosts,
-          cwagsExpense, // Track C-WAGS separately for display
-          regularNetPerRun,
-          feoNetPerRun,
-          totalPaidRuns,
-          totalFeoRuns,
-          totalWaivedRegular,
-          totalWaivedFeo,
-          totalWaivedCosts: waivedJudgeCosts,
-          currentRevenue,
-          totalAllCosts,
-          currentNetIncome,
-          breakEvenRuns,
-          paidRunsNeeded,
-          isConfigured,
-          isProfitable: isConfigured && currentNetIncome >= 0,
-          progressPercent:
-            breakEvenRuns > 0
-              ? Math.min(100, Math.round((totalPaidRuns / breakEvenRuns) * 100))
-              : 100,
-        };
-      }
-
       setMetrics({
         totalEntries,
         pendingPayment,
@@ -456,7 +370,9 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
           total: totalRounds,
           assigned: uniqueJudges,
         },
-        breakEvenAnalysis,
+        // Financial metrics are returned by the authorized server route above.
+        // Assistants intentionally receive no financial break-even data.
+        breakEvenAnalysis: null,
       });
 
       // Generate action items and outstanding entries list
@@ -1310,12 +1226,13 @@ export default function SecretaryDashboard({ userTrials, userId }: SecretaryDash
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white p-3 rounded">
-                      <div className="text-xs text-gray-600">Fixed Costs</div>
+                      <div className="text-xs text-gray-600">Costs to Cover</div>
                       <div className="text-lg font-bold text-red-600">
                         ${metrics.breakEvenAnalysis.totalFixedCosts.toFixed(2)}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Includes ${metrics.breakEvenAnalysis.cwagsExpense.toFixed(2)} C-WAGS fees
+                        Includes ${metrics.breakEvenAnalysis.cwagsExpense.toFixed(2)} for actual
+                        waived regular-run C-WAGS fees
                       </div>
                     </div>
                     <div className="bg-white p-3 rounded">
