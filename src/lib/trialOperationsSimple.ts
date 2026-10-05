@@ -5,6 +5,7 @@ import { isBillableSelection, isRunningOrderSelection } from '@/lib/selectionSta
 import { calculatePassRate, isAbsentResult, isFailingResult, isPassingResult } from '@/lib/resultMetrics';
 import { fetchAllPages } from '@/lib/supabasePagination';
 import { compareDateOnly } from '@/lib/dateOnly';
+import { validateTrialRoundSequence } from '@/lib/trialRoundSequence';
 const supabase = getSupabaseBrowser();
 export interface TrialData {
   id?: string;
@@ -37,6 +38,7 @@ export interface TrialDay {
   trial_id: string;
   day_number: number;
   trial_date: string;
+  start_time?: string | null;
   day_status: string;
   notes: string | null;
   is_accepting_entries?: boolean;
@@ -495,6 +497,7 @@ export const simpleTrialOperations = {
         trial_id: trialId,
         day_number: index + 1,
         trial_date: day.trial_date,
+        start_time: day.start_time || null,
         day_status: day.day_status,
         notes: day.notes,
         created_at: new Date().toISOString(),
@@ -787,6 +790,11 @@ export const simpleTrialOperations = {
         return { success: true, data: [] };
       }
 
+      const sequence = validateTrialRoundSequence(rounds || []);
+      if (!sequence.valid) {
+        return { success: false, error: sequence.message || 'Round numbers are invalid.' };
+      }
+
       // Prepare new rounds data with validation
       const newRounds = rounds.map((round, index) => {
         // Reset rounds (.5) only require a judge if one was assigned
@@ -795,6 +803,7 @@ export const simpleTrialOperations = {
         }
 
         return {
+          id: round.id as string | undefined,
           round_number: round.round_number || index + 1,
           judge_name: round.judge_name.trim(),
           judge_email: round.judge_email?.trim() || '',
@@ -811,12 +820,49 @@ export const simpleTrialOperations = {
         };
       });
 
+      // Preflight every destructive/identity-changing operation before making any update.
+      const incomingIds = new Set(
+        newRounds.map((round) => round.id).filter((id): id is string => Boolean(id))
+      );
+      const roundsToDelete = incomingIds.size > 0
+        ? existingRounds?.filter((round) => !incomingIds.has(round.id))
+        : existingRounds?.filter(
+            (round) => !newRounds.some((incoming) => incoming.round_number === round.round_number)
+          );
+      const roundsWithEntries = roundsToDelete?.filter(
+        (round) => round.entry_selections && round.entry_selections.length > 0
+      ) || [];
+      if (roundsWithEntries.length > 0) {
+        const roundNumbers = roundsWithEntries.map((round) => round.round_number).join(', ');
+        return {
+          success: false,
+          error: `Cannot delete or renumber Round ${roundNumbers} because it has entries. Remove or move those entries first.`,
+        };
+      }
+
+      const renumberedIds = newRounds.filter((incoming) => {
+        if (!incoming.id) return false;
+        const existing = existingRounds?.find((round) => round.id === incoming.id);
+        return existing && existing.round_number !== incoming.round_number;
+      });
+      const anyExistingEntries = existingRounds?.some(
+        (round) => round.entry_selections && round.entry_selections.length > 0
+      );
+      if (renumberedIds.length > 0 && anyExistingEntries) {
+        return {
+          success: false,
+          error: 'Rounds with existing entries cannot be renumbered. Remove or move the entries before changing the round sequence.',
+        };
+      }
+
       const results = [];
 
       // Process each new round
       for (const newRound of newRounds) {
-        // Find existing round with same round number
-        const existingRound = existingRounds?.find((r) => r.round_number === newRound.round_number);
+        // Prefer stable row identity. Number matching remains for older unsaved payloads.
+        const existingRound = newRound.id
+          ? existingRounds?.find((round) => round.id === newRound.id)
+          : existingRounds?.find((round) => round.round_number === newRound.round_number);
 
         if (existingRound) {
           // UPDATE existing round (preserves entries)
@@ -825,6 +871,7 @@ export const simpleTrialOperations = {
           const { data: updatedRound, error: updateError } = await supabase
             .from('trial_rounds')
             .update({
+              round_number: newRound.round_number,
               judge_name: newRound.judge_name,
               judge_email: newRound.judge_email,
               feo_available: newRound.feo_available,
@@ -859,7 +906,19 @@ export const simpleTrialOperations = {
             .from('trial_rounds')
             .insert({
               trial_class_id: trialClassId,
-              ...newRound,
+              round_number: newRound.round_number,
+              judge_name: newRound.judge_name,
+              judge_email: newRound.judge_email,
+              feo_available: newRound.feo_available,
+              round_status: newRound.round_status,
+              start_time: newRound.start_time,
+              estimated_duration: newRound.estimated_duration,
+              max_entries: newRound.max_entries,
+              has_reset: newRound.has_reset,
+              reset_judge_name: newRound.reset_judge_name,
+              reset_judge_email: newRound.reset_judge_email,
+              notes: newRound.notes,
+              is_reset: newRound.is_reset,
               created_at: new Date().toISOString(),
             })
             .select()
@@ -877,28 +936,7 @@ export const simpleTrialOperations = {
         }
       }
 
-      // Handle extra existing rounds (if fewer rounds provided than existed)
-      const newRoundNumbers = newRounds.map((r) => r.round_number);
-      const roundsToDelete = existingRounds?.filter(
-        (r) => !newRoundNumbers.includes(r.round_number)
-      );
-
       if (roundsToDelete && roundsToDelete.length > 0) {
-        // Check if any rounds to delete have entries
-        const roundsWithEntries = roundsToDelete.filter(
-          (r) => r.entry_selections && r.entry_selections.length > 0
-        );
-
-        if (roundsWithEntries.length > 0) {
-          console.error('Cannot delete rounds with existing entries');
-          const roundNumbers = roundsWithEntries.map((r) => r.round_number).join(', ');
-          return {
-            success: false,
-            error: `Cannot delete rounds ${roundNumbers} because they have entries. Please move or delete the entries first.`,
-          };
-        }
-
-        // Safe to delete rounds without entries
         const idsToDelete = roundsToDelete.map((r) => r.id);
         const { error: deleteError } = await supabase
           .from('trial_rounds')
@@ -911,6 +949,51 @@ export const simpleTrialOperations = {
         }
 
         console.log(`Successfully deleted ${roundsToDelete.length} unused rounds`);
+      }
+
+      const beforeSnapshot = (existingRounds || []).map((round) => ({
+        id: round.id,
+        round_number: round.round_number,
+        judge_name: round.judge_name,
+        is_reset: Boolean(round.is_reset),
+      })).sort((a, b) => Number(a.round_number) - Number(b.round_number));
+      const afterSnapshot = results.map((round) => ({
+        id: round.id,
+        round_number: round.round_number,
+        judge_name: round.judge_name,
+        is_reset: Boolean(round.is_reset),
+      })).sort((a, b) => Number(a.round_number) - Number(b.round_number));
+      if (JSON.stringify(beforeSnapshot) !== JSON.stringify(afterSnapshot)) {
+        const { data: classContext } = await supabase
+          .from('trial_classes')
+          .select('class_name,trial_days!inner(trial_id,day_number)')
+          .eq('id', trialClassId)
+          .single();
+        const { data: authData } = await supabase.auth.getUser();
+        const user = authData.user;
+        const { data: profile } = user
+          ? await supabase.from('users').select('first_name,last_name,email').eq('id', user.id).maybeSingle()
+          : { data: null };
+        const trialDay = Array.isArray(classContext?.trial_days)
+          ? classContext.trial_days[0]
+          : classContext?.trial_days;
+        if (trialDay?.trial_id) {
+          const userName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim()
+            || profile?.email || user?.email || 'Authenticated user';
+          const { error: journalError } = await supabase.from('trial_activity_log').insert({
+            trial_id: trialDay.trial_id,
+            activity_type: 'round_configuration_changed',
+            user_id: user?.id || null,
+            user_name: userName,
+            snapshot_data: {
+              class_name: classContext?.class_name || 'Unknown class',
+              day_number: trialDay.day_number,
+              before: beforeSnapshot,
+              after: afterSnapshot,
+            },
+          });
+          if (journalError) console.error('Failed to journal round configuration change:', journalError);
+        }
       }
 
       console.log(`Successfully processed ${results.length} rounds for class ${trialClassId}`);

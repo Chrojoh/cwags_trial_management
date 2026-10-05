@@ -17,6 +17,12 @@ const formatDate = (value: string) => {
     year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
   });
 };
+const formatClockTime = (value: string) => {
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return value;
+  const hour = Number(match[1]);
+  return `${hour % 12 || 12}:${match[2]} ${hour >= 12 ? 'PM' : 'AM'}`;
+};
 
 function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
   const words = clean(text).split(/\s+/).filter(Boolean);
@@ -140,8 +146,8 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
   const feoWidth = 68;
   const rowHeight = 34;
   const tableWidth = classWidth + judgeWidth + regularWidth + feoWidth;
-  const drawDayHeading = (dayNumber: number, date: string) => {
-    const label = `Day ${dayNumber} - ${formatDate(date)}`;
+  const drawDayHeading = (dayNumber: number, date: string, startTime?: string | null) => {
+    const label = `Day ${dayNumber} - ${formatDate(date)}${startTime ? ` - Starts ${formatClockTime(startTime)}` : ''}`;
     page.drawRectangle({ x: margin, y: y - 28, width: tableWidth, height: 28, color: accent });
     page.drawText(label, { x: margin + 10, y: y - 19, size: 11, font: bold, color: rgb(1, 1, 1) });
     y -= 34;
@@ -196,13 +202,13 @@ export async function createTrialPaperEntryPdf(model: TrialPremiumModel): Promis
           y -= 7;
         }
       }
-      drawDayHeading(selection.dayNumber, selection.date);
+      drawDayHeading(selection.dayNumber, selection.date, selection.dayStartTime);
       drawTableHeader();
       activeDayKey = dayKey;
     }
     if (y - rowHeight < 120) {
       addPage(`Printable Paper Entry Form - Day ${selection.dayNumber} (continued)`);
-      drawDayHeading(selection.dayNumber, selection.date);
+      drawDayHeading(selection.dayNumber, selection.date, selection.dayStartTime);
       drawTableHeader();
     }
     drawSelectionRow(selection);

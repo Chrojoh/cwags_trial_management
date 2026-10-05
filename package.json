@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:judge-selector": "tsx --test src/lib/judgeSelector.test.ts",
     "test:trial-application": "tsx --test src/lib/trialApplication/trialApplication.test.ts",
+    "test:trial-rounds": "tsx --test src/lib/trialRoundSequence.test.ts",
     "test:trial-permissions": "tsx --test src/lib/trialPermissions.test.ts",
     "test:ringside": "tsx --test src/lib/ringside/*.test.ts",
     "test:judge-insert": "tsx src/scripts/testJudgeInsert.ts",

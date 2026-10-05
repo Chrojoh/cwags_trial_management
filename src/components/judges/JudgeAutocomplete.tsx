@@ -104,9 +104,19 @@ export default function JudgeAutocomplete({
               </div>
             )}
           </div>
-          <button type="button" onClick={clearSelection} aria-label="Change judge" className="rounded p-1 hover:bg-gray-100">
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="max-w-40 text-right text-xs leading-tight text-gray-600">
+              To change the judge, select the × button.
+            </span>
+            <button
+              type="button"
+              onClick={clearSelection}
+              aria-label="Clear this judge and choose another"
+              className="rounded p-1 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <X className="h-5 w-5 text-gray-600" />
+            </button>
+          </div>
         </div>
       ) : (
         <div className="relative">

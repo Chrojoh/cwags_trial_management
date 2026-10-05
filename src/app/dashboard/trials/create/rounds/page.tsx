@@ -39,6 +39,7 @@ import { getClassOrder } from '@/lib/cwagsClassNames';
 import JudgeAutocomplete from '@/components/judges/JudgeAutocomplete';
 import type { Judge } from '@/types/judge';
 import { getJudgeAssignmentStatus, getQualifiedJudges } from '@/lib/judgeSelector';
+import { renumberTrialRounds, validateTrialRoundSequence } from '@/lib/trialRoundSequence';
 
 interface TrialClass {
   id: string;
@@ -431,32 +432,7 @@ function CreateRoundsPageContent() {
         return true;
       });
 
-      // Renumber: give main rounds 1, 2, 3... and keep track of old→new mapping
-      const oldToNew: Record<number, number> = {};
-      let counter = 0;
-      const renumbered = filtered.map((round) => {
-        if (!round.is_reset) {
-          const oldNum = round.round_number;
-          counter++;
-          oldToNew[oldNum] = counter;
-          return { ...round, round_number: counter };
-        }
-        return round; // reset rounds fixed below
-      });
-
-      // Fix reset round numbers to stay attached to their parent's new number
-      const finalRounds = renumbered.map((round) => {
-        if (round.is_reset) {
-          const oldParentNum = Math.floor(round.round_number);
-          const newParentNum = oldToNew[oldParentNum];
-          if (newParentNum !== undefined) {
-            return { ...round, round_number: newParentNum + 0.5 };
-          }
-        }
-        return round;
-      });
-
-      return { ...prev, [classId]: finalRounds };
+      return { ...prev, [classId]: renumberTrialRounds(filtered) };
     });
   };
 
@@ -485,32 +461,16 @@ function CreateRoundsPageContent() {
     return 'This judge record is no longer available';
   };
 
-  const validateAssignedJudgesOnly = (): boolean => {
-    if (isReadOnlyHistoricalTrial()) return true;
-    const newErrors: { [key: string]: string } = {};
-
-    Object.entries(rounds).forEach(([classId, classRounds]) => {
-      const className = trialClasses.find((trialClass) => trialClass.id === classId)?.class_name || '';
-      classRounds.forEach((round, idx) => {
-        if (round.judge_name && round.judge_name !== 'TBA') {
-          const status = getJudgeAssignmentStatus(
-            findAssignedJudge(round.judge_name, round.judge_email),
-            className
-          );
-          if (status !== 'valid') newErrors[`${classId}-${idx}-judge`] = assignmentError(status);
-        }
-      });
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const validateRounds = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     let isValid = true;
 
     Object.entries(rounds).forEach(([classId, classRounds]) => {
+      const sequence = validateTrialRoundSequence(classRounds);
+      if (!sequence.valid) {
+        newErrors[`${classId}-sequence`] = sequence.message || 'Round numbers are invalid.';
+        isValid = false;
+      }
       classRounds.forEach((round, idx) => {
         const className = trialClasses.find((trialClass) => trialClass.id === classId)?.class_name || '';
         if (!round.judge_name) {
@@ -532,26 +492,16 @@ function CreateRoundsPageContent() {
   };
 
   const handleSaveProgress = async () => {
-    if (!validateAssignedJudgesOnly()) {
-      alert('Choose a currently active, exactly certified judge before saving this future trial.');
+    if (!validateRounds()) {
+      alert('Please fix the highlighted round or judge errors before saving progress.');
       return;
     }
     setLoading(true);
     try {
       let savedCount = 0;
-      let skippedCount = 0;
 
       for (const [classId, classRounds] of Object.entries(rounds)) {
-        // Only save rounds that have at least a judge assigned
-        const completeRounds = classRounds.filter((round) => round.judge_name);
-
-        if (completeRounds.length === 0) {
-          console.log(`Skipping class ${classId} - no judges assigned yet`);
-          skippedCount++;
-          continue;
-        }
-
-        const roundsData = completeRounds.map((round) => ({
+        const roundsData = classRounds.map((round) => ({
           id: round.id,
           round_number: round.round_number,
           judge_name: round.judge_name,
@@ -583,7 +533,7 @@ function CreateRoundsPageContent() {
 
       const message =
         savedCount > 0
-          ? `Saved ${savedCount} class(es) successfully!${skippedCount > 0 ? ` Skipped ${skippedCount} class(es) without judges.` : ''}`
+          ? `Saved ${savedCount} class(es) successfully!`
           : 'No rounds with judges assigned to save yet. Assign at least one judge to save progress.';
 
       alert(message);
@@ -720,6 +670,13 @@ function CreateRoundsPageContent() {
 
   const selectedClass = trialClasses.find((c) => c.id === selectedClassId);
   const selectedClassRounds = selectedClassId ? rounds[selectedClassId] || [] : [];
+  const sequenceIssues = Object.entries(rounds).flatMap(([classId, classRounds]) => {
+    const result = validateTrialRoundSequence(classRounds);
+    if (result.valid) return [];
+    const trialClass = trialClasses.find((item) => item.id === classId);
+    const day = trialClass?.trial_days?.day_number;
+    return [`${day ? `Day ${day}, ` : ''}${trialClass?.class_name || 'Unknown class'}: ${result.message}`];
+  });
 
   // NEW: Filter classes by selected day
   const dayClasses = trialClasses.filter((c) => c.trial_day_id === selectedDayId);
@@ -732,6 +689,16 @@ function CreateRoundsPageContent() {
       breadcrumbItems={breadcrumbItems}
     >
       <div className="max-w-6xl mx-auto space-y-6">
+        {sequenceIssues.length > 0 && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <strong>Round numbering must be repaired before saving.</strong>
+              <ul className="mt-2 list-disc pl-5">
+                {sequenceIssues.map((issue) => <li key={issue}>{issue}</li>)}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
         {isEditMode && (
           <Card className="bg-orange-50 border-orange-200">
             <CardHeader>

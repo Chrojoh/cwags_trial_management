@@ -63,6 +63,7 @@ export interface TrialPremiumModel extends TrialPremiumRecord {
   schedule: Array<{
     date: string;
     dayNumber: number;
+    dayStartTime?: string | null;
     className: string;
     classOrder: number;
     roundNumber: number;

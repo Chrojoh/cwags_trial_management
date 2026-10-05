@@ -194,9 +194,11 @@ export async function createTrialPremiumPdf(
         const judgeFontSize = block.judges.length >= 4 ? 9 : 10;
         const cellFontSize = block.judges.length >= 4 ? 8 : 8.5;
         const continuation = block.continued ? ' (continued)' : '';
+        const dayStartTime = block.rows.find((row) => row.dayStartTime)?.dayStartTime;
+        const startTimeLabel = dayStartTime ? ` | Starts ${formatClockTime(dayStartTime)}` : '';
 
         gridPage.drawRectangle({ x: left, y: titleY - 4, width: 5, height: 18, color: accent });
-        gridPage.drawText(`${formatDate(block.date)} - Classes, Judges and Fees${continuation}`, {
+        gridPage.drawText(`${formatDate(block.date)}${startTimeLabel} - Classes, Judges and Fees${continuation}`, {
           x: left + 11, y: titleY, size: 13, font: bold, color: dark,
         });
         gridPage.drawText('Cells show round(s), regular fee and FEO availability.', { x: left, y: titleY - 16, size: 7.5, font });

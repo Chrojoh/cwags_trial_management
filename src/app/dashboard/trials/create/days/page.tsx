@@ -32,6 +32,7 @@ interface TrialDay {
   trial_date: string;
   selected: boolean;
   max_entries: number;
+  start_time: string;
   notes: string;
   day_number?: number;
   isCustom?: boolean;
@@ -117,6 +118,7 @@ function TrialDaysPageContent() {
             trial_date: dateString,
             selected: false,
             max_entries: trialData.max_entries_per_day || 50,
+            start_time: '',
             notes: '',
             day_number: dayNumber++,
             isCustom: false,
@@ -139,6 +141,7 @@ function TrialDaysPageContent() {
               if (existingDay) {
                 day.id = existingDay.id;
                 day.selected = true;
+                day.start_time = existingDay.start_time?.slice(0, 5) || '';
                 day.notes = existingDay.notes || '';
                 console.log(`Restored selection for ${day.trial_date}`);
               }
@@ -153,6 +156,7 @@ function TrialDaysPageContent() {
                   trial_date: existing.trial_date,
                   selected: true,
                   max_entries: trialData.max_entries_per_day || 50,
+                  start_time: existing.start_time?.slice(0, 5) || '',
                   notes: existing.notes || '',
                   isCustom: true,
                 });
@@ -325,6 +329,7 @@ function TrialDaysPageContent() {
         trial_date: dateStr,
         selected: true,
         max_entries: trial?.max_entries_per_day || 50,
+        start_time: '',
         notes: '',
         day_number: trialDays.length + 1,
         isCustom: true,
@@ -415,6 +420,12 @@ function TrialDaysPageContent() {
     );
   };
 
+  const handleStartTimeChange = (dayIndex: number, value: string) => {
+    setTrialDays((prev) =>
+      prev.map((day, index) => (index === dayIndex ? { ...day, start_time: value } : day))
+    );
+  };
+
   const handleAddCustomDay = () => {
     if (!newDayDate) {
       setErrors(['Please select a date for the new day.']);
@@ -431,6 +442,7 @@ function TrialDaysPageContent() {
       trial_date: newDayDate,
       selected: true,
       max_entries: trial?.max_entries_per_day || 50,
+      start_time: '',
       notes: '',
       isCustom: true,
     };
@@ -496,6 +508,7 @@ function TrialDaysPageContent() {
           trial_id: trialId!,
           trial_date: day.trial_date,
           day_number: i + 1,
+          start_time: day.start_time || null,
           notes: day.notes || '',
           day_status: 'active',
         };
@@ -506,7 +519,7 @@ function TrialDaysPageContent() {
           if (existingDay) {
             const { error: updateError } = await supabase
               .from('trial_days')
-              .update({ notes: day.notes || '' })
+              .update({ start_time: day.start_time || null, notes: day.notes || '' })
               .eq('id', existingDay.id);
 
             if (updateError) {
@@ -596,6 +609,7 @@ function TrialDaysPageContent() {
             trial_id: trialId!,
             trial_date: day.trial_date,
             day_number: maxDayNumber + i + 1,
+            start_time: day.start_time || null,
             notes: day.notes || '',
             day_status: 'active',
           };
@@ -617,7 +631,11 @@ function TrialDaysPageContent() {
 
           const { error: updateError } = await supabase
             .from('trial_days')
-            .update({ trial_date: day.trial_date, notes: day.notes || '' })
+            .update({
+              trial_date: day.trial_date,
+              start_time: day.start_time || null,
+              notes: day.notes || '',
+            })
             .eq('id', existing.id);
 
           if (updateError) {
@@ -988,6 +1006,22 @@ function TrialDaysPageContent() {
                                   </p>
                                 </div>
                               )}
+                              <div>
+                                <Label className="text-xs font-medium text-gray-700">
+                                  Trial start time (optional)
+                                </Label>
+                                <Input
+                                  type="time"
+                                  value={day.start_time}
+                                  onChange={(event) =>
+                                    handleStartTimeChange(dayIndex, event.target.value)
+                                  }
+                                  className="mt-1"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                  Use the local time at the trial venue. Each day may start at a different time.
+                                </p>
+                              </div>
                               <div>
                                 <Label className="text-xs font-medium text-gray-700">
                                   Notes (optional)

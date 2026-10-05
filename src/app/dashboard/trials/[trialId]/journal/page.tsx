@@ -38,6 +38,7 @@ interface JournalEntry {
     | 'dog_substituted'
     | 'waitlist_promoted'
     | 'capacity_changed'
+    | 'round_configuration_changed'
     | 'entry_status_changed'
     | 'entry_confirmed'
     | 'entry_waitlisted'
@@ -137,6 +138,7 @@ export default function TrialJournalPage() {
             'dog_substituted',
             'waitlist_promoted',
             'capacity_changed',
+            'round_configuration_changed',
             'entry_status_changed',
             'entry_confirmed',
             'entry_waitlisted',
@@ -320,6 +322,23 @@ export default function TrialJournalPage() {
             dog_call_name: snapshot.class_name || 'Round capacity',
             cwags_number: `Round ${snapshot.round_number || 1}`,
             description: `Capacity changed for ${snapshot.class_name || 'class'}, Round ${snapshot.round_number || 1}: ${snapshot.capacity_before} → ${snapshot.capacity_after}. Active: ${snapshot.active_entries}; waitlisted: ${snapshot.waitlisted_entries}.`,
+            snapshot,
+          });
+        } else if (activity.activity_type === 'round_configuration_changed') {
+          const beforeRounds = (snapshot.before || []).map((round: any) =>
+            `${round.is_reset ? 'Reset ' : ''}${round.round_number} (${round.judge_name || 'TBA'})`
+          ).join(', ') || 'none';
+          const afterRounds = (snapshot.after || []).map((round: any) =>
+            `${round.is_reset ? 'Reset ' : ''}${round.round_number} (${round.judge_name || 'TBA'})`
+          ).join(', ') || 'none';
+          entries.push({
+            id: activity.id,
+            timestamp: activity.created_at,
+            type: 'round_configuration_changed',
+            handler_name: activity.user_name || 'Trial secretary',
+            dog_call_name: snapshot.class_name || 'Class rounds',
+            cwags_number: snapshot.day_number ? `Day ${snapshot.day_number}` : '',
+            description: `Round setup changed for ${snapshot.class_name || 'class'}${snapshot.day_number ? `, Day ${snapshot.day_number}` : ''}: ${beforeRounds} → ${afterRounds}`,
             snapshot,
           });
         } else if (activity.activity_type === 'selection_waitlisted') {
@@ -690,6 +709,7 @@ export default function TrialJournalPage() {
       case 'waitlist_promoted':
         return <RefreshCw className="h-5 w-5 text-blue-600" />;
       case 'capacity_changed':
+      case 'round_configuration_changed':
         return <Settings className="h-5 w-5 text-blue-700" />;
       case 'selection_waitlisted':
         return <AlertCircle className="h-5 w-5 text-yellow-700" />;
@@ -726,6 +746,7 @@ export default function TrialJournalPage() {
       case 'waitlist_promoted':
         return 'bg-blue-100 text-blue-800';
       case 'capacity_changed':
+      case 'round_configuration_changed':
         return 'bg-blue-100 text-blue-900';
       case 'selection_waitlisted':
         return 'bg-yellow-100 text-yellow-900';
@@ -904,6 +925,7 @@ export default function TrialJournalPage() {
               <option value="fees_unwaived">Fee Waivers Removed</option>
               <option value="waitlist_promoted">Waitlist Promotions</option>
               <option value="capacity_changed">Capacity Changes</option>
+              <option value="round_configuration_changed">Round Setup Changes</option>
               <option value="entry_status_changed">Status Changes</option>
               <option value="selection_waitlisted">Waitlisted Selections</option>
               <option value="running_order_changed">Running Order Changes</option>

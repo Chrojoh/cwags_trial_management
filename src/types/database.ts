@@ -125,6 +125,7 @@ export interface Database {
           trial_id: string;
           day_number: number;
           trial_date: string;
+          start_time: string | null;
           day_status: string;
           notes: string | null;
           created_at: string;
@@ -134,6 +135,7 @@ export interface Database {
           trial_id: string;
           day_number: number;
           trial_date: string;
+          start_time?: string | null;
           day_status?: string;
           notes?: string | null;
           created_at?: string;
@@ -143,6 +145,7 @@ export interface Database {
           trial_id?: string;
           day_number?: number;
           trial_date?: string;
+          start_time?: string | null;
           day_status?: string;
           notes?: string | null;
           created_at?: string;
