@@ -7,6 +7,12 @@ const config = {
   theme: {
     extend: {
       colors: {
+        background: '#FFFFFF',
+        foreground: '#111827',
+        popover: {
+          DEFAULT: '#FFFFFF',
+          foreground: '#111827',
+        },
         'fall-gold': '#D99A2B',
         'fall-orange': '#C96A2B',
         'fall-red': '#A63D33',

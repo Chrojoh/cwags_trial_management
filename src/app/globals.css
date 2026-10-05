@@ -81,6 +81,11 @@
   select {
     font-size: 16px; /* Prevents zoom on focus for iOS */
   }
+
+  /* Native dropdowns need an opaque surface unless a screen supplies a themed one. */
+  select {
+    @apply bg-background text-foreground;
+  }
   
   /* Responsive table wrapper */
   .table-responsive {
