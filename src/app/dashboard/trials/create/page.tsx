@@ -144,13 +144,16 @@ interface TrialFormData {
   trial_secretary: string;
   secretary_email: string;
   secretary_phone: string;
-  max_entries_per_day: number;
   default_entry_fee: number;
   default_feo_price: number;
   feo_for_all: boolean;
   waiver_text: string;
   notes: string;
 }
+
+// Retained only for compatibility with the existing trials table. Capacity is
+// configured and enforced on individual rounds.
+const LEGACY_DAILY_CAPACITY_VALUE = 50;
 
 export default function CreateTrialPage() {
   const router = useRouter();
@@ -171,7 +174,6 @@ export default function CreateTrialPage() {
     trial_secretary: '',
     secretary_email: '',
     secretary_phone: '',
-    max_entries_per_day: 50,
     default_entry_fee: 25,
     default_feo_price: 15,
     feo_for_all: false,
@@ -273,7 +275,7 @@ export default function CreateTrialPage() {
         premium_published: false,
         entries_open: false,
         entries_close_date: null,
-        max_entries_per_day: trialData.max_entries_per_day,
+        max_entries_per_day: LEGACY_DAILY_CAPACITY_VALUE,
         default_entry_fee: trialData.default_entry_fee,
         default_feo_price: trialData.default_feo_price,
         trial_secretary: trialData.trial_secretary,
@@ -330,7 +332,7 @@ export default function CreateTrialPage() {
         premium_published: false,
         entries_open: false,
         entries_close_date: null,
-        max_entries_per_day: trialData.max_entries_per_day,
+        max_entries_per_day: LEGACY_DAILY_CAPACITY_VALUE,
         default_entry_fee: trialData.default_entry_fee,
         default_feo_price: trialData.default_feo_price,
         trial_secretary: trialData.trial_secretary,
@@ -416,7 +418,7 @@ export default function CreateTrialPage() {
         premium_published: false,
         entries_open: false,
         entries_close_date: null,
-        max_entries_per_day: trialData.max_entries_per_day,
+        max_entries_per_day: LEGACY_DAILY_CAPACITY_VALUE,
         default_entry_fee: trialData.default_entry_fee,
         default_feo_price: trialData.default_feo_price,
         trial_secretary: trialData.trial_secretary,

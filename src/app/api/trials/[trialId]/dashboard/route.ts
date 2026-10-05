@@ -17,13 +17,14 @@ interface ClassRow {
   trial_day_id: string;
   class_name: string;
   class_type: string | null;
-  max_entries: number | null;
 }
 interface RoundRow {
   id: string;
   trial_class_id: string;
   judge_name: string | null;
   round_status: string | null;
+  round_number: number | string | null;
+  max_entries: number | null;
 }
 interface ActivityRow {
   id: string;
@@ -113,7 +114,7 @@ export async function GET(
     const classes = await fetchInBatches<ClassRow>(days.map((day) => day.id), (ids, from, to) =>
       db
         .from('trial_classes')
-        .select('id,trial_day_id,class_name,class_type,max_entries')
+        .select('id,trial_day_id,class_name,class_type')
         .in('trial_day_id', ids)
         .order('id')
         .range(from, to)
@@ -121,7 +122,7 @@ export async function GET(
     const rounds = await fetchInBatches<RoundRow>(classes.map((trialClass) => trialClass.id), (ids, from, to) =>
       db
         .from('trial_rounds')
-        .select('id,trial_class_id,judge_name,round_status')
+        .select('id,trial_class_id,judge_name,round_status,round_number,max_entries')
         .in('trial_class_id', ids)
         .order('id')
         .range(from, to)
@@ -242,19 +243,18 @@ export async function GET(
     const waitlisted = nonFeoEntries.filter((entry) => entry.entry_status === 'waitlisted').length;
     if (waitlisted > 0) actionItems.push({ type: 'info', message: `${waitlisted} waitlisted ${waitlisted === 1 ? 'entry' : 'entries'}`, count: waitlisted });
     const nearCapacity: string[] = [];
-    classes.forEach((trialClass) => {
-      const classRounds = rounds.filter((round) => round.trial_class_id === trialClass.id);
-      const activeCount = classRounds.reduce(
-        (sum, round) => sum + (selectionsByRound.get(round.id) || []).filter((selection) => isActiveSelection(selection.entry_status)).length,
-        0
-      );
-      const maxEntries = Number(trialClass.max_entries || 0);
+    rounds.forEach((round) => {
+      const trialClass = classById.get(round.trial_class_id);
+      if (!trialClass) return;
+      const activeCount = (selectionsByRound.get(round.id) || [])
+        .filter((selection) => isActiveSelection(selection.entry_status)).length;
+      const maxEntries = Number(round.max_entries || 0);
       if (maxEntries > 0 && (activeCount / maxEntries) * 100 >= 90) {
         const spots = maxEntries - activeCount;
-        nearCapacity.push(`${trialClass.class_name} (${spots} ${spots === 1 ? 'spot' : 'spots'} left)`);
+        nearCapacity.push(`${trialClass.class_name}, Round ${round.round_number} (${spots} ${spots === 1 ? 'spot' : 'spots'} left)`);
       }
     });
-    if (nearCapacity.length) actionItems.push({ type: 'warning', message: `Classes near capacity: ${nearCapacity.join(', ')}` });
+    if (nearCapacity.length) actionItems.push({ type: 'warning', message: `Rounds near capacity: ${nearCapacity.join(', ')}` });
 
     const recentActivity: Array<{ id: string; type: string; message: string; timestamp: string }> = [];
     activity.forEach((item: ActivityRow) => {

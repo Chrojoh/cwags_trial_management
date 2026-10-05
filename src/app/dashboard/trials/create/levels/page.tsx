@@ -30,7 +30,6 @@ interface LevelSelection {
   category: string;
   selected: boolean;
   entryFee: number;
-  maxEntries: number;
   feoAvailable?: boolean;
   feoPrice?: number;
   gamesSubclasses?: string[];
@@ -192,7 +191,6 @@ function TrialLevelsPageContent() {
                 category,
                 selected: true,
                 entryFee: cls.entry_fee || defaultEntryFee,
-                maxEntries: 20,
                 feoAvailable: cls.feo_available || false,
                 feoPrice: cls.feo_price || defaultFeoPrice,
                 gamesSubclasses: gamesSubclassMap.get(levelName) || [],
@@ -204,7 +202,6 @@ function TrialLevelsPageContent() {
                 category,
                 selected: true,
                 entryFee: cls.entry_fee || defaultEntryFee,
-                maxEntries: 20,
                 feoAvailable: cls.feo_available || false,
                 feoPrice: cls.feo_price || defaultFeoPrice,
                 gamesSubclasses: [],
@@ -230,7 +227,6 @@ function TrialLevelsPageContent() {
                   category,
                   selected: false,
                   entryFee: defaultEntryFee,
-                  maxEntries: 20,
                   feoAvailable: defaultFeoAvailable,
                   feoPrice: defaultFeoPrice,
                   gamesSubclasses: [],
@@ -246,7 +242,6 @@ function TrialLevelsPageContent() {
               category,
               selected: false,
               entryFee: defaultEntryFee,
-              maxEntries: 20,
               feoAvailable: defaultFeoAvailable,
               feoPrice: defaultFeoPrice,
               gamesSubclasses: [],
@@ -262,7 +257,6 @@ function TrialLevelsPageContent() {
             category,
             selected: false,
             entryFee: defaultEntryFee,
-            maxEntries: 20,
             feoAvailable: defaultFeoAvailable,
             feoPrice: defaultFeoPrice,
             gamesSubclasses: [],
@@ -1024,7 +1018,7 @@ function TrialLevelsPageContent() {
 
                             {level.selected && (
                               <div className="space-y-3 pt-3 border-t">
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 gap-2">
                                   <div>
                                     <Label className="text-xs">Entry Fee ($)</Label>
                                     <Input
@@ -1038,23 +1032,6 @@ function TrialLevelsPageContent() {
                                           actualIndex,
                                           'entryFee',
                                           parseFloat(e.target.value) || 0
-                                        )
-                                      }
-                                      className="h-8"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-xs">Max Entries</Label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={level.maxEntries}
-                                      onChange={(e) =>
-                                        updateLevelSelection(
-                                          day.id,
-                                          actualIndex,
-                                          'maxEntries',
-                                          parseInt(e.target.value) || 1
                                         )
                                       }
                                       className="h-8"

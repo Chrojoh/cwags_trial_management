@@ -65,7 +65,6 @@ interface Trial {
   end_date: string;
   trial_status: string;
   entries_open: boolean;
-  max_entries_per_day: number;
   trial_secretary: string;
   secretary_email: string;
   created_at: string;
@@ -599,11 +598,6 @@ export default function TrialsPage() {
                         {formatDate(trial.start_date)}
                         {trial.start_date !== trial.end_date && ` - ${formatDate(trial.end_date)}`}
                       </p>
-                    </div>
-
-                    <div>
-                      <p className="text-white-600 mb-1">Max Entries</p>
-                      <p className="font-medium">{trial.max_entries_per_day} per day</p>
                     </div>
 
                     <div>

@@ -31,7 +31,6 @@ interface TrialDay {
   id?: string;
   trial_date: string;
   selected: boolean;
-  max_entries: number;
   start_time: string;
   notes: string;
   day_number?: number;
@@ -117,7 +116,6 @@ function TrialDaysPageContent() {
           days.push({
             trial_date: dateString,
             selected: false,
-            max_entries: trialData.max_entries_per_day || 50,
             start_time: '',
             notes: '',
             day_number: dayNumber++,
@@ -155,7 +153,6 @@ function TrialDaysPageContent() {
                   id: existing.id,
                   trial_date: existing.trial_date,
                   selected: true,
-                  max_entries: trialData.max_entries_per_day || 50,
                   start_time: existing.start_time?.slice(0, 5) || '',
                   notes: existing.notes || '',
                   isCustom: true,
@@ -328,7 +325,6 @@ function TrialDaysPageContent() {
       const newDay: TrialDay = {
         trial_date: dateStr,
         selected: true,
-        max_entries: trial?.max_entries_per_day || 50,
         start_time: '',
         notes: '',
         day_number: trialDays.length + 1,
@@ -441,7 +437,6 @@ function TrialDaysPageContent() {
     const newDay: TrialDay = {
       trial_date: newDayDate,
       selected: true,
-      max_entries: trial?.max_entries_per_day || 50,
       start_time: '',
       notes: '',
       isCustom: true,

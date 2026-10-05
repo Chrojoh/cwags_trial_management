@@ -47,7 +47,6 @@ interface TrialData {
   trial_secretary: string;
   secretary_email: string;
   secretary_phone: string;
-  max_entries_per_day: number;
   waiver_text: string;
   notes: string;
   created_at: string;
@@ -627,21 +626,6 @@ export default function TrialDetailPage() {
                           }
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="max_entries_per_day">Max Entries Per Day</Label>
-                        <Input
-                          id="max_entries_per_day"
-                          type="number"
-                          min="1"
-                          value={editData.max_entries_per_day || ''}
-                          onChange={(e) =>
-                            setEditData((prev: Partial<TrialData>) => ({
-                              ...prev,
-                              max_entries_per_day: parseInt(e.target.value) || 0,
-                            }))
-                          }
-                        />
-                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="notes">Notes</Label>
@@ -709,12 +693,6 @@ export default function TrialDetailPage() {
                       <p className="text-gray-900 mt-1">
                         {trial.secretary_phone || 'Not provided'}
                       </p>
-                    </div>
-                    <div>
-                      <Label className="text-sm font-medium text-gray-600">
-                        Max Entries Per Day
-                      </Label>
-                      <p className="text-gray-900 mt-1">{trial.max_entries_per_day}</p>
                     </div>
                     {trial.notes && (
                       <div className="md:col-span-2">
