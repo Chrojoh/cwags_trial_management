@@ -7,7 +7,26 @@ const margin = 42;
 const pageWidth = 612;
 const pageHeight = 792;
 
-const clean = (value: string) => value.replace(/[\u2010-\u2015]/g, '-').trim();
+const winAnsiExtras = new Set([
+  0x0152, 0x0153, 0x0160, 0x0161, 0x0178, 0x017d, 0x017e, 0x0192,
+  0x02c6, 0x02dc, 0x2013, 0x2014, 0x2018, 0x2019, 0x201a, 0x201c,
+  0x201d, 0x201e, 0x2020, 0x2021, 0x2022, 0x2026, 0x2030, 0x2039,
+  0x203a, 0x20ac, 0x2122,
+]);
+
+const clean = (value: string) => Array.from(value
+  .replace(/[\u2010-\u2015]/g, '-')
+  .replace(/[\u25cf\u25e6\u25aa\u25ab]/g, '\u2022'))
+  .map((character) => {
+    const codePoint = character.codePointAt(0) || 0;
+    const supported = codePoint === 0x09 || codePoint === 0x0a || codePoint === 0x0d
+      || (codePoint >= 0x20 && codePoint <= 0x7e)
+      || (codePoint >= 0xa0 && codePoint <= 0xff)
+      || winAnsiExtras.has(codePoint);
+    return supported ? character : '?';
+  })
+  .join('')
+  .trim();
 const formatDate = (value: string) => {
   if (!value) return '';
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
@@ -66,7 +85,7 @@ export async function createTrialPremiumPdf(
     const firstPage = pdf.getPageCount() === 1;
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: pageWidth, height: 72, color: band });
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: 8, height: 72, color: accent });
-    page.drawText(model.trial.trialName, { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - (firstPage && logo ? 76 : 0) });
+    page.drawText(clean(model.trial.trialName), { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - (firstPage && logo ? 76 : 0) });
     if (firstPage && logo) {
       const logoWidth = 56;
       const logoHeight = logoWidth * (logo.height / logo.width);
@@ -256,9 +275,9 @@ export async function createTrialPremiumPdf(
   const hasTrialTimes = trialTimeParts.length > 0;
   const summaryHeight = (hasMapAddress ? 94 : 82) + (hasTrialTimes ? 17 : 0);
   page.drawRectangle({ x: margin, y: y - summaryHeight, width: pageWidth - margin * 2, height: summaryHeight, color: pale, borderWidth: 0.8, borderColor: border });
-  page.drawText(model.trial.clubName, { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
+  page.drawText(clean(model.trial.clubName), { x: margin + 14, y: y - 22, size: 13, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - 28 });
   locationLines.forEach((line, index) => page.drawText(line, { x: margin + 14, y: y - 41 - index * 11, size: 9, font }));
-  if (hasMapAddress) page.drawText(model.content.mapAddress.trim(), { x: margin + 14, y: y - 66, size: 8.5, font: bold, color: rgb(0.3, 0.3, 0.3), maxWidth: pageWidth - margin * 2 - 28 });
+  if (hasMapAddress) page.drawText(clean(model.content.mapAddress), { x: margin + 14, y: y - 66, size: 8.5, font: bold, color: rgb(0.3, 0.3, 0.3), maxWidth: pageWidth - margin * 2 - 28 });
   page.drawText(dateLine, { x: margin + 14, y: y - (hasMapAddress ? 82 : 70), size: 10, font: bold, color: accent });
   if (hasTrialTimes) page.drawText(trialTimeParts.join('  |  '), { x: margin + 14, y: y - (hasMapAddress ? 99 : 87), size: 10, font: bold, color: dark });
   y -= summaryHeight + 19;
