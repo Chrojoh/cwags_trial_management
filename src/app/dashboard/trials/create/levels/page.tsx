@@ -94,6 +94,9 @@ function TrialLevelsPageContent() {
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTrialInfo, setSavingTrialInfo] = useState(false);
+  const [applyDefaultFees, setApplyDefaultFees] = useState(false);
+  const [trialInfoMessage, setTrialInfoMessage] = useState('');
 
   useEffect(() => {
     const loadTrialData = async () => {
@@ -299,7 +302,7 @@ function TrialLevelsPageContent() {
     );
 
     if (!hasSelection) {
-      newErrors.push('You must select at least one level for at least one day.');
+      newErrors.push('You must select at least one class for at least one day.');
       setErrors(newErrors);
       return false;
     }
@@ -621,17 +624,91 @@ function TrialLevelsPageContent() {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const getSelectedLevelsCount = () => {
+  const getSelectedClassesCount = () => {
     return Object.values(levelSelections).reduce(
       (total, dayLevels) => total + dayLevels.filter((level) => level.selected).length,
       0
     );
   };
 
+  const saveTrialInformation = async () => {
+    if (!trialId || !trial) return;
+    const trialName = trial.trial_name.trim();
+    const location = trial.location.trim();
+    const regularFee = Number(trial.default_entry_fee ?? 0);
+    const feoFee = Number(trial.default_feo_price ?? 0);
+    if (!trialName || !location) {
+      setErrors(['Trial name and location are required.']);
+      return;
+    }
+    if (!Number.isFinite(regularFee) || regularFee < 0 || !Number.isFinite(feoFee) || feoFee < 0) {
+      setErrors(['Default Regular and FEO fees must be valid amounts of zero or more.']);
+      return;
+    }
+    if (applyDefaultFees && !window.confirm(
+      `Apply the $${regularFee.toFixed(2)} Regular and $${feoFee.toFixed(2)} FEO fees to every selected class? Individual class fees will be replaced.`
+    )) return;
+
+    setSavingTrialInfo(true);
+    setErrors([]);
+    setTrialInfoMessage('');
+    try {
+      const result = await simpleTrialOperations.updateTrial(trialId, {
+        trial_name: trialName,
+        location,
+        default_entry_fee: regularFee,
+        default_feo_price: feoFee,
+      });
+      if (!result.success) {
+        const message = typeof result.error === 'string'
+          ? result.error
+          : result.error?.message || 'Unable to update trial information.';
+        throw new Error(message);
+      }
+
+      if (applyDefaultFees) {
+        const dayIds = trialDays.map((day) => day.id);
+        if (dayIds.length > 0) {
+          const { error: classFeeError } = await supabase
+            .from('trial_classes')
+            .update({ entry_fee: regularFee, feo_price: feoFee })
+            .in('trial_day_id', dayIds);
+          if (classFeeError) throw new Error(`Trial information saved, but class fees could not be updated: ${classFeeError.message}`);
+        }
+      }
+
+      setLevelSelections((current) => Object.fromEntries(
+        Object.entries(current).map(([dayId, classes]) => [
+          dayId,
+          classes.map((trialClass) => applyDefaultFees || !trialClass.selected
+            ? { ...trialClass, entryFee: regularFee, feoPrice: feoFee }
+            : trialClass),
+        ])
+      ));
+
+      setTrial((current) => current ? {
+        ...current,
+        ...result.data,
+        trial_name: trialName,
+        location,
+        default_entry_fee: regularFee,
+        default_feo_price: feoFee,
+      } : current);
+      setTrialInfoMessage(applyDefaultFees
+        ? 'Trial information and all selected class fees were updated.'
+        : 'Trial information and default fees were updated.');
+      setApplyDefaultFees(false);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Unable to update trial information.']);
+    } finally {
+      setSavingTrialInfo(false);
+    }
+  };
+
   if (loading) {
     return (
       <MainLayout
-        title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Levels'}
+        title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Classes'}
       >
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-center py-12">
@@ -648,7 +725,7 @@ function TrialLevelsPageContent() {
   if (!trial || trialDays.length === 0) {
     return (
       <MainLayout
-        title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Levels'}
+        title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Classes'}
       >
         <div className="max-w-6xl mx-auto">
           <Alert variant="destructive">
@@ -675,7 +752,7 @@ function TrialLevelsPageContent() {
       : [
           { label: 'Create Trial', href: '/dashboard/trials/create' },
           { label: 'Select Days', href: `/dashboard/trials/create/days?trial=${trialId}` },
-          { label: 'Choose Levels' },
+          { label: 'Choose Classes' },
         ]),
   ];
 
@@ -683,14 +760,14 @@ function TrialLevelsPageContent() {
     'Basic Information',
     'Waiver & Notice',
     'Select Days',
-    'Choose Levels',
+    'Choose Classes',
     'Create Rounds',
     'Summary',
   ];
 
   return (
     <MainLayout
-      title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Levels'}
+      title={isEditMode ? 'Edit Trial - Classes & Levels' : 'Create Trial - Choose Classes'}
       breadcrumbItems={breadcrumbItems}
     >
       <div className="max-w-6xl mx-auto space-y-6">
@@ -755,53 +832,97 @@ function TrialLevelsPageContent() {
               Trial Information
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Trial Name</p>
-                <p className="font-semibold">{trial.trial_name}</p>
+                <Label htmlFor="class-setup-trial-name" className="text-sm text-gray-700">Trial Name</Label>
+                <Input
+                  id="class-setup-trial-name"
+                  value={trial.trial_name}
+                  onChange={(event) => setTrial({ ...trial, trial_name: event.target.value })}
+                  className="mt-1"
+                />
               </div>
               <div>
-                <p className="text-sm text-gray-600">Location</p>
-                <p className="font-semibold">{trial.location}</p>
+                <Label htmlFor="class-setup-location" className="text-sm text-gray-700">Location</Label>
+                <Input
+                  id="class-setup-location"
+                  value={trial.location}
+                  onChange={(event) => setTrial({ ...trial, location: event.target.value })}
+                  className="mt-1"
+                />
               </div>
               <div>
                 <p className="text-sm text-gray-600">Number of Days</p>
-                <p className="font-semibold">{trialDays.length} days</p>
+                <div className="mt-1 flex items-center gap-3">
+                  <p className="font-semibold">{trialDays.length} days</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/trials/create/days?trial=${trialId}&mode=edit`)}
+                  >
+                    Edit Trial Days
+                  </Button>
+                </div>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Selected Levels</p>
-                <p className="font-semibold">{getSelectedLevelsCount()} levels selected</p>
+                <p className="text-sm text-gray-600">Class Selections</p>
+                <p className="mt-1 font-semibold">
+                  {getSelectedClassesCount()} classes selected across {trialDays.length} day{trialDays.length === 1 ? '' : 's'}
+                </p>
               </div>
             </div>
 
-            {/* ✅ NEW: Display default fees */}
-            {(trial.default_entry_fee !== undefined || trial.default_feo_price !== undefined) && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="pt-4 border-t border-gray-200">
                 <div className="flex items-center gap-2 mb-2">
                   <DollarSign className="h-4 w-4 text-green-600" />
                   <p className="text-sm font-medium text-gray-700">Default Entry Fees</p>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pl-6">
                   <div>
-                    <p className="text-xs text-gray-500">Regular Entry</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      ${(trial.default_entry_fee ?? 25).toFixed(2)}
-                    </p>
+                    <Label htmlFor="class-setup-regular-fee" className="text-xs text-gray-600">Regular Entry</Label>
+                    <Input
+                      id="class-setup-regular-fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={trial.default_entry_fee ?? 25}
+                      onChange={(event) => setTrial({ ...trial, default_entry_fee: Number(event.target.value) })}
+                      className="mt-1"
+                    />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">FEO Entry</p>
-                    <p className="text-sm font-semibold text-gray-900">
-                      ${(trial.default_feo_price ?? 15).toFixed(2)}
-                    </p>
+                    <Label htmlFor="class-setup-feo-fee" className="text-xs text-gray-600">FEO Entry</Label>
+                    <Input
+                      id="class-setup-feo-fee"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={trial.default_feo_price ?? 15}
+                      onChange={(event) => setTrial({ ...trial, default_feo_price: Number(event.target.value) })}
+                      className="mt-1"
+                    />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2 pl-6">
-                  These defaults are applied to all new classes and can be adjusted individually
-                  below.
-                </p>
+                <label className="mt-3 flex items-start gap-2 rounded-md border bg-amber-50 p-3 text-sm text-gray-800">
+                  <Checkbox
+                    checked={applyDefaultFees}
+                    onCheckedChange={(checked) => setApplyDefaultFees(checked === true)}
+                  />
+                  <span>
+                    <strong>Apply these fees to all selected classes.</strong>{' '}
+                    Leave this unchecked to change only the defaults used for newly selected classes.
+                  </span>
+                </label>
               </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" onClick={() => void saveTrialInformation()} disabled={savingTrialInfo}>
+                <Save className="mr-2 h-4 w-4" />
+                {savingTrialInfo ? 'Saving Trial Information...' : 'Save Trial Information'}
+              </Button>
+              {trialInfoMessage && <p className="text-sm font-medium text-green-700">{trialInfoMessage}</p>}
+            </div>
           </CardContent>
         </Card>
 
@@ -860,9 +981,9 @@ function TrialLevelsPageContent() {
                     </CardTitle>
                     <Badge variant="outline">
                       {levelSelections[day.id]?.filter(
-                        (l) => l.selected && l.category === selectedCategory
+                        (trialClass) => trialClass.selected
                       ).length || 0}{' '}
-                      selected
+                      classes selected
                     </Badge>
                   </div>
                 </CardHeader>
@@ -1088,7 +1209,7 @@ function TrialLevelsPageContent() {
 
           <Button
             onClick={handleNext}
-            disabled={getSelectedLevelsCount() === 0 || saving}
+            disabled={getSelectedClassesCount() === 0 || saving}
             className="flex items-center space-x-2 bg-orange-600 hover:bg-orange-700"
           >
             {saving ? (
