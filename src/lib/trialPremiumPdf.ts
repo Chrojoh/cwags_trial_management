@@ -87,9 +87,32 @@ export async function createTrialPremiumPdf(
   const addPage = () => {
     page = pdf.addPage([pageWidth, pageHeight]);
     const firstPage = pdf.getPageCount() === 1;
+    const titleWidth = pageWidth - margin * 2 - (firstPage && logo ? 76 : 0);
+    let titleSize = 24;
+    let titleLines = wrap(model.trial.trialName, bold, titleSize, titleWidth);
+    while (
+      titleSize > 14
+      && (titleLines.length > 2 || titleLines.some((line) => bold.widthOfTextAtSize(line, titleSize) > titleWidth))
+    ) {
+      titleSize -= 0.5;
+      titleLines = wrap(model.trial.trialName, bold, titleSize, titleWidth);
+    }
+    titleLines = titleLines.slice(0, 2);
+    const titleLineHeight = titleSize + 2;
+    const titleBlockHeight = titleLines.length * titleLineHeight - 2;
+    const titleStartY = pageHeight - 72 + (72 + titleBlockHeight) / 2 - titleSize;
+
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: pageWidth, height: 72, color: band });
     page.drawRectangle({ x: 0, y: pageHeight - 72, width: 8, height: 72, color: accent });
-    page.drawText(clean(model.trial.trialName), { x: margin, y: pageHeight - 46, size: 24, font: bold, color: dark, maxWidth: pageWidth - margin * 2 - (firstPage && logo ? 76 : 0) });
+    titleLines.forEach((line, index) => {
+      page.drawText(line, {
+        x: margin,
+        y: titleStartY - index * titleLineHeight,
+        size: titleSize,
+        font: bold,
+        color: dark,
+      });
+    });
     if (firstPage && logo) {
       const logoWidth = 56;
       const logoHeight = logoWidth * (logo.height / logo.width);
@@ -98,7 +121,13 @@ export async function createTrialPremiumPdf(
     page.drawLine({ start: { x: margin, y: pageHeight - 72 }, end: { x: pageWidth - margin, y: pageHeight - 72 }, thickness: 1.1, color: accent });
     y = pageHeight - 100;
   };
-  const need = (height: number) => { if (y - height < 48) addPage(); };
+  const need = (height: number) => {
+    if (y - height < 48) {
+      addPage();
+      return true;
+    }
+    return false;
+  };
   const sectionHeading = (title: string) => {
     const headingSize = 16;
     const headingWidth = bold.widthOfTextAtSize(title, headingSize);
@@ -135,13 +164,14 @@ export async function createTrialPremiumPdf(
     const remainingText = line.slice(consumed);
     if (remainingText) page.drawText(remainingText, { x: textX, y, size, font });
   };
-  const paragraph = (text: string, size = 9, inset = 0) => {
+  const paragraph = (text: string, size = 9, inset = 0, continuationTitle = '') => {
+    const lineHeight = size + 5;
     const source = (text || 'Not provided.').split(/\r?\n/);
     source.forEach((rawLine) => {
       const trimmed = rawLine.trim();
       if (!trimmed) {
-        need(size + 8);
-        y -= size + 4;
+        need(lineHeight + 3);
+        y -= lineHeight;
         return;
       }
 
@@ -152,13 +182,17 @@ export async function createTrialPremiumPdf(
       const markerWidth = marker ? Math.max(14, font.widthOfTextAtSize(`${marker} `, size) + 4) : 0;
       const availableWidth = pageWidth - margin * 2 - inset - markerWidth;
       const lines = wrap(listText || trimmed, font, size, availableWidth);
+      const itemHeight = lines.length * lineHeight;
+      const movedToNewPage = need(itemHeight + 3 + (continuationTitle ? 28 : 0));
+      if (movedToNewPage && continuationTitle) sectionHeading(`${continuationTitle} (continued)`);
 
       lines.forEach((line, index) => {
-        need(size + 8);
+        const lineMovedToNewPage = need(lineHeight + 3);
+        if (lineMovedToNewPage && continuationTitle) sectionHeading(`${continuationTitle} (continued)`);
         const baseX = margin + inset;
         if (marker && index === 0) page.drawText(marker, { x: baseX, y, size, font });
         drawLinkedTextLine(line, baseX + markerWidth, size);
-        y -= size + 4;
+        y -= lineHeight;
       });
     });
     y -= 5;
@@ -166,7 +200,7 @@ export async function createTrialPremiumPdf(
   const section = (title: string, text: string) => {
     need(54);
     sectionHeading(title);
-    paragraph(text);
+    paragraph(text, 9, 0, title);
     y -= 12;
   };
   const link = (label: string, url: string) => {
@@ -190,11 +224,31 @@ export async function createTrialPremiumPdf(
     top: number,
     width: number,
     size: number,
-    targetFont: PDFFont
+    targetFont: PDFFont,
+    options: { maxLines?: number; minSize?: number } = {}
   ) => {
-    wrap(text, targetFont, size, width - 8).slice(0, 3).forEach((line, index) => {
-      const lineWidth = targetFont.widthOfTextAtSize(line, size);
-      target.drawText(line, { x: x + Math.max(4, (width - lineWidth) / 2), y: top - 12 - index * (size + 2), size, font: targetFont });
+    const maxLines = options.maxLines ?? 3;
+    const minSize = options.minSize ?? Math.max(6, size - 3);
+    const availableWidth = width - 8;
+    let fittedSize = size;
+    let lines = wrap(text, targetFont, fittedSize, availableWidth);
+
+    while (
+      fittedSize > minSize
+      && (lines.length > maxLines || lines.some((line) => targetFont.widthOfTextAtSize(line, fittedSize) > availableWidth))
+    ) {
+      fittedSize = Math.max(minSize, fittedSize - 0.5);
+      lines = wrap(text, targetFont, fittedSize, availableWidth);
+    }
+
+    lines.slice(0, maxLines).forEach((line, index) => {
+      const lineWidth = targetFont.widthOfTextAtSize(line, fittedSize);
+      target.drawText(line, {
+        x: x + Math.max(4, (width - lineWidth) / 2),
+        y: top - 12 - index * (fittedSize + 2),
+        size: fittedSize,
+        font: targetFont,
+      });
     });
   };
 
@@ -256,14 +310,14 @@ export async function createTrialPremiumPdf(
           x: left, y: tableTop - headerHeight, width: classWidth, height: headerHeight,
           borderWidth: 0.7, color: band, borderColor: border,
         });
-        drawCenteredLines(gridPage, 'Class', left, tableTop, classWidth, 8, bold);
+        drawCenteredLines(gridPage, 'Class', left, tableTop, classWidth, 8, bold, { maxLines: 1 });
         block.judges.forEach((judge, judgeIndex) => {
           const x = left + classWidth + judgeIndex * judgeWidth;
           gridPage.drawRectangle({
             x, y: tableTop - headerHeight, width: judgeWidth, height: headerHeight,
             borderWidth: 0.7, color: band, borderColor: border,
           });
-          drawCenteredLines(gridPage, judge, x, tableTop, judgeWidth, judgeFontSize, bold);
+          drawCenteredLines(gridPage, judge, x, tableTop, judgeWidth, judgeFontSize, bold, { maxLines: 2, minSize: 7 });
         });
 
         block.classes.forEach((classRow, rowIndex) => {
@@ -273,7 +327,7 @@ export async function createTrialPremiumPdf(
             x: left, y: rowTop - rowHeight, width: classWidth, height: rowHeight,
             borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
           });
-          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 10, bold);
+          drawCenteredLines(gridPage, classRow.className, left, rowTop, classWidth, 10, bold, { maxLines: 2, minSize: 7.5 });
           block.judges.forEach((judge, judgeIndex) => {
             const x = left + classWidth + judgeIndex * judgeWidth;
             const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
@@ -286,8 +340,8 @@ export async function createTrialPremiumPdf(
               borderWidth: 0.6, color: fill, borderColor: rgb(0.55, 0.55, 0.55),
             });
             if (assignments.length) {
-              drawCenteredLines(gridPage, rounds, x, rowTop + 1, judgeWidth, cellFontSize, bold);
-              drawCenteredLines(gridPage, feeLine, x, rowTop - 13, judgeWidth, cellFontSize, font);
+              drawCenteredLines(gridPage, rounds, x, rowTop + 1, judgeWidth, cellFontSize, bold, { maxLines: 1, minSize: 6 });
+              drawCenteredLines(gridPage, feeLine, x, rowTop - 13, judgeWidth, cellFontSize, font, { maxLines: 1, minSize: 5.5 });
             }
           });
         });
