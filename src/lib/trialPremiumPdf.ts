@@ -111,34 +111,55 @@ export async function createTrialPremiumPdf(
     });
     y -= 23;
   };
-  const paragraph = (text: string, size = 9, inset = 0) => {
-    const lines = wrap(text || 'Not provided.', font, size, pageWidth - margin * 2 - inset);
-    lines.forEach((line) => {
-      need(size + 8);
-      let textX = margin + inset;
-      let consumed = 0;
-      for (const match of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)) {
-        const email = match[0];
-        const matchIndex = match.index ?? consumed;
-        const precedingText = line.slice(consumed, matchIndex);
-        if (precedingText) {
-          page.drawText(precedingText, { x: textX, y, size, font });
-          textX += font.widthOfTextAtSize(precedingText, size);
-        }
-        const emailX = textX;
-        const emailWidth = font.widthOfTextAtSize(email, size);
-        page.drawText(email, { x: emailX, y, size, font, color: rgb(0.05, 0.32, 0.72) });
-        const annotation = page.doc.context.register(page.doc.context.obj({
-          Type: 'Annot', Subtype: 'Link', Rect: [emailX, y - 2, emailX + emailWidth, y + size + 2], Border: [0, 0, 0],
-          A: { Type: 'Action', S: 'URI', URI: PDFString.of(`mailto:${email}`) },
-        }));
-        page.node.addAnnot(annotation);
-        textX += emailWidth;
-        consumed = matchIndex + email.length;
+  const drawLinkedTextLine = (line: string, textX: number, size: number) => {
+    let consumed = 0;
+    for (const match of line.matchAll(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)) {
+      const email = match[0];
+      const matchIndex = match.index ?? consumed;
+      const precedingText = line.slice(consumed, matchIndex);
+      if (precedingText) {
+        page.drawText(precedingText, { x: textX, y, size, font });
+        textX += font.widthOfTextAtSize(precedingText, size);
       }
-      const remainingText = line.slice(consumed);
-      if (remainingText) page.drawText(remainingText, { x: textX, y, size, font });
-      y -= size + 4;
+      const emailX = textX;
+      const emailWidth = font.widthOfTextAtSize(email, size);
+      page.drawText(email, { x: emailX, y, size, font, color: rgb(0.05, 0.32, 0.72) });
+      const annotation = page.doc.context.register(page.doc.context.obj({
+        Type: 'Annot', Subtype: 'Link', Rect: [emailX, y - 2, emailX + emailWidth, y + size + 2], Border: [0, 0, 0],
+        A: { Type: 'Action', S: 'URI', URI: PDFString.of(`mailto:${email}`) },
+      }));
+      page.node.addAnnot(annotation);
+      textX += emailWidth;
+      consumed = matchIndex + email.length;
+    }
+    const remainingText = line.slice(consumed);
+    if (remainingText) page.drawText(remainingText, { x: textX, y, size, font });
+  };
+  const paragraph = (text: string, size = 9, inset = 0) => {
+    const source = (text || 'Not provided.').split(/\r?\n/);
+    source.forEach((rawLine) => {
+      const trimmed = rawLine.trim();
+      if (!trimmed) {
+        need(size + 8);
+        y -= size + 4;
+        return;
+      }
+
+      const bulletMatch = trimmed.match(/^(?:[-*\u2022\u25e6\u25aa\u25ab])\s+(.+)$/);
+      const numberedMatch = trimmed.match(/^(\d+[.)])\s+(.+)$/);
+      const marker = bulletMatch ? '\u2022' : numberedMatch?.[1];
+      const listText = bulletMatch?.[1] || numberedMatch?.[2];
+      const markerWidth = marker ? Math.max(14, font.widthOfTextAtSize(`${marker} `, size) + 4) : 0;
+      const availableWidth = pageWidth - margin * 2 - inset - markerWidth;
+      const lines = wrap(listText || trimmed, font, size, availableWidth);
+
+      lines.forEach((line, index) => {
+        need(size + 8);
+        const baseX = margin + inset;
+        if (marker && index === 0) page.drawText(marker, { x: baseX, y, size, font });
+        drawLinkedTextLine(line, baseX + markerWidth, size);
+        y -= size + 4;
+      });
     });
     y -= 5;
   };

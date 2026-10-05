@@ -8,6 +8,14 @@ test('premium PDF paginates a complete trial without overflowing a single page',
   const content = Object.fromEntries(
     Object.keys(EMPTY_PREMIUM_CONTENT).map((key) => [key, `${key} details `.repeat(30)])
   ) as unknown as TrialPremiumModel['content'];
+  content.additionalInformation = [
+    'Please remember:',
+    '• Bring a crate and water for your dog.',
+    '- Keep dogs on leash outside the ring.',
+    '* Contact casey@example.com with questions.',
+    '1. Check in with the trial secretary.',
+    '2) Confirm your running order.',
+  ].join('\n');
   const model: TrialPremiumModel = {
     trial: {
       id: 'trial-1', trialName: 'Example Trial', clubName: 'Example Club', location: 'Example Hall',
