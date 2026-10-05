@@ -51,6 +51,7 @@ import {
   NON_ACTIVE_SELECTION_STATUSES_FILTER,
 } from "@/lib/selectionStatus";
 import { formatEntryCountdown } from "@/lib/entryWindow";
+import { formatTrialDateTime } from "@/lib/timezone";
 
 // ============================================
 // INTERFACES
@@ -1767,16 +1768,10 @@ export default function PublicEntryForm() {
                   {formatEntryCountdown(new Date(trial.entry_open_at).getTime() - countdownNow)}
                 </p>
                 <p className="text-sm text-gray-700">
-                  {new Intl.DateTimeFormat("en-CA", {
-                    timeZone: trial.entry_timezone || "America/Edmonton",
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                    timeZoneName: "short",
-                  }).format(new Date(trial.entry_open_at))}
+                  {formatTrialDateTime(
+                    trial.entry_open_at,
+                    trial.entry_timezone || "America/Edmonton",
+                  )}
                 </p>
               </div>
             )}

@@ -20,6 +20,46 @@ export const TIMEZONE_CONFIG = {
   ] as const,
 };
 
+const TRIAL_TIMEZONE_LABELS: Record<string, string> = {
+  'America/St_Johns': 'Newfoundland',
+  'America/Halifax': 'Atlantic',
+  'America/Toronto': 'Eastern',
+  'America/Winnipeg': 'Central',
+  'America/Edmonton': 'Mountain',
+  'America/Vancouver': 'Pacific',
+  'America/New_York': 'Eastern',
+  'America/Chicago': 'Central',
+  'America/Denver': 'Mountain',
+  'America/Los_Angeles': 'Pacific',
+};
+
+export const getTrialTimezoneLabel = (timezone: string): string =>
+  TRIAL_TIMEZONE_LABELS[timezone]
+  || timezone.split('/').pop()?.replaceAll('_', ' ')
+  || timezone;
+
+export const formatTrialDateTime = (utcDateString: string, timezone: string): string => {
+  const date = new Date(utcDateString);
+  if (Number.isNaN(date.getTime())) return utcDateString;
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).formatToParts(date);
+    const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    const dayPeriod = String(value.dayPeriod || '').replaceAll('.', '').toUpperCase();
+    return `${value.year}-${value.month}-${value.day} ${value.hour}:${value.minute} ${dayPeriod} ${getTrialTimezoneLabel(timezone)}`;
+  } catch {
+    return utcDateString;
+  }
+};
+
 export const TRIAL_TIME_CONFIG = {
   earlyStart: '07:00',
   normalStart: '08:00',

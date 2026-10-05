@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { PDFDocument, PDFPage, PDFFont, PDFString, StandardFonts, rgb } from 'pdf-lib';
 import type { TrialPremiumModel } from '@/types/trialPremium';
+import { formatTrialDateTime } from '@/lib/timezone';
 
 const margin = 42;
 const pageWidth = 612;
@@ -41,6 +42,9 @@ const formatClockTime = (value: string) => {
   const suffix = hour >= 12 ? 'PM' : 'AM';
   return `${hour % 12 || 12}:${match[2]} ${suffix}`;
 };
+const formatCompactPrice = (value: number) => Number.isInteger(value)
+  ? value.toFixed(0)
+  : value.toFixed(2);
 
 function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
   const words = clean(text).split(/\s+/).filter(Boolean);
@@ -220,7 +224,13 @@ export async function createTrialPremiumPdf(
         gridPage.drawText(`${formatDate(block.date)}${startTimeLabel} - Classes, Judges and Fees${continuation}`, {
           x: left + 11, y: titleY, size: 13, font: bold, color: dark,
         });
-        gridPage.drawText('Cells show round(s), Regular price, and FEO price when offered. FEO = For Exhibition Only.', { x: left, y: titleY - 16, size: 7.5, font });
+        gridPage.drawText('PRICES: Reg = Regular entry fee | FEO = For Exhibition Only fee', {
+          x: left,
+          y: titleY - 17,
+          size: 8.5,
+          font: bold,
+          color: dark,
+        });
         gridPage.drawRectangle({
           x: left, y: tableTop - headerHeight, width: classWidth, height: headerHeight,
           borderWidth: 0.7, color: band, borderColor: border,
@@ -248,7 +258,7 @@ export async function createTrialPremiumPdf(
             const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
             const rounds = assignments.map((row) => `R${row.roundNumber}`).join(', ');
             const feeLine = assignments.length
-              ? `Regular $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ` | FEO $${classRow.feoPrice.toFixed(2)}` : ''}`
+              ? `Reg $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ` | FEO $${formatCompactPrice(classRow.feoPrice)}` : ''}`
               : '';
             gridPage.drawRectangle({
               x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight,
@@ -283,7 +293,7 @@ export async function createTrialPremiumPdf(
   y -= summaryHeight + 19;
   section('Trial Secretary', [model.trial.secretaryName, model.trial.secretaryEmail, model.trial.secretaryPhone].filter(Boolean).join(' | '));
   if (model.content.trialChairContact.trim()) section('Trial Chair / Day-of Contact', model.content.trialChairContact);
-  section('Entry Period', `Opens: ${model.trial.entryOpenAt || 'See entry announcement'}${model.trial.entryTimezone ? ` (${model.trial.entryTimezone})` : ''}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
+  section('Entry Period', `Opens: ${model.trial.entryOpenAt ? formatTrialDateTime(model.trial.entryOpenAt, model.trial.entryTimezone || 'America/Edmonton') : 'See entry announcement'}\nCloses: ${model.trial.entriesCloseDate || 'At the secretary\'s discretion when full'}`);
   if (model.content.pricingDeadlineNotes.trim()) section('Pricing and Deadlines', model.content.pricingDeadlineNotes);
   const mapDestination = model.content.mapAddress.trim() || model.trial.location;
   const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapDestination)}`;
