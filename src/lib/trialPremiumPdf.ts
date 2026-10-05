@@ -220,7 +220,7 @@ export async function createTrialPremiumPdf(
         gridPage.drawText(`${formatDate(block.date)}${startTimeLabel} - Classes, Judges and Fees${continuation}`, {
           x: left + 11, y: titleY, size: 13, font: bold, color: dark,
         });
-        gridPage.drawText('Cells show round(s), regular fee and FEO availability.', { x: left, y: titleY - 16, size: 7.5, font });
+        gridPage.drawText('Cells show round(s), Regular price, and FEO price when offered. FEO = For Exhibition Only.', { x: left, y: titleY - 16, size: 7.5, font });
         gridPage.drawRectangle({
           x: left, y: tableTop - headerHeight, width: classWidth, height: headerHeight,
           borderWidth: 0.7, color: band, borderColor: border,
@@ -248,7 +248,7 @@ export async function createTrialPremiumPdf(
             const assignments = block.rows.filter((row) => row.className === classRow.className && (row.judgeName || 'TBA') === judge);
             const rounds = assignments.map((row) => `R${row.roundNumber}`).join(', ');
             const feeLine = assignments.length
-              ? `$${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ' | FEO' : ''}`
+              ? `Regular $${classRow.entryFee.toFixed(2)}${assignments.some((row) => row.feoAvailable) ? ` | FEO $${classRow.feoPrice.toFixed(2)}` : ''}`
               : '';
             gridPage.drawRectangle({
               x, y: rowTop - rowHeight, width: judgeWidth, height: rowHeight,
