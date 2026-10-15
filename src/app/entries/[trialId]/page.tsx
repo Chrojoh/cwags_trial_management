@@ -146,6 +146,19 @@ const requiresDivision = (className: string | undefined): boolean => {
   return rallyClasses.some((rally) => lowerName.includes(rally));
 };
 
+const requiresJumpHeight = (
+  classType: string | undefined,
+  className: string | undefined,
+  classLevel?: string,
+): boolean => {
+  const type = (classType || "").toLowerCase();
+  if (!["rally", "obedience", "games"].includes(type)) return false;
+  if (type !== "obedience") return true;
+
+  const levelMatch = `${className || ""} ${classLevel || ""}`.match(/(?:obedience|level)?\s*([1-5])\b/i);
+  return Number(levelMatch?.[1] || 1) !== 1;
+};
+
 const cleanCwagsNumber = (input: string): string => {
   if (!input.trim())
     throw new Error("Please enter a C-WAGS registration number");
@@ -1098,6 +1111,19 @@ export default function PublicEntryForm() {
       return;
     }
 
+    const missingJumpHeight = formData.selected_rounds.find((roundId) => {
+      const round = trialRounds.find((item) => item.id === roundId);
+      return requiresJumpHeight(
+        round?.trial_classes?.class_type,
+        round?.trial_classes?.class_name,
+        round?.trial_classes?.class_level,
+      ) && !formData.jump_height_selections[roundId];
+    });
+    if (missingJumpHeight) {
+      setError("Please select a jump height for every selected Rally, Games, or Obedience 2–5 round.");
+      return;
+    }
+
     if (!validateDivisions()) {
       return;
     }
@@ -1156,6 +1182,18 @@ export default function PublicEntryForm() {
         headers,
         body: JSON.stringify({
           ...formData,
+          jump_height_selections: Object.fromEntries(
+            formData.selected_rounds.flatMap((roundId) => {
+              const round = trialRounds.find((item) => item.id === roundId);
+              return requiresJumpHeight(
+                round?.trial_classes?.class_type,
+                round?.trial_classes?.class_name,
+                round?.trial_classes?.class_level,
+              ) && formData.jump_height_selections[roundId]
+                ? [[roundId, formData.jump_height_selections[roundId]]]
+                : [];
+            }),
+          ),
           verification_email: existingEntry ? lookupEmail.trim() : formData.handler_email.trim(),
           verification_phone: pendingLookupPhone.trim(),
           registration_pending: registrationPending,
@@ -3073,39 +3111,12 @@ export default function PublicEntryForm() {
                                         </p>
                                       )}
 
-                                      {/* Jump Height Selector - Rally, Obedience, Games Only */}
-                                      {(() => {
-                                        console.log("Class check:", {
-                                          className:
-                                            round.trial_classes?.class_name,
-                                          classType:
-                                            round.trial_classes?.class_type,
-                                          classTypeLower:
-                                            round.trial_classes?.class_type?.toLowerCase(),
-                                          isSelected: isSelected,
-                                          shouldShow:
-                                            isSelected &&
-                                            [
-                                              "rally",
-                                              "obedience",
-                                              "games",
-                                            ].includes(
-                                              round.trial_classes?.class_type?.toLowerCase() ||
-                                                "",
-                                            ),
-                                        });
-                                        return (
-                                          isSelected &&
-                                          [
-                                            "rally",
-                                            "obedience",
-                                            "games",
-                                          ].includes(
-                                            round.trial_classes?.class_type?.toLowerCase() ||
-                                              "",
-                                          )
-                                        );
-                                      })() && (
+                                      {/* Obedience 1 has no jump; the other jump disciplines require 4–16 inches. */}
+                                      {isSelected && requiresJumpHeight(
+                                        round.trial_classes?.class_type,
+                                        round.trial_classes?.class_name,
+                                        round.trial_classes?.class_level,
+                                      ) && (
                                         <div className="mt-3">
                                           <Label className="text-sm font-medium text-gray-700 mb-1">
                                             Jump Height (inches) *
@@ -3138,12 +3149,6 @@ export default function PublicEntryForm() {
                                               </SelectItem>
                                               <SelectItem value="16">
                                                 16"
-                                              </SelectItem>
-                                              <SelectItem value="20">
-                                                20"
-                                              </SelectItem>
-                                              <SelectItem value="24">
-                                                24"
                                               </SelectItem>
                                             </SelectContent>
                                           </Select>

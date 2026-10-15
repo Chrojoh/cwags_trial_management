@@ -10,6 +10,16 @@ const nameKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '')
 const phoneKey = (value: string) => value.replace(/\D/g, '');
 const VERIFY_WINDOW_MS = 15 * 60 * 1000;
 const MAX_VERIFY_FAILURES = 5;
+const ALLOWED_JUMP_HEIGHTS = new Set(['4', '8', '12', '16']);
+
+const roundRequiresJumpHeight = (round: any) => {
+  const cls = Array.isArray(round?.trial_classes) ? round.trial_classes[0] : round?.trial_classes;
+  const type = text(cls?.class_type, 32).toLowerCase();
+  if (!['rally', 'obedience', 'games'].includes(type)) return false;
+  if (type !== 'obedience') return true;
+  const match = `${text(cls?.class_name, 120)} ${text(cls?.class_level, 32)}`.match(/(?:obedience|level)?\s*([1-5])\b/i);
+  return Number(match?.[1] || 1) !== 1;
+};
 
 const verificationKey = (request: NextRequest, trialId: string, cwagsNumber: string) => {
   const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
@@ -290,7 +300,7 @@ export async function POST(
     const { data: rounds, error: roundsError } = await db
       .from('trial_rounds')
       .select(`id,round_number,max_entries,trial_classes!inner(
-        class_name,entry_fee,feo_price,max_entries,games_subclass,
+        class_name,class_level,class_type,entry_fee,feo_price,max_entries,games_subclass,
         trial_days!inner(trial_id,day_number,trial_date,is_accepting_entries)
       )`)
       .in('id', roundIds);
@@ -377,12 +387,19 @@ export async function POST(
       }
     }
 
-    const requested: RequestedSelection[] = validRounds.map((round: any) => ({
-      roundId: round.id,
-      entryType: feoIds.has(round.id) ? 'feo' : 'regular',
-      division: text(body.division_selections?.[round.id], 32) || null,
-      jumpHeight: text(body.jump_height_selections?.[round.id], 32) || null,
-    }));
+    const requested: RequestedSelection[] = validRounds.map((round: any) => {
+      const requiresHeight = roundRequiresJumpHeight(round);
+      const submittedHeight = text(body.jump_height_selections?.[round.id], 32);
+      if (requiresHeight && !ALLOWED_JUMP_HEIGHTS.has(submittedHeight)) {
+        throw new Error('INVALID_JUMP_HEIGHT');
+      }
+      return {
+        roundId: round.id,
+        entryType: feoIds.has(round.id) ? 'feo' : 'regular',
+        division: text(body.division_selections?.[round.id], 32) || null,
+        jumpHeight: requiresHeight ? submittedHeight : null,
+      };
+    });
     const desiredIds = new Set(requested.map((selection) => selection.roundId));
     const relatedIds = (existingEntries || []).map((entry) => entry.id);
     const { data: existingSelections, error: selectionsError } = relatedIds.length
@@ -670,6 +687,12 @@ export async function POST(
       registrationPending: pendingRegistration,
     });
   } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_JUMP_HEIGHT') {
+      return NextResponse.json(
+        { error: 'Select a valid 4, 8, 12, or 16 inch jump height for each required round.' },
+        { status: 400 },
+      );
+    }
     console.error('Public entry transaction failed:', error);
     return NextResponse.json(
       {

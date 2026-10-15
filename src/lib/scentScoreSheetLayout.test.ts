@@ -26,11 +26,21 @@ test('page breaks never split dog blocks, all selections preserved', () => {
   assert.equal(pages.flatMap((p) => p.dogs.flatMap((d) => d.lines.filter(Boolean))).length, 34);
   assert.equal(SCENT_ROW_HEIGHT, 40 * 1.25);
 });
-test('different judges, classes, and days do not combine', () => {
-  for (const field of ['judge_name','class_id','trial_day_id'] as const) {
-    const changed = [{...rounds[0]}, {...rounds[1], [field]: 'different'}];
-    assert.equal(buildScentPages(changed, [line(1),line(2)]).length, 2);
-  }
+test('same displayed class combines despite separate class records or judges', () => {
+  const changed = [
+    { ...rounds[0], class_id: 'class-round-1', judge_name: 'Judge A' },
+    { ...rounds[1], class_id: 'class-round-2', judge_name: 'Judge B' },
+  ];
+  const paired = buildScentPages(changed, [line(1), line(2)]);
+  assert.equal(paired.length, 1);
+  assert.deepEqual(paired[0].rounds.map((round) => round.round_number), [1, 2]);
+  assert.equal(paired[0].judge, 'R1: Judge A / R2: Judge B');
+});
+test('different displayed classes or trial days do not combine', () => {
+  const differentClass = [{ ...rounds[0] }, { ...rounds[1], class_name: 'Patrol 2' }];
+  const differentDay = [{ ...rounds[0] }, { ...rounds[1], trial_day_id: 'different' }];
+  assert.equal(buildScentPages(differentClass, [line(1), line(2)]).length, 2);
+  assert.equal(buildScentPages(differentDay, [line(1), line(2)]).length, 2);
 });
 test('dogs follow the saved running order instead of alphabetical order', () => {
   const page = buildScentPages(rounds.slice(0, 1), [

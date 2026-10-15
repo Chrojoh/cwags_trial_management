@@ -374,6 +374,7 @@ export default function LiveEventManagementPage() {
   >([]);
   const [selectedPrintDay, setSelectedPrintDay] = useState<string | null>(null);
   const [scoreSheetExportLayout, setScoreSheetExportLayout] = useState<'paired' | 'single'>('paired');
+  const [rallyCourseMapFiles, setRallyCourseMapFiles] = useState<Record<string, File | null>>({});
   const [newEntryData, setNewEntryData] = useState({
     handler_name: '',
     dog_call_name: '',
@@ -2577,6 +2578,8 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
     try {
       setIsExportProcessing(true);
       setExportType('score-sheets');
+      setSelectedPrintDay(null);
+      setRallyCourseMapFiles({});
       setShowDaySelector(true);
     } catch (error) {
       console.error('Error initiating score sheet export:', error);
@@ -2597,10 +2600,20 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       if (!selectedDay) return;
       const result = await simpleTrialOperations.getTrialEntriesWithSelections(trialId);
       if (!result.success) throw new Error('Failed to load entries');
-      const [{ buildScentPages }, { createScentScoreSheetWorkbook }] = await Promise.all([
-        import('@/lib/scentScoreSheetLayout'), import('@/lib/scentScoreSheetWorkbook'),
+      const [
+        { buildScentPages },
+        { createScentScoreSheetWorkbook },
+        { createDisciplineScoreSheetPdf },
+        { createRallyScoreSheetPdf },
+      ] = await Promise.all([
+        import('@/lib/scentScoreSheetLayout'),
+        import('@/lib/scentScoreSheetWorkbook'),
+        import('@/lib/disciplineScoreSheetPdf'),
+        import('@/lib/rallyScoreSheetPdf'),
       ]);
       const lines: import('@/lib/scentScoreSheetLayout').ScentLine[] = [];
+      const disciplineLines: import('@/lib/disciplineScoreSheetWorkbook').DisciplineScoreSheetLine[] = [];
+      const dayRounds = trialClasses.filter((round) => round.trial_day_id === dayId);
       for (const entry of result.data || []) {
         for (const selection of entry.entry_selections || []) {
           if (!isScorableSelection(selection.entry_status)) continue;
@@ -2613,35 +2626,166 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
               ? null
               : Number(selection.running_position),
           });
+          for (const round of dayRounds) {
+            let baseRoundId = round.id;
+            let gamesSubclass = round.games_subclass;
+            if (round.class_type === 'games' && round.id.includes('-')) {
+              const parts = round.id.split('-');
+              const suffix = parts[parts.length - 1];
+              if (['GB', 'BJ', 'T', 'P', 'C'].includes(suffix)) {
+                baseRoundId = parts.slice(0, -1).join('-');
+                gamesSubclass = suffix;
+              }
+            }
+            const roundMatches = selection.trial_round_id === baseRoundId;
+            const subclassMatches =
+              round.class_type !== 'games' ||
+              !gamesSubclass ||
+              selection.games_subclass === gamesSubclass;
+            if (!roundMatches || !subclassMatches) continue;
+            disciplineLines.push({
+              selectionId: selection.id,
+              roundId: round.id,
+              handler: selection.substitute_handler_name || entry.handler_name || '',
+              dog: selection.substitute_dog_name || entry.dog_call_name || '',
+              registration: entry.cwags_number || '',
+              breed: entry.dog_breed || null,
+              division: selection.division || null,
+              entryType: selection.entry_type || null,
+              jumpHeight: selection.jump_height || null,
+              runningPosition:
+                selection.running_position == null ? null : Number(selection.running_position),
+            });
+          }
         }
       }
       const pages = buildScentPages(
-        trialClasses.filter((round) => round.trial_day_id === dayId),
+        dayRounds,
         lines,
         layout === 'paired' ? 2 : 1
       );
-      if (!pages.length) { alert('No scent rounds found for this day'); return; }
       const [year, month, day] = selectedDay.trial_date.split('-');
-      const logoResponse = await fetch('/cwags-logo.png');
-      if (!logoResponse.ok) throw new Error('Unable to load the C-WAGS score-sheet logo');
-      const logo = new Uint8Array(await logoResponse.arrayBuffer());
-      const bytes = createScentScoreSheetWorkbook(pages, `${month}/${day}/${year}`, logo);
-      const blob = new Blob([new Uint8Array(bytes).buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `Score-Sheets-${trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_')}-${selectedDay.trial_date}.xlsx`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      window.localStorage.setItem(`score-sheet-layout:${trialId}:${dayId}`, layout);
-      alert(
-        `Score sheets exported successfully using ${layout === 'paired' ? '2 rounds per sheet' : '1 round per sheet'}.`
+      const date = `${month}/${day}/${year}`;
+      const hasScent = pages.length > 0;
+      const hasOtherDisciplines = dayRounds.some(
+        (round) => round.class_type.toLowerCase() !== 'scent'
       );
+      const isRallyRound = (round: TrialClass) => {
+        const type = round.class_type.toLowerCase();
+        const name = round.class_name.toLowerCase();
+        return type === 'rally' || type === 'zoom' || name.includes('rally') || name.includes('zoom');
+      };
+      const rallyRounds = dayRounds.filter(isRallyRound);
+      const otherRounds = dayRounds.filter(
+        (round) => round.class_type.toLowerCase() !== 'scent' && !isRallyRound(round)
+      );
+      if (!hasScent && !hasOtherDisciplines) {
+        alert('No score-sheet rounds found for this day');
+        return;
+      }
+
+      const obedienceTemplates: import('@/lib/disciplineScoreSheetPdf').OfficialObediencePdfTemplates = {};
+      const obedienceTemplatePaths: Record<1 | 2 | 3 | 4 | 5, string> = {
+        1: '/templates/obedience-pdf/level-1.pdf',
+        2: '/templates/obedience-pdf/level-2.pdf',
+        3: '/templates/obedience-pdf/level-3.pdf',
+        4: '/templates/obedience-pdf/level-4.pdf',
+        5: '/templates/obedience-pdf/level-5.pdf',
+      };
+      const obedienceLevels = [...new Set(dayRounds
+        .filter((round) => round.class_type.toLowerCase() === 'obedience')
+        .map((round) => {
+          const match = round.class_name.match(/(?:obedience\s*)?(?:level\s*)?([1-5])\b/i);
+          return (match ? Number(match[1]) : 1) as 1 | 2 | 3 | 4 | 5;
+        }))];
+      await Promise.all(obedienceLevels.map(async (level) => {
+        const response = await fetch(obedienceTemplatePaths[level]);
+        if (!response.ok) {
+          throw new Error(`Unable to load the official C-WAGS Obedience Level ${level} score sheet.`);
+        }
+        obedienceTemplates[level] = new Uint8Array(await response.arrayBuffer());
+      }));
+
+      const safeTrialName = trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_');
+      const download = (bytes: Uint8Array, mimeType: string, fileName: string) => {
+        const blob = new Blob([new Uint8Array(bytes).buffer], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      };
+      const exported: string[] = [];
+
+      if (hasScent) {
+        const logoResponse = await fetch('/cwags-logo.png');
+        if (!logoResponse.ok) throw new Error('Unable to load the C-WAGS score-sheet logo');
+        const logo = new Uint8Array(await logoResponse.arrayBuffer());
+        const scentBytes = createScentScoreSheetWorkbook(pages, date, logo);
+        download(
+          new Uint8Array(scentBytes),
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          `Scent-Score-Sheets-${safeTrialName}-${selectedDay.trial_date}.xlsx`,
+        );
+        exported.push(`Scent Excel (${layout === 'paired' ? '2 rounds per sheet' : '1 round per sheet'})`);
+      }
+
+      if (rallyRounds.length > 0) {
+        const templateResponse = await fetch('/templates/rally/rally-judge-sheet.pdf');
+        if (!templateResponse.ok) throw new Error('Unable to load the Rally judge score-sheet template.');
+        const courseMaps: Record<string, import('@/lib/rallyScoreSheetPdf').RallyCourseMapUpload> = {};
+        await Promise.all(rallyRounds.map(async (round) => {
+          const file = rallyCourseMapFiles[round.id];
+          if (!file) return;
+          courseMaps[round.id] = {
+            bytes: new Uint8Array(await file.arrayBuffer()),
+            mimeType: file.type,
+            fileName: file.name,
+          };
+        }));
+        const rallyPdf = await createRallyScoreSheetPdf(
+          new Uint8Array(await templateResponse.arrayBuffer()),
+          rallyRounds,
+          disciplineLines,
+          trial.trial_name,
+          date,
+          courseMaps,
+        );
+        download(
+          rallyPdf,
+          'application/pdf',
+          `Rally-Score-Sheets-${safeTrialName}-${selectedDay.trial_date}.pdf`,
+        );
+        exported.push('Rally PDF (1 participant per page)');
+      }
+
+      if (otherRounds.length > 0) {
+        const otherBytes = await createDisciplineScoreSheetPdf(
+          otherRounds,
+          disciplineLines,
+          trial.trial_name,
+          date,
+          obedienceTemplates,
+        );
+        download(
+          otherBytes,
+          'application/pdf',
+          `Participant-Score-Sheets-${safeTrialName}-${selectedDay.trial_date}.pdf`,
+        );
+        exported.push('Obedience/Games PDF (1 round and 1 participant per page)');
+      }
+
+      window.localStorage.setItem(`score-sheet-layout:${trialId}:${dayId}`, layout);
+      setShowDaySelector(false);
+      setSelectedPrintDay(null);
+      setRallyCourseMapFiles({});
+      alert(`Score sheets exported successfully:\n${exported.join('\n')}`);
     } catch (error) {
       console.error('Error exporting score sheets:', error);
       alert(error instanceof Error ? error.message : 'Failed to export score sheets');
+    } finally {
+      setIsExportProcessing(false);
     }
   };
 
@@ -3475,7 +3619,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                       </Button>
                       <Button onClick={exportScoreSheets} variant="outline">
                         <FileDown className="h-4 w-4 mr-2" />
-                        Export Scent Score Sheets
+                        Export Score Sheets
                       </Button>
                     </div>
                   </div>
@@ -4310,7 +4454,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
             <div className="space-y-3">
               {exportType === 'score-sheets' && (
                 <div className="rounded-lg border border-orange-300 bg-orange-50 p-3">
-                  <Label>Score sheet layout</Label>
+                  <Label>Scent score-sheet layout</Label>
                   <div
                     className="mt-2 inline-flex max-w-full gap-1 rounded-md border-2 border-[#5C3B2E] bg-white p-1"
                     role="group"
@@ -4328,7 +4472,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                       }`}
                       onClick={() => setScoreSheetExportLayout('paired')}
                     >
-                      2 Rounds per Sheet
+                      Scent: 2 Rounds per Sheet
                     </Button>
                     <Button
                       type="button"
@@ -4342,11 +4486,13 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                       }`}
                       onClick={() => setScoreSheetExportLayout('single')}
                     >
-                      1 Round per Sheet
+                      Scent: 1 Round per Sheet
                     </Button>
                   </div>
                   <p className="mt-2 text-xs text-gray-600">
-                    Score entry will remember this choice for the selected trial day.
+                    Only Scent score sheets can use two rounds per sheet. Rally, Obedience,
+                    and Games always export as one round and one participant per sheet in the
+                    saved running order.
                   </p>
                 </div>
               )}
@@ -4360,13 +4506,13 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                     // set highlight / store selected day
                     setSelectedPrintDay(day.id);
 
-                    // run proper export action
+                    // Running-order exports can begin immediately. Score-sheet
+                    // exports pause here so an optional Rally course map can be
+                    // attached without saving it to the trial.
                     if (exportType === 'running-order') {
                       exportRunningOrderToExcel(day.id);
                     } else if (exportType === 'beta-running-order') {
                       openBetaSetup(day.id);
-                    } else {
-                      exportScoreSheetsForDay(day.id, scoreSheetExportLayout);
                     }
                   }}
                 >
@@ -4376,6 +4522,73 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                   Day {day.day_number} - {day.formatted_date}
                 </Button>
               ))}
+
+              {exportType === 'score-sheets' && selectedPrintDay && (() => {
+                const rallyRounds = trialClasses.filter((round) => {
+                  if (round.trial_day_id !== selectedPrintDay) return false;
+                  const type = round.class_type.toLowerCase();
+                  const name = round.class_name.toLowerCase();
+                  return type === 'rally' || type === 'zoom' || name.includes('rally') || name.includes('zoom');
+                });
+                return (
+                  <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    {rallyRounds.length > 0 && (
+                      <>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">Optional Rally course maps</p>
+                          <p className="text-xs text-gray-600">
+                            Upload a PDF, PNG, or JPG for each round.
+                          </p>
+                          <div
+                            role="alert"
+                            className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900"
+                          >
+                            Temporary browser-only selection: the map is not permanently saved to
+                            this computer, the trial, or the database. It is discarded after export
+                            and will also disappear if you refresh or close this page.
+                          </div>
+                        </div>
+                        {rallyRounds.map((round) => (
+                          <div key={round.id} className="rounded-md border border-blue-200 bg-white p-2">
+                            <Label htmlFor={`rally-map-${round.id}`} className="text-xs">
+                              {round.class_name} - Round {round.round_number || 1}
+                            </Label>
+                            <Input
+                              id={`rally-map-${round.id}`}
+                              className="mt-1 bg-white text-xs"
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] || null;
+                                if (file && file.size > 15 * 1024 * 1024) {
+                                  alert('Course map files must be 15 MB or smaller.');
+                                  event.target.value = '';
+                                  return;
+                                }
+                                setRallyCourseMapFiles((files) => ({ ...files, [round.id]: file }));
+                              }}
+                            />
+                            {rallyCourseMapFiles[round.id] && (
+                              <p className="mt-1 text-xs text-green-700">
+                                Included: {rallyCourseMapFiles[round.id]?.name}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    <Button
+                      type="button"
+                      className="w-full"
+                      disabled={isExportProcessing && !showDaySelector}
+                      onClick={() => exportScoreSheetsForDay(selectedPrintDay, scoreSheetExportLayout)}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export Selected Day Score Sheets
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end mt-4">

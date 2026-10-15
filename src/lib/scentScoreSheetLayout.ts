@@ -41,7 +41,13 @@ export function buildScentPages(
 ): ScentPage[] {
   const groups = new Map<string, ScentRound[]>();
   for (const round of rounds.filter((item) => item.class_type === 'scent')) {
-    const key = JSON.stringify([round.trial_day_id, round.class_id || round.class_name, round.judge_name]);
+    // Trial setup can store each offered round as its own class record, and a
+    // class may use a different judge in each round. Neither should prevent
+    // consecutive rounds of the same displayed class from sharing a sheet.
+    const key = JSON.stringify([
+      round.trial_day_id,
+      round.class_name.trim().toLocaleLowerCase(),
+    ]);
     groups.set(key, [...(groups.get(key) || []), round]);
   }
   const pages: ScentPage[] = [];
@@ -76,7 +82,12 @@ export function buildScentPages(
       const capacity = pair.length === 2 ? 8 : 20;
       const pageCount = Math.max(1, Math.ceil(sorted.length / capacity));
       for (let page = 0; page < pageCount; page++) pages.push({
-        className: pair[0].class_name, judge: pair[0].judge_name,
+        className: pair[0].class_name,
+        judge: pair.length === 1
+          ? pair[0].judge_name || 'TBA'
+          : pair
+              .map((round) => `R${round.round_number || 1}: ${round.judge_name || 'TBA'}`)
+              .join(' / '),
         rounds: pair, dogs: sorted.slice(page * capacity, (page + 1) * capacity),
         capacity, page: page + 1, pageCount,
       });
