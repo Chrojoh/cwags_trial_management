@@ -2667,20 +2667,22 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       const [year, month, day] = selectedDay.trial_date.split('-');
       const date = `${month}/${day}/${year}`;
       const hasScent = pages.length > 0;
-      const hasOtherDisciplines = dayRounds.some(
-        (round) => round.class_type.toLowerCase() !== 'scent'
-      );
       const isRallyRound = (round: TrialClass) => {
         const type = round.class_type.toLowerCase();
         const name = round.class_name.toLowerCase();
         return type === 'rally' || type === 'zoom' || name.includes('rally') || name.includes('zoom');
       };
       const rallyRounds = dayRounds.filter(isRallyRound);
-      const otherRounds = dayRounds.filter(
-        (round) => round.class_type.toLowerCase() !== 'scent' && !isRallyRound(round)
+      const obedienceRounds = dayRounds.filter(
+        (round) => round.class_type.toLowerCase() === 'obedience'
       );
-      if (!hasScent && !hasOtherDisciplines) {
-        alert('No score-sheet rounds found for this day');
+      const hasGames = dayRounds.some((round) => round.class_type.toLowerCase() === 'games');
+      if (!hasScent && rallyRounds.length === 0 && obedienceRounds.length === 0) {
+        alert(
+          hasGames
+            ? 'Games score sheets are not produced by this program. No Scent, Rally, or Obedience rounds were found for this day.'
+            : 'No Scent, Rally, or Obedience score-sheet rounds were found for this day.'
+        );
         return;
       }
 
@@ -2760,9 +2762,9 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
         exported.push('Rally PDF (1 participant per page)');
       }
 
-      if (otherRounds.length > 0) {
+      if (obedienceRounds.length > 0) {
         const otherBytes = await createDisciplineScoreSheetPdf(
-          otherRounds,
+          obedienceRounds,
           disciplineLines,
           trial.trial_name,
           date,
@@ -2773,8 +2775,10 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
           'application/pdf',
           `Participant-Score-Sheets-${safeTrialName}-${selectedDay.trial_date}.pdf`,
         );
-        exported.push('Obedience/Games PDF (1 round and 1 participant per page)');
+        exported.push('Obedience PDF (1 round and 1 participant per page)');
       }
+
+      if (hasGames) exported.push('Games rounds skipped (no Games score sheets produced)');
 
       window.localStorage.setItem(`score-sheet-layout:${trialId}:${dayId}`, layout);
       setShowDaySelector(false);
@@ -4490,9 +4494,9 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
                     </Button>
                   </div>
                   <p className="mt-2 text-xs text-gray-600">
-                    Only Scent score sheets can use two rounds per sheet. Rally, Obedience,
-                    and Games always export as one round and one participant per sheet in the
-                    saved running order.
+                    Only Scent score sheets can use two rounds per sheet. Rally and Obedience
+                    export as one round and one participant per sheet in the saved running order.
+                    Games score sheets are not produced by this program.
                   </p>
                 </div>
               )}

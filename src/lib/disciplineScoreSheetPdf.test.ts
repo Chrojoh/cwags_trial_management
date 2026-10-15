@@ -19,13 +19,20 @@ test('uses one official Obedience page per participant and ignores extra templat
   assert.equal((await PDFDocument.load(bytes)).getPageCount(), 2);
 });
 
-test('creates one host Games page per participant', async () => {
+test('does not generate Games score sheets', async () => {
+  const levelTwo = new Uint8Array(readFileSync('public/templates/obedience-pdf/level-2.pdf'));
   const bytes = await createDisciplineScoreSheetPdf(
-    [{ id: 'g', class_name: 'Games 1', class_type: 'games', games_subclass: 'BJ', judge_name: 'Judge', round_number: 1 }],
-    [{ selectionId: '1', roundId: 'g', handler: 'A', dog: 'One', registration: '26-1000-01', runningPosition: 1 }],
+    [
+      { id: 'o2', class_name: 'Obedience 2', class_type: 'obedience', judge_name: 'Judge', round_number: 1 },
+      { id: 'g', class_name: 'Games 1', class_type: 'games', games_subclass: 'BJ', judge_name: 'Judge', round_number: 1 },
+    ],
+    [
+      { selectionId: '1', roundId: 'o2', handler: 'A', dog: 'One', registration: '26-1000-01', runningPosition: 1 },
+      { selectionId: '2', roundId: 'g', handler: 'B', dog: 'Two', registration: '26-1000-02', runningPosition: 1 },
+    ],
     'Test Trial',
     '10/14/2026',
-    {},
+    { 2: levelTwo },
   );
   assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1);
 });

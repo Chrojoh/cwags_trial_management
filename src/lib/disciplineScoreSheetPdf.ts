@@ -150,46 +150,6 @@ function addObedienceParticipant(
   }
 }
 
-function addGamesParticipant(
-  output: PDFDocument,
-  font: PDFFont,
-  bold: PDFFont,
-  round: DisciplineScoreSheetRound,
-  line: DisciplineScoreSheetLine,
-  trialName: string,
-  date: string,
-) {
-  const page = output.addPage([612, 792]);
-  page.drawRectangle({ x: 32, y: 710, width: 548, height: 50, color: rgb(0.97, 0.91, 0.72) });
-  page.drawText('C-WAGS GAMES - HOST SCORE WORKSHEET', { x: 48, y: 735, size: 16, font: bold });
-  page.drawText('No official Games score sheet is published; verify scoring against current rules.', {
-    x: 48, y: 718, size: 7.5, font,
-  });
-  const facts = [
-    ['Trial', trialName], ['Date', date], ['Class / Round', `${round.class_name} / ${round.round_number || 1}`],
-    ['Judge', round.judge_name || 'TBA'], ['Running position', String(line.runningPosition ?? '—')],
-    ['Handler', line.handler || '—'], ['Dog', line.dog || '—'],
-    ['C-WAGS number', line.registration || 'Pending'], ['Entry type', (line.entryType || 'regular').toUpperCase()],
-    ['Game code', round.games_subclass || '—'],
-  ];
-  let rowY = 680;
-  for (const [label, value] of facts) {
-    page.drawText(`${label}:`, { x: 48, y: rowY, size: 9, font: bold });
-    drawText(page, font, value, 155, rowY, 405, 9);
-    page.drawLine({ start: { x: 48, y: rowY - 5 }, end: { x: 564, y: rowY - 5 }, thickness: 0.5 });
-    rowY -= 31;
-  }
-  page.drawText('Judge scoring', { x: 48, y: 344, size: 13, font: bold });
-  const fields = ['Game / objective', 'Partner or team', 'Points / cards / objects', 'Elapsed time', 'Penalties', 'Final result (Q / NQ)', 'Place', 'Judge initials'];
-  rowY = 314;
-  for (const label of fields) {
-    page.drawText(`${label}:`, { x: 48, y: rowY, size: 9, font: bold });
-    page.drawLine({ start: { x: 185, y: rowY - 2 }, end: { x: 564, y: rowY - 2 }, thickness: 0.7 });
-    rowY -= 31;
-  }
-  page.drawText('This host-created worksheet is not an official C-WAGS form.', { x: 48, y: 34, size: 7, font });
-}
-
 export async function createDisciplineScoreSheetPdf(
   rounds: DisciplineScoreSheetRound[],
   lines: DisciplineScoreSheetLine[],
@@ -203,42 +163,39 @@ export async function createDisciplineScoreSheetPdf(
 
   for (const round of rounds) {
     const type = round.class_type.toLowerCase();
+    if (type !== 'obedience') continue;
     for (const line of printableLines(round.id, lines)) {
-      if (type === 'obedience') {
-        const level = obedienceLevel(round.class_name);
-        const templateBytes = obedienceTemplates[level];
-        if (!templateBytes) throw new Error(`Official Obedience Level ${level} PDF is unavailable.`);
-        const source = await PDFDocument.load(templateBytes);
-        let page: PDFPage;
-        // Embed only the official scoring/deduction section. This preserves
-        // every exercise and point rule without carrying the legacy header
-        // into the redesigned participant sheet.
-        const officialTableTop: Record<1 | 2 | 3 | 4 | 5, number> = {
-          1: 608,
-          2: 638,
-          3: 638,
-          4: 638,
-          5: 690,
-        };
-        const embedded = await output.embedPage(source.getPage(0), {
-          left: 0,
-          bottom: 0,
-          right: 612,
-          top: officialTableTop[level],
-        });
-        page = output.addPage([612, 792]);
-        const scaleX = level === 5 ? 0.94 : 0.95;
-        const scaleY = level === 5 ? 0.78 : 0.86;
-        page.drawPage(embedded, {
-          x: (612 - 612 * scaleX) / 2,
-          y: level === 5 ? 24 : 35,
-          width: 612 * scaleX,
-          height: officialTableTop[level] * scaleY,
-        });
-        addObedienceParticipant(page, font, bold, round, line, trialName, date);
-      } else {
-        addGamesParticipant(output, font, bold, round, line, trialName, date);
-      }
+      const level = obedienceLevel(round.class_name);
+      const templateBytes = obedienceTemplates[level];
+      if (!templateBytes) throw new Error(`Official Obedience Level ${level} PDF is unavailable.`);
+      const source = await PDFDocument.load(templateBytes);
+      let page: PDFPage;
+      // Embed only the official scoring/deduction section. This preserves
+      // every exercise and point rule without carrying the legacy header
+      // into the redesigned participant sheet.
+      const officialTableTop: Record<1 | 2 | 3 | 4 | 5, number> = {
+        1: 608,
+        2: 638,
+        3: 638,
+        4: 638,
+        5: 690,
+      };
+      const embedded = await output.embedPage(source.getPage(0), {
+        left: 0,
+        bottom: 0,
+        right: 612,
+        top: officialTableTop[level],
+      });
+      page = output.addPage([612, 792]);
+      const scaleX = level === 5 ? 0.94 : 0.95;
+      const scaleY = level === 5 ? 0.78 : 0.86;
+      page.drawPage(embedded, {
+        x: (612 - 612 * scaleX) / 2,
+        y: level === 5 ? 24 : 35,
+        width: 612 * scaleX,
+        height: officialTableTop[level] * scaleY,
+      });
+      addObedienceParticipant(page, font, bold, round, line, trialName, date);
     }
   }
 
