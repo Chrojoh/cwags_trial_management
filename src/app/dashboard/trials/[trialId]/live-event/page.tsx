@@ -2687,6 +2687,7 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       }
 
       const obedienceTemplates: import('@/lib/disciplineScoreSheetPdf').OfficialObediencePdfTemplates = {};
+      const obediencePlansByRound: Record<string, import('@/lib/obedienceRules').ObedienceClassPlan | undefined> = {};
       const obedienceTemplatePaths: Record<1 | 2 | 3 | 4 | 5, string> = {
         1: '/templates/obedience-pdf/level-1.pdf',
         2: '/templates/obedience-pdf/level-2.pdf',
@@ -2707,6 +2708,24 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
         }
         obedienceTemplates[level] = new Uint8Array(await response.arrayBuffer());
       }));
+      if (obedienceRounds.length > 0) {
+        const { data } = await getSupabaseBrowser().auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) throw new Error('Your session has expired.');
+        const planResponse = await fetch(`/api/trials/${trialId}/obedience-plans`, {
+          headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+        });
+        if (planResponse.ok) {
+          const planBody = await planResponse.json();
+          for (const [roundId, revision] of Object.entries(planBody.finalizedPlans || {})) {
+            obediencePlansByRound[roundId] = (revision as { plan?: import('@/lib/obedienceRules').ObedienceClassPlan }).plan;
+          }
+          const missingPlans = obedienceRounds.filter((round) => !obediencePlansByRound[round.id]);
+          if (missingPlans.length > 0) {
+            throw new Error(`Finalize the Obedience Class Plan before printing official score sheets: ${missingPlans.map((round) => `${round.class_name} Round ${round.round_number}`).join(', ')}.`);
+          }
+        } else throw new Error('Unable to verify finalized Obedience Class Plans. Official Obedience score sheets were not generated.');
+      }
 
       const safeTrialName = trial.trial_name.replace(/[^a-zA-Z0-9]/g, '_');
       const download = (bytes: Uint8Array, mimeType: string, fileName: string) => {
@@ -2763,12 +2782,16 @@ Increase this round's limit by 1 and promote ${entry.entries.dog_call_name}?`
       }
 
       if (obedienceRounds.length > 0) {
+        const logoResponse = await fetch('/cwags-logo.png');
+        if (!logoResponse.ok) throw new Error('Unable to load the C-Wags score-sheet logo');
         const otherBytes = await createDisciplineScoreSheetPdf(
           obedienceRounds,
           disciplineLines,
           trial.trial_name,
           date,
           obedienceTemplates,
+          new Uint8Array(await logoResponse.arrayBuffer()),
+          obediencePlansByRound,
         );
         download(
           otherBytes,

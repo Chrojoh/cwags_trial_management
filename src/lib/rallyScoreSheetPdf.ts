@@ -116,7 +116,6 @@ export async function createRallyScoreSheetPdf(
   const font = await output.embedFont(StandardFonts.Helvetica);
   const bold = await output.embedFont(StandardFonts.HelveticaBold);
   const rallyRounds = rounds.filter(isRallyRound);
-  const fieldLift = 7;
 
   for (const round of rallyRounds) {
     const roundLines = lines
@@ -137,38 +136,40 @@ export async function createRallyScoreSheetPdf(
     for (const line of printableLines) {
       const [page] = await output.copyPages(template, [0]);
       output.addPage(page);
-      drawValue(page, font, trialName, 27, 684 + fieldLift, 266);
-      drawValue(page, font, date, 311, 684 + fieldLift, 105);
-      drawValue(
-        page,
-        font,
-        `Round ${round.round_number || 1} / Run ${line.runningPosition ?? '—'}`,
-        435,
-        684 + fieldLift,
-        150,
-      );
-      drawValue(page, font, round.judge_name || 'TBA', 27, 654 + fieldLift, 266);
-      drawValue(page, font, round.class_name, 311, 654 + fieldLift, 142);
-      drawValue(page, font, line.division || '—', 475, 654 + fieldLift, 110);
-      drawValue(page, font, line.registration || 'Pending', 27, 624 + fieldLift, 350);
-      page.drawRectangle({ x: 397, y: 639, width: 188, height: 13, color: rgb(1, 1, 1) });
-      page.drawText('JUMP HEIGHT / ENTRY TYPE', {
-        x: 401,
-        y: 644,
-        size: 7,
-        font: bold,
-        color: rgb(0.08, 0.18, 0.25),
-      });
-      drawValue(
-        page,
-        font,
-        `${line.jumpHeight ? `${line.jumpHeight}\"` : '—'} / ${(line.entryType || 'regular').toUpperCase()}`,
-        401,
-        624 + fieldLift,
-        184,
-      );
-      drawValue(page, font, line.handler, 27, 594 + fieldLift, 268);
-      drawValue(page, font, line.dog, 313, 594 + fieldLift, 272);
+      const navy = rgb(0.08, 0.18, 0.25);
+      const rule = rgb(0.62, 0.7, 0.74);
+      // Preserve the official logo at upper right while replacing the legacy
+      // title and identification boxes around it.
+      page.drawRectangle({ x: 0, y: 720, width: 500, height: 72, color: rgb(1, 1, 1) });
+      page.drawText('C-Wags RALLY', { x: 27, y: 757, size: 23, font: bold, color: navy });
+      page.drawText("JUDGE'S MAP & SCORE SHEET", { x: 27, y: 734, size: 10.5, font: bold, color: navy });
+      page.drawLine({ start: { x: 27, y: 722 }, end: { x: 480, y: 722 }, thickness: 0.6, color: rule });
+      page.drawRectangle({ x: 0, y: 590, width: 612, height: 100, color: rgb(1, 1, 1) });
+      page.drawRectangle({ x: 0, y: 690, width: 500, height: 30, color: rgb(1, 1, 1) });
+      const field = (label: string, value: string, x: number, y: number, width: number) => {
+        page.drawRectangle({
+          x: x - 4,
+          y: y - 7,
+          width: width + 8,
+          height: 31,
+          color: rgb(0.965, 0.98, 0.985),
+          borderColor: rule,
+          borderWidth: 0.45,
+        });
+        page.drawText(label, { x, y: y + 12, size: 6.8, font: bold, color: navy });
+        drawValue(page, font, value, x, y, width);
+      };
+
+      field('HOST / EVENT', trialName, 27, 694, 310);
+      field('DATE', date, 359, 694, 126);
+      field('JUDGE', round.judge_name || 'TBA', 27, 660, 270);
+      field('RALLY / ROUND', `${round.class_name} / Round ${round.round_number || 1}`, 311, 660, 140);
+      field('DIVISION', line.division || '—', 465, 660, 54);
+      field('ENTRY TYPE', (line.entryType || 'regular').toUpperCase(), 531, 660, 54);
+      field('C-Wags REGISTRATION', line.registration || 'Pending', 27, 626, 135);
+      field('JUMP HEIGHT', line.jumpHeight ? `${line.jumpHeight}\"` : 'Not set', 174, 626, 64);
+      field('HANDLER', line.handler || '—', 250, 626, 146);
+      field('DOG', line.dog || '—', 410, 626, 175);
 
       const map = courseMaps[round.id];
       if (map) await drawCourseMap(output, page, map);
@@ -177,7 +178,7 @@ export async function createRallyScoreSheetPdf(
       // than an approved C-WAGS form. Keep that distinction explicit while
       // identifying the exact competitor/run on every page.
       page.drawRectangle({ x: 26, y: 0, width: 560, height: 25, color: rgb(1, 1, 1) });
-      page.drawText('Host-created Rally judge worksheet - verify scoring against the current C-WAGS Rally Rules.', {
+      page.drawText('Host-created Rally judge worksheet - verify scoring against the current C-Wags Rally Rules.', {
         x: 27,
         y: 8,
         size: 6.5,

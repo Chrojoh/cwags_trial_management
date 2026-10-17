@@ -44,6 +44,7 @@ import {
   BookOpen,
   Info,
   FileSignature,
+  ListOrdered,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { simpleTrialOperations } from '@/lib/trialOperationsSimple';
@@ -233,6 +234,7 @@ export default function TrialsPage() {
     'time-calculator': Clock,
     financials: DollarSign,
     'close-to-titles': Trophy,
+    'obedience-plans': ListOrdered,
     'live-event': PlayCircle,
     summary: FileText,
     'award-confirmations': BadgeCheck,

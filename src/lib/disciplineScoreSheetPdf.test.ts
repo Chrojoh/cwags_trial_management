@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { PDFDocument } from 'pdf-lib';
 import { createDisciplineScoreSheetPdf } from './disciplineScoreSheetPdf';
+import { defaultObediencePlan } from './obedienceRules';
 
 test('uses one official Obedience page per participant and ignores extra template pages', async () => {
   const levelTwo = new Uint8Array(readFileSync('public/templates/obedience-pdf/level-2.pdf'));
@@ -45,6 +46,26 @@ test('keeps the complete taller Level 5 form on one participant page', async () 
     'Test Trial',
     '10/14/2026',
     { 5: levelFive },
+  );
+  assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1);
+});
+
+test('renders a finalized valid judge-order plan as one participant page', async () => {
+  const levelFive = new Uint8Array(readFileSync('public/templates/obedience-pdf/level-5.pdf'));
+  const plan = defaultObediencePlan(5, 'o5', 'Judge Order');
+  plan.items.reverse();
+  plan.items.forEach((item, index) => item.performanceOrder = index + 1);
+  plan.judgeOptions.level5FigureEightSegment = '1';
+  plan.status = 'finalized';
+  plan.revision = 3;
+  const bytes = await createDisciplineScoreSheetPdf(
+    [{ id: 'o5', class_name: 'Obedience 5', class_type: 'obedience', judge_name: 'Judge Order', round_number: 2 }],
+    [{ selectionId: '1', roundId: 'o5', handler: 'Handler', dog: 'Dog', registration: '26-1000-01', runningPosition: 1 }],
+    'Judge Order Trial',
+    '10/16/2026',
+    { 5: levelFive },
+    undefined,
+    { o5: plan },
   );
   assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1);
 });

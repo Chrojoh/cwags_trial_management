@@ -10,6 +10,7 @@ export type TrialWorkflowKey =
   | 'time-calculator'
   | 'financials'
   | 'close-to-titles'
+  | 'obedience-plans'
   | 'live-event'
   | 'summary'
   | 'award-confirmations'
@@ -72,6 +73,12 @@ export const TRIAL_WORKFLOW: readonly TrialWorkflowItem[] = [
     label: 'Close to Titles',
     permission: 'generate_reports',
     route: '/close-to-titles',
+  },
+  {
+    key: 'obedience-plans',
+    label: 'Obedience Class Plans',
+    permission: 'edit_trial',
+    route: '/obedience-plans',
   },
   {
     key: 'live-event',
