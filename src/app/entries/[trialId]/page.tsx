@@ -2804,15 +2804,7 @@ export default function PublicEntryForm() {
                       onClick={performSubmit}
                       disabled={submitting || !formData.waiver_accepted}
                       size="lg"
-                      className={`
-    min-w-[140px] shrink-0 border-2 border-purple
-
--600 
-    hover:bg-purple
-
--600 hover:text-white transition-colors
-    disabled:opacity-50 disabled:cursor-not-allowed
-  `}
+                      className="min-w-[140px] shrink-0 border-2 border-purple-600 bg-purple-600 text-white transition-colors hover:border-purple-700 hover:bg-purple-700 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100"
                     >
                       {submitting ? (
                         <>
@@ -2833,6 +2825,19 @@ export default function PublicEntryForm() {
                       email.
                     </AlertDescription>
                   </Alert>
+
+                  {error && (
+                    <Alert
+                      variant="destructive"
+                      className="mt-4"
+                      aria-live="polite"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Entry not submitted:</strong> {error}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </CardHeader>
 
                 <CardContent className="pt-0">
