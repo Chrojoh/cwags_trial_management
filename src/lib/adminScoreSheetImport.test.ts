@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as XLSX from 'xlsx';
-import { parseScoreSheetWorkbook, prepareGamesRecordsForImport } from './adminScoreSheetImport';
+import {
+  importedScoreResult,
+  parseScoreSheetWorkbook,
+  prepareGamesRecordsForImport,
+} from './adminScoreSheetImport';
 
 const workbookBuffer = (sheets: Array<{ name: string; rows: unknown[][] }>) => {
   const workbook = XLSX.utils.book_new();
@@ -117,6 +121,7 @@ test('infers the Games code for failed runs from the matching class round', () =
       [2, 'Fail', 'BJ'],
     ]
   );
+  assert.deepEqual(records.map(importedScoreResult), ['C', 'Fail', 'BJ', 'Fail']);
 });
 
 test('infers an all-fail Games level from the same date and round', () => {

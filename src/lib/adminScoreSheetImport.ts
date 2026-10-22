@@ -65,6 +65,9 @@ export const prepareGamesRecordsForImport = (records: ParsedScoreRecord[]) => {
   });
 };
 
+export const importedScoreResult = (record: ParsedScoreRecord) =>
+  record.result === 'Pass' && record.gamesSubclass ? record.gamesSubclass : record.result;
+
 const SKIP_SHEETS = new Set([
   'example. directions_sheet',
   'example_sheet',

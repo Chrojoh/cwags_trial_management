@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import {
   normalizeImportedClassName,
   normalizeRegistrationNumber,
+  importedScoreResult,
   parseScoreSheetWorkbook,
   prepareGamesRecordsForImport,
   ParsedScoreRecord,
@@ -247,7 +248,7 @@ export async function POST(request: NextRequest) {
         entry_selection_id: selection.id,
         trial_round_id: roundId,
         numerical_score: record.numericalScore,
-        pass_fail: record.gamesSubclass || record.result,
+        pass_fail: importedScoreResult(record),
         entry_status: record.result === 'ABS' ? 'ABS' : 'present',
       });
       if (scoreError)
