@@ -1,19 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdministrator, getServiceRoleClient } from '@/lib/apiAuth';
 import { hashPin } from '@/lib/ringside/server';
+import { rowCallShowValues } from '@/lib/ringside/setup';
 const slug = (n: number) => `ring-${n}`;
+
+async function loadTrial(db: ReturnType<typeof getServiceRoleClient>, trialId: string) {
+  if (!trialId) return { trial: null, error: 'A trial must be selected.' };
+  const result = await db
+    .from('trials')
+    .select('id,trial_name,location,start_date')
+    .eq('id', trialId)
+    .maybeSingle();
+  return {
+    trial: result.data,
+    error: result.error?.message || (!result.data ? 'Trial not found.' : null),
+  };
+}
 export async function GET(req: NextRequest) {
   const trialId = req.nextUrl.searchParams.get('trialId') || '';
   const auth = await requireAdministrator(req);
   if (!auth.authorized) return auth.response;
   const db = getServiceRoleClient();
+  const trialResult = await loadTrial(db, trialId);
+  if (!trialResult.trial) return NextResponse.json({ error: trialResult.error }, { status: 404 });
   const { data: show, error } = await db
     .from('ringside_shows')
     .select('*')
     .eq('trial_id', trialId)
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!show) return NextResponse.json({ show: null });
+  if (!show)
+    return NextResponse.json({
+      show: null,
+      trial: trialResult.trial,
+      suggestedShow: rowCallShowValues(trialResult.trial),
+    });
 
   const { data: rings, error: ringsError } = await db
     .from('ringside_rings')
@@ -43,21 +64,26 @@ export async function GET(req: NextRequest) {
         ringside_entries: (entries || []).filter((entry) => entry.block_id === block.id),
       })),
   }));
-  return NextResponse.json({ show: { ...show, ringside_rings: hydratedRings } });
+  return NextResponse.json({
+    trial: trialResult.trial,
+    show: { ...show, ringside_rings: hydratedRings },
+  });
 }
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const auth = await requireAdministrator(req);
   if (!auth.authorized) return auth.response;
   const db = getServiceRoleClient();
-  const number = String(body.publicShowNumber || '').trim();
-  if (!number)
-    return NextResponse.json({ error: 'Public Show Number is required.' }, { status: 400 });
+  const trialId = String(body.trialId || '');
+  const trialResult = await loadTrial(db, trialId);
+  if (!trialResult.trial) return NextResponse.json({ error: trialResult.error }, { status: 404 });
+  const values = rowCallShowValues(trialResult.trial);
+  const number = values.public_show_number;
   const { data: duplicate } = await db
     .from('ringside_shows')
     .select('id')
     .eq('public_show_number', number)
-    .neq('trial_id', body.trialId)
+    .neq('trial_id', trialId)
     .maybeSingle();
   if (duplicate)
     return NextResponse.json(
@@ -68,11 +94,11 @@ export async function POST(req: NextRequest) {
     .from('ringside_shows')
     .upsert(
       {
-        trial_id: body.trialId,
+        trial_id: trialId,
         public_show_number: number,
-        title: body.title,
-        show_date: body.showDate || null,
-        venue: body.venue || '',
+        title: values.title,
+        show_date: values.show_date,
+        venue: values.venue,
         status: body.status || 'draft',
         created_by: auth.userId,
         updated_at: new Date().toISOString(),

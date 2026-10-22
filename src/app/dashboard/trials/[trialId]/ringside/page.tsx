@@ -9,7 +9,8 @@ async function token() {
 export default function Setup({ params }: { params: Promise<{ trialId: string }> }) {
   const { trialId } = use(params);
   const [show, setShow] = useState<any>(null);
-  const [form, setForm] = useState({ publicShowNumber: '', title: '', showDate: '', venue: '' });
+  const [trial, setTrial] = useState<any>(null);
+  const [suggestedShow, setSuggestedShow] = useState<any>(null);
   const [error, setError] = useState('');
   const [pinNotice, setPinNotice] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -25,39 +26,64 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
     });
     const j = await r.json();
     if (!r.ok) {
-      setError(j.error || 'Ringside setup could not be loaded.');
+      setError(j.error || 'RowCall setup could not be loaded.');
       return;
     }
     setError('');
     setShow(j.show || null);
+    setTrial(j.trial || null);
+    setSuggestedShow(j.suggestedShow || null);
   };
   useEffect(() => {
     void load();
   }, [trialId]);
+  const loadTrialRunningOrder = async () => {
+    setError('');
+    const response = await fetch(`/api/ringside/admin/beta-source?trialId=${trialId}`, {
+      headers: { Authorization: `Bearer ${await token()}` },
+    });
+    const result = await response.json();
+    if (!response.ok)
+      throw new Error(result.error || 'The trial running order could not be loaded.');
+    setBetaSource(result);
+    const firstDay = result.days?.[0]?.id || '';
+    setBetaDayId(firstDay);
+    setBetaAssignments(
+      Object.fromEntries(
+        (result.rounds || [])
+          .filter((round: any) => round.trial_day_id === firstDay)
+          .map((round: any) => [round.id, 0])
+      )
+    );
+  };
   const api = async (body: any) => {
+    const creating = !show;
     const r = await fetch('/api/ringside/admin', {
-      method: show ? 'PATCH' : 'POST',
+      method: creating ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
       body: JSON.stringify(body),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error);
-    if (!show && j.show) setShow({ ...j.show, ringside_rings: [] });
+    if (creating && j.show) setShow({ ...j.show, ringside_rings: [] });
     await load();
+    if (creating) await loadTrialRunningOrder();
     return j;
   };
   const rings = (show?.ringside_rings || []).sort(
     (a: any, b: any) => a.display_order - b.display_order
   );
   return (
-    <MainLayout title="Ringside Setup">
+    <MainLayout title="RowCall Setup">
       <div className="mx-auto max-w-6xl space-y-5">
         <div>
           <Link href={`/dashboard/trials/${trialId}`} className="text-purple-700">
             ← Back to trial
           </Link>
-          <h1 className="text-3xl font-black">Ringside Setup</h1>
-          <p>Configure the online ring-management system for this trial.</p>
+          <h1 className="text-3xl font-black">RowCall Setup</h1>
+          <p>
+            Configure the online ring-management system using this trial&apos;s saved information.
+          </p>
         </div>
         {error && <div className="rounded bg-red-100 p-3 text-red-800">{error}</div>}
         {pinNotice && (
@@ -67,53 +93,47 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
         )}
         {!show ? (
           <form
-            className="grid gap-4 rounded-xl bg-white p-5 shadow md:grid-cols-2"
+            className="space-y-5 rounded-xl bg-white p-5 shadow"
             onSubmit={async (e) => {
               e.preventDefault();
               try {
-                await api({ trialId, ...form, status: 'draft' });
+                await api({ trialId, status: 'draft' });
               } catch (x) {
                 setError(x instanceof Error ? x.message : 'Save failed');
               }
             }}
           >
-            <label>
-              Public Show Number
-              <input
-                required
-                className="mt-1 w-full rounded border p-3"
-                value={form.publicShowNumber}
-                onChange={(e) => setForm({ ...form, publicShowNumber: e.target.value })}
-              />
-            </label>
-            <label>
-              Show title
-              <input
-                required
-                className="mt-1 w-full rounded border p-3"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-              />
-            </label>
-            <label>
-              Show date
-              <input
-                type="date"
-                className="mt-1 w-full rounded border p-3"
-                value={form.showDate}
-                onChange={(e) => setForm({ ...form, showDate: e.target.value })}
-              />
-            </label>
-            <label>
-              Venue
-              <input
-                className="mt-1 w-full rounded border p-3"
-                value={form.venue}
-                onChange={(e) => setForm({ ...form, venue: e.target.value })}
-              />
-            </label>
-            <button className="rounded bg-purple-700 p-3 font-bold text-white">
-              Enable Ringside
+            <div>
+              <h2 className="text-xl font-bold">Selected trial</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                RowCall will use the trial, competitors, class rounds, judges, and saved running
+                order already in C-Wags Trial Management.
+              </p>
+            </div>
+            <dl className="grid gap-4 rounded-lg border bg-slate-50 p-4 md:grid-cols-2">
+              <div>
+                <dt className="text-sm font-bold text-gray-600">Trial</dt>
+                <dd>{trial?.trial_name || suggestedShow?.title || 'Loading…'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-bold text-gray-600">Date</dt>
+                <dd>{trial?.start_date || suggestedShow?.show_date || 'Not set'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-bold text-gray-600">Venue</dt>
+                <dd>{trial?.location || suggestedShow?.venue || 'Not set'}</dd>
+              </div>
+              <div>
+                <dt className="text-sm font-bold text-gray-600">Public RowCall number</dt>
+                <dd>{suggestedShow?.public_show_number || 'Generated automatically'}</dd>
+              </div>
+            </dl>
+            <p className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              Next, choose the trial day, number and names of rings, and assign each class/round to
+              its ring. RowCall will retain the saved competitor running order.
+            </p>
+            <button className="rounded bg-purple-700 px-5 py-3 font-bold text-white">
+              Continue to Ring Setup
             </button>
           </form>
         ) : (
@@ -123,7 +143,7 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
                 <div>
                   <h2 className="text-2xl font-bold">{show.title}</h2>
                   <p>
-                    Public Show Number: <b>{show.public_show_number}</b> · Status:{' '}
+                    Public RowCall Number: <b>{show.public_show_number}</b> · Status:{' '}
                     <b>{show.status}</b>
                   </p>
                 </div>
@@ -172,7 +192,7 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
                       }
                     }}
                   >
-                    Publish Ringside Show
+                    Publish RowCall Show
                   </button>
                 </div>
               )}
@@ -377,7 +397,7 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
               </div>
             </section>
             <section className="rounded-xl border-2 border-purple-300 bg-purple-50 p-5 shadow">
-              <h2 className="text-xl font-bold text-purple-950">Build from Beta Running Order</h2>
+              <h2 className="text-xl font-bold text-purple-950">Build from Trial Running Order</h2>
               <p className="text-sm text-purple-900">
                 Uses this trial&apos;s current running-order data directly. No Excel file is needed.
               </p>
@@ -385,26 +405,18 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
                 <button
                   className="mt-4 rounded bg-purple-700 px-5 py-3 font-bold text-white"
                   onClick={async () => {
-                    setError('');
-                    const response = await fetch(
-                      `/api/ringside/admin/beta-source?trialId=${trialId}`,
-                      { headers: { Authorization: `Bearer ${await token()}` } }
-                    );
-                    const result = await response.json();
-                    if (!response.ok) return setError(result.error);
-                    setBetaSource(result);
-                    const firstDay = result.days?.[0]?.id || '';
-                    setBetaDayId(firstDay);
-                    setBetaAssignments(
-                      Object.fromEntries(
-                        (result.rounds || [])
-                          .filter((round: any) => round.trial_day_id === firstDay)
-                          .map((round: any) => [round.id, 0])
-                      )
-                    );
+                    try {
+                      await loadTrialRunningOrder();
+                    } catch (loadError) {
+                      setError(
+                        loadError instanceof Error
+                          ? loadError.message
+                          : 'The trial running order could not be loaded.'
+                      );
+                    }
                   }}
                 >
-                  Build from Beta Running Order
+                  Load Trial Running Order
                 </button>
               ) : (
                 <div className="mt-4 space-y-5">
@@ -539,7 +551,7 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
                       onClick={async () => {
                         if (
                           !confirm(
-                            'Create Ringside from this running order? Existing Ringside rings will be backed up and replaced.'
+                            'Create RowCall from this running order? Existing RowCall rings will be backed up and replaced.'
                           )
                         )
                           return;
@@ -568,7 +580,7 @@ export default function Setup({ params }: { params: Promise<{ trialId: string }>
                         await load();
                       }}
                     >
-                      Create Ringside Running Order
+                      Create RowCall Running Order
                     </button>
                     <button
                       className="rounded border px-5 py-3"

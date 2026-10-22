@@ -6,12 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import {
   Calendar,
   Users,
@@ -325,7 +320,7 @@ export default function AdminDashboard({
             {allTrials.length > 0 && (
               <div className="border-t pt-3 mt-3 space-y-3">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Ringside Testing</p>
+                  <p className="text-xs font-medium text-gray-500 mb-2">RowCall Testing</p>
                   <Select
                     onValueChange={(trialId) =>
                       router.push(`/dashboard/trials/${trialId}/ringside`)
@@ -334,7 +329,7 @@ export default function AdminDashboard({
                     <SelectTrigger className="w-full">
                       <div className="flex items-center">
                         <Users className="h-4 w-4 mr-2" />
-                        <span>Ringside Setup — Select Trial</span>
+                        <span>RowCall Setup — Select Trial</span>
                       </div>
                     </SelectTrigger>
                     <SelectContent className="bg-white">
@@ -369,26 +364,26 @@ export default function AdminDashboard({
                 </div>
 
                 <div>
-                <p className="text-xs font-medium text-gray-500 mb-2">Trial Analysis Tools</p>
-                <Select
-                  onValueChange={(trialId) =>
-                    router.push(`/dashboard/admin/judge-compensation/${trialId}`)
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <div className="flex items-center">
-                      <Calculator className="h-4 w-4 mr-2" />
-                      <span>Judge Compensation Analysis</span>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="bg-white">
-                    {allTrials.map((trial) => (
-                      <SelectItem key={trial.id} value={trial.id}>
-                        {trial.trial_name} - {formatDate(trial.start_date)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <p className="text-xs font-medium text-gray-500 mb-2">Trial Analysis Tools</p>
+                  <Select
+                    onValueChange={(trialId) =>
+                      router.push(`/dashboard/admin/judge-compensation/${trialId}`)
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <div className="flex items-center">
+                        <Calculator className="h-4 w-4 mr-2" />
+                        <span>Judge Compensation Analysis</span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white">
+                      {allTrials.map((trial) => (
+                        <SelectItem key={trial.id} value={trial.id}>
+                          {trial.trial_name} - {formatDate(trial.start_date)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
