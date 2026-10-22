@@ -4,6 +4,7 @@ import {
   normalizeImportedClassName,
   normalizeRegistrationNumber,
   parseScoreSheetWorkbook,
+  prepareGamesRecordsForImport,
   ParsedScoreRecord,
 } from '@/lib/adminScoreSheetImport';
 
@@ -13,27 +14,32 @@ const classType = (className: string) => {
   const name = className.toLowerCase();
   if (name.includes('games')) return 'games';
   if (name.includes('obedience')) return 'obedience';
-  if (['starter', 'advanced', 'pro', 'arf', 'zoom'].some((term) => name.includes(term))) return 'rally';
+  if (['starter', 'advanced', 'pro', 'arf', 'zoom'].some((term) => name.includes(term)))
+    return 'rally';
   return 'scent';
 };
 
-const chunks = <T,>(values: T[], size = 200) => {
+const chunks = <T>(values: T[], size = 200) => {
   const result: T[][] = [];
-  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  for (let index = 0; index < values.length; index += size)
+    result.push(values.slice(index, index + size));
   return result;
 };
 
 const loadRegistry = async (supabase: SupabaseClient, registrationNumbers: string[]) => {
   const rows: any[] = [];
   for (const group of chunks(registrationNumbers)) {
-    const { data, error } = await supabase.from('cwags_registry').select('*').in('cwags_number', group);
+    const { data, error } = await supabase
+      .from('cwags_registry')
+      .select('*')
+      .in('cwags_number', group);
     if (error) throw new Error(`Unable to match registrations: ${error.message}`);
     rows.push(...(data || []));
   }
   return new Map(rows.map((row) => [normalizeRegistrationNumber(row.cwags_number), row]));
 };
 
-const groupBy = <T,>(values: T[], keyFor: (value: T) => string) => {
+const groupBy = <T>(values: T[], keyFor: (value: T) => string) => {
   const grouped = new Map<string, T[]>();
   for (const value of values) {
     const key = keyFor(value);
@@ -52,24 +58,36 @@ export async function POST(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { global: { headers: authHeader ? { Authorization: authHeader } : {} } }
     );
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single();
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
     if (profile?.role !== 'administrator') {
       return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
     }
 
     const formData = await request.formData();
     const file = formData.get('file');
-    if (!(file instanceof File)) return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
+    if (!(file instanceof File))
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     const parsed = parseScoreSheetWorkbook(await file.arrayBuffer(), file.name, {
       includeRepeatedRows: formData.get('includeRepeatedRows') === 'true',
     });
     if (parsed.errors.length || parsed.records.length === 0) {
-      return NextResponse.json({ error: parsed.errors.join(' ') || 'No scores found.' }, { status: 400 });
+      return NextResponse.json(
+        { error: parsed.errors.join(' ') || 'No scores found.' },
+        { status: 400 }
+      );
     }
 
-    const dates = Array.from(new Set(parsed.records.map((record) => record.trialDate))).sort();
+    const records = prepareGamesRecordsForImport(parsed.records);
+    const dates = Array.from(new Set(records.map((record) => record.trialDate))).sort();
     const { data: trial, error: trialError } = await supabase
       .from('trials')
       .insert({
@@ -88,21 +106,35 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-    if (trialError || !trial) throw new Error(`Failed to create trial: ${trialError?.message || 'unknown error'}`);
+    if (trialError || !trial)
+      throw new Error(`Failed to create trial: ${trialError?.message || 'unknown error'}`);
     createdTrialId = trial.id;
 
     const dayIds = new Map<string, string>();
     for (let index = 0; index < dates.length; index++) {
       const { data: day, error } = await supabase
         .from('trial_days')
-        .insert({ trial_id: trial.id, day_number: index + 1, trial_date: dates[index], day_status: 'completed' })
+        .insert({
+          trial_id: trial.id,
+          day_number: index + 1,
+          trial_date: dates[index],
+          day_status: 'completed',
+        })
         .select('id')
         .single();
-      if (error || !day) throw new Error(`Failed to create trial day ${dates[index]}: ${error?.message || 'unknown error'}`);
+      if (error || !day)
+        throw new Error(
+          `Failed to create trial day ${dates[index]}: ${error?.message || 'unknown error'}`
+        );
       dayIds.set(dates[index], day.id);
     }
 
-    const classGroups = groupBy(parsed.records, (record) => `${record.trialDate}|${normalizeImportedClassName(record.className)}`);
+    const classGroupKey = (record: ParsedScoreRecord) => {
+      const normalizedClass = normalizeImportedClassName(record.className);
+      const game = classType(normalizedClass) === 'games' ? record.gamesSubclass || 'unknown' : '';
+      return `${record.trialDate}|${normalizedClass}|${game}`;
+    };
+    const classGroups = groupBy(records, classGroupKey);
     const roundIds = new Map<string, string>();
     let classOrder = 0;
     for (const [classKey, classRecords] of classGroups) {
@@ -116,9 +148,8 @@ export async function POST(request: NextRequest) {
           trial_day_id: dayId,
           class_name: example.className,
           class_type: classType(example.className),
-          games_subclass: classType(example.className) === 'games'
-            ? Array.from(new Set(classRecords.map((record) => record.gamesSubclass).filter(Boolean))).join(', ') || null
-            : null,
+          games_subclass:
+            classType(example.className) === 'games' ? example.gamesSubclass || null : null,
           entry_fee: 0,
           feo_price: 0,
           class_order: classOrder,
@@ -126,7 +157,10 @@ export async function POST(request: NextRequest) {
         })
         .select('id')
         .single();
-      if (classError || !trialClass) throw new Error(`Failed to create ${example.className}: ${classError?.message || 'unknown error'}`);
+      if (classError || !trialClass)
+        throw new Error(
+          `Failed to create ${example.className}: ${classError?.message || 'unknown error'}`
+        );
 
       const rounds = groupBy(classRecords, (record) => String(record.roundNumber));
       for (const [roundNumber, roundRecords] of rounds) {
@@ -141,16 +175,21 @@ export async function POST(request: NextRequest) {
           })
           .select('id')
           .single();
-        if (roundError || !round) throw new Error(`Failed to create ${example.className} round ${roundNumber}: ${roundError?.message || 'unknown error'}`);
+        if (roundError || !round)
+          throw new Error(
+            `Failed to create ${example.className} round ${roundNumber}: ${roundError?.message || 'unknown error'}`
+          );
         roundIds.set(`${classKey}|${roundNumber}`, round.id);
       }
     }
 
-    const registrationNumbers = Array.from(new Set(parsed.records.map((record) => record.registrationNumber)));
+    const registrationNumbers = Array.from(
+      new Set(records.map((record) => record.registrationNumber))
+    );
     const registry = await loadRegistry(supabase, registrationNumbers);
     const entryIds = new Map<string, string>();
     for (const registrationNumber of registrationNumbers) {
-      const source = parsed.records.find((record) => record.registrationNumber === registrationNumber)!;
+      const source = records.find((record) => record.registrationNumber === registrationNumber)!;
       const registryDog = registry.get(registrationNumber);
       const { data: entry, error: entryError } = await supabase
         .from('entries')
@@ -168,17 +207,23 @@ export async function POST(request: NextRequest) {
         })
         .select('id')
         .single();
-      if (entryError || !entry) throw new Error(`Failed to create entry ${registrationNumber}: ${entryError?.message || 'unknown error'}`);
+      if (entryError || !entry)
+        throw new Error(
+          `Failed to create entry ${registrationNumber}: ${entryError?.message || 'unknown error'}`
+        );
       entryIds.set(registrationNumber, entry.id);
     }
 
     let scoresCreated = 0;
     const positions = new Map<string, number>();
-    for (const record of parsed.records) {
-      const classKey = `${record.trialDate}|${normalizeImportedClassName(record.className)}`;
+    for (const record of records) {
+      const classKey = classGroupKey(record);
       const roundId = roundIds.get(`${classKey}|${record.roundNumber}`);
       const entryId = entryIds.get(record.registrationNumber);
-      if (!roundId || !entryId) throw new Error(`Unable to link ${record.registrationNumber} to ${record.className} round ${record.roundNumber}.`);
+      if (!roundId || !entryId)
+        throw new Error(
+          `Unable to link ${record.registrationNumber} to ${record.className} round ${record.roundNumber}.`
+        );
       const runningPosition = (positions.get(roundId) || 0) + 1;
       positions.set(roundId, runningPosition);
       const { data: selection, error: selectionError } = await supabase
@@ -194,7 +239,10 @@ export async function POST(request: NextRequest) {
         })
         .select('id')
         .single();
-      if (selectionError || !selection) throw new Error(`Failed to create a run for ${record.registrationNumber}: ${selectionError?.message || 'unknown error'}`);
+      if (selectionError || !selection)
+        throw new Error(
+          `Failed to create a run for ${record.registrationNumber}: ${selectionError?.message || 'unknown error'}`
+        );
       const { error: scoreError } = await supabase.from('scores').insert({
         entry_selection_id: selection.id,
         trial_round_id: roundId,
@@ -202,12 +250,18 @@ export async function POST(request: NextRequest) {
         pass_fail: record.gamesSubclass || record.result,
         entry_status: record.result === 'ABS' ? 'ABS' : 'present',
       });
-      if (scoreError) throw new Error(`Failed to save ${record.result} for ${record.registrationNumber}: ${scoreError.message}`);
+      if (scoreError)
+        throw new Error(
+          `Failed to save ${record.result} for ${record.registrationNumber}: ${scoreError.message}`
+        );
       scoresCreated++;
     }
 
     const resultCounts = parsed.records.reduce(
-      (counts, record: ParsedScoreRecord) => ({ ...counts, [record.result]: counts[record.result] + 1 }),
+      (counts, record: ParsedScoreRecord) => ({
+        ...counts,
+        [record.result]: counts[record.result] + 1,
+      }),
       { Pass: 0, Fail: 0, NQ: 0, ABS: 0 }
     );
     return NextResponse.json({
@@ -219,8 +273,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Score-sheet import error:', error);
     if (createdTrialId && supabase) {
-      const { error: rollbackError } = await supabase.from('trials').delete().eq('id', createdTrialId);
-      if (rollbackError) console.error('Unable to roll back incomplete imported trial:', rollbackError);
+      const { error: rollbackError } = await supabase
+        .from('trials')
+        .delete()
+        .eq('id', createdTrialId);
+      if (rollbackError)
+        console.error('Unable to roll back incomplete imported trial:', rollbackError);
     }
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to import score sheets' },

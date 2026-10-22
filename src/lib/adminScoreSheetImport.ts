@@ -37,6 +37,34 @@ export interface ScoreSheetImportOptions {
   includeRepeatedRows?: boolean;
 }
 
+export const prepareGamesRecordsForImport = (records: ParsedScoreRecord[]) => {
+  const gameByRound = new Map<string, ImportedGamesSubclass>();
+  const gamesByDateRound = new Map<string, Set<ImportedGamesSubclass>>();
+  for (const record of records) {
+    if (!record.className.toLowerCase().startsWith('games') || !record.gamesSubclass) continue;
+    const key = `${record.trialDate}|${record.className.toLowerCase()}|${record.roundNumber}`;
+    const existing = gameByRound.get(key);
+    if (existing && existing !== record.gamesSubclass) {
+      throw new Error(
+        `${record.className} round ${record.roundNumber} on ${record.trialDate} contains conflicting Games codes (${existing} and ${record.gamesSubclass}).`
+      );
+    }
+    gameByRound.set(key, record.gamesSubclass);
+    const dateRoundKey = `${record.trialDate}|${record.roundNumber}`;
+    const dateRoundGames = gamesByDateRound.get(dateRoundKey) || new Set();
+    dateRoundGames.add(record.gamesSubclass);
+    gamesByDateRound.set(dateRoundKey, dateRoundGames);
+  }
+  return records.map((record) => {
+    if (!record.className.toLowerCase().startsWith('games') || record.gamesSubclass) return record;
+    const key = `${record.trialDate}|${record.className.toLowerCase()}|${record.roundNumber}`;
+    const sameClassGame = gameByRound.get(key);
+    const dateRoundGames = gamesByDateRound.get(`${record.trialDate}|${record.roundNumber}`);
+    const sharedGame = dateRoundGames?.size === 1 ? [...dateRoundGames][0] : null;
+    return { ...record, gamesSubclass: sameClassGame || sharedGame || null };
+  });
+};
+
 const SKIP_SHEETS = new Set([
   'example. directions_sheet',
   'example_sheet',
@@ -98,16 +126,22 @@ export const normalizeRegistrationNumber = (input: unknown) => {
   const original = String(input ?? '').trim();
   if (!original) return '';
   const digits = original.replace(/[^0-9]/g, '');
-  if (digits.length === 8) return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 8)}`;
+  if (digits.length === 8)
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 8)}`;
   if (digits.length === 7) {
-    const padded = ['7', '8', '9'].includes(digits[0]) ? `0${digits}` : `${digits.slice(0, 6)}0${digits.slice(6)}`;
+    const padded = ['7', '8', '9'].includes(digits[0])
+      ? `0${digits}`
+      : `${digits.slice(0, 6)}0${digits.slice(6)}`;
     return `${padded.slice(0, 2)}-${padded.slice(2, 6)}-${padded.slice(6, 8)}`;
   }
   return original;
 };
 
 export const normalizeImportedClassName = (input: unknown) => {
-  let name = String(input ?? '').trim().replace(/^League\s+/i, '').replace(/^CWAGS\s+/i, '');
+  let name = String(input ?? '')
+    .trim()
+    .replace(/^League\s+/i, '')
+    .replace(/^CWAGS\s+/i, '');
   const key = name.toUpperCase().replace(/\s+/g, ' ');
   const aliases: Record<string, string> = {
     PATROL: 'Patrol 1',
@@ -125,12 +159,16 @@ export const normalizeImportedClassName = (input: unknown) => {
 };
 
 export const normalizeImportedResult = (input: unknown): ImportedResult | null => {
-  const result = String(input ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const result = String(input ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
   if (!result || ['-', 'NA', 'N/A'].includes(result)) return null;
   if (['F', 'FAIL', 'FAILED'].includes(result)) return 'Fail';
   if (['NQ', 'NON-QUALIFYING', 'NON QUALIFYING', 'X'].includes(result)) return 'NQ';
   if (['ABS', 'ABSENT'].includes(result)) return 'ABS';
-  if (['P', 'PASS', 'Q', 'QUALIFYING', 'QUALIFIED', 'GB', 'BJ', 'T', 'C'].includes(result)) return 'Pass';
+  if (['P', 'PASS', 'Q', 'QUALIFYING', 'QUALIFIED', 'GB', 'BJ', 'T', 'C'].includes(result))
+    return 'Pass';
   return null;
 };
 
@@ -139,23 +177,33 @@ export const normalizeImportedGamesSubclass = (
   className: string
 ): ImportedGamesSubclass | null => {
   if (!className.trim().toLowerCase().startsWith('games')) return null;
-  const value = String(input ?? '').trim().toUpperCase();
-  return ['C', 'P', 'T', 'BJ', 'GB'].includes(value)
-    ? (value as ImportedGamesSubclass)
-    : null;
+  const value = String(input ?? '')
+    .trim()
+    .toUpperCase();
+  return ['C', 'P', 'T', 'BJ', 'GB'].includes(value) ? (value as ImportedGamesSubclass) : null;
 };
 
 const isNotEnteredResult = (input: unknown) => {
-  const result = String(input ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  const result = String(input ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ');
   return !result || ['-', 'NA', 'N/A'].includes(result);
 };
 
 export const detectScoreSheetType = (sheet: XLSX.WorkSheet): ScoreSheetType => {
-  const d6 = String(cellValue(sheet, 6, 4) ?? '').trim().toLowerCase();
+  const d6 = String(cellValue(sheet, 6, 4) ?? '')
+    .trim()
+    .toLowerCase();
   if (d6 !== 'date') return 'league';
   let judgeHeaders = 0;
   for (let column = 6; column <= 11; column++) {
-    if (String(cellValue(sheet, 6, column) ?? '').toLowerCase().includes('judge')) judgeHeaders++;
+    if (
+      String(cellValue(sheet, 6, column) ?? '')
+        .toLowerCase()
+        .includes('judge')
+    )
+      judgeHeaders++;
   }
   if (judgeHeaders >= 2) return 'two-column';
   if (judgeHeaders === 1) return 'one-column';
@@ -207,7 +255,9 @@ const makeRecord = (
 
   if (!result) {
     if (!isNotEnteredResult(resultValue))
-      warnings.push(`${sheetName}, row ${row}: unrecognized result "${String(resultValue)}" was skipped.`);
+      warnings.push(
+        `${sheetName}, row ${row}: unrecognized result "${String(resultValue)}" was skipped.`
+      );
     return null;
   }
   if (!normalizedClass) {
@@ -230,12 +280,19 @@ const makeRecord = (
 };
 
 const parseRoundNumber = (value: unknown) => {
-  const match = String(value ?? '').trim().match(/^(?:round\s*#?\s*)?(\d+)$/i);
+  const match = String(value ?? '')
+    .trim()
+    .match(/^(?:round\s*#?\s*)?(\d+)$/i);
   const round = match ? Number(match[1]) : 1;
   return Number.isSafeInteger(round) && round > 0 ? round : 1;
 };
 
-const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[], includeRepeatedRows: boolean) => {
+const parseOneColumn = (
+  sheet: XLSX.WorkSheet,
+  sheetName: string,
+  warnings: string[],
+  includeRepeatedRows: boolean
+) => {
   const records: ParsedScoreRecord[] = [];
   for (let row = 7; row <= lastDataRow(sheet, 1); row++) {
     const registration = cellValue(sheet, row, 1);
@@ -246,7 +303,18 @@ const parseOneColumn = (sheet: XLSX.WorkSheet, sheetName: string, warnings: stri
       warnings.push(`${sheetName}, row ${row}: the date could not be read; result was skipped.`);
       continue;
     }
-    const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, cellValue(sheet, row, 5), parseRoundNumber(cellValue(sheet, row, 6)), cellValue(sheet, row, 8), result, warnings);
+    const record = makeRecord(
+      sheetName,
+      row,
+      registration,
+      cellValue(sheet, row, 2),
+      date,
+      cellValue(sheet, row, 5),
+      parseRoundNumber(cellValue(sheet, row, 6)),
+      cellValue(sheet, row, 8),
+      result,
+      warnings
+    );
     if (record) records.push(record);
   }
   if (includeRepeatedRows) {
@@ -310,11 +378,33 @@ const parseTwoColumn = (
     }
     const roundOffset = includeRepeatedRows ? occurrence * 2 : 0;
     if (!isBlank(first)) {
-      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, className, roundOffset + 1, cellValue(sheet, row, 7), first, warnings);
+      const record = makeRecord(
+        sheetName,
+        row,
+        registration,
+        cellValue(sheet, row, 2),
+        date,
+        className,
+        roundOffset + 1,
+        cellValue(sheet, row, 7),
+        first,
+        warnings
+      );
       if (record) records.push(record);
     }
     if (!isBlank(second)) {
-      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), date, className, roundOffset + 2, cellValue(sheet, row, 9), second, warnings);
+      const record = makeRecord(
+        sheetName,
+        row,
+        registration,
+        cellValue(sheet, row, 2),
+        date,
+        className,
+        roundOffset + 2,
+        cellValue(sheet, row, 9),
+        second,
+        warnings
+      );
       if (record) records.push(record);
     }
   }
@@ -334,27 +424,47 @@ const parseLeague = (sheet: XLSX.WorkSheet, sheetName: string, warnings: string[
     if (date6 && !date5) columns.push({ column, date: date6, judge: row5, round: column - 3 });
     else if (date5 && !date6) {
       columns.push({ column, date: date5, judge: row6, round: column - 3 });
-      warnings.push(`${sheetName}, column ${XLSX.utils.encode_col(column - 1)}: date and judge rows were swapped and were corrected.`);
+      warnings.push(
+        `${sheetName}, column ${XLSX.utils.encode_col(column - 1)}: date and judge rows were swapped and were corrected.`
+      );
     } else if (date5 && date6) {
       columns.push({ column, date: date6, judge: row5, round: column - 3 });
-      warnings.push(`${sheetName}, column ${XLSX.utils.encode_col(column - 1)}: both header cells looked like dates; row 6 was used.`);
+      warnings.push(
+        `${sheetName}, column ${XLSX.utils.encode_col(column - 1)}: both header cells looked like dates; row 6 was used.`
+      );
     }
   }
-  if (columns.length === 0) warnings.push(`${sheetName}: no usable league date columns were found.`);
+  if (columns.length === 0)
+    warnings.push(`${sheetName}: no usable league date columns were found.`);
   for (let row = 7; row <= lastDataRow(sheet, 1); row++) {
     const registration = cellValue(sheet, row, 1);
     if (isBlank(registration)) continue;
     for (const column of columns) {
       const result = cellValue(sheet, row, column.column);
       if (isBlank(result)) continue;
-      const record = makeRecord(sheetName, row, registration, cellValue(sheet, row, 2), column.date, className, column.round, column.judge, result, warnings);
+      const record = makeRecord(
+        sheetName,
+        row,
+        registration,
+        cellValue(sheet, row, 2),
+        column.date,
+        className,
+        column.round,
+        column.judge,
+        result,
+        warnings
+      );
       if (record) records.push(record);
     }
   }
   return records;
 };
 
-const cleanFileName = (fileName: string) => fileName.replace(/\.(xlsx|xlsm|xls)$/i, '').replace(/[_-]+/g, ' ').trim();
+const cleanFileName = (fileName: string) =>
+  fileName
+    .replace(/\.(xlsx|xlsm|xls)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim();
 
 export const parseScoreSheetWorkbook = (
   buffer: ArrayBuffer | Uint8Array,
@@ -386,7 +496,13 @@ export const parseScoreSheetWorkbook = (
     if (!metadataTitle) metadataTitle = String(cellValue(sheet, 1, 1) ?? '').trim();
     const type = detectScoreSheetType(sheet);
     let sheetRecords: ParsedScoreRecord[] = [];
-    if (type === 'one-column') sheetRecords = parseOneColumn(sheet, sheetName, warnings, Boolean(options.includeRepeatedRows));
+    if (type === 'one-column')
+      sheetRecords = parseOneColumn(
+        sheet,
+        sheetName,
+        warnings,
+        Boolean(options.includeRepeatedRows)
+      );
     else if (type === 'two-column')
       sheetRecords = parseTwoColumn(
         sheet,
@@ -402,8 +518,16 @@ export const parseScoreSheetWorkbook = (
 
   const unique = new Map<string, ParsedScoreRecord>();
   for (const record of records) {
-    const key = [record.registrationNumber, record.trialDate, record.className.toLowerCase(), record.roundNumber].join('|');
-    if (unique.has(key)) warnings.push(`${record.sourceSheet}, row ${record.sourceRow}: duplicate dog/class/round result was ignored.`);
+    const key = [
+      record.registrationNumber,
+      record.trialDate,
+      record.className.toLowerCase(),
+      record.roundNumber,
+    ].join('|');
+    if (unique.has(key))
+      warnings.push(
+        `${record.sourceSheet}, row ${record.sourceRow}: duplicate dog/class/round result was ignored.`
+      );
     else unique.set(key, record);
   }
   if (unique.size === 0) errors.push('No recognized score results were found in the workbook.');
@@ -412,7 +536,12 @@ export const parseScoreSheetWorkbook = (
   return {
     trialName: !metadataTitle || genericTitle ? cleanFileName(fileName) : metadataTitle,
     clubName: metadataClub,
-    records: Array.from(unique.values()).sort((a, b) => a.trialDate.localeCompare(b.trialDate) || a.className.localeCompare(b.className) || a.roundNumber - b.roundNumber),
+    records: Array.from(unique.values()).sort(
+      (a, b) =>
+        a.trialDate.localeCompare(b.trialDate) ||
+        a.className.localeCompare(b.className) ||
+        a.roundNumber - b.roundNumber
+    ),
     detections,
     warnings,
     errors,
