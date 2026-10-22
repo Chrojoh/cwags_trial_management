@@ -47,15 +47,25 @@ export async function readSecretarySession(ringId: string) {
     const db = getServiceRoleClient();
     const { data: ring } = await db
       .from('ringside_rings')
-      .select('id,show_id,session_version')
+      .select('id,show_id,session_version,slug,ringside_shows!inner(public_show_number)')
       .eq('id', data.ringId)
       .maybeSingle();
-    return ring &&
+    if (
+      ring &&
       ring.id === ringId &&
       ring.show_id === data.showId &&
       ring.session_version === data.version
-      ? data
-      : null;
+    ) {
+      const show = Array.isArray(ring.ringside_shows)
+        ? ring.ringside_shows[0]
+        : ring.ringside_shows;
+      return {
+        ...data,
+        ringSlug: ring.slug,
+        showNumber: show?.public_show_number || '',
+      };
+    }
+    return null;
   } catch {
     return null;
   }
